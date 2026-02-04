@@ -298,7 +298,7 @@ private static void appendFieldMapping(Mapping mapping, TableGroup group) {
 }
 ```
 
-### 4.4 第四阶段：修改调用点
+### 4.4 第三阶段：修改调用点
 
 #### 步骤 3.1：修改 GeneralBufferActuator.distributeTableGroup()
 
@@ -462,285 +462,6 @@ public enum ConvertEnum {
 - ✅ 修改说明和示例时，只需要修改 ConvertEnum，不需要修改界面
 - ✅ 易于维护和扩展
 
-**整合方案**：将表达式（EXPRESSION）和固定值（FIXED）也作为 ConvertEnum 中的特殊转换类型，统一管理所有转换类型和规则类型。
-
-**修改 ConvertEnum**：在 ConvertEnum 中添加 EXPRESSION 和 FIXED 作为特殊转换类型
-
-```java
-public enum ConvertEnum {
-
-    // ... 其他转换类型（DEFAULT、UUID、AES_ENCRYPT 等）...
-    
-    /**
-     * 表达式规则
-     */
-    EXPRESSION("EXPRESSION", "表达式", -1,
-        "使用表达式计算字段值，支持字段引用、字符串拼接、数学运算等",
-        "表达式：${first_name} + ' ' + ${last_name}<br>结果：张 三",
-        null),  // Handler 为 null，表示特殊类型
-    
-    /**
-     * 固定值规则
-     */
-    FIXED("FIXED", "固定值", -1,
-        "使用固定值作为字段值",
-        "表达式：BATCH_001<br>结果：BATCH_001",
-        null);  // Handler 为 null，表示特殊类型
-    
-    // ... 字段和方法保持不变 ...
-    
-    /**
-     * 判断是否为特殊规则类型（不使用 Handler）
-     */
-    public boolean isSpecialRuleType() {
-        return handler == null;
-    }
-}
-```
-
-**优势**：
-- ✅ 所有转换类型和规则类型统一在 ConvertEnum 中管理
-- ✅ 界面只需要读取一个枚举，简化实现
-- ✅ 说明和示例统一管理，易于维护
-- ✅ 不需要单独的 RuleTypeEnum，减少代码复杂度
-
-### 4.3 第二阶段：增强 ConvertUtil
-
-支持表达式规则（如 `${field1} + ' ' + ${field2}`），扩展 Convert 模型：
-
-**文件**：`dbsyncer-parser/src/main/java/org/dbsyncer/parser/model/Convert.java`
-
-**扩展 Convert 模型**：
-```java
-/**
- * 规则类型
- * - FUNCTION: 使用 ConvertEnum 的 Handler（默认）
- * - EXPRESSION: 表达式规则（如：${field1} + ' ' + ${field2}）
- * - FIXED: 固定值
- */
-private String ruleType = "FUNCTION";  // 默认为 "FUNCTION"，表示使用 ConvertEnum
-
-/**
- * 规则表达式（当 ruleType 为 EXPRESSION 时使用）
- * 支持语法：${fieldName} 表示字段值，支持字符串拼接、数学运算等
- * 示例：
- * - ${first_name} + ' ' + ${last_name}
- * - ${price} * 1.1
- * - 'PREFIX_' + ${id}
- */
-private String ruleExpression;
-```
-
-#### 步骤 4.1：扩展 Convert 模型
-
-**文件**：`dbsyncer-parser/src/main/java/org/dbsyncer/parser/model/Convert.java`
-
-**添加字段**：
-```java
-/**
- * 规则类型
- */
-private String ruleType = "FUNCTION";
-
-/**
- * 规则表达式
- */
-private String ruleExpression;
-
-// Getters and Setters
-public String getRuleType() {
-    return ruleType;
-}
-
-public void setRuleType(String ruleType) {
-    this.ruleType = ruleType;
-}
-
-public String getRuleExpression() {
-    return ruleExpression;
-}
-
-public void setRuleExpression(String ruleExpression) {
-    this.ruleExpression = ruleExpression;
-}
-```
-
-#### 步骤 5.2：实现表达式解析器
-
-**文件**：`dbsyncer-parser/src/main/java/org/dbsyncer/parser/util/ExpressionUtil.java`（新建）
-
-**实现简单的表达式解析**：
-```java
-package org.dbsyncer.parser.util;
-
-import org.dbsyncer.common.util.StringUtil;
-import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-public abstract class ExpressionUtil {
-    
-    private static final Pattern FIELD_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
-    
-    /**
-     * 计算表达式
-     * 
-     * @param expression 表达式（如：${field1} + ' ' + ${field2}）
-     * @param row 数据行
-     * @return 计算结果
-     */
-    public static Object evaluate(String expression, Map<String, Object> row) {
-        if (StringUtil.isBlank(expression)) {
-            return null;
-        }
-        
-        // 替换字段占位符 ${fieldName} 为实际值
-        String result = expression;
-        Matcher matcher = FIELD_PATTERN.matcher(expression);
-        
-        while (matcher.find()) {
-            String fieldName = matcher.group(1);
-            Object fieldValue = row.get(fieldName);
-            String valueStr = fieldValue != null ? String.valueOf(fieldValue) : "";
-            
-            // 转义特殊字符，避免在字符串拼接时出错
-            valueStr = escapeForExpression(valueStr);
-            
-            result = result.replace("${" + fieldName + "}", valueStr);
-        }
-        
-        // 简单的表达式计算（支持字符串拼接和基本数学运算）
-        return evaluateSimpleExpression(result);
-    }
-    
-    /**
-     * 转义特殊字符
-     */
-    private static String escapeForExpression(String value) {
-        if (value == null) {
-            return "";
-        }
-        // 如果值包含单引号，需要转义
-        return value.replace("'", "''");
-    }
-    
-    /**
-     * 计算简单表达式（字符串拼接和基本数学运算）
-     */
-    private static Object evaluateSimpleExpression(String expression) {
-        // 移除字符串引号，处理字符串拼接
-        expression = expression.trim();
-        
-        // 如果表达式是纯字符串拼接（用 + 连接），直接拼接
-        if (expression.contains("+") && !expression.matches(".*[0-9]+.*")) {
-            // 字符串拼接
-            String[] parts = expression.split("\\+");
-            StringBuilder sb = new StringBuilder();
-            for (String part : parts) {
-                part = part.trim();
-                // 移除单引号
-                if (part.startsWith("'") && part.endsWith("'")) {
-                    part = part.substring(1, part.length() - 1);
-                }
-                sb.append(part);
-            }
-            return sb.toString();
-        }
-        
-        // 尝试数学运算（简单实现，仅支持基本运算）
-        try {
-            // 移除字符串引号，尝试计算
-            expression = expression.replace("'", "");
-            if (expression.matches(".*[0-9]+.*[+\\-*/].*[0-9]+.*")) {
-                // 使用 JavaScript 引擎或简单的表达式计算
-                return evaluateMathExpression(expression);
-            }
-        } catch (Exception e) {
-            // 如果计算失败，返回原始表达式
-        }
-        
-        // 默认返回处理后的字符串
-        return expression.replace("'", "");
-    }
-    
-    /**
-     * 计算数学表达式（简单实现）
-     */
-    private static Object evaluateMathExpression(String expression) {
-        // 这里可以使用 ScriptEngine 或其他表达式引擎
-        // 简单实现：仅支持基本运算
-        try {
-            // 使用 ScriptEngineManager 计算表达式
-            javax.script.ScriptEngineManager manager = new javax.script.ScriptEngineManager();
-            javax.script.ScriptEngine engine = manager.getEngineByName("JavaScript");
-            Object result = engine.eval(expression);
-            return result;
-        } catch (Exception e) {
-            throw new RuntimeException("表达式计算失败: " + expression, e);
-        }
-    }
-}
-```
-
-#### 步骤 5.3：修改 ConvertUtil 支持表达式
-
-**文件**：`dbsyncer-parser/src/main/java/org/dbsyncer/parser/util/ConvertUtil.java`
-
-**修改 `convert()` 方法**：
-```java
-public static void convert(List<Convert> convert, Map row, List<Field> targetFields) {
-    if (CollectionUtils.isEmpty(convert) || row == null) {
-        return;
-    }
-    
-    final int size = convert.size();
-    Convert c = null;
-    String name = null;
-    String code = null;
-    String args = null;
-    String ruleType = null;
-    String ruleExpression = null;
-    Object value = null;
-    
-    for (int i = 0; i < size; i++) {
-        c = convert.get(i);
-        name = c.getName();
-        ruleType = c.getRuleType();
-        ruleExpression = c.getRuleExpression();
-        
-        // 如果 ruleType 为 EXPRESSION，使用表达式计算
-        if ("EXPRESSION".equals(ruleType) && StringUtil.isNotBlank(ruleExpression)) {
-            value = ExpressionUtil.evaluate(ruleExpression, row);
-            row.put(name, value);
-            continue;
-        }
-        
-        // 如果 ruleType 为 FIXED，使用固定值
-        if ("FIXED".equals(ruleType) && StringUtil.isNotBlank(ruleExpression)) {
-            value = ruleExpression;
-            row.put(name, value);
-            continue;
-        }
-        
-        // 默认使用 ConvertEnum 的 Handler（FUNCTION 类型）
-        code = c.getConvertCode();
-        args = c.getArgs();
-        value = row.get(name);
-        
-        // 如果字段不在 Map 中，检查是否在 targetFields 中
-        if (value == null && containsField(targetFields, name)) {
-            // 字段在目标表中，但不在 Map 中（无源字段）
-            value = ConvertEnum.getHandler(code).handle(args, null);
-            row.put(name, value);
-        } else if (value != null) {
-            // 字段在 Map 中，进行转换
-            value = ConvertEnum.getHandler(code).handle(args, value);
-            row.put(name, value);
-        }
-    }
-}
-```
-
 ## 5. 代码修改清单
 
 ### 5.1 修改文件
@@ -751,15 +472,8 @@ public static void convert(List<Convert> convert, Map row, List<Field> targetFie
    - 修改构造函数，支持说明和示例参数
    - 为所有转换类型添加说明和示例
 
-2. **`dbsyncer-parser/src/main/java/org/dbsyncer/parser/model/Convert.java`**
-   - 添加 `ruleType` 字段（规则类型：FUNCTION/EXPRESSION/FIXED）
-   - 添加 `ruleExpression` 字段（规则表达式）
-
-3. **`dbsyncer-parser/src/main/java/org/dbsyncer/parser/util/ExpressionUtil.java`**（新建）
-   - 实现表达式解析和计算逻辑
-
-4. **`dbsyncer-parser/src/main/java/org/dbsyncer/parser/util/ConvertUtil.java`**
-   - 修改 `convert(List<Convert>, Map)` 方法，添加 `targetFields` 参数，支持表达式规则
+2. **`dbsyncer-parser/src/main/java/org/dbsyncer/parser/util/ConvertUtil.java`**
+   - 修改 `convert(List<Convert>, Map)` 方法，添加 `targetFields` 参数
    - 修改 `convert(List<Convert>, List<Map>)` 方法，添加 `targetFields` 参数
 
 6. **`dbsyncer-parser/src/main/java/org/dbsyncer/parser/util/PickerUtil.java`**
@@ -770,9 +484,6 @@ public static void convert(List<Convert> convert, Map row, List<Field> targetFie
 
 8. **`dbsyncer-parser/src/main/java/org/dbsyncer/parser/impl/ParserComponentImpl.java`**
    - 修改 `processTableGroupDataBatch()`：调用增强版的 `convert()` 方法
-
-**注意**：不需要修改 `BaseController.java`，因为 EXPRESSION 和 FIXED 已经整合到 ConvertEnum 中，界面可以直接从 `convert` 中读取。
-
 
 ## 6. 界面调整
 
@@ -875,7 +586,7 @@ public static void convert(List<Convert> convert, Map row, List<Field> targetFie
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- 动态读取 ConvertEnum 的说明和示例（包括 EXPRESSION 和 FIXED） -->
+                        <!-- 动态读取 ConvertEnum 的说明和示例 -->
                         <tr th:each="c : ${convert}">
                             <td><strong th:text="${c?.name}"></strong></td>
                             <td th:text="${c?.argNum == -1 ? '-' : c?.argNum}"></td>
@@ -888,33 +599,6 @@ public static void convert(List<Convert> convert, Map row, List<Field> targetFie
         </div>
     </div>
 </div>
-```
-
-2. **字段选择提示**（可选）：
-```html
-<select id="convertTargetField" class="form-control select-control">
-    <option value="">-- 请选择目标字段 --</option>
-    <!-- 目标源表公共字段 -->
-    <option th:if="${tableGroup} == null" 
-            th:each="c,s:${mapping?.targetColumn}" 
-            th:value="${c?.name}" 
-            th:text="${c?.name} +' (' + ${c?.typeName} +')'" />
-    <!-- 目标源表字段 -->
-    <option th:each="c,s:${tableGroup?.targetTable?.column}" 
-            th:value="${c?.name}" 
-            th:text="${c?.name} +' (' + ${c?.typeName} +')'" />
-</select>
-```
-
-3. **转换类型说明**（可选）：
-```html
-<select id="convertOperator" class="form-control select-control">
-    <option th:value="${c?.code}" 
-            th:text="${c?.name}" 
-            th:argNum="${c?.argNum}"
-            th:title="${c?.name}：${c?.description}"
-            th:each="c,state : ${convert}"/>
-</select>
 ```
 
 ### 6.3 使用示例（界面操作）
@@ -1066,51 +750,26 @@ public static void convert(List<Convert> convert, Map row, List<Field> targetFie
 - 如果字段在 Map 中，进行转换
 - 如果字段不在 Map 中，生成新值
 
+## 10. 模板功能
 
-## 12. 表达式规则使用示例
+**重要更新**：模板功能已单独设计并实现，详细内容请参阅以下文档：
 
-### 12.1 表达式语法
+- **设计文档**：`template_feature_design.md` - 详细描述模板功能的整体架构、安全机制和设计原理
+- **实施文档**：`template_feature_implementation.md` - 包含具体实现代码、测试方案和部署指南
 
-**支持的语法**：
-- `${fieldName}` - 字段值占位符
-- `+` - 字符串拼接或数学加法
-- `-` - 数学减法
-- `*` - 数学乘法
-- `/` - 数学除法
-- `'text'` - 字符串字面量（单引号）
-
-**示例**：
-- `${first_name} + ' ' + ${last_name}` - 字符串拼接
-- `${price} * 1.1` - 数学运算
-- `'PREFIX_' + ${id}` - 固定前缀 + 字段值
-- `${status} + '_' + ${version}` - 多字段拼接
-
-### 12.2 使用场景
-
-**场景 1：计算字段**
-- 规则类型：`EXPRESSION`
-- 表达式：`${first_name} + ' ' + ${last_name}`
-- 结果：`"张 三"`
-
-**场景 2：价格计算**
-- 规则类型：`EXPRESSION`
-- 表达式：`${price} * 1.1`
-- 结果：价格 * 1.1（加10%）
-
-**场景 3：固定值 + 字段值**
-- 规则类型：`EXPRESSION`
-- 表达式：`'BATCH_' + ${batch_id}`
-- 结果：`"BATCH_001"`
-
-**场景 4：固定值**
-- 规则类型：`FIXED`
-- 表达式：`BATCH_001`
-- 结果：`"BATCH_001"`
+表达式系统支持以下功能：
+- F() 语法：引用数据行中的字段值
+- C() 语法：引用和执行转换器（支持递归调用）
+- 循环检测：防止无限递归
+- 解析与执行分离：提升性能
+- 安全机制：避免代码注入风险
 
 ---
 
-**文档版本**：v2.0  
-**创建日期**：2025-01-XX  
-**最后更新**：2025-01-XX  
+**文档版本**：v3.0  
+**创建日期**：2026-02-04  
+**最后更新**：2026-02-04  
 **更新说明**：
+- v3.0：移除过时的表达式实现细节，引用新的表达式系统文档
 - v2.0：采用统一字段值处理机制，增强 Convert 机制，简化设计
+- v1.0：初始版本
