@@ -4,12 +4,14 @@ import org.dbsyncer.parser.enums.ConvertEnum;
 
 /**
  * 字段转换
- *
- * @author AE86
- * @version 1.0.0
- * @date 2019/10/1 14:04
  */
 public class Convert {
+
+    /**
+     * 转换器实例ID（前端自动生成）
+     * 格式：{code}_{序号}，如：UUID_0, UUID_1, EXPRESSION_0
+     */
+    private String id;
 
     /**
      * 字段名称
@@ -35,6 +37,14 @@ public class Convert {
      * @see ConvertEnum
      */
     private String args;
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
 
     public String getName() {
         return name;

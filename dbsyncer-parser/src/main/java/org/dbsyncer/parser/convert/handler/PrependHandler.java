@@ -1,6 +1,10 @@
 package org.dbsyncer.parser.convert.handler;
 
 import org.dbsyncer.parser.convert.Handler;
+import org.dbsyncer.parser.model.Convert;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * 前面追加
@@ -12,8 +16,10 @@ import org.dbsyncer.parser.convert.Handler;
 public class PrependHandler implements Handler {
 
     @Override
-    public Object handle(String args, Object value, java.util.Map<String, Object> row) {
-        // row 参数未使用
+    public Object handle(String args, Object value, Map<String, Object> sourceRow, Map<String, Object> context, List<Convert> converts) {
+        // converts 参数未使用
+        // sourceRow 参数未使用
+        // context 参数未使用
         if (null == value) {
             return args;
         }

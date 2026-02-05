@@ -181,7 +181,7 @@ public enum ConvertEnum {
     EXPRESSION("EXPRESSION", "表达式", -1,
         "使用表达式计算字段值，支持字段引用、字符串拼接、数学运算等",
         "表达式：${first_name} + ' ' + ${last_name}<br>结果：张 三",
-        new ExpressionHandler()),
+        new TemplateHandler()),
     /**
      * 固定值规则
      */

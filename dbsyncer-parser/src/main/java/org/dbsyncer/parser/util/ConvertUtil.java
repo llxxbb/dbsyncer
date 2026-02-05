@@ -6,6 +6,7 @@ import org.dbsyncer.parser.convert.Handler;
 import org.dbsyncer.parser.enums.ConvertEnum;
 import org.dbsyncer.parser.model.Convert;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -27,15 +28,18 @@ public abstract class ConvertUtil {
     }
 
     /**
-     * 转换参数（增强：支持字段值生成和转换，支持表达式规则）
+     * 转换参数
      *
      * @param convert 转换配置列表
-     * @param row     数据行
+     * @param row     数据行（作为 sourceRow 传入）
      */
     public static void convert(List<Convert> convert, Map row) {
         if (CollectionUtils.isEmpty(convert) || row == null) {
             return;
         }
+
+        // 创建转换器上下文，用于存储已计算的转换器值
+        Map<String, Object> context = new HashMap<>();
 
         final int size = convert.size();
         Convert c = null;
@@ -62,17 +66,18 @@ public abstract class ConvertUtil {
                 continue;
             }
 
-            // 获取参数（统一从 args 中读取）
+            // 获取参数
             args = c.getArgs();
 
             // 获取 Handler
             Handler handler = convertEnum.getHandler();
 
-            // 统一使用 Handler 处理
+            // 使用 Handler 处理
+            // row 作为 sourceRow，context 用于递归引用
             value = row.get(name);
-            value = handler.handle(args, value, row);
+            value = handler.handle(args, value, row, context, convert);
 
-            // 将处理后的值放入 Map（如果为 null 也放入，由 Handler 决定是否返回 null）
+            // 将处理后的值放入 Map
             row.put(name, value);
         }
     }

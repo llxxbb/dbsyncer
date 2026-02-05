@@ -6,7 +6,9 @@ package org.dbsyncer.parser.convert.handler;
 import org.dbsyncer.common.util.AESUtil;
 import org.dbsyncer.parser.ParserException;
 import org.dbsyncer.parser.convert.Handler;
+import org.dbsyncer.parser.model.Convert;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -19,8 +21,10 @@ import java.util.Map;
 public class AesDecryptHandler implements Handler {
 
     @Override
-    public Object handle(String args, Object value, Map<String, Object> row) {
-        // row 参数未使用
+    public Object handle(String args, Object value, Map<String, Object> sourceRow, Map<String, Object> context, List<Convert> converts) {
+        // converts 参数未使用
+        // sourceRow 参数未使用
+        // context 参数未使用
         if (value == null) {
             return null;
         }

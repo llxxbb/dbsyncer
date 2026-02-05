@@ -14,7 +14,8 @@ import java.util.Map;
 public class FixedHandler implements Handler {
 
     @Override
-    public Object handle(String args, Object value, Map<String, Object> row) {
+    public Object handle(String args, Object value, Map<String, Object> sourceRow, Map<String, Object> context, java.util.List<org.dbsyncer.parser.model.Convert> converts) {
+        // converts 参数未使用
         // 固定值：直接返回 args，忽略原值和 row
         return StringUtil.isBlank(args) ? null : args;
     }

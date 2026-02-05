@@ -2,6 +2,10 @@ package org.dbsyncer.parser.convert.handler;
 
 import org.dbsyncer.common.util.UUIDUtil;
 import org.dbsyncer.parser.convert.Handler;
+import org.dbsyncer.parser.model.Convert;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * UUID
@@ -13,8 +17,11 @@ import org.dbsyncer.parser.convert.Handler;
 public class UUIDHandler implements Handler {
 
     @Override
-    public Object handle(String args, Object value, java.util.Map<String, Object> row) {
+    public Object handle(String args, Object value, Map<String, Object> sourceRow, Map<String, Object> context, List<Convert> converts) {
+        // converts 参数未使用
         // row 参数未使用
+        // args 参数未使用
+        // value 参数未使用
         return UUIDUtil.getUUID();
     }
 }
