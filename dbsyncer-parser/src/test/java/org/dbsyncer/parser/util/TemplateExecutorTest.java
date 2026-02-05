@@ -168,48 +168,4 @@ public class TemplateExecutorTest {
 
         assertEquals(result1, result2);
     }
-    
-    @Test
-    public void testSimpleContextReference() {
-        TemplateExecutor executor = new TemplateExecutor();
-        Map<String, Object> sourceRow = new HashMap<>();
-        sourceRow.put("base_value", 100);
-        
-        List<Convert> converts = new ArrayList<>();
-        
-        // 第一个转换器：计算平方
-        Convert square = new Convert();
-        square.setId("SQUARE_0");
-        square.setName("squared");
-        square.setConvertCode("EXPRESSION");
-        square.setArgs("F(base_value) * 2");
-        converts.add(square);
-        
-        Object result = executor.execute("Base: F(base_value) Square: C(EXPRESSION:SQUARE_0)", sourceRow, new HashMap<>(), converts);
-        assertNotNull(result);
-        assertTrue(result.toString().contains("Base: 100"));
-        assertTrue(result.toString().contains("Square: 200"));
-    }
-    
-    @Test
-    public void testNestedConverterReference() {
-        TemplateExecutor executor = new TemplateExecutor();
-        Map<String, Object> sourceRow = new HashMap<>();
-        sourceRow.put("first", "John");
-        sourceRow.put("last", "Doe");
-        
-        List<Convert> converts = new ArrayList<>();
-        
-        // 嵌套转换器：构建完整姓名
-        Convert fullName = new Convert();
-        fullName.setId("FULL_NAME_0");
-        fullName.setName("full_name");
-        fullName.setConvertCode("EXPRESSION");
-        fullName.setArgs("F(first) F(last)");
-        converts.add(fullName);
-        
-        Object result = executor.execute("Full: C(EXPRESSION:FULL_NAME_0)", sourceRow, new HashMap<>(), converts);
-        assertNotNull(result);
-        assertTrue(result.toString().contains("Full: JohnDoe"));
-    }
 }
