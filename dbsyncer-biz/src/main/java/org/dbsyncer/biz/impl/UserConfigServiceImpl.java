@@ -4,6 +4,7 @@
 package org.dbsyncer.biz.impl;
 
 import org.dbsyncer.biz.BizException;
+import org.dbsyncer.biz.ProjectGroupService;
 import org.dbsyncer.biz.UserConfigService;
 import org.dbsyncer.biz.checker.impl.user.UserConfigChecker;
 import org.dbsyncer.biz.enums.UserRoleEnum;
@@ -13,6 +14,7 @@ import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.LogService;
 import org.dbsyncer.parser.LogType;
+import org.dbsyncer.parser.model.ProjectGroup;
 import org.dbsyncer.parser.model.UserConfig;
 import org.dbsyncer.parser.model.UserInfo;
 import org.springframework.beans.BeanUtils;
@@ -47,6 +49,9 @@ public class UserConfigServiceImpl implements UserConfigService {
     @Resource
     private LogService logService;
 
+    @Resource
+    private ProjectGroupService projectGroupService;
+
     @Override
     public synchronized String add(Map<String, String> params) throws Exception {
         String username = params.get("username");
@@ -57,6 +62,7 @@ public class UserConfigServiceImpl implements UserConfigService {
         Assert.hasText(password, "The password is null.");
         String email = params.get("email");
         String phone = params.get("phone");
+        String groupIds = params.get("groupIds");
 
         // 验证当前登录用户合法身份（必须是管理员操作）
         UserConfig userConfig = getUserConfig();
@@ -65,7 +71,7 @@ public class UserConfigServiceImpl implements UserConfigService {
         // 新用户合法性（用户不能重复）
         Assert.isNull(userConfig.getUserInfo(username), "用户已存在，请换个账号");
         // 注册新用户
-        userConfig.getUserInfoList().add(new UserInfo(username, nickname, SHA1Util.b64_sha1(password), UserRoleEnum.USER.getCode(), email, phone));
+        userConfig.getUserInfoList().add(new UserInfo(username, nickname, SHA1Util.b64_sha1(password), UserRoleEnum.USER.getCode(), email, phone, groupIds));
 
         logService.log(LogType.UserLog.INSERT, String.format("[%s]添加[%s]账号成功", currentUser.getUsername(), username));
         return profileComponent.editConfigModel(userConfig);
@@ -96,6 +102,7 @@ public class UserConfigServiceImpl implements UserConfigService {
         updateUser.setNickname(nickname);
         updateUser.setEmail(email);
         updateUser.setPhone(phone);
+        updateUser.setGroupIds(params.get("groupIds"));
         // 修改密码
         if (StringUtil.isNotBlank(newPwd)) {
             // 修改自己的密码需要验证
@@ -192,7 +199,7 @@ public class UserConfigServiceImpl implements UserConfigService {
 
     @Override
     public UserInfo getDefaultUser() {
-        return new UserInfo(DEFAULT_USERNAME, DEFAULT_USERNAME, DEFAULT_PASSWORD, UserRoleEnum.ADMIN.getCode(), StringUtil.EMPTY, StringUtil.EMPTY);
+        return new UserInfo(DEFAULT_USERNAME, DEFAULT_USERNAME, DEFAULT_PASSWORD, UserRoleEnum.ADMIN.getCode(), StringUtil.EMPTY, StringUtil.EMPTY, StringUtil.EMPTY);
     }
 
     private UserInfoVo convertUserInfo2Vo(UserInfo userInfo) {
@@ -202,8 +209,27 @@ public class UserConfigServiceImpl implements UserConfigService {
             // 避免密码直接暴露
             userInfoVo.setPassword("***");
             userInfoVo.setRoleName(UserRoleEnum.getNameByCode(userInfo.getRoleCode()));
+
+            // 转换分组ID为分组名称列表
+            if (StringUtil.isNotBlank(userInfo.getGroupIds())) {
+                String[] groupIdArray = StringUtil.split(userInfo.getGroupIds(), StringUtil.COMMA);
+                List<String> groupNames = new ArrayList<>();
+                List<ProjectGroup> allGroups = projectGroupService.getProjectGroupAll();
+                for (String groupId : groupIdArray) {
+                    allGroups.stream()
+                        .filter(g -> g.getId().equals(groupId.trim()))
+                        .findFirst()
+                        .ifPresent(g -> groupNames.add(g.getName()));
+                }
+                userInfoVo.setGroupNames(groupNames);
+            }
         }
         return userInfoVo;
+    }
+
+    @Override
+    public List<ProjectGroup> getProjectGroupAll() {
+        return projectGroupService.getProjectGroupAll();
     }
 
 }

@@ -4,6 +4,7 @@
 package org.dbsyncer.biz;
 
 import org.dbsyncer.biz.vo.UserInfoVo;
+import org.dbsyncer.parser.model.ProjectGroup;
 import org.dbsyncer.parser.model.UserConfig;
 import org.dbsyncer.parser.model.UserInfo;
 
@@ -83,5 +84,12 @@ public interface UserConfigService {
      * @return
      */
     UserInfo getDefaultUser();
+
+    /**
+     * 获取所有分组
+     *
+     * @return
+     */
+    List<ProjectGroup> getProjectGroupAll();
 
 }

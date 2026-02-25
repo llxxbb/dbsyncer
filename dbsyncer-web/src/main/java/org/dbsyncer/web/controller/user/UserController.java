@@ -1,5 +1,6 @@
 package org.dbsyncer.web.controller.user;
 
+import org.dbsyncer.biz.ProjectGroupService;
 import org.dbsyncer.biz.UserConfigService;
 import org.dbsyncer.biz.vo.RestResult;
 import org.dbsyncer.biz.vo.UserInfoVo;
@@ -36,6 +37,9 @@ public class UserController extends BaseController {
     @Resource
     private UserConfigService userConfigService;
 
+    @Resource
+    private ProjectGroupService projectGroupService;
+
     @RequestMapping("")
     public String index(ModelMap model) throws Exception {
         model.put("currentUser", getUserInfoVo());
@@ -45,6 +49,7 @@ public class UserController extends BaseController {
 
     @GetMapping("/page/add")
     public String pageAdd(ModelMap model) {
+        model.put("projectGroups", projectGroupService.getProjectGroupAll());
         return "user/add";
     }
 
@@ -53,6 +58,7 @@ public class UserController extends BaseController {
         String currentUserName = getUserName();
         model.put(UserConfigService.CURRENT_USER_NAME, currentUserName);
         model.put("currentUser", userConfigService.getUserInfoVo(currentUserName, username));
+        model.put("projectGroups", projectGroupService.getProjectGroupAll());
         return "user/edit";
     }
 

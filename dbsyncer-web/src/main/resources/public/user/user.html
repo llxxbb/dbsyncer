@@ -30,6 +30,7 @@
                     <tr>
                         <th>用户</th>
                         <th>角色</th>
+                        <th>用户组别</th>
                         <th>邮箱</th>
                         <th>手机</th>
                         <th>操作</th>
@@ -37,8 +38,13 @@
                     </thead>
                     <tbody id="userList">
                     <tr th:each="u,state : ${users}">
-                        <td th:text="${u?.username + '(' + u?.nickname + ')'}"/>
+                        <td th:text="${u?.username + '(' + u?.nickname + ')' }"/>
                         <td th:text="${u?.roleName}"/>
+                        <td>
+                            <span th:each="g : ${u?.groupNames}">
+                                <span class="label label-info">[[${g}]]</span>
+                            </span>
+                        </td>
                         <td>
                             <span href="javascript:;" th:each="m : ${#strings.listSplit(u?.email,',')}">
                                 <span class="label label-success">[[${m}]]</span>
