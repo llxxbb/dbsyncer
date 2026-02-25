@@ -46,4 +46,3 @@ public class TemplateHandler implements Handler {
         return TemplateExecutor.run(parseResult, sourceRow, context);
     }
 }
-

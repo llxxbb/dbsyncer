@@ -54,7 +54,10 @@ public class TemplateExecutorTest {
         converts.add(uuid);
 
         ParseResult parseResult = parser.parseTemplate("ID: C(UUID:uuid_0)", uuid, converts);
-        String output = TemplateExecutor.run(parseResult, row, new HashMap<>());
+        uuid.setParseResultCache(parseResult);  // 设置缓存
+        Map<String, Object> context = new HashMap<>();
+        context.put("__ROOT_CONVERT__", uuid);  // 放入根转换器
+        String output = TemplateExecutor.run(parseResult, row, context);
 
         assertNotNull(output);
         assertTrue(output.startsWith("ID: "));
@@ -72,7 +75,7 @@ public class TemplateExecutorTest {
         Convert expr = new Convert();
         expr.setId("expr_0");
         expr.setName("full");
-        expr.setConvertCode("EXPRESSION");
+        expr.setConvertCode("TEMPLATE");
         expr.setArgs("USER_ C(UUID:uuid_0)");
         expr.setRoot(true);
         converts.add(expr);
@@ -85,8 +88,11 @@ public class TemplateExecutorTest {
         uuid.setRoot(false);
         converts.add(uuid);
 
-        ParseResult parseResult = parser.parseTemplate("C(EXPRESSION:expr_0) Name: F(name)", expr, converts);
-        String output = TemplateExecutor.run(parseResult, row, new HashMap<>());
+        ParseResult parseResult = parser.parseTemplate("C(TEMPLATE:expr_0) Name: F(name)", expr, converts);
+        expr.setParseResultCache(parseResult);  // 设置缓存
+        Map<String, Object> context = new HashMap<>();
+        context.put("__ROOT_CONVERT__", expr);  // 放入根转换器
+        String output = TemplateExecutor.run(parseResult, row, context);
 
         assertNotNull(output);
         assertTrue(output.contains("USER_"));
@@ -136,13 +142,16 @@ public class TemplateExecutorTest {
         Convert expr = new Convert();
         expr.setId("expr_0");
         expr.setName("full");
-        expr.setConvertCode("EXPRESSION");
+        expr.setConvertCode("TEMPLATE");
         expr.setArgs("USER_001");
         expr.setRoot(true);
         converts.add(expr);
 
-        ParseResult result = parser.parseTemplate("Prefix C(EXPRESSION:expr_0) Suffix", expr, converts);
-        String output = TemplateExecutor.run(result, row, new HashMap<>());
+        ParseResult result = parser.parseTemplate("Prefix C(TEMPLATE:expr_0) Suffix", expr, converts);
+        expr.setParseResultCache(result);  // 设置缓存
+        Map<String, Object> context = new HashMap<>();
+        context.put("__ROOT_CONVERT__", expr);  // 放入根转换器
+        String output = TemplateExecutor.run(result, row, context);
 
         assertEquals("Prefix USER_001 Suffix", output);
     }

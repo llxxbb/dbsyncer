@@ -57,11 +57,11 @@ public class TemplateParserTest {
         Convert expr = new Convert();
         expr.setId("expr_0");
         expr.setName("expr");
-        expr.setConvertCode("EXPRESSION");
+        expr.setConvertCode("TEMPLATE");
         expr.setArgs("");
         converts.add(expr);
 
-        // 模板引用 UUID，但根是 EXPRESSION，应该抛出异常
+        // 模板引用 UUID，但根是 TEMPLATE，应该抛出异常
         try {
             parser.parseTemplate("C(UUID:uid_0)", expr, converts);
             fail("Expected ParserException");
@@ -78,7 +78,7 @@ public class TemplateParserTest {
         Convert expr = new Convert();
         expr.setId("expr_0");
         expr.setName("full");
-        expr.setConvertCode("EXPRESSION");
+        expr.setConvertCode("TEMPLATE");
         expr.setArgs("USER_ C(UUID:uid_0)");
         converts.add(expr);
 
@@ -90,13 +90,13 @@ public class TemplateParserTest {
         converts.add(uuid);
 
         // expr 是根，依赖 uuid
-        ParseResult result = parser.parseTemplate("C(EXPRESSION:expr_0)", expr, converts);
+        ParseResult result = parser.parseTemplate("C(TEMPLATE:expr_0)", expr, converts);
 
         assertNotNull(result);
         assertEquals(2, result.getExecutionOrder().size());
-        // UUID 应该在 EXPRESSION 之前（依赖先执行）
+        // UUID 应该在 TEMPLATE 之前（依赖先执行）
         assertEquals("UUID:uid_0", result.getExecutionOrder().get(0));
-        assertEquals("EXPRESSION:expr_0", result.getExecutionOrder().get(1));
+        assertEquals("TEMPLATE:expr_0", result.getExecutionOrder().get(1));
     }
 
     @Test
@@ -107,19 +107,19 @@ public class TemplateParserTest {
         Convert a = new Convert();
         a.setId("expr_a");
         a.setName("a");
-        a.setConvertCode("EXPRESSION");
-        a.setArgs("C(EXPRESSION:expr_b)");
+        a.setConvertCode("TEMPLATE");
+        a.setArgs("C(TEMPLATE:expr_b)");
         converts.add(a);
 
         Convert b = new Convert();
         b.setId("expr_b");
         b.setName("b");
-        b.setConvertCode("EXPRESSION");
-        b.setArgs("C(EXPRESSION:expr_a)");
+        b.setConvertCode("TEMPLATE");
+        b.setArgs("C(TEMPLATE:expr_a)");
         converts.add(b);
 
         try {
-            parser.parseTemplate("C(EXPRESSION:expr_a)", a, converts);
+            parser.parseTemplate("C(TEMPLATE:expr_a)", a, converts);
             fail("Expected ParserException for circular reference");
         } catch (ParserException e) {
             assertTrue(e.getMessage().contains("Circular reference"));
@@ -134,15 +134,15 @@ public class TemplateParserTest {
         Convert expr = new Convert();
         expr.setId("expr_0");
         expr.setName("full");
-        expr.setConvertCode("EXPRESSION");
+        expr.setConvertCode("TEMPLATE");
         expr.setArgs("USER_001");
         converts.add(expr);
 
-        ParseResult result = parser.parseTemplate("C(EXPRESSION:expr_0)", expr, converts);
+        ParseResult result = parser.parseTemplate("C(TEMPLATE:expr_0)", expr, converts);
 
         assertNotNull(result);
         assertEquals(1, result.getExecutionOrder().size());
-        assertEquals("EXPRESSION:expr_0", result.getExecutionOrder().get(0));
+        assertEquals("TEMPLATE:expr_0", result.getExecutionOrder().get(0));
     }
 
     @Test

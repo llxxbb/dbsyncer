@@ -72,10 +72,15 @@ public class TemplateParser {
             return order;
         }
 
+        String rootRefId = buildRefId(root.getConvertCode(), root.getId());
+
+        // 验证：模板必须从根转换器开始
+        if (!templateRefs.contains(rootRefId)) {
+            throw new ParserException("Must start from root converter: " + rootRefId);
+        }
+
         Set<String> visited = new HashSet<>();
         Set<String> tempMark = new HashSet<>();
-
-        String rootRefId = buildRefId(root.getConvertCode(), root.getId());
 
         // 从根转换器开始解析
         visit(rootRefId, converts, order, visited, tempMark, 0);
