@@ -17,6 +17,7 @@ import org.dbsyncer.parser.model.ConfigModel;
 import org.dbsyncer.parser.model.FieldMapping;
 import org.dbsyncer.parser.model.Mapping;
 import org.dbsyncer.parser.model.TableGroup;
+import org.dbsyncer.parser.util.ConvertUtil;
 import org.dbsyncer.parser.util.PickerUtil;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.model.ConnectorConfig;
@@ -99,6 +100,9 @@ public class TableGroupChecker extends AbstractChecker {
             throw new PrimaryKeyRequiredException(String.format("目标表 %s 缺少主键，无法进行数据同步。", targetTable));
         }
 
+        // 验证转换器规则：每个字段必须有且仅有一个根转换器
+        ConvertUtil.validateFieldConverterRule(tableGroup.getConvert());
+
         return tableGroup;
     }
 
@@ -155,6 +159,9 @@ public class TableGroupChecker extends AbstractChecker {
             // 与添加时的逻辑保持一致，确保字段映射与源表结构一致
             buildFieldMappingFromSourceTable(tableGroup);
         }
+
+        // 验证转换器规则：每个字段必须有且仅有一个根转换器
+        ConvertUtil.validateFieldConverterRule(tableGroup.getConvert());
 
         return tableGroup;
     }

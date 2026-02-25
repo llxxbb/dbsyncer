@@ -38,13 +38,20 @@
             <div class="col-md-4">
                 <label class="col-sm-3 control-label text-right">目标源表字段</label>
                 <div class="col-sm-9">
-                    <select id="convertTargetField" class="form-control select-control">
-                        <!-- 目标源表公共字段 -->
-                        <option th:if="${tableGroup} == null" th:each="c,s:${mapping?.targetColumn}" th:value="${c?.name}" th:text="${c?.name} +' (' + ${c?.typeName} +')'" />
+                    <div class="input-group">
+                        <select id="convertTargetField" class="form-control select-control" data-live-search="true">
+                            <!-- 目标源表公共字段 -->
+                            <option th:if="${tableGroup} == null" th:each="c,s:${mapping?.targetColumn}" th:value="${c?.name}" th:text="${c?.name} +' (' + ${c?.typeName} +')'" />
 
-                        <!-- 目标源表字段 -->
-                        <option th:each="c,s:${tableGroup?.targetTable?.column}" th:value="${c?.name}" th:text="${c?.name} +' (' + ${c?.typeName} +')'" />
-                    </select>
+                            <!-- 目标源表字段 -->
+                            <option th:each="c,s:${tableGroup?.targetTable?.column}" th:value="${c?.name}" th:text="${c?.name} +' (' + ${c?.typeName} +')'" />
+                        </select>
+                        <span class="input-group-btn">
+                            <button type="button" class="btn btn-default" id="addTargetFieldBtn" title="添加新字段">
+                                <span class="fa fa-plus"></span>
+                            </button>
+                        </span>
+                    </div>
                 </div>
             </div>
             <div class="col-md-4" id="convertParamsGroup">
@@ -95,14 +102,14 @@
                     </thead>
                     <tbody id="convertList">
                         <!-- Mapping convert -->
-                        <tr th:if="${tableGroup} == null" th:each="f,s:${mapping?.convert}">
+                        <tr th:if="${tableGroup} == null" th:each="f,s:${mapping?.convert}" th:data-id="${f?.id}" th:data-isroot="${f?.root}">
                             <td th:value="${f?.convertCode}">[[${f?.convertName}]]</td>
                             <td>[[${f?.name}]]</td>
                             <td th:text="${f?.args}"></td>
                             <td><a class='fa fa-remove fa-2x convertDelete dbsyncer_pointer' title='删除' ></a></td>
                         </tr>
                         <!-- TableGroup convert -->
-                        <tr th:each="f,s:${tableGroup?.convert}">
+                        <tr th:each="f,s:${tableGroup?.convert}" th:data-id="${f?.id}" th:data-isroot="${f?.root}">
                             <td th:value="${f?.convertCode}">[[${f?.convertName}]]</td>
                             <td>[[${f?.name}]]</td>
                             <td th:text="${f?.args}"></td>

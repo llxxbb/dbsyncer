@@ -6,66 +6,81 @@ import org.dbsyncer.parser.enums.ConvertEnum;
 import org.dbsyncer.parser.model.Convert;
 import org.dbsyncer.parser.model.ParseResult;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 模板执行器 - 线性执行转换器链
+ * 模板执行器 - 纯粹执行器
+ *
+ * 职责：
+ * 1. 按执行计划执行转换器
+ * 2. 替换模板中的占位符
+ *
+ * 注意：
+ * - 不包含解析逻辑（由 TemplateParser 负责）
+ * - 不包含业务规则（由上游调用层负责）
+ * - 接收 ParseResult 作为输入
  */
-public class TemplateExecutor {
+public final class TemplateExecutor {
 
     private static final Pattern C_PATTERN = Pattern.compile("C\\(([^:)]+)(?::([^)]+))?\\)");
     private static final Pattern F_PATTERN = Pattern.compile("F\\(([^)]+)\\)");
 
-    private final TemplateParser parser;
-
-    public TemplateExecutor() {
-        this.parser = new TemplateParser();
+    private TemplateExecutor() {
     }
 
     /**
      * 执行模板
      *
-     * @param template  模板表达式
-     * @param sourceRow 源端数据行
-     * @param context   转换器上下文（存储已计算的转换器值）
-     * @param converts  转换器配置列表
+     * @param parseResult 解析结果（执行计划），可为 null
+     * @param sourceRow   源端数据行
+     * @param context     转换器上下文
      * @return 执行结果
      */
-    public Object execute(String template, Map<String, Object> sourceRow,
-                          Map<String, Object> context, List<Convert> converts) {
-        if (StringUtil.isBlank(template)) {
-            return null;
-        }
+    public static String run(ParseResult parseResult, Map<String, Object> sourceRow, Map<String, Object> context) {
+        // 1. 初始化上下文
+        initContext(sourceRow, context);
 
-        String cacheKey = generateCacheKey(template, converts);
-        ParseResult parseResult = TemplateCache.getInstance().getParseResult(cacheKey);
+        // 2. 如果有解析结果，按执行顺序执行转换器
+        executeConverters(parseResult, sourceRow, context);
+        // 3. 替换模板中的占位符
+        return replaceAllReferences(parseResult.getOriginalExpression(), context);
+    }
 
-        if (parseResult == null) {
-            parseResult = parser.parseTemplate(template, converts);
-            TemplateCache.getInstance().putParseResult(cacheKey, parseResult);
-        }
-
-        // 将源端数据放入上下文，用于 F() 引用
+    /**
+     * 初始化上下文 - 加载字段值
+     */
+    private static void initContext(Map<String, Object> sourceRow, Map<String, Object> context) {
         if (sourceRow != null) {
             for (Map.Entry<String, Object> entry : sourceRow.entrySet()) {
                 context.put("F:" + entry.getKey(), entry.getValue());
             }
         }
+    }
+
+    /**
+     * 按执行顺序执行转换器
+     */
+    private static void executeConverters(ParseResult parseResult, Map<String, Object> sourceRow, Map<String, Object> context) {
+        Map<String, Convert> refMap = parseResult.getReferenceMap();
+        List<Convert> converts = new ArrayList<>(refMap.values());
 
         for (String refId : parseResult.getExecutionOrder()) {
-            Convert convert = parseResult.getReferenceMap().get(refId);
+            Convert convert = refMap.get(refId);
             if (convert == null) {
                 continue;
             }
 
             try {
+                // 预处理 args
                 String processedArgs = replaceAllReferences(convert.getArgs(), context);
 
+                // 执行 Handler
                 Handler handler = ConvertEnum.getHandler(convert.getConvertCode());
-                Object value = sourceRow != null ? sourceRow.get(convert.getName()) : null;
+                Object value = null; // 从 context 获取
                 Object result = handler.handle(processedArgs, value, sourceRow, context, converts);
 
                 context.put(refId, result);
@@ -73,14 +88,12 @@ public class TemplateExecutor {
                 context.put(refId, "");
             }
         }
-
-        return replaceAllReferences(template, context);
     }
 
     /**
      * 替换模板中的所有引用（C() 和 F()）
      */
-    private String replaceAllReferences(String template, Map<String, Object> context) {
+    private static String replaceAllReferences(String template, Map<String, Object> context) {
         if (StringUtil.isBlank(template)) {
             return template;
         }
@@ -88,7 +101,6 @@ public class TemplateExecutor {
         String result = template;
 
         result = replaceCReferences(result, context);
-
         result = replaceFReferences(result, context);
 
         return result;
@@ -97,7 +109,7 @@ public class TemplateExecutor {
     /**
      * 替换 C() 引用
      */
-    private String replaceCReferences(String template, Map<String, Object> context) {
+    private static String replaceCReferences(String template, Map<String, Object> context) {
         Matcher matcher = C_PATTERN.matcher(template);
         StringBuffer buffer = new StringBuffer();
 
@@ -117,7 +129,7 @@ public class TemplateExecutor {
     /**
      * 替换 F() 引用
      */
-    private String replaceFReferences(String template, Map<String, Object> context) {
+    private static String replaceFReferences(String template, Map<String, Object> context) {
         Matcher matcher = F_PATTERN.matcher(template);
         StringBuffer buffer = new StringBuffer();
 
@@ -130,21 +142,5 @@ public class TemplateExecutor {
         matcher.appendTail(buffer);
 
         return buffer.toString();
-    }
-
-    /**
-     * 生成缓存键
-     */
-    private String generateCacheKey(String template, List<Convert> converts) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(template).append("|");
-
-        if (converts != null) {
-            for (Convert c : converts) {
-                sb.append(c.getConvertCode()).append(":").append(c.getId()).append(";");
-            }
-        }
-
-        return sb.toString();
     }
 }

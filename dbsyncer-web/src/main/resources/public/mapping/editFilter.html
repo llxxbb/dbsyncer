@@ -21,13 +21,20 @@
             <div class="col-md-4">
                 <label class="col-sm-3 control-label text-right">数据源表字段</label>
                 <div class="col-sm-9">
-                    <select id="conditionSourceField" class="form-control select-control">
-                        <!-- 数据源表公共字段 -->
-                        <option th:if="${tableGroup} == null" th:each="c,s:${mapping?.sourceColumn}" th:value="${c?.name}" th:text="${c?.name} +' (' + ${c?.typeName} +')'" />
+                    <div class="input-group">
+                        <select id="conditionSourceField" class="form-control select-control" data-live-search="true">
+                            <!-- 数据源表公共字段 -->
+                            <option th:if="${tableGroup} == null" th:each="c,s:${mapping?.sourceColumn}" th:value="${c?.name}" th:text="${c?.name} +' (' + ${c?.typeName} +')'" />
 
-                        <!-- 数据源表字段 -->
-                        <option th:each="c,s:${tableGroup?.sourceTable?.column}" th:value="${c?.name}" th:text="${c?.name} +' (' + ${c?.typeName} +')'" />
-                    </select>
+                            <!-- 数据源表字段 -->
+                            <option th:each="c,s:${tableGroup?.sourceTable?.column}" th:value="${c?.name}" th:text="${c?.name} +' (' + ${c?.typeName} +')'" />
+                        </select>
+                        <span class="input-group-btn">
+                            <button type="button" class="btn btn-default" id="addSourceFieldBtn" title="添加新字段">
+                                <span class="fa fa-plus"></span>
+                            </button>
+                        </span>
+                    </div>
                 </div>
             </div>
             <div class="col-md-4">

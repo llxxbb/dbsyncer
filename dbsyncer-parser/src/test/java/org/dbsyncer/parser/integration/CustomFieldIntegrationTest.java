@@ -120,31 +120,35 @@ public class CustomFieldIntegrationTest {
         // 添加转换配置
         List<Convert> converts = new ArrayList<>();
 
-        // 1. 表达式转换：创建全名
+        // 1. 表达式转换：创建全名（根转换器）
         Convert fullNameConvert = new Convert();
         fullNameConvert.setName("full_name");
-        fullNameConvert.setConvertCode(ConvertEnum.EXPRESSION.getCode());
+        fullNameConvert.setConvertCode(ConvertEnum.TEMPLATE.getCode());
         fullNameConvert.setArgs("F(first_name) F(last_name)");
+        fullNameConvert.setRoot(true);
         converts.add(fullNameConvert);
 
-        // 2. 固定值转换：设置批次ID
+        // 2. 固定值转换：设置批次ID（根转换器）
         Convert batchIdConvert = new Convert();
         batchIdConvert.setName("sync_batch_id");
         batchIdConvert.setConvertCode(ConvertEnum.FIXED.getCode());
         batchIdConvert.setArgs("BATCH_001");
+        batchIdConvert.setRoot(true);
         converts.add(batchIdConvert);
 
-        // 3. 默认值转换：设置状态
+        // 3. 默认值转换：设置状态（根转换器）
         Convert statusConvert = new Convert();
         statusConvert.setName("status");
         statusConvert.setConvertCode(ConvertEnum.DEFAULT.getCode());
         statusConvert.setArgs("ACTIVE");
+        statusConvert.setRoot(true);
         converts.add(statusConvert);
 
-        // 4. UUID转换：生成唯一ID
+        // 4. UUID转换：生成唯一ID（根转换器）
         Convert uuidConvert = new Convert();
         uuidConvert.setName("created_time");
         uuidConvert.setConvertCode(ConvertEnum.UUID.getCode());
+        uuidConvert.setRoot(true);
         converts.add(uuidConvert);
 
         tableGroup.setConvert(converts);
@@ -165,16 +169,19 @@ public class CustomFieldIntegrationTest {
         // 1. 合并配置
         TableGroup mergedGroup = PickerUtil.mergeTableGroupConfig(mapping, tableGroup);
 
-        // 2. 创建Picker进行字段映射
+        // 2. 预解析模板（必须在转换前调用）
+        ConvertUtil.validateFieldConverterRule(tableGroup.getConvert());
+
+        // 3. 创建Picker进行字段映射
         Picker picker = new Picker(mergedGroup);
 
-        // 3. 执行字段映射
+        // 4. 执行字段映射
         List<Map> targetData = picker.pickTargetData(sourceData);
 
-        // 4. 执行转换（自定义字段处理）
+        // 5. 执行转换（自定义字段处理）
         ConvertUtil.convert(tableGroup.getConvert(), targetData);
 
-        // 5. 验证结果
+        // 6. 验证结果
         assertEquals(1, targetData.size());
         Map<String, Object> result = targetData.get(0);
 
@@ -213,16 +220,19 @@ public class CustomFieldIntegrationTest {
         // 1. 合并配置
         TableGroup mergedGroup = PickerUtil.mergeTableGroupConfig(mapping, tableGroup);
 
-        // 2. 创建Picker进行字段映射
+        // 2. 预解析模板（必须在转换前调用）
+        ConvertUtil.validateFieldConverterRule(tableGroup.getConvert());
+
+        // 3. 创建Picker进行字段映射
         Picker picker = new Picker(mergedGroup);
 
-        // 3. 执行字段映射
+        // 4. 执行字段映射
         List<Map> targetData = picker.pickTargetData(sourceData);
 
-        // 4. 执行转换（自定义字段处理）
+        // 5. 执行转换（自定义字段处理）
         ConvertUtil.convert(tableGroup.getConvert(), targetData);
 
-        // 5. 验证结果
+        // 6. 验证结果
         assertEquals(2, targetData.size());
 
         // 验证第一条记录
@@ -255,6 +265,9 @@ public class CustomFieldIntegrationTest {
 
         // 合并配置
         TableGroup mergedGroup = PickerUtil.mergeTableGroupConfig(mapping, tableGroup);
+
+        // 预解析模板（必须在转换前调用）
+        ConvertUtil.validateFieldConverterRule(tableGroup.getConvert());
 
         // 创建Picker
         Picker picker = new Picker(mergedGroup);

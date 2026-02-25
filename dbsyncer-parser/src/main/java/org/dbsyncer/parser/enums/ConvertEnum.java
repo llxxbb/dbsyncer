@@ -178,9 +178,9 @@ public enum ConvertEnum {
     /**
      * 表达式规则
      */
-    EXPRESSION("EXPRESSION", "表达式", -1,
-        "使用表达式计算字段值，支持字段引用、字符串拼接、数学运算等",
-        "表达式：${first_name} + ' ' + ${last_name}<br>结果：张 三",
+    TEMPLATE("TEMPLATE", "模板", -1,
+        "系统将替换模版中的占位符, 有两种占位符：<br>F(field_name)为源端字段的值<br>C(converter_code:id)为之前转换器处理好的值",
+        "'F(first_name) F{last_name}' 结果：张 三",
         new TemplateHandler()),
     /**
      * 固定值规则

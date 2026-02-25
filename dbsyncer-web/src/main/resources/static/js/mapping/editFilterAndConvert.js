@@ -69,22 +69,42 @@ function initConvertParams(){
     // 生成JSON参数
     var row = [];
     var $convertList = $("#convertList");
+    var existingConverts = [];
+    
+    // 先收集现有的转换器，获取最大ID
     $convertList.find("tr").each(function(k,v){
         var convert = $(this).find("td:eq(0)");
         var convertCode = convert.attr("value");
         var convertName = convert.text().replace(/\n/g,'').trim();
         var tf = $(this).find("td:eq(1)").text();
         var args = $(this).find("td:eq(2)").text();
+        var isRoot = $(this).attr("data-isroot") === "true";
         
-        var convertObj = {
-           "name": tf,
-           "convertName": convertName,
-           "convertCode": convertCode,
-           "args": args
-         };
-        
-        row.push(convertObj);
+        existingConverts.push({
+            id: $(this).attr("data-id"),
+            name: tf,
+            convertName: convertName,
+            convertCode: convertCode,
+            args: args,
+            isRoot: isRoot
+        });
     });
+    
+    // 更新所有转换器的 isRoot 状态：最后一个新增的是根
+    updateAllConvertRoots(existingConverts);
+    
+    // 生成JSON
+    existingConverts.forEach(function(c) {
+        row.push({
+            id: c.id,
+            name: c.name,
+            convertName: c.convertName,
+            convertCode: c.convertCode,
+            args: c.args,
+            isRoot: c.isRoot
+        });
+    });
+    
     var $convertTable = $("#convertTable");
     if (0 >= row.length) {
         $convertTable.addClass("hidden");
@@ -92,6 +112,77 @@ function initConvertParams(){
         $convertTable.removeClass("hidden");
     }
     $("#convert").val(JSON.stringify(row));
+}
+
+// 更新所有转换器的根状态
+function updateAllConvertRoots(converts) {
+    if (converts.length === 0) return;
+    
+    // 最后一个是根
+    for (var i = 0; i < converts.length; i++) {
+        converts[i].isRoot = (i === converts.length - 1);
+    }
+}
+
+// 生成下一个数字ID
+function generateNextId($convertList) {
+    var maxId = -1;
+    $convertList.find("tr").each(function() {
+        var id = $(this).attr("data-id");
+        if (id) {
+            var num = parseInt(id);
+            if (num > maxId) maxId = num;
+        }
+    });
+    return String(maxId + 1);
+}
+
+// 绑定添加源字段按钮点击事件
+function bindAddSourceFieldClick() {
+    $("#addSourceFieldBtn").on('click', function() {
+        var $select = $("#conditionSourceField");
+        var customFieldName = prompt("请输入自定义字段名称：", "");
+        if (customFieldName && customFieldName.trim() !== '') {
+            var fieldName = customFieldName.trim();
+            // 检查是否已存在
+            if ($select.find('option[value="' + fieldName + '"]').length > 0) {
+                bootGrowl("字段已存在，已为您选中", "info");
+                $select.selectpicker('val', fieldName);
+                return;
+            }
+            // 添加新选项
+            $select.append(new Option(fieldName + ' (自定义)', fieldName, false, true));
+            // 刷新selectpicker
+            $select.selectpicker('refresh');
+            // 选中新添加的选项
+            $select.selectpicker('val', fieldName);
+            bootGrowl("字段添加成功", "success");
+        }
+    });
+}
+
+// 绑定添加目标字段按钮点击事件
+function bindAddTargetFieldClick() {
+    $("#addTargetFieldBtn").on('click', function() {
+        var $select = $("#convertTargetField");
+        var customFieldName = prompt("请输入自定义目标字段名称：", "");
+        if (customFieldName && customFieldName.trim() !== '') {
+            var fieldName = customFieldName.trim();
+            // 检查是否已存在
+            if ($select.find('option[value="' + fieldName + '"]').length > 0) {
+                bootGrowl("字段已存在，已为您选中", "info");
+                $select.selectpicker('val', fieldName);
+                return;
+            }
+            // 添加新选项
+            $select.append(new Option(fieldName + ' (自定义)', fieldName, false, true));
+            // 刷新selectpicker
+            $select.selectpicker('refresh');
+            // 选中新添加的选项
+            $select.selectpicker('val', fieldName);
+            bootGrowl("字段添加成功", "success");
+        }
+    });
 }
 
 // 绑定新增条件点击事件
@@ -164,13 +255,19 @@ function bindConvertAddClick() {
     var $convertAdd = $("#convertAdd");
     $convertAdd.unbind("click");
     $convertAdd.bind('click', function () {
+        var $convertList = $("#convertList");
         var $convertOperator = $("#convertOperator");
         var convertOperatorVal = $convertOperator.selectpicker("val");
-        var convertOperatorText = $convertOperator.find("option:selected")[0].text;
+        var convertOperatorText = $convertOperator.find("option:selected").text();
         var $selectedOption = $convertOperator.find("option:selected");
         // Thymeleaf 渲染后，th:argNum 会变成 argNum 属性
         var argNum = parseInt($selectedOption.attr("argNum") || "0");
         var convertTargetField = $("#convertTargetField").selectpicker("val");
+        
+        // 处理多选情况，只取第一个值
+        if (Array.isArray(convertTargetField)) {
+            convertTargetField = convertTargetField[0];
+        }
         
         // 统一读取参数值到 args（表达式、固定值、普通参数都存储在 args 中）
         var convertArg = "";
@@ -197,22 +294,27 @@ function bindConvertAddClick() {
             return;
         }
 
+        // 生成下一个ID（纯数字）
+        var nextId = generateNextId($convertList);
+        
         // 检查重复字段
         var repeated = false;
-        var $convertList = $("#convertList");
         $convertList.find("tr").each(function(k,v){
              var opr = $(this).find("td:eq(0)").text();
              var tf = $(this).find("td:eq(1)").text();
              var arg = $(this).find("td:eq(2)").text();
              if(repeated = (opr==convertOperatorText && tf==convertTargetField && arg==convertArg)){
-                bootGrowl("转换配置已存在.", "danger");
-                // break;
-                return false;
+                 bootGrowl("转换配置已存在.", "danger");
+                 // break;
+                 return false;
              }
         });
         if(repeated){ return; }
 
-        var trHtml = "<tr>";
+        var trHtml = "<tr";
+        trHtml += " data-id='" + nextId + "'";
+        trHtml += " data-isroot='true'";
+        trHtml += ">";
         trHtml += "<td value='" + convertOperatorVal + "'>" + convertOperatorText + "</td>";
         trHtml += "<td>" + convertTargetField + "</td>";
         trHtml += "<td>" + convertArg + "</td>";
@@ -377,6 +479,9 @@ $(function() {
     initFilter();
     bindConditionAddClick();
     bindConditionQuartzFilterAddClick();
+    // 处理自定义字段选择
+    bindAddSourceFieldClick();
+    bindAddTargetFieldClick();
     // 转换配置
     initConvert();
     bindConvertAddClick();
