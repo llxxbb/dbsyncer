@@ -7,6 +7,7 @@ import org.dbsyncer.biz.vo.MappingJsonVo;
 import org.dbsyncer.biz.vo.MappingVo;
 import org.dbsyncer.biz.AppConfigService;
 import org.dbsyncer.biz.ProjectGroupService;
+import org.dbsyncer.biz.UserConfigService;
 import org.dbsyncer.biz.vo.ProjectGroupVo;
 import org.dbsyncer.biz.vo.RestResult;
 import org.slf4j.Logger;
@@ -38,6 +39,9 @@ public class IndexController {
     @Resource
     private AppConfigService appConfigService;
 
+    @Resource
+    private UserConfigService userConfigService;
+
     @GetMapping("")
     public String index(ModelMap model, String projectGroupId) {
         try {
@@ -51,11 +55,25 @@ public class IndexController {
             model.put("connectors", projectGroup.getConnectors());
             model.put("mappings", projectGroup.getMappings());
             model.put("projectGroupId", projectGroupId);
-            model.put("projectGroups", projectGroupService.getProjectGroupAll());
+            // 根据当前登录用户获取分组列表（管理员显示所有，普通用户显示所属分组）
+            String currentUsername = getCurrentUsername();
+            model.put("projectGroups", projectGroupService.getProjectGroupsByUser(currentUsername));
         } catch (Exception e) {
             logger.error(e.getMessage(), e);
         }
         return "index/index.html";
+    }
+
+    /**
+     * 获取当前登录用户名
+     * @return 用户名
+     */
+    private String getCurrentUsername() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (null != authentication && authentication.isAuthenticated()) {
+            return authentication.getName();
+        }
+        return null;
     }
 
     @ResponseBody

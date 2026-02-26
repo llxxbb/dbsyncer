@@ -6,7 +6,9 @@ package org.dbsyncer.biz.impl;
 import org.dbsyncer.biz.ConnectorService;
 import org.dbsyncer.biz.MappingService;
 import org.dbsyncer.biz.ProjectGroupService;
+import org.dbsyncer.biz.UserConfigService;
 import org.dbsyncer.biz.checker.Checker;
+import org.dbsyncer.biz.enums.UserRoleEnum;
 import org.dbsyncer.biz.vo.MappingVo;
 import org.dbsyncer.biz.vo.ProjectGroupVo;
 import org.dbsyncer.common.util.CollectionUtils;
@@ -16,6 +18,7 @@ import org.dbsyncer.parser.LogType;
 import org.dbsyncer.parser.model.ConfigModel;
 import org.dbsyncer.parser.model.Connector;
 import org.dbsyncer.parser.model.ProjectGroup;
+import org.dbsyncer.parser.model.UserInfo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
@@ -45,6 +48,9 @@ public class ProjectGroupServiceImpl extends BaseServiceImpl implements ProjectG
 
     @Resource
     private Checker projectGroupChecker;
+
+    @Resource
+    private UserConfigService userConfigService;
 
     @Override
     public String add(Map<String, String> params) throws Exception {
@@ -143,6 +149,53 @@ public class ProjectGroupServiceImpl extends BaseServiceImpl implements ProjectG
     @Override
     public List<ProjectGroup> getProjectGroupAll() {
         return profileComponent.getProjectGroupAll();
+    }
+
+    @Override
+    public List<ProjectGroup> getProjectGroupsByUser(String username) {
+        // 获取所有分组
+        List<ProjectGroup> allGroups = profileComponent.getProjectGroupAll();
+
+        if (StringUtil.isBlank(username)) {
+            return allGroups;
+        }
+
+        try {
+            // 获取用户信息
+            UserInfo userInfo = userConfigService.getUserInfo(username);
+            if (null == userInfo) {
+                return allGroups;
+            }
+
+            // 管理员返回所有分组
+            if (UserRoleEnum.isAdmin(userInfo.getRoleCode())) {
+                return allGroups;
+            }
+
+            // 普通用户，根据groupIds过滤
+            String groupIds = userInfo.getGroupIds();
+            if (StringUtil.isBlank(groupIds)) {
+                // 用户没有分配分组，返回空列表
+                return Collections.emptyList();
+            }
+
+            // 解析分组ID列表
+            String[] groupIdArray = StringUtil.split(groupIds, StringUtil.COMMA);
+            Set<String> userGroupIdSet = new HashSet<>();
+            for (String groupId : groupIdArray) {
+                if (StringUtil.isNotBlank(groupId)) {
+                    userGroupIdSet.add(groupId.trim());
+                }
+            }
+
+            // 过滤分组
+            return allGroups.stream()
+                    .filter(group -> userGroupIdSet.contains(group.getId()))
+                    .collect(Collectors.toList());
+
+        } catch (Exception e) {
+            return allGroups;
+        }
     }
 
 }

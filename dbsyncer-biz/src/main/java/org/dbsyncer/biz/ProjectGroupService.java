@@ -60,4 +60,13 @@ public interface ProjectGroupService {
      */
     List<ProjectGroup> getProjectGroupAll();
 
+    /**
+     * 根据用户获取分组列表
+     * 管理员返回所有分组，普通用户返回所属分组
+     *
+     * @param username 用户名
+     * @return 分组列表
+     */
+    List<ProjectGroup> getProjectGroupsByUser(String username);
+
 }
