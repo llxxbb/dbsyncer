@@ -16,6 +16,23 @@
                     <button id="mappingSubmitBtn" th:onclick="doMappingSubmit()"  th:attr="disabled=${mapping?.meta?.state eq 1}" type="button" class="btn btn-primary">
                         <span class="fa fa-save"></span>保存
                     </button>
+                    <!-- 启动/停止按钮 -->
+                    <a th:if="${mapping?.meta?.state ne 1}"
+                       th:attr="data-url='/mapping/start?id='+${mapping?.id}"
+                       href="javascript:;"
+                       id="mappingStartBtn"
+                       class="btn btn-success margin-right-5"
+                       title="启动任务">
+                        <i class="fa fa-play"></i> 启动
+                    </a>
+                    <a th:if="${mapping?.meta?.state eq 1}"
+                       th:attr="data-url='/mapping/stop?id='+${mapping?.id}"
+                       href="javascript:;"
+                       id="mappingStopBtn"
+                       class="btn btn-danger margin-right-5"
+                       title="停止任务">
+                        <i class="fa fa-stop"></i> 停止
+                    </a>
                 </div>
                 <h3>
                     <span id="mappingModifyName">[[${mapping?.name}]]</span>&nbsp;
