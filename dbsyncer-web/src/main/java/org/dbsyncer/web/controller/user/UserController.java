@@ -2,8 +2,10 @@ package org.dbsyncer.web.controller.user;
 
 import org.dbsyncer.biz.ProjectGroupService;
 import org.dbsyncer.biz.UserConfigService;
+import org.dbsyncer.biz.enums.UserRoleEnum;
 import org.dbsyncer.biz.vo.RestResult;
 import org.dbsyncer.biz.vo.UserInfoVo;
+import org.dbsyncer.parser.model.UserInfo;
 import org.dbsyncer.web.controller.BaseController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,6 +59,8 @@ public class UserController extends BaseController {
     public String pageEdit(ModelMap model, String username) throws Exception {
         String currentUserName = getUserName();
         model.put(UserConfigService.CURRENT_USER_NAME, currentUserName);
+        UserInfo currentUser = userConfigService.getUserInfo(currentUserName);
+        model.put("isAdmin", null != currentUser && UserRoleEnum.isAdmin(currentUser.getRoleCode()));
         model.put("currentUser", userConfigService.getUserInfoVo(currentUserName, username));
         model.put("projectGroups", projectGroupService.getProjectGroupAll());
         return "user/edit";

@@ -13,7 +13,7 @@
                     <div class="panel-heading" style="text-align: left; padding-left: 15px;">
                         <h3 class="panel-title" style="display: inline-block;">分组管理</h3>
                         <button type="button" style="display: inline-block;margin-left:24px" class="btn btn-default "
-                            id="addProjectGroupBtn">
+                            id="addProjectGroupBtn" th:if="${currentUser?.roleCode eq 'admin'}">
                             <span class="fa fa-plus"></span>添加分组([[${projectGroups?.size()} ?: 0]])
                         </button>
                     </div>
@@ -49,7 +49,7 @@
                                         th:attr="onclick='groupShow(\'' + ${g?.id} + '\')'"
                                         style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;">
                                     </button>
-                                    <div style="position: absolute; right: 0; top: 0; width: 40px; height: 100%; opacity: 0; transition: opacity 0.2s ease-in-out;">
+                                    <div style="position: absolute; right: 0; top: 0; width: 40px; height: 100%; opacity: 0; transition: opacity 0.2s ease-in-out;" th:if="${currentUser?.roleCode eq 'admin'}">
                                         <div class="dropdown" style="height: 100%;">
                                             <button type="button" class="btn dropdown-toggle"
                                                 data-toggle="dropdown"
@@ -83,7 +83,7 @@
                     <!-- 任务开始位置 -->
                     <div class="form-group" th:if="${connectorSize gt 0}">
                         <div class="col-md-12" style="display: flex; align-items: center; gap: 20px;">
-                            <button type="button" class="btn btn-primary" id="indexAddMappingBtn">
+                            <button type="button" class="btn btn-primary" id="indexAddMappingBtn" th:if="${currentUser?.roleCode eq 'admin'}">
                                 <span class="fa fa-plus"></span>添加任务([[${mappings?.size()} ?: 0]])
                             </button>
                             

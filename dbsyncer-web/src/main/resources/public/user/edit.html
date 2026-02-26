@@ -110,11 +110,17 @@ xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
 
 <script type="text/javascript" th:inline="javascript">
   const currentUserName = [[${currentUserName}]];
+  const isAdmin = [[${isAdmin}]];
 
   // 绑定多值输入框事件
   initMultipleInputTags();
   // 初始化多选下拉框
   initSelect($(".select-control-table"));
+  // 非管理员禁用组别选择框
+  if (!isAdmin) {
+    $("#groupIds").prop("disabled", true);
+    $("#groupIds").selectpicker("refresh");
+  }
   // 跳转用户管理
   function backUserIndexPage() {
     doLoader("/user?refresh=" + new Date().getTime());

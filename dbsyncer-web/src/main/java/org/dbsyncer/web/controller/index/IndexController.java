@@ -10,6 +10,8 @@ import org.dbsyncer.biz.ProjectGroupService;
 import org.dbsyncer.biz.UserConfigService;
 import org.dbsyncer.biz.vo.ProjectGroupVo;
 import org.dbsyncer.biz.vo.RestResult;
+import org.dbsyncer.biz.vo.UserInfoVo;
+import org.dbsyncer.parser.model.UserInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
@@ -58,6 +60,14 @@ public class IndexController {
             // 根据当前登录用户获取分组列表（管理员显示所有，普通用户显示所属分组）
             String currentUsername = getCurrentUsername();
             model.put("projectGroups", projectGroupService.getProjectGroupsByUser(currentUsername));
+            model.put("projectGroups", projectGroupService.getProjectGroupAll());
+
+            // 获取当前用户信息
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null) {
+                UserInfoVo currentUser = userConfigService.getUserInfoVo(currentUsername, currentUsername);
+                model.put("currentUser", currentUser);
+            }
         } catch (Exception e) {
             logger.error(e.getMessage(), e);
         }
