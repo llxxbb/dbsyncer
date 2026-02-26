@@ -29,14 +29,10 @@
                                         font-weight: bold;
                                     }
                                 </style>
-                                <div style="display: flex; align-items: center; padding: 8px 15px; position: relative; border-bottom: 1px solid #e0e0e0;"
-                                    th:classappend="${#strings.isEmpty(projectGroupId)} ? 'active-group-item'">
-                                    <img th:src="@{/img/File.png}"
-                                        style="width: 16px; height: 16px; margin-right: 10px;" />
+                                <div th:if="${currentUser?.roleCode eq 'admin'}" style="display: flex; align-items: center; padding: 8px 15px; position: relative; border-bottom: 1px solid #e0e0e0;" th:classappend="${#strings.isEmpty(projectGroupId)} ? 'active-group-item'">
+                                    <img th:src="@{/img/File.png}" style="width: 16px; height: 16px; margin-right: 10px;" />
                                     <span style="vertical-align: middle;">&nbsp;未分配</span>
-                                    <button type="button" class="btn btn-default btn-block text-left"
-                                        th:onclick="groupShow('')" 
-                                        style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;">
+                                    <button type="button" class="btn btn-default btn-block text-left" th:onclick="groupShow('')" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;">
                                     </button>
                                 </div>
                                 <div th:each="g,s:${projectGroups}" style="display: flex; align-items: center; padding: 8px 15px; position: relative; border-bottom: 1px solid #e0e0e0;"
@@ -247,7 +243,7 @@
 
                                                     <!-- 创建时间 -->
                                                     <td
-                                                        th:text="${#dates.format(m?.updateTime, 'yyyy-MM-dd HH:mm:ss')}">
+                                                        th:text="${#dates.format(m?.createTime, 'yyyy-MM-dd HH:mm:ss')}">
                                                     </td>
                                                 </tr>
                                             </tbody>

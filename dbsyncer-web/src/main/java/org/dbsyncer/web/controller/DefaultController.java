@@ -1,10 +1,14 @@
 package org.dbsyncer.web.controller;
 
 import org.dbsyncer.biz.SystemConfigService;
+import org.dbsyncer.biz.UserConfigService;
+import org.dbsyncer.biz.vo.UserInfoVo;
 import org.springframework.boot.web.server.ErrorPage;
 import org.springframework.boot.web.server.ErrorPageRegistrar;
 import org.springframework.boot.web.server.ErrorPageRegistry;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,10 +22,22 @@ public class DefaultController implements ErrorPageRegistrar {
 
     @Resource
     private SystemConfigService systemConfigService;
+    
+    @Resource
+    private UserConfigService userConfigService;
 
     @RequestMapping("")
     public String index(HttpServletRequest request, ModelMap model) throws Exception {
         model.put("enableCDN", systemConfigService.getSystemConfig().isEnableCDN());
+        
+        // 传递当前用户信息
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated()) {
+            String currentUsername = authentication.getName();
+            UserInfoVo currentUser = userConfigService.getUserInfoVo(currentUsername, currentUsername);
+            model.put("currentUser", currentUser);
+        }
+        
         return "index.html";
     }
 

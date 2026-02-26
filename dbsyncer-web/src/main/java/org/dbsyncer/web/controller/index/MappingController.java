@@ -12,6 +12,7 @@ import org.dbsyncer.parser.model.TableGroup;
 import org.dbsyncer.web.controller.BaseController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -42,12 +43,14 @@ public class MappingController extends BaseController {
     private TableGroupService tableGroupService;
 
     @GetMapping("/pageAdd")
+    @PreAuthorize("hasRole('admin')")
     public String page(ModelMap model) {
         model.put("connectors", connectorService.getConnectorAll());
         return "mapping/add";
     }
 
     @GetMapping("/page/{page}")
+    @PreAuthorize("hasPermission(#id, 'mapping', 'read')")
     public String page(ModelMap model, @PathVariable("page") String page, @RequestParam(value = "id") String id, Integer classOn, Integer exclude) throws Exception {
         model.put("mapping", mappingService.getMapping(id, exclude));
         model.put("classOn", classOn);
@@ -58,6 +61,7 @@ public class MappingController extends BaseController {
 
     @GetMapping("/get")
     @ResponseBody
+    @PreAuthorize("hasPermission(#id, 'mapping', 'read')")
     public RestResult get(@RequestParam(value = "id") String id) {
         try {
             MappingVo mapping = mappingService.getMapping(id);
@@ -75,6 +79,7 @@ public class MappingController extends BaseController {
 
     @GetMapping("/getTableGroups")
     @ResponseBody
+    @PreAuthorize("hasPermission(#id, 'mapping', 'read')")
     public RestResult getTableGroups(@RequestParam(value = "id") String id) {
         try {
             List<TableGroup> tableGroups = tableGroupService.getTableGroupAll(id);
@@ -110,6 +115,7 @@ public class MappingController extends BaseController {
 
     @PostMapping("/copy")
     @ResponseBody
+    @PreAuthorize("hasRole('admin')")
     public RestResult add(@RequestParam("id") String id) {
         try {
             return RestResult.restSuccess(mappingService.copy(id));
@@ -121,6 +127,7 @@ public class MappingController extends BaseController {
 
     @PostMapping(value = "/add")
     @ResponseBody
+    @PreAuthorize("hasRole('admin')")
     public RestResult add(HttpServletRequest request) {
         try {
             Map<String, String> params = getParams(request);
@@ -133,6 +140,7 @@ public class MappingController extends BaseController {
 
     @PostMapping(value = "/edit")
     @ResponseBody
+    @PreAuthorize("hasRole('admin')")
     public RestResult edit(HttpServletRequest request) {
         try {
             Map<String, String> params = getParams(request);
@@ -149,6 +157,7 @@ public class MappingController extends BaseController {
 
     @PostMapping("/remove")
     @ResponseBody
+    @PreAuthorize("hasRole('admin')")
     public RestResult remove(@RequestParam(value = "id") String id) {
         try {
             return RestResult.restSuccess(mappingService.remove(id));
@@ -160,6 +169,7 @@ public class MappingController extends BaseController {
 
     @PostMapping("/start")
     @ResponseBody
+    @PreAuthorize("hasPermission(#id, 'mapping', 'start')")
     public RestResult start(@RequestParam(value = "id") String id) {
         try {
             return RestResult.restSuccess(mappingService.start(id));
@@ -171,6 +181,7 @@ public class MappingController extends BaseController {
 
     @PostMapping("/stop")
     @ResponseBody
+    @PreAuthorize("hasPermission(#id, 'mapping', 'stop')")
     public RestResult stop(@RequestParam(value = "id") String id) {
         try {
             return RestResult.restSuccess(mappingService.stop(id));
@@ -182,6 +193,7 @@ public class MappingController extends BaseController {
 
     @PostMapping("/reset")
     @ResponseBody
+    @PreAuthorize("hasRole('admin')")
     public RestResult reset(@RequestParam(value = "id") String id) {
         try {
             return RestResult.restSuccess(mappingService.reset(id));
@@ -193,6 +205,7 @@ public class MappingController extends BaseController {
 
     @PostMapping(value = "/refreshTables")
     @ResponseBody
+    @PreAuthorize("hasRole('admin')")
     public RestResult refreshTables(@RequestParam(value = "id") String id) {
         try {
             return RestResult.restSuccess(mappingService.refreshMappingTables(id));

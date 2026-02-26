@@ -12,6 +12,7 @@ import org.dbsyncer.parser.model.ProjectGroup;
 import org.dbsyncer.web.controller.BaseController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,6 +36,7 @@ import java.util.stream.Collectors;
  **/
 @Controller
 @RequestMapping("/projectGroup")
+@PreAuthorize("hasRole('admin')")
 public class ProjectGroupController extends BaseController {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());

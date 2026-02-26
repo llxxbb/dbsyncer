@@ -6,12 +6,12 @@ package org.dbsyncer.web.controller.index;
 import org.dbsyncer.biz.vo.MappingJsonVo;
 import org.dbsyncer.biz.vo.MappingVo;
 import org.dbsyncer.biz.AppConfigService;
+import org.dbsyncer.biz.PermissionService;
 import org.dbsyncer.biz.ProjectGroupService;
 import org.dbsyncer.biz.UserConfigService;
 import org.dbsyncer.biz.vo.ProjectGroupVo;
 import org.dbsyncer.biz.vo.RestResult;
 import org.dbsyncer.biz.vo.UserInfoVo;
-import org.dbsyncer.parser.model.UserInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
@@ -24,7 +24,9 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.annotation.Resource;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * @author cdeluser
@@ -44,25 +46,42 @@ public class IndexController {
     @Resource
     private UserConfigService userConfigService;
 
+    @Resource
+    private PermissionService permissionService;
+
     @GetMapping("")
     public String index(ModelMap model, String projectGroupId) {
         try {
+            String currentUsername = getCurrentUsername();
+
+            if (!permissionService.hasGroupAccess(currentUsername)) {
+                model.put("connectorSize", 0);
+                model.put("connectors", Collections.emptyList());
+                model.put("mappings", Collections.emptyList());
+                model.put("projectGroupId", "");
+                model.put("projectGroups", Collections.emptyList());
+                model.put("noGroupAccess", true);
+                UserInfoVo currentUser = userConfigService.getUserInfoVo(currentUsername, currentUsername);
+                model.put("currentUser", currentUser);
+                return "index/index.html";
+            }
+
             ProjectGroupVo projectGroup = new ProjectGroupVo();
             if ("".equals(projectGroupId)) {
                 projectGroup = projectGroupService.getProjectGroupUnUsed();
             }else {
                 projectGroup = projectGroupService.getProjectGroup(projectGroupId);
             }
+
+            List<MappingVo> filteredMappings = filterMappingsByPermission(projectGroup.getMappings(), currentUsername);
+
             model.put("connectorSize", projectGroup.getConnectorSize());
             model.put("connectors", projectGroup.getConnectors());
-            model.put("mappings", projectGroup.getMappings());
+            model.put("mappings", filteredMappings);
             model.put("projectGroupId", projectGroupId);
-            // 根据当前登录用户获取分组列表（管理员显示所有，普通用户显示所属分组）
-            String currentUsername = getCurrentUsername();
             model.put("projectGroups", projectGroupService.getProjectGroupsByUser(currentUsername));
-            model.put("projectGroups", projectGroupService.getProjectGroupAll());
+            model.put("noGroupAccess", false);
 
-            // 获取当前用户信息
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             if (authentication != null) {
                 UserInfoVo currentUser = userConfigService.getUserInfoVo(currentUsername, currentUsername);
@@ -90,6 +109,12 @@ public class IndexController {
     @GetMapping("/mappingdata")
     public RestResult mappingdata(ModelMap model, String projectGroupId) {
         try {
+            String currentUsername = getCurrentUsername();
+
+            if (!permissionService.hasGroupAccess(currentUsername)) {
+                return RestResult.restSuccess(Collections.emptyList());
+            }
+
             ProjectGroupVo projectGroup = new ProjectGroupVo();
             if ("".equals(projectGroupId)) {
                 projectGroup = projectGroupService.getProjectGroupUnUsed();
@@ -98,13 +123,10 @@ public class IndexController {
                 projectGroup = projectGroupService.getProjectGroup(projectGroupId);
             }
             List<MappingVo> mappings = projectGroup.getMappings();
-//            model.put("connectorSize", projectGroup.getConnectorSize());
-//            model.put("connectors", projectGroup.getConnectors());
-//            model.put("mappings",mappings);
-//            model.put("projectGroupId", projectGroupId);
-//            model.put("projectGroups", projectGroupService.getProjectGroupAll());
+            List<MappingVo> filteredMappings = filterMappingsByPermission(mappings, currentUsername);
+
             List<MappingJsonVo> resultMapping = new ArrayList<>();
-            for (MappingVo mapping : mappings){
+            for (MappingVo mapping : filteredMappings){
                 MappingJsonVo mappingJsonVo =new MappingJsonVo();
                 mappingJsonVo.setId(mapping.getId());
                 mappingJsonVo.setMeta(mapping.getMeta());
@@ -132,6 +154,12 @@ public class IndexController {
     @ResponseBody
     public RestResult searchMapping(String keyword, String projectGroupId, String state, String sourceConnectorType, String targetConnectorType) {
         try {
+            String currentUsername = getCurrentUsername();
+
+            if (!permissionService.hasGroupAccess(currentUsername)) {
+                return RestResult.restSuccess(Collections.emptyList());
+            }
+
             ProjectGroupVo projectGroup = new ProjectGroupVo();
             if ("".equals(projectGroupId)) {
                 projectGroup = projectGroupService.getProjectGroupUnUsed();
@@ -140,9 +168,10 @@ public class IndexController {
                 projectGroup = projectGroupService.getProjectGroup(projectGroupId);
             }
             List<MappingVo> mappings = projectGroup.getMappings();
+            List<MappingVo> filteredMappings = filterMappingsByPermission(mappings, currentUsername);
             List<MappingJsonVo> resultMapping = new ArrayList<>();
 
-            for (MappingVo mapping : mappings) {
+            for (MappingVo mapping : filteredMappings) {
                 boolean matchKeyword = keyword == null || keyword.trim().isEmpty() ||
                         (mapping.getName() != null && mapping.getName().toLowerCase().contains(keyword.toLowerCase()));
                 
@@ -179,5 +208,14 @@ public class IndexController {
     public RestResult version() throws Exception {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         return RestResult.restSuccess(appConfigService.getVersionInfo(authentication.getName()));
+    }
+
+    private List<MappingVo> filterMappingsByPermission(List<MappingVo> mappings, String username) {
+        if (mappings == null) {
+            return Collections.emptyList();
+        }
+        return mappings.stream()
+                .filter(mapping -> permissionService.canAccessMapping(username, mapping.getId()))
+                .collect(Collectors.toList());
     }
 }

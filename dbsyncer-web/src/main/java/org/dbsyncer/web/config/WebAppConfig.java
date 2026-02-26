@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
@@ -23,6 +24,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
 
 import javax.annotation.Resource;
@@ -41,6 +43,7 @@ import java.util.List;
  */
 @Configuration
 @EnableWebSecurity
+@EnableGlobalMethodSecurity(prePostEnabled = true)
 @ConfigurationProperties(prefix = "dbsyncer.web.security")
 public class WebAppConfig extends WebSecurityConfigurerAdapter implements AuthenticationProvider, HttpSessionListener {
 
@@ -63,6 +66,9 @@ public class WebAppConfig extends WebSecurityConfigurerAdapter implements Authen
 
     @Resource
     private UserConfigService userConfigService;
+
+    @Resource
+    private AccessDeniedHandler accessDeniedHandler;
 
     /**
      * 是否重置管理员密码
@@ -136,7 +142,11 @@ public class WebAppConfig extends WebSecurityConfigurerAdapter implements Authen
                 .sessionManagement()
                 .sessionFixation()
                 .migrateSession()
-                .maximumSessions(MAXIMUM_SESSIONS);
+                .maximumSessions(MAXIMUM_SESSIONS)
+                .and()
+                .and()
+                .exceptionHandling()
+                .accessDeniedHandler(accessDeniedHandler);
     }
 
     @Override
@@ -164,7 +174,7 @@ public class WebAppConfig extends WebSecurityConfigurerAdapter implements Authen
         if (null == userInfo || !StringUtil.equals(userInfo.getPassword(), password)) {
             throw new BadCredentialsException("对不起,您输入的帐号或密码错误");
         }
-        List<GrantedAuthority> authorities = AuthorityUtils.commaSeparatedStringToAuthorityList(userInfo.getRoleCode());
+        List<GrantedAuthority> authorities = AuthorityUtils.commaSeparatedStringToAuthorityList("ROLE_" + userInfo.getRoleCode());
         return new UsernamePasswordAuthenticationToken(username, password, authorities);
     }
 

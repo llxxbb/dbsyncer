@@ -29,6 +29,7 @@ import org.springframework.boot.actuate.health.HealthEndpoint;
 import org.springframework.boot.actuate.health.SystemHealth;
 import org.springframework.boot.actuate.metrics.MetricsEndpoint;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -81,6 +82,7 @@ public class MonitorController extends BaseController {
     private HistoryStackValueFormatter memoryHistoryStackValueFormatterImpl;
 
     @RequestMapping("")
+    @PreAuthorize("hasRole('admin')")
     public String index(HttpServletRequest request, ModelMap model) {
         Map<String, String> params = getParams(request);
         model.put("metaId", monitorService.getDefaultMetaId(params));
@@ -93,6 +95,7 @@ public class MonitorController extends BaseController {
     }
 
     @GetMapping("/page/retry")
+    @PreAuthorize("hasRole('admin')")
     public String page(ModelMap model, String metaId, String messageId) throws Exception {
         model.put("meta", monitorService.getMetaVo(metaId));
         model.put("message", dataSyncService.getMessageVo(metaId, messageId));
@@ -121,6 +124,7 @@ public class MonitorController extends BaseController {
 
     @GetMapping("/queryData")
     @ResponseBody
+    @PreAuthorize("hasRole('admin')")
     public RestResult queryData(HttpServletRequest request) {
         try {
             Map<String, String> params = getParams(request);
@@ -133,6 +137,7 @@ public class MonitorController extends BaseController {
 
     @GetMapping("/queryLog")
     @ResponseBody
+    @PreAuthorize("hasRole('admin')")
     public RestResult queryLog(HttpServletRequest request) {
         try {
             Map<String, String> params = getParams(request);
@@ -145,6 +150,7 @@ public class MonitorController extends BaseController {
 
     @PostMapping("/sync")
     @ResponseBody
+    @PreAuthorize("hasRole('admin')")
     public RestResult sync(HttpServletRequest request) {
         try {
             Map<String, String> params = getParams(request);
@@ -157,6 +163,7 @@ public class MonitorController extends BaseController {
 
     @PostMapping("/retryAll")
     @ResponseBody
+    @PreAuthorize("hasRole('admin')")
     public RestResult retryAll(String metaId) {
         try {
             Map<String, Object> result = dataSyncService.retryAll(metaId);
@@ -169,6 +176,7 @@ public class MonitorController extends BaseController {
 
     @PostMapping("/clearData")
     @ResponseBody
+    @PreAuthorize("hasRole('admin')")
     public RestResult clearData(String id) {
         try {
             return RestResult.restSuccess(monitorService.clearData(id));
@@ -180,6 +188,7 @@ public class MonitorController extends BaseController {
 
     @PostMapping("/clearLog")
     @ResponseBody
+    @PreAuthorize("hasRole('admin')")
     public RestResult clearLog() {
         try {
             return RestResult.restSuccess(monitorService.clearLog());

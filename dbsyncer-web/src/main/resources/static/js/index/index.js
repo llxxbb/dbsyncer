@@ -352,8 +352,10 @@ function refreshMappingList() {
                                             // 更新创建时间列
                                             var $createTimeColumn = $listElement.find('td:nth-child(7)');
                                             var createTimeHtml = '-';
-                                            if (updateTime > 0) {
-                                                var date = new Date(updateTime);
+                                            // 使用 createTime 而不是 updateTime 来显示创建时间
+                                            var createTime = meta.createTime || 0;
+                                            if (createTime > 0) {
+                                                var date = new Date(createTime);
                                                 createTimeHtml = date.getFullYear() + '-' +
                                                     String(date.getMonth() + 1).padStart(2, '0') + '-' +
                                                     String(date.getDate()).padStart(2, '0') + ' ' +

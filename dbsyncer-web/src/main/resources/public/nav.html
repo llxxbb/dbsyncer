@@ -12,10 +12,10 @@
                 <li class="active"><a href="javascript:void(0);"  data-route="1" url="/index?projectGroupId="><span
                         class="fa fa-tachometer"></span>任务</a>
                 </li>
-                 <li><a href="javascript:void(0);" url="/datasource" data-route="2"><span class="fa fa-database"></span>数据源</a></li>
-                <li><a href="javascript:void(0);" url="/monitor" data-route="3"><span class="fa fa-line-chart"></span>监控</a></li>
-                <li><a href="javascript:void(0);" url="/plugin" data-route="4"><span class="fa fa-puzzle-piece" aria-hidden="true"></span>插件</a></li>
-                <li class="dropdown">
+                 <li th:if="${currentUser?.roleCode eq 'admin'}"><a href="javascript:void(0);" url="/datasource" data-route="2"><span class="fa fa-database"></span>数据源</a></li>
+                <li th:if="${currentUser?.roleCode eq 'admin'}"><a href="javascript:void(0);" url="/monitor" data-route="3"><span class="fa fa-line-chart"></span>监控</a></li>
+                <li th:if="${currentUser?.roleCode eq 'admin'}"><a href="javascript:void(0);" url="/plugin" data-route="4"><span class="fa fa-puzzle-piece" aria-hidden="true"></span>插件</a></li>
+                <li th:if="${currentUser?.roleCode eq 'admin'}" class="dropdown">
                     <a href="javascript:void(0);" class="dropdown-toggle" data-toggle="dropdown">配置<b class="caret"></b></a>
                     <ul class="dropdown-menu">
                         <li><a href="javascript:void(0);" url="/system" data-route="5"><span class="fa fa-cog"></span>系统参数</a></li>

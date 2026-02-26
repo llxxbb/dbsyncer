@@ -9,6 +9,7 @@ import org.dbsyncer.parser.model.UserInfo;
 import org.dbsyncer.web.controller.BaseController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
@@ -50,6 +51,7 @@ public class UserController extends BaseController {
     }
 
     @GetMapping("/page/add")
+    @PreAuthorize("hasRole('admin')")
     public String pageAdd(ModelMap model) {
         model.put("projectGroups", projectGroupService.getProjectGroupAll());
         return "user/add";
