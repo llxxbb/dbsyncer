@@ -4,6 +4,7 @@ import org.dbsyncer.biz.ConnectorService;
 import org.dbsyncer.biz.MappingService;
 import org.dbsyncer.biz.TargetTableNotExistsException;
 import org.dbsyncer.biz.TableGroupService;
+import org.dbsyncer.biz.UserConfigService;
 import org.dbsyncer.biz.vo.MappingJsonVo;
 import org.dbsyncer.biz.vo.MappingVo;
 import org.dbsyncer.biz.vo.ProjectGroupVo;
@@ -42,6 +43,9 @@ public class MappingController extends BaseController {
     @Resource
     private TableGroupService tableGroupService;
 
+    @Resource
+    private UserConfigService userConfigService;
+
     @GetMapping("/pageAdd")
     @PreAuthorize("hasRole('admin')")
     public String page(ModelMap model) {
@@ -56,6 +60,15 @@ public class MappingController extends BaseController {
         model.put("classOn", classOn);
         model.put("tableGroups", tableGroupService.getTableGroupAll(id));
         initConfig(model);
+        
+        // 获取当前登录用户信息
+        org.springframework.security.core.Authentication authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated()) {
+            String currentUsername = authentication.getName();
+            org.dbsyncer.biz.vo.UserInfoVo currentUser = userConfigService.getUserInfoVo(currentUsername, currentUsername);
+            model.put("currentUser", currentUser);
+        }
+        
         return "mapping/" + page;
     }
 
@@ -140,7 +153,6 @@ public class MappingController extends BaseController {
 
     @PostMapping(value = "/edit")
     @ResponseBody
-    @PreAuthorize("hasRole('admin')")
     public RestResult edit(HttpServletRequest request) {
         try {
             Map<String, String> params = getParams(request);
@@ -205,7 +217,6 @@ public class MappingController extends BaseController {
 
     @PostMapping(value = "/refreshTables")
     @ResponseBody
-    @PreAuthorize("hasRole('admin')")
     public RestResult refreshTables(@RequestParam(value = "id") String id) {
         try {
             return RestResult.restSuccess(mappingService.refreshMappingTables(id));
