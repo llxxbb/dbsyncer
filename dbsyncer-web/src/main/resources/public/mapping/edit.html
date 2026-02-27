@@ -39,13 +39,14 @@
                     <i th:onclick="mappingModifyName()" th:title="点击修改名称" class="fa fa-edit well-sign-green dbsyncer_pointer"></i>
                     
                     <span class="mapping-operation-buttons" style="margin-left: 20px;">
-                        <a th:attr="data-url='/mapping/copy?id='+${mapping?.id}"
+                        <a th:if="${currentUser?.roleCode eq 'admin'}"
+                           th:attr="data-url='/mapping/copy?id='+${mapping?.id}"
                            href="javascript:;"
                            class="btn btn-info margin-right-5"
                            title="复制任务">
                             <i class="fa fa-copy"></i> 复制
                         </a>
-                        <a th:if="${mapping?.meta?.state ne 1}"
+                        <a th:if="${currentUser?.roleCode eq 'admin' and mapping?.meta?.state ne 1}"
                            th:attr="data-url='/mapping/remove?id='+${mapping?.id}"
                            href="javascript:;"
                            confirm="true"
@@ -54,7 +55,8 @@
                            title="删除任务">
                             <i class="fa fa-trash"></i> 删除
                         </a>
-                        <a th:attr="data-url='/mapping/reset?id='+${mapping?.id}"
+                        <a th:if="${currentUser?.roleCode eq 'admin'}"
+                           th:attr="data-url='/mapping/reset?id='+${mapping?.id}"
                            href="javascript:;"
                            confirm="true"
                            confirmMessage="确认重置任务?"
@@ -62,7 +64,7 @@
                            title="重置任务">
                             <i class="fa fa-refresh"></i> 重置
                         </a>
-                                                <a th:if="${mapping?.meta?.fail gt 0}"
+                                                <a th:if="${currentUser?.roleCode eq 'admin' and mapping?.meta?.fail gt 0}"
                            th:attr="id=${mapping?.id}"
                            href="javascript:;"
                            class="btn btn-default margin-right-5 queryData"
@@ -200,7 +202,7 @@
                             概括
                         </a>
                     </li>
-                    <li role="presentation">
+                    <li role="presentation" th:if="${currentUser?.roleCode eq 'admin'}">
                         <a href="#mappingSuperConfig" aria-controls="mappingSuperConfig" role="tab" data-toggle="tab">
                             高级配置
                             <small class="text-muted" title="该配置使所有映射关系都生效">（全局）</small>
@@ -212,7 +214,7 @@
                             <small class="text-muted" title="该配置使所有映射关系都生效">（全局）</small>
                         </a>
                     </li>
-                    <li role="presentation">
+                    <li role="presentation" th:if="${currentUser?.roleCode eq 'admin'}">
                         <a href="#mappingErrorQueue" aria-controls="mappingErrorQueue" role="tab" data-toggle="tab">
                             错误队列
                         </a>
