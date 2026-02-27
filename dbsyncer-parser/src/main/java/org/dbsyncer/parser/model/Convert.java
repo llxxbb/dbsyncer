@@ -2,6 +2,7 @@ package org.dbsyncer.parser.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.dbsyncer.parser.enums.ConvertEnum;
+import org.dbsyncer.sdk.model.Field;
 
 /**
  * 字段转换
@@ -9,7 +10,7 @@ import org.dbsyncer.parser.enums.ConvertEnum;
 public class Convert {
 
     /**
-     * 转换器实例ID（前端自动生成）
+     * 转换器实例 ID（前端自动生成）
      * 格式：纯数字，如：0, 1, 2
      */
     private String id;
@@ -43,6 +44,12 @@ public class Convert {
      * 是否根转换器（新增的转换器为 true）
      */
     private boolean isRoot;
+
+    /**
+     * 字段元数据（自定义字段时填充）
+     * 包含字段类型、长度、精度、是否允许为空、注释等信息
+     */
+    private Field fieldMetadata;
 
     /**
      * 模板解析结果缓存（仅根转换器使用）
@@ -99,6 +106,14 @@ public class Convert {
 
     public void setRoot(boolean isRoot) {
         this.isRoot = isRoot;
+    }
+
+    public Field getFieldMetadata() {
+        return fieldMetadata;
+    }
+
+    public void setFieldMetadata(Field fieldMetadata) {
+        this.fieldMetadata = fieldMetadata;
     }
 
     public ParseResult getParseResultCache() {

@@ -122,7 +122,87 @@
     </div>
 
     <!-- 隐藏表单值 -->
+    <!-- 隐藏表单值 -->
     <div class="form-group hidden">
+        <input id="convert" name="convert" class="form-control" type="text"/>
+    </div>
+
+    <!-- 字段编辑对话框 -->
+    <div id="fieldEditDialog" class="modal fade" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                    <h4 class="modal-title">编辑字段信息</h4>
+                </div>
+                <div class="modal-body">
+                    <form id="fieldEditForm" class="form-horizontal">
+                        <div class="form-group">
+                            <label class="col-sm-3 control-label">字段名称</label>
+                            <div class="col-sm-9">
+                                <input type="text" class="form-control" id="fieldName" placeholder="字段名" required/>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="col-sm-3 control-label">字段类型</label>
+                            <div class="col-sm-9">
+                                <select id="fieldType" class="form-control selectpicker" data-live-search="true">
+                                    <option value="">请选择</option>
+                                    <option value="VARCHAR">VARCHAR - 可变长度字符串</option>
+                                    <option value="CHAR">CHAR - 固定长度字符串</option>
+                                    <option value="INT">INT - 整数</option>
+                                    <option value="BIGINT">BIGINT - 长整数</option>
+                                    <option value="DECIMAL">DECIMAL - 高精度数字</option>
+                                    <option value="FLOAT">FLOAT - 浮点数</option>
+                                    <option value="DOUBLE">DOUBLE - 双精度浮点数</option>
+                                    <option value="DATE">DATE - 日期</option>
+                                    <option value="TIME">TIME - 时间</option>
+                                    <option value="TIMESTAMP">TIMESTAMP - 时间戳</option>
+                                    <option value="BOOLEAN">BOOLEAN - 布尔值</option>
+                                    <option value="TEXT">TEXT - 长文本</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group" id="fieldSizeGroup" style="display:none;">
+                            <label class="col-sm-3 control-label">长度</label>
+                            <div class="col-sm-9">
+                                <input type="number" class="form-control" id="fieldSize" placeholder="长度" min="1" max="65535"/>
+                            </div>
+                        </div>
+                        <div class="form-group" id="fieldScaleGroup" style="display:none;">
+                            <label class="col-sm-3 control-label">精度</label>
+                            <div class="col-sm-9">
+                                <input type="number" class="form-control" id="fieldScale" placeholder="小数位数" min="0" max="30"/>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="col-sm-3 control-label">允许为空</label>
+                            <div class="col-sm-9">
+                                <label class="checkbox-inline">
+                                    <input type="checkbox" id="fieldNullable" checked/> 是
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="col-sm-3 control-label">字段注释</label>
+                            <div class="col-sm-9">
+                                <input type="text" class="form-control" id="fieldComment" placeholder="注释"/>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="confirmFieldEdit">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+</html>
         <input id="convert" name="convert" class="form-control" type="text"/>
     </div>
 

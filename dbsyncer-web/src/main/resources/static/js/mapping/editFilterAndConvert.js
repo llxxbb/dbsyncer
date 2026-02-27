@@ -72,7 +72,67 @@ function initConvertParams(){
     var existingConverts = [];
     
     // 先收集现有的转换器，获取最大ID
+    // 先收集现有的转换器，获取最大ID
     $convertList.find("tr").each(function(k,v){
+        var convert = $(this).find("td:eq(0)");
+        var convertCode = convert.attr("value");
+        var convertName = convert.text().replace(/\n/g,'').trim();
+        var tf = $(this).find("td:eq(1)").text();
+        var args = $(this).find("td:eq(2)").text();
+        var isRoot = $(this).attr("data-isroot") === "true";
+        
+        // 获取 fieldMetadata（如果有）
+        var fieldMetadataStr = $(this).attr("data-fieldmetadata");
+        var fieldMetadata = null;
+        if (fieldMetadataStr) {
+            try {
+                fieldMetadata = JSON.parse(fieldMetadataStr);
+            } catch (e) {
+                console.warn("解析 fieldMetadata 失败:", e);
+            }
+        }
+        
+        existingConverts.push({
+            id: $(this).attr("data-id"),
+            name: tf,
+            convertName: convertName,
+            convertCode: convertCode,
+            args: args,
+            isRoot: isRoot,
+            fieldMetadata: fieldMetadata
+        });
+    });
+    
+    // 更新所有转换器的 isRoot 状态：最后一个新增的是根
+    updateAllConvertRoots(existingConverts);
+    
+    // 生成JSON
+    existingConverts.forEach(function(c) {
+        var convertData = {
+            id: c.id,
+            name: c.name,
+            convertName: c.convertName,
+            convertCode: c.convertCode,
+            args: c.args,
+            isRoot: c.isRoot
+        };
+        
+        // 如果有 fieldMetadata，添加到数据中
+        if (c.fieldMetadata) {
+            convertData.fieldMetadata = c.fieldMetadata;
+        }
+        
+        row.push(convertData);
+    });
+            id: $(this).attr("data-id"),
+            name: tf,
+            convertName: convertName,
+            convertCode: convertCode,
+            args: args,
+            isRoot: isRoot,
+            fieldMetadata: fieldMetadata
+        });
+    });
         var convert = $(this).find("td:eq(0)");
         var convertCode = convert.attr("value");
         var convertName = convert.text().replace(/\n/g,'').trim();
@@ -88,6 +148,13 @@ function initConvertParams(){
             args: args,
             isRoot: isRoot
         });
+            id: $(this).attr("data-id"),
+            name: tf,
+            convertName: convertName,
+            convertCode: convertCode,
+            args: args,
+            isRoot: isRoot
+        });
     });
     
     // 更新所有转换器的 isRoot 状态：最后一个新增的是根
@@ -95,6 +162,22 @@ function initConvertParams(){
     
     // 生成JSON
     existingConverts.forEach(function(c) {
+        var convertData = {
+            id: c.id,
+            name: c.name,
+            convertName: c.convertName,
+            convertCode: c.convertCode,
+            args: c.args,
+            isRoot: c.isRoot
+        };
+        
+        // 如果有 fieldMetadata，添加到数据中
+        if (c.fieldMetadata) {
+            convertData.fieldMetadata = c.fieldMetadata;
+        }
+        
+        row.push(convertData);
+    });
         row.push({
             id: c.id,
             name: c.name,
@@ -162,7 +245,138 @@ function bindAddSourceFieldClick() {
 }
 
 // 绑定添加目标字段按钮点击事件
+// 绑定添加目标字段按钮点击事件
 function bindAddTargetFieldClick() {
+    $("#addTargetFieldBtn").on('click', function() {
+        openFieldEditDialog(null);
+    });
+}
+
+// 打开字段编辑对话框
+function openFieldEditDialog(existingField) {
+    // 重置表单
+    $('#fieldEditForm')[0].reset();
+    
+    // 如果是编辑现有字段，填充数据
+    if (existingField) {
+        $('#fieldName').val(existingField.name);
+        $('#fieldType').selectpicker('val', existingField.typeName);
+        $('#fieldSize').val(existingField.columnSize || '');
+        $('#fieldScale').val(existingField.ratio || '');
+        $('#fieldNullable').prop('checked', existingField.nullable !== false);
+        $('#fieldComment').val(existingField.comment || '');
+    }
+    
+    // 初始化类型选择联动
+    initFieldTypeChange();
+    
+    // 显示对话框
+    $('#fieldEditDialog').modal('show');
+}
+
+// 初始化字段类型变化联动
+function initFieldTypeChange() {
+    var $fieldType = $('#fieldType');
+    $fieldType.off('changed.bs.select').on('changed.bs.select', function() {
+        var typeName = $(this).val();
+        // 控制长度输入框显示
+        var needSize = ['VARCHAR', 'CHAR', 'NVARCHAR', 'NCHAR', 'DECIMAL', 'NUMERIC'].indexOf(typeName) >= 0;
+        if (needSize) {
+            $('#fieldSizeGroup').show();
+        } else {
+            $('#fieldSizeGroup').hide();
+            $('#fieldSize').val('');
+        }
+        // 控制精度输入框显示
+        var needScale = ['DECIMAL', 'NUMERIC'].indexOf(typeName) >= 0;
+        if (needScale) {
+            $('#fieldScaleGroup').show();
+        } else {
+            $('#fieldScaleGroup').hide();
+            $('#fieldScale').val('');
+        }
+    });
+    // 触发一次变化事件
+    $fieldType.trigger('changed.bs.select');
+}
+
+// 保存自定义字段
+function saveCustomField() {
+    var fieldName = $('#fieldName').val().trim();
+    var fieldType = $('#fieldType').val();
+    var fieldSize = $('#fieldSize').val();
+    var fieldScale = $('#fieldScale').val();
+    var fieldNullable = $('#fieldNullable').is(':checked');
+    var fieldComment = $('#fieldComment').val().trim();
+    
+    // 验证必填字段
+    if (!fieldName) {
+        bootGrowl("字段名称不能为空", "danger");
+        $('#fieldName').focus();
+        return;
+    }
+    
+    if (!fieldType) {
+        bootGrowl("请选择字段类型", "danger");
+        return;
+    }
+    
+    // 类型编码映射
+    var typeCodeMap = {
+        'VARCHAR': 12,
+        'CHAR': 1,
+        'INT': 4,
+        'BIGINT': -5,
+        'DECIMAL': 3,
+        'NUMERIC': 2,
+        'FLOAT': 6,
+        'DOUBLE': 8,
+        'DATE': 91,
+        'TIME': 92,
+        'TIMESTAMP': 93,
+        'BOOLEAN': 16,
+        'TEXT': 2005
+    };
+    
+    // 构建 Field 对象
+    var fieldMetadata = {
+        name: fieldName,
+        typeName: fieldType,
+        type: typeCodeMap[fieldType] || 12,
+        columnSize: fieldSize ? parseInt(fieldSize) : 0,
+        ratio: fieldScale ? parseInt(fieldScale) : 0,
+        nullable: fieldNullable,
+        comment: fieldComment,
+        pk: false,
+        autoincrement: false
+    };
+    
+    // 添加到下拉列表
+    var $select = $("#convertTargetField");
+    var optionExists = $select.find('option[value="' + fieldName + '"]').length > 0;
+    
+    if (optionExists) {
+        bootGrowl("字段已存在，已为您选中", "info");
+        $select.selectpicker('val', fieldName);
+    } else {
+        // 创建新选项，将 fieldMetadata 存储在 data 属性中
+        var $option = new Option(fieldName + ' (' + fieldType + ')', fieldName, false, true);
+        $select.append($option);
+        $($option).data('fieldMetadata', fieldMetadata);
+        $select.selectpicker('refresh');
+        $select.selectpicker('val', fieldName);
+        bootGrowl("字段添加成功", "success");
+    }
+    
+    $('#fieldEditDialog').modal('hide');
+}
+
+// 绑定字段编辑对话框确认按钮
+$(document).ready(function() {
+    $('#confirmFieldEdit').on('click', function() {
+        saveCustomField();
+    });
+});
     $("#addTargetFieldBtn").on('click', function() {
         var $select = $("#convertTargetField");
         var customFieldName = prompt("请输入自定义目标字段名称：", "");
@@ -311,7 +525,37 @@ function bindConvertAddClick() {
         });
         if(repeated){ return; }
 
+        // 获取选中选项的 fieldMetadata（如果有）
+        var $selectedFieldOption = $("#convertTargetField option:selected");
+        var fieldMetadata = $selectedFieldOption.data('fieldMetadata');
+        
         var trHtml = "<tr";
+        trHtml += " data-id='" + nextId + "'";
+        trHtml += " data-isroot='true'";
+        if (fieldMetadata) {
+            trHtml += " data-fieldmetadata='" + JSON.stringify(fieldMetadata).replace(/'/g, "\\'") + "'";
+        }
+        trHtml += ">";
+        trHtml += "<td value='" + convertOperatorVal + "'>" + convertOperatorText + "</td>";
+        trHtml += "<td>" + convertTargetField + "</td>";
+        trHtml += "<td>" + convertArg + "</td>";
+        trHtml += "<td><a class='fa fa-remove fa-2x convertDelete dbsyncer_pointer' title='删除' ></a></td>";
+        trHtml += "</tr>";
+        $convertList.append(trHtml);
+        // 清空参数
+        $(".convertParam").val("");
+        initConvert();
+    });
+}
+        trHtml += " data-id='" + nextId + "'";
+        trHtml += " data-isroot='true'";
+        trHtml += ">";
+        trHtml += "<td value='" + convertOperatorVal + "'>" + convertOperatorText + "</td>";
+        trHtml += "<td>" + convertTargetField + "</td>";
+        trHtml += "<td>" + convertArg + "</td>";
+        trHtml += "<td><a class='fa fa-remove fa-2x convertDelete dbsyncer_pointer' title='删除' ></a></td>";
+        trHtml += "</tr>";
+        $convertList.append(trHtml);
         trHtml += " data-id='" + nextId + "'";
         trHtml += " data-isroot='true'";
         trHtml += ">";

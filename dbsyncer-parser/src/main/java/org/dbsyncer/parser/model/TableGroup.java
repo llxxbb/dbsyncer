@@ -200,6 +200,22 @@ public class TableGroup extends AbstractConfigModel {
             }
         });
         
+        // 【新增】处理转换配置中的自定义字段
+        List<Convert> convert = this.getConvert();
+        if (!CollectionUtils.isEmpty(convert)) {
+            convert.forEach(c -> {
+                Field fieldMetadata = c.getFieldMetadata();
+                if (fieldMetadata != null) {
+                    boolean exists = tTable.getColumn().stream()
+                            .anyMatch(f -> f.getName().equals(fieldMetadata.getName()));
+                    if (!exists) {
+                        tTable.getColumn().add(fieldMetadata);
+                    }
+                }
+            });
+        }
+        
+        
         // 如果 tableGroup.getFilter()空使用 mapping.getFilter()0
         List<Filter> filters = CollectionUtils.isEmpty(this.getFilter()) ? mapping.getFilter() : this.getFilter();
         // 初始化命令时不需要验证连接，避免触发 kafka 等连接器的连接检查
