@@ -24,7 +24,7 @@ function submit(data) {
 //*********************************** 驱动保存 结束位置***********************************//
 // 刷新页面
 function refresh(id,classOn) {
-    updateHash('/mapping/page/edit?id=' + id+"&classOn="+classOn);
+    updateHash('/mapping/page/edit?id=' + id+"&classOn="+classOn+"&t="+new Date().getTime());
 }
 
 // 绑定修改驱动同步方式切换事件
@@ -833,6 +833,17 @@ function bindEditPageOperationButtons() {
         }
 
         doPostForEditPage($url);
+    });
+
+    // 绑定启动/停止按钮事件
+    $('#mappingStartBtn, #mappingStopBtn').click(function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        var $url = $(this).data('url');
+        if ($url) {
+            doPostForEditPage($url);
+        }
     });
 }
 
