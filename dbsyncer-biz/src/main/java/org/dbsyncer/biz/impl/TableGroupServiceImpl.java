@@ -19,6 +19,12 @@ import org.dbsyncer.parser.model.Mapping;
 import org.dbsyncer.parser.model.TableGroup;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.model.Field;
+import org.dbsyncer.sdk.config.DDLConfig;
+import org.dbsyncer.sdk.connector.database.Database;
+import org.dbsyncer.sdk.connector.database.sql.SqlTemplate;
+import org.dbsyncer.sdk.model.Field;
+import org.dbsyncer.sdk.model.MetaInfo;
+import org.dbsyncer.parser.model.Convert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -81,6 +87,28 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
                     int tableGroupCount = profileComponent.getTableGroupCount(mappingId);
                     model.setIndex(tableGroupCount + 1);
                     id = profileComponent.addTableGroup(model);
+                    // 【新增】执行自定义字段 DDL
+                    List<Convert> customConverts = model.getConvert();
+                    if (customConverts != null && !customConverts.isEmpty()) {
+                        List<Field> customFields = new ArrayList<>();
+                        for (Convert convert : customConverts) {
+                            Field fieldMetadata = convert.getFieldMetadata();
+                            if (fieldMetadata != null) {
+                                customFields.add(fieldMetadata);
+                            }
+                        }
+                        if (!customFields.isEmpty()) {
+                            try {
+                                executeCustomFieldDDL(model, customFields);
+                                refreshTableFieldsAfterDDL(model);
+                                profileComponent.editTableGroup(model);
+                            } catch (Exception e) {
+                                // DDL 失败，回滚配置
+                                profileComponent.removeTableGroup(id);
+                                throw new RuntimeException("执行自定义字段 DDL 失败：" + e.getMessage(), e);
+                            }
+                        }
+                    }
                     // 初始化 TableGroup（设置运行时组件并初始化 command）
                     model.isInit = false;
                     model.initTableGroup(parserComponent, profileComponent, connectorFactory);
@@ -116,6 +144,28 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         TableGroup model = (TableGroup) tableGroupChecker.checkEditConfigModel(params);
         log(LogType.TableGroupLog.UPDATE, model);
         profileComponent.editTableGroup(model);
+        
+        // 【新增】执行自定义字段 DDL
+        List<Convert> customConverts = model.getConvert();
+        if (customConverts != null && !customConverts.isEmpty()) {
+            List<Field> customFields = new ArrayList<>();
+            for (Convert convert : customConverts) {
+                Field fieldMetadata = convert.getFieldMetadata();
+                if (fieldMetadata != null) {
+                    customFields.add(fieldMetadata);
+                }
+            }
+            if (!customFields.isEmpty()) {
+                try {
+                    executeCustomFieldDDL(model, customFields);
+                    refreshTableFieldsAfterDDL(model);
+                    profileComponent.editTableGroup(model);
+                } catch (Exception e) {
+                    logger.error("执行自定义字段 DDL 失败，但配置已保存", e);
+                    // edit 场景不回滚，因为配置可能已使用
+                }
+            }
+        }
         // 初始化 TableGroup（设置运行时组件并初始化 command）
         model.isInit = false;
         model.initTableGroup(parserComponent, profileComponent, connectorFactory);
@@ -234,6 +284,104 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         task.setProfileComponent(profileComponent);
         task.setTableGroupService(this);
         dispatchTaskService.execute(task);
+    }
+
+
+    // ========== 自定义字段 DDL 相关方法 ==========
+
+    /**
+     * 提取自定义字段（有 fieldMetadata 的 convert）
+     */
+    private List<Field> extractCustomFields(TableGroup tableGroup) {
+        List<Field> customFields = new ArrayList<>();
+
+        for (Convert convert : tableGroup.getConvert()) {
+            Field metadata = convert.getFieldMetadata();
+            if (metadata != null) {
+                customFields.add(metadata);
+            }
+        }
+
+        return customFields;
+    }
+
+    /**
+     * 执行自定义字段 DDL
+     */
+    private void executeCustomFieldDDL(TableGroup tableGroup, List<Field> customFields) throws Exception {
+        Mapping mapping = profileComponent.getMapping(tableGroup.getMappingId());
+        org.dbsyncer.parser.model.Connector targetConnector = profileComponent.getConnector(mapping.getTargetConnectorId());
+        
+        SqlTemplate sqlTemplate = ((org.dbsyncer.sdk.connector.database.Database) connectorFactory.getConnectorService(targetConnector.getConfig())).getSqlTemplate();
+
+        for (Field field : customFields) {
+            try {
+                // 生成 DDL
+                String ddl = sqlTemplate.buildAddColumnSql(tableGroup.getTargetTable().getName(), field);
+
+                // 执行 DDL
+                DDLConfig ddlConfig = new DDLConfig();
+                ddlConfig.setSql(ddl);
+                
+                // 使用 connectorFactory 执行 DDL
+                connectorFactory.writerDDL(
+                        connectorFactory.connect(targetConnector.getConfig()), 
+                        ddlConfig, 
+                        null);
+
+                logger.info("自定义字段 DDL 执行成功：{}.{}", 
+                        tableGroup.getTargetTable().getName(), field.getName());
+            } catch (Exception e) {
+                if (isColumnAlreadyExistsError(e.getMessage())) {
+                    logger.warn("字段已存在，跳过：{}", field.getName());
+                } else {
+                    logger.error("DDL 执行异常：{}", field.getName(), e);
+                    throw e;
+                }
+            }
+        }
+    }
+
+    /**
+     * 判断是否为“字段已存在”错误
+     */
+    private boolean isColumnAlreadyExistsError(String errorMessage) {
+        if (errorMessage == null) {
+            return false;
+        }
+        String[] patterns = {
+                "Duplicate column name",
+                "column already exists",
+                "ORA-01430",
+                "There is already an object",
+                "already exists"
+        };
+
+        String lowerError = errorMessage.toLowerCase();
+        for (String pattern : patterns) {
+            if (lowerError.contains(pattern.toLowerCase())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * DDL 成功后刷新元数据
+     */
+    private void refreshTableFieldsAfterDDL(TableGroup tableGroup) throws Exception {
+        Mapping mapping = profileComponent.getMapping(tableGroup.getMappingId());
+
+        // 重新获取目标表元数据
+        MetaInfo targetMetaInfo = parserComponent.getMetaInfo(
+                mapping.getTargetConnectorId(),
+                tableGroup.getTargetTable().getName());
+
+        // 更新 TableGroup
+        tableGroup.getTargetTable().setColumn(targetMetaInfo.getColumn());
+
+        // 重新初始化 command
+        tableGroup.initCommand(mapping, connectorFactory);
     }
 
 }
