@@ -250,7 +250,10 @@
                             </div>
                         </div>
                         <div class="row text-right">
-                            <button type="button" th:onclick="nextToMapping('mappingSuperConfig')" class="btn btn-primary">
+                            <button type="button" th:if="${currentUser?.roleCode eq 'admin'}" th:onclick="nextToMapping('mappingSuperConfig')" class="btn btn-primary">
+                                <span class="fa fa-arrow-right"></span> 下一步
+                            </button>
+                            <button type="button" th:unless="${currentUser?.roleCode eq 'admin'}" th:onclick="nextToMapping('mappingBaseConfig')" class="btn btn-primary">
                                 <span class="fa fa-arrow-right"></span> 下一步
                             </button>
                         </div>
@@ -301,7 +304,10 @@
                         <div th:replace="mapping/editTable :: content"></div>
                         <!-- 下一步按钮 -->
                         <div class="row text-right">
-                            <button type="button" th:onclick="nextToMapping('mappingSuperConfig')" class="btn btn-default">
+                            <button type="button" th:if="${currentUser?.roleCode eq 'admin'}" th:onclick="nextToMapping('mappingSuperConfig')" class="btn btn-default">
+                                <span class="fa fa-arrow-left"></span> 上一步
+                            </button>
+                            <button type="button" th:unless="${currentUser?.roleCode eq 'admin'}" th:onclick="nextToMapping('mappingSummary')" class="btn btn-default">
                                 <span class="fa fa-arrow-left"></span> 上一步
                             </button>
                             <button type="button" th:attr="disabled=${mapping?.meta?.state eq 1}" th:onclick="doMappingSubmit()" class="btn btn-primary">

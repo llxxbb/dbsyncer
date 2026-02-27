@@ -861,7 +861,24 @@ function doPostForEditPage(url) {
             } else {
                 var mappingId = $("#mappingId").val();
                 if (mappingId) {
-                    refresh(mappingId, $("#mappingShow").val());
+                    // 启动/停止操作后，根据当前激活的标签页设置classOn值
+                    // 获取当前激活的标签页ID
+                    var activeTabId = $('.tab-pane.active').attr('id');
+                    var classOnValue = 0;
+                    // 映射关系标签页
+                    if (activeTabId === 'mappingBaseConfig') {
+                        classOnValue = 1;
+                    }
+                    // 高级配置标签页
+                    else if (activeTabId === 'mappingSuperConfig') {
+                        classOnValue = 2;
+                    }
+                    // 错误队列标签页
+                    else if (activeTabId === 'mappingErrorQueue') {
+                        classOnValue = 3;
+                    }
+                    // 概括标签页（mappingSummary）或其他情况，保持classOn=0
+                    refresh(mappingId, classOnValue);
                 }
             }
         } else {
@@ -890,9 +907,17 @@ function nextToMapping(str) {
 $(function () {
 
     var classOnVal =  $("#mappingShow").val();
-    if(classOnVal && classOnVal==1){
-        //从editTableGroup跳转回来后默认展示映射关系tab
-        nextToMapping('mappingBaseConfig');
+    if(classOnVal){
+        // 根据classOn值切换到对应的标签页
+        // 1: 映射关系, 2: 高级配置, 3: 错误队列, 其他: 概括
+        if(classOnVal == 1){
+            nextToMapping('mappingBaseConfig');
+        } else if(classOnVal == 2){
+            nextToMapping('mappingSuperConfig');
+        } else if(classOnVal == 3){
+            nextToMapping('mappingErrorQueue');
+        }
+        // classOnVal为0或其他值时，默认显示概括标签页（不需要切换）
     }
 
     var mappingId =  $("#mappingId").val();
