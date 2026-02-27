@@ -1,7 +1,6 @@
 # ADR 0001: 字段映射高级配置 - 自定义字段元数据编辑
 
-## 状态
-**提议中** → **审查通过** → **实施中**
+**提议中** → **审查通过** → **实施中** → **已完成**
 
 ## 背景
 
@@ -268,8 +267,33 @@ public void initCommand(Mapping mapping, ConnectorFactory connectorFactory) {
 | 字段已存在 | 警告，继续 | 打印警告日志，不影响 |
 | 类型转换错误 | DDL 语法错误 | 复用 SqlTemplate，已充分测试 |
 | 权限不足 | DDL 执行失败 | 明确错误提示，用户授权 |
-
 ## 实施状态
+
+### 已完成
+- [x] 需求分析和方案设计
+- [x] 技术可行性验证
+- [x] 文档编写（ADR + 实施方案）
+- [x] Convert.java 新增 fieldMetadata 字段
+- [x] 前端 editFilterAndConvert.js 收集 fieldMetadata
+- [x] editConvert.html 添加字段编辑对话框
+- [x] TableGroupServiceImpl 新增 DDL 执行逻辑
+- [x] TableGroup.initCommand() 处理自定义字段
+- [x] 编译验证通过
+
+### 待实施
+- [ ] 测试验证
+
+## 实施说明
+
+### 实现细节
+
+1. **DDL 执行位置**: 在 `TableGroupServiceImpl.add()` 和 `edit()` 方法中执行，失败时 add 场景会回滚配置，edit 场景仅记录日志。
+
+2. **DDL 生成**: 复用 `SqlTemplate.buildAddColumnSql()` 方法生成 DDL 语句。
+
+3. **字段已存在处理**: 通过 `isColumnAlreadyExistsError()` 方法判断多种数据库的错误模式，打印警告日志后继续执行。
+
+4. **元数据刷新**: DDL 成功后调用 `refreshTableFieldsAfterDDL()` 重新获取目标表元数据并更新 TableGroup。
 
 ### 已完成
 - [x] 需求分析和方案设计
