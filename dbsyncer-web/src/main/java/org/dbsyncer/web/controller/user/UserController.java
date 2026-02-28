@@ -76,6 +76,7 @@ public class UserController extends BaseController {
 
     @RequestMapping(value = "/add")
     @ResponseBody
+    @PreAuthorize("hasRole('admin')")
     public RestResult add(HttpServletRequest request) {
         try {
             Map<String, String> params = getParamsWithUserName(request);
@@ -100,6 +101,7 @@ public class UserController extends BaseController {
 
     @PostMapping("/remove")
     @ResponseBody
+    @PreAuthorize("hasRole('admin')")
     public RestResult remove(HttpServletRequest request) {
         try {
             Map<String, String> params = getParamsWithUserName(request);
