@@ -35,7 +35,6 @@ import java.util.Map;
  */
 @Controller
 @RequestMapping(value = "/userGroup")
-@PreAuthorize("hasRole('admin')")
 public class UserGroupController extends BaseController {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -62,6 +61,7 @@ public class UserGroupController extends BaseController {
      * 添加用户组页面
      */
     @GetMapping("/page/add")
+    @PreAuthorize("hasRole('admin')")
     public String pageAdd(ModelMap model) throws Exception {
         model.put("users", userConfigService.getUserInfoAll(getUserName()));
         model.put("projectGroups", projectGroupService.getProjectGroupAll());
@@ -72,6 +72,7 @@ public class UserGroupController extends BaseController {
      * 编辑用户组页面
      */
     @GetMapping("/page/edit")
+    @PreAuthorize("hasRole('admin')")
     public String pageEdit(ModelMap model, String id) {
         model.put("userGroup", userGroupService.getUserGroup(id));
         try {
@@ -88,6 +89,7 @@ public class UserGroupController extends BaseController {
      */
     @PostMapping("/add")
     @ResponseBody
+    @PreAuthorize("hasRole('admin')")
     public RestResult add(HttpServletRequest request) {
         try {
             Map<String, String> params = getParams(request);
@@ -103,6 +105,7 @@ public class UserGroupController extends BaseController {
      */
     @PostMapping("/edit")
     @ResponseBody
+    @PreAuthorize("hasRole('admin')")
     public RestResult edit(HttpServletRequest request) {
         try {
             Map<String, String> params = getParams(request);
@@ -118,6 +121,7 @@ public class UserGroupController extends BaseController {
      */
     @PostMapping("/remove")
     @ResponseBody
+    @PreAuthorize("hasRole('admin')")
     public RestResult remove(@RequestParam String id) {
         try {
             return RestResult.restSuccess(userGroupService.remove(id));
