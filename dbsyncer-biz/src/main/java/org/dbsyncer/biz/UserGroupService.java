@@ -69,4 +69,20 @@ public interface UserGroupService {
      * @return 任务分组ID列表
      */
     List<String> getProjectGroupIdsByUserGroup(String userGroupId);
+
+    /**
+     * 将用户添加到指定的用户组中（更新用户组的userIds）
+     *
+     * @param username 用户名
+     * @param userGroupIds 用户组ID列表（逗号分隔）
+     */
+    void addUserToGroups(String username, String userGroupIds) throws Exception;
+
+    /**
+     * 从指定的用户组中移除用户（更新用户组的userIds）
+     *
+     * @param username 用户名
+     * @param userGroupIds 用户组ID列表（逗号分隔）
+     */
+    void removeUserFromGroups(String username, String userGroupIds) throws Exception;
 }

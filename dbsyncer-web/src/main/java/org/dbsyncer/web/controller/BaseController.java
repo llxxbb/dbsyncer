@@ -7,8 +7,10 @@ import org.springframework.ui.ModelMap;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * @author AE86
@@ -35,7 +37,14 @@ public abstract class BaseController {
     protected Map<String, String> getParams(HttpServletRequest request) {
         Map<String, String[]> map = request.getParameterMap();
         Map<String, String> res = new HashMap<>();
-        map.forEach((k, v) -> res.put(k, v[0]));
+        map.forEach((k, v) -> {
+            // 如果参数是数组（多选框），用逗号连接所有值
+            if (v.length > 1) {
+                res.put(k, Arrays.stream(v).collect(Collectors.joining(",")));
+            } else {
+                res.put(k, v[0]);
+            }
+        });
         return res;
     }
 
