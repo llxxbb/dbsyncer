@@ -60,7 +60,12 @@ public enum CommandEnum {
     /**
      * 预加载ProjectGroup
      */
-    PRELOAD_PROJECT_GROUP(ConfigConstant.PROJECT_GROUP, Preload::parseProjectGroup, true);
+    PRELOAD_PROJECT_GROUP(ConfigConstant.PROJECT_GROUP, Preload::parseProjectGroup, true),
+
+    /**
+     * 预加载UserGroup
+     */
+    PRELOAD_USER_GROUP(ConfigConstant.USER_GROUP, Preload::parseUserGroup, true);
 
     /**
      * 命令类型

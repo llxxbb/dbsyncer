@@ -6,6 +6,7 @@ package org.dbsyncer.biz.impl;
 import org.dbsyncer.biz.BizException;
 import org.dbsyncer.biz.ProjectGroupService;
 import org.dbsyncer.biz.UserConfigService;
+import org.dbsyncer.biz.UserGroupService;
 import org.dbsyncer.biz.checker.impl.user.UserConfigChecker;
 import org.dbsyncer.biz.enums.UserRoleEnum;
 import org.dbsyncer.biz.vo.UserInfoVo;
@@ -16,6 +17,7 @@ import org.dbsyncer.parser.LogService;
 import org.dbsyncer.parser.LogType;
 import org.dbsyncer.parser.model.ProjectGroup;
 import org.dbsyncer.parser.model.UserConfig;
+import org.dbsyncer.parser.model.UserGroup;
 import org.dbsyncer.parser.model.UserInfo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -52,6 +54,9 @@ public class UserConfigServiceImpl implements UserConfigService {
     @Resource
     private ProjectGroupService projectGroupService;
 
+    @Resource
+    private UserGroupService userGroupService;
+
     @Override
     public synchronized String add(Map<String, String> params) throws Exception {
         String username = params.get("username");
@@ -63,6 +68,7 @@ public class UserConfigServiceImpl implements UserConfigService {
         String email = params.get("email");
         String phone = params.get("phone");
         String groupIds = params.get("groupIds");
+        String userGroupIds = params.get("userGroupIds");
 
         // 验证当前登录用户合法身份（必须是管理员操作）
         UserConfig userConfig = getUserConfig();
@@ -71,7 +77,7 @@ public class UserConfigServiceImpl implements UserConfigService {
         // 新用户合法性（用户不能重复）
         Assert.isNull(userConfig.getUserInfo(username), "用户已存在，请换个账号");
         // 注册新用户
-        userConfig.getUserInfoList().add(new UserInfo(username, nickname, SHA1Util.b64_sha1(password), UserRoleEnum.USER.getCode(), email, phone, groupIds));
+        userConfig.getUserInfoList().add(new UserInfo(username, nickname, SHA1Util.b64_sha1(password), UserRoleEnum.USER.getCode(), email, phone, groupIds, userGroupIds));
 
         logService.log(LogType.UserLog.INSERT, String.format("[%s]添加[%s]账号成功", currentUser.getUsername(), username));
         return profileComponent.editConfigModel(userConfig);
@@ -103,6 +109,7 @@ public class UserConfigServiceImpl implements UserConfigService {
         updateUser.setEmail(email);
         updateUser.setPhone(phone);
         updateUser.setGroupIds(params.get("groupIds"));
+        updateUser.setUserGroupIds(params.get("userGroupIds"));
         // 修改密码
         if (StringUtil.isNotBlank(newPwd)) {
             // 修改自己的密码需要验证
@@ -210,18 +217,18 @@ public class UserConfigServiceImpl implements UserConfigService {
             userInfoVo.setPassword("***");
             userInfoVo.setRoleName(UserRoleEnum.getNameByCode(userInfo.getRoleCode()));
 
-            // 转换分组ID为分组名称列表
-            if (StringUtil.isNotBlank(userInfo.getGroupIds())) {
-                String[] groupIdArray = StringUtil.split(userInfo.getGroupIds(), StringUtil.COMMA);
-                List<String> groupNames = new ArrayList<>();
-                List<ProjectGroup> allGroups = projectGroupService.getProjectGroupAll();
-                for (String groupId : groupIdArray) {
-                    allGroups.stream()
-                        .filter(g -> g.getId().equals(groupId.trim()))
+            // 转换用户组ID为用户组名称列表（用于前端展示）
+            if (StringUtil.isNotBlank(userInfo.getUserGroupIds())) {
+                String[] userGroupIdArray = StringUtil.split(userInfo.getUserGroupIds(), StringUtil.COMMA);
+                List<String> userGroupNames = new ArrayList<>();
+                List<UserGroup> allUserGroups = userGroupService.getUserGroupAll();
+                for (String userGroupId : userGroupIdArray) {
+                    allUserGroups.stream()
+                        .filter(ug -> ug.getId().equals(userGroupId.trim()))
                         .findFirst()
-                        .ifPresent(g -> groupNames.add(g.getName()));
+                        .ifPresent(ug -> userGroupNames.add(ug.getName()));
                 }
-                userInfoVo.setGroupNames(groupNames);
+                userInfoVo.setUserGroupNames(userGroupNames);
             }
         }
         return userInfoVo;

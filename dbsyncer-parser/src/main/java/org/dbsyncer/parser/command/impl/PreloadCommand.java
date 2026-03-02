@@ -12,6 +12,7 @@ import org.dbsyncer.parser.model.ProjectGroup;
 import org.dbsyncer.parser.model.SystemConfig;
 import org.dbsyncer.parser.model.TableGroup;
 import org.dbsyncer.parser.model.UserConfig;
+import org.dbsyncer.parser.model.UserGroup;
 
 /**
  * 预加载接口
@@ -68,6 +69,11 @@ public final class PreloadCommand implements Command {
     @Override
     public ProjectGroup parseProjectGroup() {
         return profileComponent.parseObject(json, ProjectGroup.class);
+    }
+
+    @Override
+    public UserGroup parseUserGroup() {
+        return profileComponent.parseObject(json, UserGroup.class);
     }
 
 }

@@ -7,6 +7,7 @@ import org.dbsyncer.biz.ConnectorService;
 import org.dbsyncer.biz.MappingService;
 import org.dbsyncer.biz.ProjectGroupService;
 import org.dbsyncer.biz.UserConfigService;
+import org.dbsyncer.biz.UserGroupService;
 import org.dbsyncer.biz.checker.Checker;
 import org.dbsyncer.biz.enums.UserRoleEnum;
 import org.dbsyncer.biz.vo.MappingVo;
@@ -18,6 +19,7 @@ import org.dbsyncer.parser.LogType;
 import org.dbsyncer.parser.model.ConfigModel;
 import org.dbsyncer.parser.model.Connector;
 import org.dbsyncer.parser.model.ProjectGroup;
+import org.dbsyncer.parser.model.UserGroup;
 import org.dbsyncer.parser.model.UserInfo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -51,6 +53,9 @@ public class ProjectGroupServiceImpl extends BaseServiceImpl implements ProjectG
 
     @Resource
     private UserConfigService userConfigService;
+
+    @Resource
+    private UserGroupService userGroupService;
 
     @Override
     public String add(Map<String, String> params) throws Exception {
@@ -172,25 +177,33 @@ public class ProjectGroupServiceImpl extends BaseServiceImpl implements ProjectG
                 return allGroups;
             }
 
-            // 普通用户，根据groupIds过滤
-            String groupIds = userInfo.getGroupIds();
-            if (StringUtil.isBlank(groupIds)) {
-                // 用户没有分配分组，返回空列表
+            // 普通用户，只通过用户组间接关联获取任务分组
+            String userGroupIds = userInfo.getUserGroupIds();
+            if (StringUtil.isBlank(userGroupIds)) {
+                // 用户没有分配用户组，返回空列表
                 return Collections.emptyList();
             }
 
-            // 解析分组ID列表
-            String[] groupIdArray = StringUtil.split(groupIds, StringUtil.COMMA);
-            Set<String> userGroupIdSet = new HashSet<>();
-            for (String groupId : groupIdArray) {
-                if (StringUtil.isNotBlank(groupId)) {
-                    userGroupIdSet.add(groupId.trim());
+            // 获取用户所属用户组关联的所有任务分组ID
+            Set<String> accessibleProjectGroupIds = new HashSet<>();
+            String[] userGroupIdArray = StringUtil.split(userGroupIds, StringUtil.COMMA);
+            for (String userGroupId : userGroupIdArray) {
+                if (StringUtil.isBlank(userGroupId)) {
+                    continue;
                 }
+                UserGroup userGroup = userGroupService.getUserGroup(userGroupId.trim());
+                if (userGroup != null && !CollectionUtils.isEmpty(userGroup.getProjectGroupIds())) {
+                    accessibleProjectGroupIds.addAll(userGroup.getProjectGroupIds());
+                }
+            }
+
+            if (accessibleProjectGroupIds.isEmpty()) {
+                return Collections.emptyList();
             }
 
             // 过滤分组
             return allGroups.stream()
-                    .filter(group -> userGroupIdSet.contains(group.getId()))
+                    .filter(group -> accessibleProjectGroupIds.contains(group.getId()))
                     .collect(Collectors.toList());
 
         } catch (Exception e) {

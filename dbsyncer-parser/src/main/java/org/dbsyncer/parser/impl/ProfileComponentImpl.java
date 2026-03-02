@@ -108,6 +108,16 @@ public class ProfileComponentImpl implements ProfileComponent {
     }
 
     @Override
+    public UserGroup getUserGroup(String id) {
+        return operationTemplate.queryObject(UserGroup.class, id);
+    }
+
+    @Override
+    public List<UserGroup> getUserGroupAll() {
+        return operationTemplate.queryAll(UserGroup.class);
+    }
+
+    @Override
     public Connector getConnector(String connectorId) {
         return operationTemplate.queryObject(Connector.class, connectorId);
     }

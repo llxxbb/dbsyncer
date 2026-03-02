@@ -42,6 +42,11 @@ public class UserInfo {
      */
     private String groupIds;
 
+    /**
+     * 用户所属用户组ID列表(多个用户组ID使用逗号拼接)
+     */
+    private String userGroupIds;
+
     public UserInfo() {
     }
 
@@ -62,6 +67,17 @@ public class UserInfo {
         this.email = email;
         this.phone = phone;
         this.groupIds = groupIds;
+    }
+
+    public UserInfo(String username, String nickname, String password, String roleCode, String email, String phone, String groupIds, String userGroupIds) {
+        this.username = username;
+        this.nickname = nickname;
+        this.password = password;
+        this.roleCode = roleCode;
+        this.email = email;
+        this.phone = phone;
+        this.groupIds = groupIds;
+        this.userGroupIds = userGroupIds;
     }
 
     public String getUsername() {
@@ -118,6 +134,14 @@ public class UserInfo {
 
     public void setGroupIds(String groupIds) {
         this.groupIds = groupIds;
+    }
+
+    public String getUserGroupIds() {
+        return userGroupIds;
+    }
+
+    public void setUserGroupIds(String userGroupIds) {
+        this.userGroupIds = userGroupIds;
     }
 
     @Override

@@ -2,6 +2,7 @@ package org.dbsyncer.web.controller.user;
 
 import org.dbsyncer.biz.ProjectGroupService;
 import org.dbsyncer.biz.UserConfigService;
+import org.dbsyncer.biz.UserGroupService;
 import org.dbsyncer.biz.enums.UserRoleEnum;
 import org.dbsyncer.biz.vo.RestResult;
 import org.dbsyncer.biz.vo.UserInfoVo;
@@ -43,6 +44,9 @@ public class UserController extends BaseController {
     @Resource
     private ProjectGroupService projectGroupService;
 
+    @Resource
+    private UserGroupService userGroupService;
+
     @RequestMapping("")
     public String index(ModelMap model) throws Exception {
         model.put("currentUser", getUserInfoVo());
@@ -54,6 +58,7 @@ public class UserController extends BaseController {
     @PreAuthorize("hasRole('admin')")
     public String pageAdd(ModelMap model) {
         model.put("projectGroups", projectGroupService.getProjectGroupAll());
+        model.put("userGroups", userGroupService.getUserGroupAll());
         return "user/add";
     }
 
@@ -65,6 +70,7 @@ public class UserController extends BaseController {
         model.put("isAdmin", null != currentUser && UserRoleEnum.isAdmin(currentUser.getRoleCode()));
         model.put("currentUser", userConfigService.getUserInfoVo(currentUserName, username));
         model.put("projectGroups", projectGroupService.getProjectGroupAll());
+        model.put("userGroups", userGroupService.getUserGroupAll());
         return "user/edit";
     }
 

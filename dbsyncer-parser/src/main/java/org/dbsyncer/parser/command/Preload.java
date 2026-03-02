@@ -11,6 +11,7 @@ import org.dbsyncer.parser.model.ProjectGroup;
 import org.dbsyncer.parser.model.SystemConfig;
 import org.dbsyncer.parser.model.TableGroup;
 import org.dbsyncer.parser.model.UserConfig;
+import org.dbsyncer.parser.model.UserGroup;
 
 /**
  * 预加载接口
@@ -47,5 +48,9 @@ public interface Preload {
 
     default ProjectGroup parseProjectGroup(){
         throw new ParserException("Unsupported method parseProjectGroup");
+    }
+
+    default UserGroup parseUserGroup(){
+        throw new ParserException("Unsupported method parseUserGroup");
     }
 }
