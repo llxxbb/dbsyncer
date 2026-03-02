@@ -29,11 +29,6 @@
                             <!-- 数据源表字段 -->
                             <option th:each="c,s:${tableGroup?.sourceTable?.column}" th:value="${c?.name}" th:text="${c?.name} +' (' + ${c?.typeName} +')'" />
                         </select>
-                        <span class="input-group-btn">
-                            <button type="button" class="btn btn-default" id="addSourceFieldBtn" title="添加新字段">
-                                <span class="fa fa-plus"></span>
-                            </button>
-                        </span>
                     </div>
                 </div>
             </div>

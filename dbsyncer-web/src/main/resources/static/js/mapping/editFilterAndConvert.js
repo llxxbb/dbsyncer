@@ -156,27 +156,10 @@ function generateNextId($convertList) {
     return String(maxId + 1);
 }
 
-// 绑定添加源字段按钮点击事件
-function bindAddSourceFieldClick() {
-    $("#addSourceFieldBtn").on('click', function() {
-        var $select = $("#conditionSourceField");
-        var customFieldName = prompt("请输入自定义字段名称：", "");
-        if (customFieldName && customFieldName.trim() !== '') {
-            var fieldName = customFieldName.trim();
-            // 检查是否已存在
-            if ($select.find('option[value="' + fieldName + '"]').length > 0) {
-                bootGrowl("字段已存在，已为您选中", "info");
-                $select.selectpicker('val', fieldName);
-                return;
-            }
-            // 添加新选项
-            $select.append(new Option(fieldName + ' (自定义)', fieldName, false, true));
-            // 刷新selectpicker
-            $select.selectpicker('refresh');
-            // 选中新添加的选项
-            $select.selectpicker('val', fieldName);
-            bootGrowl("字段添加成功", "success");
-        }
+// 绑定添加目标字段按钮点击事件
+function bindAddTargetFieldClick() {
+    $("#addTargetFieldBtn").on('click', function() {
+        openFieldEditDialog(null);
     });
 }
 
@@ -192,47 +175,68 @@ function openFieldEditDialog(existingField) {
     // 重置表单
     $('#fieldEditForm')[0].reset();
     
-    // 如果是编辑现有字段，填充数据
+    // 动态加载目标数据库的字段类型
+    loadFieldTypes();
+    
+    initFieldTypeChange();
+    
     if (existingField) {
         $('#fieldName').val(existingField.name);
-        $('#fieldType').selectpicker('val', existingField.typeName);
+        $('#fieldType').val(existingField.typeName);
+        $('#fieldType').selectpicker('refresh');
         $('#fieldSize').val(existingField.columnSize || '');
         $('#fieldScale').val(existingField.ratio || '');
         $('#fieldNullable').prop('checked', existingField.nullable !== false);
         $('#fieldComment').val(existingField.comment || '');
     }
     
-    // 初始化类型选择联动
-    initFieldTypeChange();
-    
     // 显示对话框
     $('#fieldEditDialog').modal('show');
+}
+
+// 动态加载字段类型（从目标表字段中提取）
+function loadFieldTypes() {
+    var $fieldType = $('#fieldType');
+    $fieldType.empty().append('<option value="">请选择</option>');
+    
+    // 使用完整的 MySQL 类型列表
+    var allTypes = [
+        // 数值类型
+        'TINYINT', 'SMALLINT', 'MEDIUMINT', 'INT', 'INTEGER', 'BIGINT',
+        'FLOAT', 'DOUBLE', 'DECIMAL', 'NUMERIC', 'REAL',
+        'BIT', 'BOOLEAN',
+        // 字符串类型
+        'CHAR', 'VARCHAR', 'TINYTEXT', 'TEXT', 'MEDIUMTEXT', 'LONGTEXT',
+        'BINARY', 'VARBINARY', 'TINYBLOB', 'BLOB', 'MEDIUMBLOB', 'LONGBLOB',
+        'ENUM', 'SET',
+        // 日期时间类型
+        'DATE', 'TIME', 'DATETIME', 'TIMESTAMP', 'YEAR',
+        // 其他
+        'GEOMETRY', 'POINT', 'LINESTRING', 'POLYGON',
+        'MULTIPOINT', 'MULTILINESTRING', 'MULTIPOLYGON', 'GEOMETRYCOLLECTION',
+        'JSON'
+    ];
+    
+    allTypes.forEach(function(type) {
+        $fieldType.append('<option value="' + type + '">' + type + '</option>');
+    });
+    
+    // 刷新 Bootstrap Select UI
+    $fieldType.selectpicker('refresh');
+    
+    console.log('字段类型加载完成，共加载', allTypes.length, '个 MySQL 类型');
 }
 
 // 初始化字段类型变化联动
 function initFieldTypeChange() {
     var $fieldType = $('#fieldType');
-    $fieldType.off('changed.bs.select').on('changed.bs.select', function() {
-        var typeName = $(this).val();
-        // 控制长度输入框显示
-        var needSize = ['VARCHAR', 'CHAR', 'NVARCHAR', 'NCHAR', 'DECIMAL', 'NUMERIC'].indexOf(typeName) >= 0;
-        if (needSize) {
-            $('#fieldSizeGroup').show();
-        } else {
-            $('#fieldSizeGroup').hide();
-            $('#fieldSize').val('');
-        }
-        // 控制精度输入框显示
-        var needScale = ['DECIMAL', 'NUMERIC'].indexOf(typeName) >= 0;
-        if (needScale) {
-            $('#fieldScaleGroup').show();
-        } else {
-            $('#fieldScaleGroup').hide();
-            $('#fieldScale').val('');
-        }
+    $fieldType.off('change').on('change', function() {
+        // 长度和精度始终显示，不再根据类型联动
+        $('#fieldSizeGroup').show();
+        $('#fieldScaleGroup').show();
     });
     // 触发一次变化事件
-    $fieldType.trigger('changed.bs.select');
+    $fieldType.trigger('change');
 }
 
 // 保存自定义字段
@@ -256,28 +260,21 @@ function saveCustomField() {
         return;
     }
     
-    // 类型编码映射
-    var typeCodeMap = {
-        'VARCHAR': 12,
-        'CHAR': 1,
-        'INT': 4,
-        'BIGINT': -5,
-        'DECIMAL': 3,
-        'NUMERIC': 2,
-        'FLOAT': 6,
-        'DOUBLE': 8,
-        'DATE': 91,
-        'TIME': 92,
-        'TIMESTAMP': 93,
-        'BOOLEAN': 16,
-        'TEXT': 2005
-    };
+    // 直接使用用户选择的类型（已经是目标库的真实类型）
+    createFieldMetadata(fieldName, fieldType, fieldSize, fieldScale, fieldNullable, fieldComment);
+}
+
+// 创建 Field 元数据并添加到下拉列表
+function createFieldMetadata(fieldName, fieldType, fieldSize, fieldScale, fieldNullable, fieldComment) {
+    // 关键：从 convertTargetField 下拉框中查找相同类型的字段，获取正确的 JDBC Type Code
+    // 这样可以确保自定义字段使用与目标库一致的 type 编码
+    var jdbcTypeCode = findJDBCTypeCode(fieldType);
     
     // 构建 Field 对象
     var fieldMetadata = {
         name: fieldName,
-        typeName: fieldType,
-        type: typeCodeMap[fieldType] || 12,
+        typeName: fieldType,  // 直接使用目标库类型名称
+        type: jdbcTypeCode,   // 使用从目标库字段获取的 JDBC Type Code
         columnSize: fieldSize ? parseInt(fieldSize) : 0,
         ratio: fieldScale ? parseInt(fieldScale) : 0,
         nullable: fieldNullable,
@@ -304,6 +301,28 @@ function saveCustomField() {
     }
     
     $('#fieldEditDialog').modal('hide');
+}
+
+// 从 convertTargetField 下拉框中查找指定类型名称的 JDBC Type Code
+function findJDBCTypeCode(typeName) {
+    var $targetTableField = $('#convertTargetField');
+    var foundTypeCode = 12; // 默认使用 Types.VARCHAR
+    
+    $targetTableField.find('option').each(function() {
+        var text = $(this).text();
+        // 解析 "FIELDNAME (TYPE)" 格式
+        var match = text.match(/\(([^)]+)\)$/);
+        if (match && match[1] === typeName) {
+            // 找到相同类型的字段，获取其 fieldMetadata
+            var fieldMetadata = $(this).data('fieldMetadata');
+            if (fieldMetadata && fieldMetadata.type) {
+                foundTypeCode = fieldMetadata.type;
+                return false; // 跳出 each 循环
+            }
+        }
+    });
+    
+    return foundTypeCode;
 }
 
 // 绑定新增条件点击事件
@@ -608,14 +627,13 @@ $(function() {
     initFilter();
     bindConditionAddClick();
     bindConditionQuartzFilterAddClick();
-    // 处理自定义字段选择
-    bindAddSourceFieldClick();
-    bindAddTargetFieldClick();
     // 转换配置
     initConvert();
     bindConvertAddClick();
     bindConvertOperatorChange();
     bindConvertHelpIconClick();
+    // 目标字段添加
+    bindAddTargetFieldClick();
     // 初始化转换类型参数显示（需要在 selectpicker 初始化后调用）
     // 使用 setTimeout 确保 selectpicker 完全初始化完成
     setTimeout(function() {

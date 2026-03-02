@@ -41,10 +41,19 @@
                     <div class="input-group">
                         <select id="convertTargetField" class="form-control select-control" data-live-search="true">
                             <!-- 目标源表公共字段 -->
-                            <option th:if="${tableGroup} == null" th:each="c,s:${mapping?.targetColumn}" th:value="${c?.name}" th:text="${c?.name} +' (' + ${c?.typeName} +')'" />
+                            <option th:if="${tableGroup} == null" 
+                                    th:each="c,s:${mapping?.targetColumn}" 
+                                    th:value="${c?.name}" 
+                                    th:text="${c?.name} +' (' + ${c?.typeName} +')'"
+                                    th:attr="data-field-metadata=${c}"
+                                    th:data-type-name="${c?.typeName}" />
 
                             <!-- 目标源表字段 -->
-                            <option th:each="c,s:${tableGroup?.targetTable?.column}" th:value="${c?.name}" th:text="${c?.name} +' (' + ${c?.typeName} +')'" />
+                            <option th:each="c,s:${tableGroup?.targetTable?.column}" 
+                                    th:value="${c?.name}" 
+                                    th:text="${c?.name} +' (' + ${c?.typeName} +')'"
+                                    th:attr="data-field-metadata=${c}"
+                                    th:data-type-name="${c?.typeName}" />
                         </select>
                         <span class="input-group-btn">
                             <button type="button" class="btn btn-default" id="addTargetFieldBtn" title="添加新字段">
