@@ -61,14 +61,24 @@ public class UserGroupServiceImpl extends BaseServiceImpl implements UserGroupSe
         String id = params.get("id");
         UserGroup oldUserGroup = profileComponent.getUserGroup(id);
 
+        // 保存旧的用户列表，用于后续移除关联
+        // 注意：必须在checkEditConfigModel之前保存，因为checkEditConfigModel会修改缓存中的对象
+        List<String> oldUserIds = oldUserGroup != null && oldUserGroup.getUserIds() != null
+                ? new ArrayList<>(oldUserGroup.getUserIds())
+                : null;
+
         ConfigModel model = userGroupChecker.checkEditConfigModel(params);
         log(LogType.UserLog.UPDATE, model);
 
         String result = profileComponent.editConfigModel(model);
 
         // 更新关联用户的userGroupIds（先移除旧关联，再添加新关联）
-        if (oldUserGroup != null) {
-            removeUserUserGroupIds(oldUserGroup);
+        if (oldUserIds != null) {
+            // 使用保存的旧用户列表创建临时UserGroup对象，用于移除关联
+            UserGroup tempOldUserGroup = new UserGroup();
+            tempOldUserGroup.setId(id);
+            tempOldUserGroup.setUserIds(oldUserIds);
+            removeUserUserGroupIds(tempOldUserGroup);
         }
         updateUserUserGroupIds((UserGroup) model);
 
@@ -181,6 +191,58 @@ public class UserGroupServiceImpl extends BaseServiceImpl implements UserGroupSe
         }
 
         return new ArrayList<>(userGroup.getProjectGroupIds());
+    }
+
+    @Override
+    public void addUserToGroups(String username, String userGroupIds) throws Exception {
+        if (StringUtil.isBlank(username) || StringUtil.isBlank(userGroupIds)) {
+            return;
+        }
+
+        String[] groupIds = StringUtil.split(userGroupIds, StringUtil.COMMA);
+        for (String groupId : groupIds) {
+            if (StringUtil.isBlank(groupId)) {
+                continue;
+            }
+            UserGroup userGroup = profileComponent.getUserGroup(groupId.trim());
+            if (userGroup == null) {
+                continue;
+            }
+
+            // 添加用户到用户组
+            List<String> userIds = userGroup.getUserIds();
+            if (userIds == null) {
+                userIds = new ArrayList<>();
+                userGroup.setUserIds(userIds);
+            }
+            if (!userIds.contains(username)) {
+                userIds.add(username);
+                profileComponent.editConfigModel(userGroup);
+            }
+        }
+    }
+
+    @Override
+    public void removeUserFromGroups(String username, String userGroupIds) throws Exception {
+        if (StringUtil.isBlank(username) || StringUtil.isBlank(userGroupIds)) {
+            return;
+        }
+
+        String[] groupIds = StringUtil.split(userGroupIds, StringUtil.COMMA);
+        for (String groupId : groupIds) {
+            if (StringUtil.isBlank(groupId)) {
+                continue;
+            }
+            UserGroup userGroup = profileComponent.getUserGroup(groupId.trim());
+            if (userGroup == null || CollectionUtils.isEmpty(userGroup.getUserIds())) {
+                continue;
+            }
+
+            // 从用户组中移除用户
+            if (userGroup.getUserIds().remove(username)) {
+                profileComponent.editConfigModel(userGroup);
+            }
+        }
     }
 
     /**

@@ -79,8 +79,14 @@ public class UserConfigServiceImpl implements UserConfigService {
         // 注册新用户
         userConfig.getUserInfoList().add(new UserInfo(username, nickname, SHA1Util.b64_sha1(password), UserRoleEnum.USER.getCode(), email, phone, groupIds, userGroupIds));
 
+        // 保存用户配置
+        String result = profileComponent.editConfigModel(userConfig);
+
+        // 维护用户组的双向关联：将用户添加到指定的用户组中
+        userGroupService.addUserToGroups(username, userGroupIds);
+
         logService.log(LogType.UserLog.INSERT, String.format("[%s]添加[%s]账号成功", currentUser.getUsername(), username));
-        return profileComponent.editConfigModel(userConfig);
+        return result;
     }
 
     @Override
@@ -92,6 +98,7 @@ public class UserConfigServiceImpl implements UserConfigService {
         String newPwd = params.get("newPwd");
         String email = params.get("email");
         String phone = params.get("phone");
+        String newUserGroupIds = params.get("userGroupIds");
 
         // 验证当前登录用户合法身份（管理员或本人操作）
         UserConfig userConfig = getUserConfig();
@@ -104,12 +111,15 @@ public class UserConfigServiceImpl implements UserConfigService {
         UserInfo updateUser = self ? currentUser : userConfig.getUserInfo(username);
         Assert.notNull(updateUser, "用户不存在");
 
+        // 获取旧的用户组ID，用于后续维护双向关联
+        String oldUserGroupIds = updateUser.getUserGroupIds();
+
         // 用户昵称
         updateUser.setNickname(nickname);
         updateUser.setEmail(email);
         updateUser.setPhone(phone);
         updateUser.setGroupIds(params.get("groupIds"));
-        updateUser.setUserGroupIds(params.get("userGroupIds"));
+        updateUser.setUserGroupIds(newUserGroupIds);
         // 修改密码
         if (StringUtil.isNotBlank(newPwd)) {
             // 修改自己的密码需要验证
@@ -127,7 +137,20 @@ public class UserConfigServiceImpl implements UserConfigService {
             logService.log(LogType.UserLog.UPDATE, String.format("[%s]修改[%s]账号密码成功", currentUser.getUsername(), username));
         }
 
-        return profileComponent.editConfigModel(userConfig);
+        // 保存用户配置
+        String result = profileComponent.editConfigModel(userConfig);
+
+        // 维护用户组的双向关联
+        // 1. 从旧的用户组中移除该用户
+        if (StringUtil.isNotBlank(oldUserGroupIds)) {
+            userGroupService.removeUserFromGroups(username, oldUserGroupIds);
+        }
+        // 2. 将用户添加到新的用户组中
+        if (StringUtil.isNotBlank(newUserGroupIds)) {
+            userGroupService.addUserToGroups(username, newUserGroupIds);
+        }
+
+        return result;
     }
 
     @Override
@@ -146,8 +169,18 @@ public class UserConfigServiceImpl implements UserConfigService {
         // 删除用户
         UserInfo deleteUser = userConfig.getUserInfo(username);
         Assert.notNull(deleteUser, "用户已删除.");
+        
+        // 获取用户的用户组ID，用于后续从用户组中移除
+        String userGroupIds = deleteUser.getUserGroupIds();
+        
         userConfig.removeUserInfo(username);
         profileComponent.editConfigModel(userConfig);
+        
+        // 从用户组中移除该用户
+        if (StringUtil.isNotBlank(userGroupIds)) {
+            userGroupService.removeUserFromGroups(username, userGroupIds);
+        }
+        
         logService.log(LogType.UserLog.DELETE, String.format("[%s]删除[%s]账号成功", currentUser.getUsername(), username));
         return "删除用户成功!";
     }
