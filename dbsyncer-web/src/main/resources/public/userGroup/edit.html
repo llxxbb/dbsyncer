@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
+
+<div class="container-fluid">
+  <div class="container">
+    <form id="userGroupEditForm" class="form-horizontal" role="form" method="post">
+      <!-- 标题 -->
+      <div class="row text-center">
+        <div class="page-header">
+          <h3>修改用户组</h3>
+        </div>
+      </div>
+
+      <!-- 操作 -->
+      <div class="form-group">
+        <div class="col-md-10"></div>
+        <div class="col-md-2 text-right">
+          <button id="userGroupSubmitBtn" type="button" class="btn btn-primary">
+            <span class="fa fa-save"></span>保存
+          </button>
+          <button id="userGroupBackBtn" type="button" class="btn btn-default">
+            <span class="fa fa-reply"></span>返回
+          </button>
+        </div>
+      </div>
+
+      <!-- 配置 -->
+      <div class="row">
+        <div class="col-md-12">
+          <div class="panel panel-info">
+            <div class="panel-heading">
+              <h3 class="panel-title">用户组配置</h3>
+            </div>
+
+            <div class="panel-body">
+              <!-- 隐藏ID -->
+              <input type="hidden" name="id" th:value="${userGroup?.id}"/>
+
+              <!-- 用户组名称 -->
+              <div class="form-group">
+                <label class="col-sm-2 control-label">用户组名称<strong class="text-primary">*</strong></label>
+                <div class="col-sm-10">
+                  <input class="form-control" name="name" type="text" maxlength="50" dbsyncer-valid="require" placeholder="用户组名称" th:value="${userGroup?.name}"/>
+                </div>
+              </div>
+
+              <!-- 描述 -->
+              <div class="form-group">
+                <label class="col-sm-2 control-label">描述</label>
+                <div class="col-sm-10">
+                  <textarea class="form-control" name="description" rows="3" maxlength="200" placeholder="用户组描述" th:text="${userGroup?.description}"></textarea>
+                </div>
+              </div>
+
+              <!-- 选择用户 -->
+              <div class="form-group">
+                <label class="col-sm-2 control-label">选择用户<i class="fa fa-question-circle fa_gray" aria-hidden="true" title="支持选择多个用户"></i></label>
+                <div class="col-sm-10">
+                  <select id="userIds" name="userIds" class="form-control select-control-table" multiple="multiple">
+                    <option th:each="u,s:${users}" th:value="${u?.username}" th:text="${u?.username + '(' + u?.nickname + ')' }" th:selected="${#lists.contains(userGroup?.userIds, u?.username)}"></option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- 选择任务分组 -->
+              <div class="form-group">
+                <label class="col-sm-2 control-label">选择任务分组<i class="fa fa-question-circle fa_gray" aria-hidden="true" title="支持选择多个任务分组"></i></label>
+                <div class="col-sm-10">
+                  <select id="projectGroupIds" name="projectGroupIds" class="form-control select-control-table" multiple="multiple">
+                    <option th:each="pg,s:${projectGroups}" th:value="${pg?.id}" th:text="${pg?.name}" th:selected="${#lists.contains(userGroup?.projectGroupIds, pg?.id)}"></option>
+                  </select>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </form>
+  </div>
+</div>
+
+<script type="text/javascript">
+  // 初始化多选下拉框
+  initSelect($(".select-control-table"));
+
+  // 跳转用户组管理
+  function backUserGroupIndexPage() {
+    doLoader("/userGroup?refresh=" + new Date().getTime());
+  }
+
+  //保存
+  $("#userGroupSubmitBtn").click(function () {
+    const $form = $("#userGroupEditForm");
+    if ($form.formValidate() == true) {
+      const data = $form.serializeJson();
+      // 处理多选用户
+      if (data.userIds instanceof Array) {
+        data.userIds = data.userIds.join(',');
+      }
+      // 处理多选任务分组
+      if (data.projectGroupIds instanceof Array) {
+        data.projectGroupIds = data.projectGroupIds.join(',');
+      }
+      doPoster("/userGroup/edit", data, function (data) {
+        if (data.success == true) {
+          bootGrowl("修改用户组成功！", "success");
+          backUserGroupIndexPage();
+        } else {
+          bootGrowl(data.resultValue, "danger");
+        }
+      });
+    }
+  });
+
+  //返回
+  $("#userGroupBackBtn").click(function () {
+    backUserGroupIndexPage();
+  });
+</script>
+</html>

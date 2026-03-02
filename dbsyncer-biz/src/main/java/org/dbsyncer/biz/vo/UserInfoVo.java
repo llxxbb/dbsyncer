@@ -21,6 +21,11 @@ public class UserInfoVo extends UserInfo {
      */
     private List<String> groupNames;
 
+    /**
+     * 用户组名称列表（用于前端显示）
+     */
+    private List<String> userGroupNames;
+
     public String getRoleName() {
         return roleName;
     }
@@ -35,5 +40,13 @@ public class UserInfoVo extends UserInfo {
 
     public void setGroupNames(List<String> groupNames) {
         this.groupNames = groupNames;
+    }
+
+    public List<String> getUserGroupNames() {
+        return userGroupNames;
+    }
+
+    public void setUserGroupNames(List<String> userGroupNames) {
+        this.userGroupNames = userGroupNames;
     }
 }

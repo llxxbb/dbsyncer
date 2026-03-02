@@ -108,7 +108,7 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
 
         // Load configModels
         Stream.of(CommandEnum.PRELOAD_SYSTEM, CommandEnum.PRELOAD_USER, CommandEnum.PRELOAD_CONNECTOR, CommandEnum.PRELOAD_MAPPING,
-                CommandEnum.PRELOAD_META, CommandEnum.PRELOAD_PROJECT_GROUP).forEach(commandEnum -> {
+                CommandEnum.PRELOAD_META, CommandEnum.PRELOAD_PROJECT_GROUP, CommandEnum.PRELOAD_USER_GROUP).forEach(commandEnum -> {
             try {
                 reload(map, commandEnum);
             } catch (Exception e) {

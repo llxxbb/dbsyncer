@@ -14,6 +14,7 @@ import org.dbsyncer.parser.model.ProjectGroup;
 import org.dbsyncer.parser.model.SystemConfig;
 import org.dbsyncer.parser.model.TableGroup;
 import org.dbsyncer.parser.model.UserConfig;
+import org.dbsyncer.parser.model.UserGroup;
 import org.dbsyncer.sdk.enums.OperationEnum;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.storage.enums.StorageDataStatusEnum;
@@ -101,6 +102,21 @@ public interface ProfileComponent {
      * @return
      */
     List<ProjectGroup> getProjectGroupAll();
+
+    /**
+     * 根据ID获取用户组
+     *
+     * @param id
+     * @return
+     */
+    UserGroup getUserGroup(String id);
+
+    /**
+     * 获取所有的用户组
+     *
+     * @return
+     */
+    List<UserGroup> getUserGroupAll();
 
     /**
      * 根据ID获取连接器

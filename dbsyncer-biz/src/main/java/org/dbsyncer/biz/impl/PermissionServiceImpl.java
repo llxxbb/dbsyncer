@@ -5,11 +5,13 @@ import org.dbsyncer.biz.PermissionService;
 import org.dbsyncer.biz.ProjectGroupService;
 import org.dbsyncer.biz.TableGroupService;
 import org.dbsyncer.biz.UserConfigService;
+import org.dbsyncer.biz.UserGroupService;
 import org.dbsyncer.biz.enums.UserRoleEnum;
 import org.dbsyncer.biz.vo.MappingVo;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.model.ProjectGroup;
 import org.dbsyncer.parser.model.TableGroup;
+import org.dbsyncer.parser.model.UserGroup;
 import org.dbsyncer.parser.model.UserInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,6 +31,9 @@ public class PermissionServiceImpl implements PermissionService {
 
     @Resource
     private ProjectGroupService projectGroupService;
+
+    @Resource
+    private UserGroupService userGroupService;
 
     @Resource
     private MappingService mappingService;
@@ -60,7 +65,8 @@ public class PermissionServiceImpl implements PermissionService {
         }
         try {
             UserInfo user = userConfigService.getUserInfo(username);
-            return user != null && StringUtil.isNotBlank(user.getGroupIds());
+            // 只通过用户组间接关联判断是否有分组访问权限
+            return user != null && StringUtil.isNotBlank(user.getUserGroupIds());
         } catch (Exception e) {
             logger.error("检查分组权限失败: {}", e.getMessage(), e);
             return false;
@@ -87,23 +93,48 @@ public class PermissionServiceImpl implements PermissionService {
         }
 
         try {
-            Set<String> userMappingIds = getUserAccessibleMappingIds(username);
+            Set<String> userProjectGroupIds = getUserAccessibleProjectGroupIds(username);
 
             if ("mapping".equals(resourceType)) {
-                return userMappingIds.contains(resourceId);
+                // 检查任务是否属于用户可访问的任务分组
+                return isMappingInProjectGroups(resourceId, userProjectGroupIds);
             } else if ("tableGroup".equals(resourceType)) {
                 TableGroup tableGroup = tableGroupService.getTableGroup(resourceId);
                 if (tableGroup == null) {
                     return false;
                 }
-                return userMappingIds.contains(tableGroup.getMappingId());
+                return isMappingInProjectGroups(tableGroup.getMappingId(), userProjectGroupIds);
+            } else if ("projectGroup".equals(resourceType)) {
+                // 直接检查任务分组权限
+                return userProjectGroupIds.contains(resourceId);
             }
 
-            return userMappingIds.contains(resourceId);
+            return false;
         } catch (Exception e) {
             logger.error("检查权限失败: resourceId={}, resourceType={}, error={}", resourceId, resourceType, e.getMessage(), e);
             return false;
         }
+    }
+
+    /**
+     * 检查Mapping是否属于指定的ProjectGroups
+     */
+    private boolean isMappingInProjectGroups(String mappingId, Set<String> projectGroupIds) {
+        if (StringUtil.isBlank(mappingId) || projectGroupIds == null || projectGroupIds.isEmpty()) {
+            return false;
+        }
+        
+        // 获取所有项目分组，检查mappingId是否在其中
+        List<ProjectGroup> allProjectGroups = projectGroupService.getProjectGroupAll();
+        for (ProjectGroup projectGroup : allProjectGroups) {
+            if (projectGroupIds.contains(projectGroup.getId())) {
+                List<String> mappingIds = projectGroup.getMappingIds();
+                if (mappingIds != null && mappingIds.contains(mappingId)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     @Override
@@ -118,7 +149,22 @@ public class PermissionServiceImpl implements PermissionService {
             return Collections.emptyList();
         }
 
-        return new ArrayList<>(getUserAccessibleMappingIds(username));
+        // 获取用户可访问的任务分组ID
+        Set<String> projectGroupIds = getUserAccessibleProjectGroupIds(username);
+        
+        // 获取所有项目分组中的mappingIds
+        Set<String> accessibleMappingIds = new HashSet<>();
+        List<ProjectGroup> allProjectGroups = projectGroupService.getProjectGroupAll();
+        for (ProjectGroup projectGroup : allProjectGroups) {
+            if (projectGroupIds.contains(projectGroup.getId())) {
+                List<String> mappingIds = projectGroup.getMappingIds();
+                if (mappingIds != null) {
+                    accessibleMappingIds.addAll(mappingIds);
+                }
+            }
+        }
+        
+        return new ArrayList<>(accessibleMappingIds);
     }
 
     @Override
@@ -131,21 +177,36 @@ public class PermissionServiceImpl implements PermissionService {
         return hasPermission(username, tableGroupId, "tableGroup", "read");
     }
 
-    private Set<String> getUserAccessibleMappingIds(String username) {
-        Set<String> mappingIds = new HashSet<>();
+    /**
+     * 获取用户可访问的任务分组ID集合
+     * 只通过用户所在用户组间接关联获取
+     */
+    private Set<String> getUserAccessibleProjectGroupIds(String username) {
+        Set<String> projectGroupIds = new HashSet<>();
 
-        List<ProjectGroup> userGroups = projectGroupService.getProjectGroupsByUser(username);
-        if (userGroups == null || userGroups.isEmpty()) {
-            return mappingIds;
-        }
-
-        for (ProjectGroup group : userGroups) {
-            List<String> groupMappingIds = group.getMappingIds();
-            if (groupMappingIds != null) {
-                mappingIds.addAll(groupMappingIds);
+        try {
+            UserInfo userInfo = userConfigService.getUserInfo(username);
+            if (userInfo == null) {
+                return projectGroupIds;
             }
+
+            // 只通过用户所在用户组关联的分组获取
+            if (StringUtil.isNotBlank(userInfo.getUserGroupIds())) {
+                String[] userGroupIds = StringUtil.split(userInfo.getUserGroupIds(), StringUtil.COMMA);
+                for (String userGroupId : userGroupIds) {
+                    if (StringUtil.isBlank(userGroupId)) {
+                        continue;
+                    }
+                    UserGroup userGroup = userGroupService.getUserGroup(userGroupId.trim());
+                    if (userGroup != null && userGroup.getProjectGroupIds() != null) {
+                        projectGroupIds.addAll(userGroup.getProjectGroupIds());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.error("获取用户可访问任务分组失败: username={}, error={}", username, e.getMessage(), e);
         }
 
-        return mappingIds;
+        return projectGroupIds;
     }
 }

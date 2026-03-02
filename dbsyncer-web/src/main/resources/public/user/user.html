@@ -30,7 +30,7 @@
                     <tr>
                         <th>用户</th>
                         <th>角色</th>
-                        <th>用户组别</th>
+                        <th>所属用户组</th>
                         <th>邮箱</th>
                         <th>手机</th>
                         <th>操作</th>
@@ -41,8 +41,8 @@
                         <td th:text="${u?.username + '(' + u?.nickname + ')' }"/>
                         <td th:text="${u?.roleName}"/>
                         <td>
-                            <span th:each="g : ${u?.groupNames}">
-                                <span class="label label-info">[[${g}]]</span>
+                            <span th:each="ug : ${u?.userGroupNames}">
+                                <span class="label label-info">[[${ug}]]</span>
                             </span>
                         </td>
                         <td>
