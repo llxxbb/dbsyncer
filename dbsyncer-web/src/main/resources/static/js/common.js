@@ -146,13 +146,79 @@ function initSelect($select) {
     });
 }
 
-// 绑定多值输入框事件
+function isValidEmail(email) {
+    var emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return emailRegex.test(email);
+}
+
+function isValidPhone(phone) {
+    var phoneRegex = /^1[3-9]\d{9}$/;
+    return phoneRegex.test(phone);
+}
+
 function initMultipleInputTags() {
     $("input[data-role=tagsinput]").tagsinput({
         maxChars: 32,
         maxTags: 5,
         tagClass: 'label label-success',
         trimValue: true
+    });
+}
+
+function initEmailTagsInput() {
+    var $emailInput = $("input[data-role=tagsinput][name='email']");
+    if ($emailInput.length === 0) return;
+    
+    $emailInput.each(function() {
+        var $this = $(this);
+        $this.tagsinput({
+            maxChars: 64,
+            maxTags: 5,
+            tagClass: function(item) {
+                return isValidEmail(item) ? 'label label-success' : 'label label-danger';
+            },
+            trimValue: true
+        });
+        
+        $this.on('beforeItemAdd', function(event) {
+            var email = event.item;
+            if (!isValidEmail(email)) {
+                event.cancel = true;
+                bootGrowl('邮箱格式不正确: ' + email, 'danger');
+            }
+        });
+    });
+}
+
+function initPhoneValidation() {
+    var $phoneInput = $("input[name='phone']");
+    if ($phoneInput.length === 0) return;
+    
+    $phoneInput.each(function() {
+        var $this = $(this);
+        $this.on('blur', function() {
+            var phone = $this.val().trim();
+            if (phone && !isValidPhone(phone)) {
+                $this.addClass('dbsyncer_valid_error')
+                     .attr("data-original-title", "请输入正确的手机号格式")
+                     .tooltip({trigger: 'manual'})
+                     .tooltip('show');
+            } else {
+                $this.tooltip('hide').removeClass('dbsyncer_valid_error');
+            }
+        });
+        
+        $this.on('input', function() {
+            var phone = $this.val().trim();
+            if (phone && !isValidPhone(phone)) {
+                $this.addClass('dbsyncer_valid_error')
+                     .attr("data-original-title", "请输入正确的手机号格式")
+                     .tooltip({trigger: 'manual'})
+                     .tooltip('show');
+            } else {
+                $this.tooltip('hide').removeClass('dbsyncer_valid_error');
+            }
+        });
     });
 }
 
