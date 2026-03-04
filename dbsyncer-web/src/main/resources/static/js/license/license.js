@@ -1,6 +1,8 @@
 $(function () {
-    // 绑定多值输入框事件
-    initMultipleInputTags();
+    // 初始化邮箱输入框校验
+    initEmailTagsInput();
+    // 初始化手机号校验
+    initPhoneValidation();
     // 刷新授权信息
     refreshLicenseInfo();
 

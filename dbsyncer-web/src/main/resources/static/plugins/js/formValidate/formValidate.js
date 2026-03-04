@@ -18,6 +18,28 @@ $.fn.formValidate = function(opt) {
 		formValidateMethod($(this));
 	});
 	
+	// 验证邮箱格式
+	var emails = $self.find('[dbsyncer-valid="email"]');
+	emails.each(function() {
+		if (!formValidateEmail($(this))) {
+			passValid = false;
+		}
+	}).on('blur', function() {
+		formValidateEmail($(this));
+	});
+	
+	// 验证手机号格式
+	var phones = $self.find('[dbsyncer-valid="phone"]');
+	phones.each(function() {
+		if (!formValidatePhone($(this))) {
+			passValid = false;
+		}
+	}).on('blur', function() {
+		formValidatePhone($(this));
+	}).on('input', function() {
+		formValidatePhone($(this));
+	});
+	
 	// 如果验证不成功
 	return passValid;
 }
@@ -36,6 +58,28 @@ var formValidateMethod = function($this){
 			$this.addClass(errorClassName).attr("data-original-title", "有效范围应在" + min + "-" + max).tooltip({trigger: 'manual'}).tooltip('show');
 			return false;
 		}
+	}
+	$this.tooltip('hide').removeClass(errorClassName);
+	return true;
+}
+
+var formValidateEmail = function($this) {
+	let errorClassName = "dbsyncer_valid_error";
+	var email = $this.val();
+	if (email && !isValidEmail(email)) {
+		$this.addClass(errorClassName).attr("data-original-title", "请输入正确的邮箱格式").tooltip({trigger: 'manual'}).tooltip('show');
+		return false;
+	}
+	$this.tooltip('hide').removeClass(errorClassName);
+	return true;
+}
+
+var formValidatePhone = function($this) {
+	let errorClassName = "dbsyncer_valid_error";
+	var phone = $this.val();
+	if (phone && !isValidPhone(phone)) {
+		$this.addClass(errorClassName).attr("data-original-title", "请输入正确的手机号格式").tooltip({trigger: 'manual'}).tooltip('show');
+		return false;
 	}
 	$this.tooltip('hide').removeClass(errorClassName);
 	return true;

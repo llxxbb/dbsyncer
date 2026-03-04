@@ -70,7 +70,7 @@ xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
               <div class="form-group">
                 <label class="col-sm-2 control-label">手机</label>
                 <div class="col-sm-10">
-                  <input type="number" class="form-control" dbsyncer-valid="false" maxlength="13" name="phone"/>
+                  <input type="text" class="form-control" dbsyncer-valid="phone" maxlength="11" name="phone" placeholder="请输入11位手机号"/>
                 </div>
               </div>
 
@@ -94,8 +94,10 @@ xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
 </div>
 
 <script type="text/javascript">
-  // 绑定多值输入框事件
-  initMultipleInputTags();
+  // 初始化邮箱输入框校验
+  initEmailTagsInput();
+  // 初始化手机号校验
+  initPhoneValidation();
   // 初始化多选下拉框
   initSelect($(".select-control-table"));
   // 跳转用户管理
