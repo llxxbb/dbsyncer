@@ -64,7 +64,7 @@ var formValidateMethod = function($this){
 }
 
 var formValidateEmail = function($this) {
-	let errorClassName = "dbsyncer_valid_error";
+	var errorClassName = "dbsyncer_valid_error";
 	var email = $this.val();
 	if (email && !isValidEmail(email)) {
 		$this.addClass(errorClassName).attr("data-original-title", "请输入正确的邮箱格式").tooltip({trigger: 'manual'}).tooltip('show');
@@ -75,7 +75,7 @@ var formValidateEmail = function($this) {
 }
 
 var formValidatePhone = function($this) {
-	let errorClassName = "dbsyncer_valid_error";
+	var errorClassName = "dbsyncer_valid_error";
 	var phone = $this.val();
 	if (phone && !isValidPhone(phone)) {
 		$this.addClass(errorClassName).attr("data-original-title", "请输入正确的手机号格式").tooltip({trigger: 'manual'}).tooltip('show');

@@ -27,6 +27,7 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/mapping")
@@ -130,7 +131,7 @@ public class MappingController extends BaseController {
                         vo.setTargetConnector(mapping.getTargetConnector());
                         return vo;
                     })
-                    .collect(java.util.stream.Collectors.toList());
+                    .collect(Collectors.toList());
             return RestResult.restSuccess(relatedMappings);
         } catch (Exception e) {
             logger.error("获取关联映射列表失败", e);
