@@ -111,6 +111,7 @@ public class MappingController extends BaseController {
 
     @GetMapping("/getRelatedMappings")
     @ResponseBody
+    @PreAuthorize("hasRole('admin')")
     public RestResult getRelatedMappings(@RequestParam(value = "connectorId") String connectorId) {
         try {
             List<MappingVo> allMappings = mappingService.getMappingAll();
