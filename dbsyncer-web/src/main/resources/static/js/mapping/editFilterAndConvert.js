@@ -197,56 +197,106 @@ function openFieldEditDialog(existingField) {
     $('#fieldEditDialog').modal('show');
 }
 
-// 动态加载字段类型（从目标表字段中提取）
+// 动态加载字段类型（根据目标库类型加载，如果目标库是 Kafka 则加载源库类型）
 function loadFieldTypes() {
     var $fieldType = $('#fieldType');
     
-    // 先销毁已有的 selectpicker 实例（如果存在）
     $fieldType.selectpicker('destroy');
-    
     $fieldType.empty().append('<option value="">请选择</option>');
     
-    // 使用完整的 MySQL 类型列表
-    var allTypes = [
-        // 数值类型
-        'TINYINT', 'SMALLINT', 'MEDIUMINT', 'INT', 'INTEGER', 'BIGINT',
-        'FLOAT', 'DOUBLE', 'DECIMAL', 'NUMERIC', 'REAL',
-        'BIT', 'BOOLEAN',
-        // 字符串类型
-        'CHAR', 'VARCHAR', 'TINYTEXT', 'TEXT', 'MEDIUMTEXT', 'LONGTEXT',
-        'BINARY', 'VARBINARY', 'TINYBLOB', 'BLOB', 'MEDIUMBLOB', 'LONGBLOB',
-        'ENUM', 'SET',
-        // 日期时间类型
-        'DATE', 'TIME', 'DATETIME', 'TIMESTAMP', 'YEAR',
-        // 其他
-        'GEOMETRY', 'POINT', 'LINESTRING', 'POLYGON',
-        'MULTIPOINT', 'MULTILINESTRING', 'MULTIPOLYGON', 'GEOMETRYCOLLECTION',
-        'JSON'
-    ];
+    var targetConnectorType = '';
+    var sourceConnectorType = '';
+    
+    var $targetImg = $('.panel-body img[src*="/img/"]').last();
+    if ($targetImg.length > 0) {
+        var targetSrc = $targetImg.attr('src');
+        var match = targetSrc.match(/\/img\/([^.]+)\.png/);
+        if (match && match[1]) {
+            targetConnectorType = match[1];
+        }
+    }
+    
+    var $sourceImg = $('.panel-body img[src*="/img/"]').first();
+    if ($sourceImg.length > 0) {
+        var sourceSrc = $sourceImg.attr('src');
+        var match = sourceSrc.match(/\/img\/([^.]+)\.png/);
+        if (match && match[1]) {
+            sourceConnectorType = match[1];
+        }
+    }
+    
+    var useConnectorType = (targetConnectorType === 'kafka') ? sourceConnectorType : targetConnectorType;
+    var allTypes = getDatabaseFieldTypes(useConnectorType);
     
     allTypes.forEach(function(type) {
         $fieldType.append('<option value="' + type + '">' + type + '</option>');
     });
     
-    // 重新初始化 Bootstrap Select
     $fieldType.selectpicker({
         "title": "请选择",
         "liveSearch": true,
         "noneResultsText": "没有找到 {0}"
     });
     
-    console.log('字段类型加载完成，共加载', allTypes.length, '个 MySQL 类型');
+    console.log('字段类型加载完成，数据库类型：' + useConnectorType + ', 共加载 ' + allTypes.length + ' 个类型');
+}
+
+function getDatabaseFieldTypes(connectorType) {
+    var databaseTypes = {
+        'mysql': [
+            'TINYINT', 'SMALLINT', 'MEDIUMINT', 'INT', 'INTEGER', 'BIGINT',
+            'FLOAT', 'DOUBLE', 'DECIMAL', 'NUMERIC', 'REAL',
+            'BIT', 'BOOLEAN',
+            'CHAR', 'VARCHAR', 'TINYTEXT', 'TEXT', 'MEDIUMTEXT', 'LONGTEXT',
+            'BINARY', 'VARBINARY', 'TINYBLOB', 'BLOB', 'MEDIUMBLOB', 'LONGBLOB',
+            'ENUM', 'SET',
+            'DATE', 'TIME', 'DATETIME', 'TIMESTAMP', 'YEAR',
+            'GEOMETRY', 'POINT', 'LINESTRING', 'POLYGON',
+            'MULTIPOINT', 'MULTILINESTRING', 'MULTIPOLYGON', 'GEOMETRYCOLLECTION',
+            'JSON'
+        ],
+        'sqlserver': [
+            'BIGINT', 'BIT', 'DECIMAL', 'INT', 'MONEY', 'NUMERIC', 'SMALLINT', 'SMALLMONEY', 'TINYINT',
+            'FLOAT', 'REAL',
+            'DATE', 'DATETIME', 'DATETIME2', 'DATETIMEOFFSET', 'SMALLDATETIME', 'TIME',
+            'CHAR', 'VARCHAR', 'TEXT',
+            'NCHAR', 'NVARCHAR', 'NTEXT',
+            'BINARY', 'VARBINARY', 'IMAGE',
+            'CURSOR', 'HIERARCHYID', 'SQL_VARIANT', 'TIMESTAMP', 'UNIQUEIDENTIFIER', 'XML'
+        ],
+        'oracle': [
+            'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE',
+            'CHAR', 'VARCHAR2', 'NCHAR', 'NVARCHAR2', 'CLOB', 'NCLOB', 'LONG',
+            'DATE', 'TIMESTAMP', 'TIMESTAMP WITH TIME ZONE', 'TIMESTAMP WITH LOCAL TIME ZONE',
+            'RAW', 'LONG RAW', 'BLOB', 'BFILE',
+            'ROWID', 'UROWID', 'XMLTYPE'
+        ],
+        'postgresql': [
+            'SMALLINT', 'INTEGER', 'BIGINT', 'DECIMAL', 'NUMERIC', 'REAL', 'DOUBLE PRECISION',
+            'SMALLSERIAL', 'SERIAL', 'BIGSERIAL',
+            'MONEY',
+            'CHARACTER', 'CHAR', 'CHARACTER VARYING', 'VARCHAR', 'TEXT',
+            'BYTEA',
+            'TIMESTAMP', 'TIMESTAMP WITH TIME ZONE', 'TIMESTAMP WITHOUT TIME ZONE',
+            'DATE', 'TIME', 'TIME WITH TIME ZONE', 'TIME WITHOUT TIME ZONE', 'INTERVAL',
+            'BOOLEAN',
+            'UUID', 'XML', 'JSON', 'JSONB', 'ARRAY', 'RANGE', 'OID'
+        ],
+        'sqlite': [
+            'INTEGER', 'REAL', 'TEXT', 'BLOB', 'NUMERIC'
+        ],
+        'elasticsearch': [
+            'TEXT', 'KEYWORD', 'DATE', 'LONG', 'INTEGER', 'SHORT', 'BYTE', 'DOUBLE',
+            'FLOAT', 'HALF_FLOAT', 'SCALED_FLOAT', 'BOOLEAN', 'BINARY', 'OBJECT', 'NESTED'
+        ]
+    };
+    
+    return databaseTypes[connectorType] || databaseTypes['mysql'];
 }
 
 // 初始化字段类型变化联动
 function initFieldTypeChange() {
-    var $fieldType = $('#fieldType');
-    // 使用 changed.bs.select 事件以兼容 bootstrap-select
-    $fieldType.off('changed.bs.select').on('changed.bs.select', function() {
-        // 长度和精度始终显示，不再根据类型联动
-        $('#fieldSizeGroup').show();
-        $('#fieldScaleGroup').show();
-    });
+    // 长度和精度输入框现在默认显示，不需要根据类型联动
 }
 
 // 保存自定义字段
