@@ -182,12 +182,15 @@ function openFieldEditDialog(existingField) {
     
     if (existingField) {
         $('#fieldName').val(existingField.name);
-        $('#fieldType').val(existingField.typeName);
-        $('#fieldType').selectpicker('refresh');
         $('#fieldSize').val(existingField.columnSize || '');
         $('#fieldScale').val(existingField.ratio || '');
         $('#fieldNullable').prop('checked', existingField.nullable !== false);
         $('#fieldComment').val(existingField.comment || '');
+        
+        // 延迟设置字段类型值，确保 selectpicker 已完全初始化
+        setTimeout(function() {
+            $('#fieldType').selectpicker('val', existingField.typeName);
+        }, 50);
     }
     
     // 显示对话框
@@ -197,6 +200,10 @@ function openFieldEditDialog(existingField) {
 // 动态加载字段类型（从目标表字段中提取）
 function loadFieldTypes() {
     var $fieldType = $('#fieldType');
+    
+    // 先销毁已有的 selectpicker 实例（如果存在）
+    $fieldType.selectpicker('destroy');
+    
     $fieldType.empty().append('<option value="">请选择</option>');
     
     // 使用完整的 MySQL 类型列表
@@ -221,8 +228,12 @@ function loadFieldTypes() {
         $fieldType.append('<option value="' + type + '">' + type + '</option>');
     });
     
-    // 刷新 Bootstrap Select UI
-    $fieldType.selectpicker('refresh');
+    // 重新初始化 Bootstrap Select
+    $fieldType.selectpicker({
+        "title": "请选择",
+        "liveSearch": true,
+        "noneResultsText": "没有找到 {0}"
+    });
     
     console.log('字段类型加载完成，共加载', allTypes.length, '个 MySQL 类型');
 }
@@ -230,13 +241,12 @@ function loadFieldTypes() {
 // 初始化字段类型变化联动
 function initFieldTypeChange() {
     var $fieldType = $('#fieldType');
-    $fieldType.off('change').on('change', function() {
+    // 使用 changed.bs.select 事件以兼容 bootstrap-select
+    $fieldType.off('changed.bs.select').on('changed.bs.select', function() {
         // 长度和精度始终显示，不再根据类型联动
         $('#fieldSizeGroup').show();
         $('#fieldScaleGroup').show();
     });
-    // 触发一次变化事件
-    $fieldType.trigger('change');
 }
 
 // 保存自定义字段

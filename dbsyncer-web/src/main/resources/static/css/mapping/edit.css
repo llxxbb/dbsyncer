@@ -1,4 +1,13 @@
 .tab-content .tab-pane{border-left:1px solid #ddd !important;border-right:1px solid #ddd !important;border-bottom:1px solid #ddd !important;padding:15px;box-sizing:border-box !important;width:100% !important;margin:0 !important}
+/* 修复 bootstrap-select 选中值显示问题 */
+.bootstrap-select .filter-option-inner-inner {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+}
 #progressChart{width:100px;height:100px;margin:0 auto}
 #progressText{font-size:1.2em;font-weight:bold;color:#333;margin-top:10px}
 .highlight-number{font-size:1.8em;font-weight:bold;margin:30px;padding:0}

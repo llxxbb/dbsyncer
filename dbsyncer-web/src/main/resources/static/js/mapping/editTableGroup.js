@@ -120,6 +120,25 @@ function bindTableFieldSelect(){
     bindFieldMappingAddClick($sourceSelect, $targetSelect);
 }
 
+// 修复 bootstrap-select 选中值不显示的问题
+function fixBootstrapSelectDisplay() {
+    // 延迟执行，确保 DOM 完全渲染
+    setTimeout(function() {
+        // 刷新所有 select-control-table 类型的下拉框
+        $('.select-control-table').each(function() {
+            var $select = $(this);
+            // 获取当前选中的值
+            var selectedValues = $select.selectpicker('val');
+            // 刷新 selectpicker
+            $select.selectpicker('refresh');
+            // 如果有选中的值，确保显示正确
+            if (selectedValues && selectedValues.length > 0) {
+                $select.selectpicker('val', selectedValues);
+            }
+        });
+    }, 100);
+}
+
 // 绑定下拉过滤按钮点击事件
 function bindFieldSelectFilterBtnClick() {
     // 查找操作按钮容器
@@ -416,6 +435,9 @@ function doTableGroupSubmit() {
 $(function() {
     // 初始化select插件
     initSelectIndex($(".select-control-table"), -1);
+    
+    // 修复 bootstrap-select 选中值不显示的问题
+    fixBootstrapSelectDisplay();
     
     // 绑定表字段关系点击事件
     initFieldMappingParams();
