@@ -11,10 +11,29 @@
 .well-sign-green{color:  #4CAF50  !important;}
 .well-sign-red{color: #ff0000 !important;}
 
-.mappingList {display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    margin: 0 -7.5px;
+/* 使用CSS Grid布局，固定间距，自动适应容器 */
+.mappingList {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+    padding: 0;
+    margin: 0;
+}
+
+/* 覆盖Bootstrap row的默认样式 */
+.mappingList.row {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+/* 新的卡片类，替代col-md-2 */
+.mapping-card {
+    display: flex;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 100%;
+    padding: 0;
+    margin: 0;
 }
 
 .mappingList .col-md-6 {max-width: 50%;
@@ -232,15 +251,14 @@
     gap: 5px;
 }
 
-/* 新卡片布局样式 */
-.mappingList .col-md-2 {
-    max-width: 20%;
-    flex: 0 0 20%;
-    padding: 0 7.5px;
-    margin-bottom: 15px;
+/* 新卡片布局样式 - Grid布局下简化样式 */
+.mappingList .mapping-card {
     display: flex;
     justify-content: center;
     box-sizing: border-box;
+    width: 100%;
+    padding: 0;
+    margin: 0;
 }
 
 /* 卡片面板样式优化 */
@@ -461,32 +479,40 @@
     display: flex;
 }
 
-/* 响应式设计 */
+/* 响应式设计 - Grid布局自动适应，只需调整最小卡片宽度 */
+@media (max-width: 1400px) {
+    .mappingList {
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 8px;
+    }
+}
+
 @media (max-width: 1200px) {
-    .mappingList .col-md-2 {
-        max-width: 25%;
-        flex: 0 0 25%;
+    .mappingList {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 8px;
     }
 }
 
 @media (max-width: 992px) {
-    .mappingList .col-md-2 {
-        max-width: 33.333333%;
-        flex: 0 0 33.333333%;
+    .mappingList {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 8px;
     }
 }
 
 @media (max-width: 768px) {
-    .mappingList .col-md-2 {
-        max-width: 50%;
-        flex: 0 0 50%;
+    .mappingList {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 8px;
+        padding: 0;
     }
 }
 
 @media (max-width: 480px) {
-    .mappingList .col-md-2 {
-        max-width: 100%;
-        flex: 0 0 100%;
+    .mappingList {
+        grid-template-columns: 1fr;
+        gap: 8px;
     }
 }
 
