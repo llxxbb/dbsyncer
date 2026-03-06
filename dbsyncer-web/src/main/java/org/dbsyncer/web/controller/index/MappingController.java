@@ -49,8 +49,9 @@ public class MappingController extends BaseController {
 
     @GetMapping("/pageAdd")
     @PreAuthorize("hasRole('admin')")
-    public String page(ModelMap model) {
+    public String page(ModelMap model, @RequestParam(value = "projectGroupId", required = false) String projectGroupId) {
         model.put("connectors", connectorService.getConnectorAll());
+        model.put("projectGroupId", projectGroupId);
         return "mapping/add";
     }
 
