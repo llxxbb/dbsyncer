@@ -15,16 +15,14 @@ import org.dbsyncer.parser.LogService;
 import org.dbsyncer.parser.LogType;
 import org.dbsyncer.parser.ParserComponent;
 import org.dbsyncer.parser.ProfileComponent;
+import org.dbsyncer.parser.model.Convert;
 import org.dbsyncer.parser.model.Mapping;
 import org.dbsyncer.parser.model.TableGroup;
-import org.dbsyncer.sdk.constant.ConfigConstant;
-import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.config.DDLConfig;
 import org.dbsyncer.sdk.connector.database.sql.SqlTemplate;
-import org.dbsyncer.sdk.model.MetaInfo;
+import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.MetaInfo;
-import org.dbsyncer.parser.model.Convert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -144,8 +142,8 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         TableGroup model = (TableGroup) tableGroupChecker.checkEditConfigModel(params);
         log(LogType.TableGroupLog.UPDATE, model);
         profileComponent.editTableGroup(model);
-        
-        // 【新增】执行自定义字段 DDL
+
+        // 执行自定义字段 DDL
         List<Convert> customConverts = model.getConvert();
         if (customConverts != null && !customConverts.isEmpty()) {
             List<Field> customFields = new ArrayList<>();
@@ -161,8 +159,8 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
                     refreshTableFieldsAfterDDL(model);
                     profileComponent.editTableGroup(model);
                 } catch (Exception e) {
-                    logger.error("执行自定义字段 DDL 失败，但配置已保存", e);
-                    // edit 场景不回滚，因为配置可能已使用
+                    logger.error("执行自定义字段 DDL 失败，回滚配置", e);
+                    throw new RuntimeException("执行自定义字段 DDL 失败：" + e.getMessage(), e);
                 }
             }
         }
@@ -179,7 +177,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
     public String refreshFields(String id) throws Exception {
         TableGroup tableGroup = profileComponent.getTableGroup(id);
         Assert.notNull(tableGroup, "Can not find tableGroup.");
-        
+
         Mapping mapping = profileComponent.getMapping(tableGroup.getMappingId());
         // 检查是否禁止编辑
         mapping.assertDisableEdit();
@@ -311,7 +309,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
     private void executeCustomFieldDDL(TableGroup tableGroup, List<Field> customFields) throws Exception {
         Mapping mapping = profileComponent.getMapping(tableGroup.getMappingId());
         org.dbsyncer.parser.model.Connector targetConnector = profileComponent.getConnector(mapping.getTargetConnectorId());
-        
+
         SqlTemplate sqlTemplate = ((org.dbsyncer.sdk.connector.database.Database) connectorFactory.getConnectorService(targetConnector.getConfig())).getSqlTemplate();
 
         for (Field field : customFields) {
@@ -322,48 +320,20 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
                 // 执行 DDL
                 DDLConfig ddlConfig = new DDLConfig();
                 ddlConfig.setSql(ddl);
-                
+
                 // 使用 connectorFactory 执行 DDL
                 connectorFactory.writerDDL(
-                        connectorFactory.connect(targetConnector.getConfig()), 
-                        ddlConfig, 
+                        connectorFactory.connect(targetConnector.getConfig()),
+                        ddlConfig,
                         null);
 
-                logger.info("自定义字段 DDL 执行成功：{}.{}", 
+                logger.info("自定义字段 DDL 执行成功：{}.{}",
                         tableGroup.getTargetTable().getName(), field.getName());
             } catch (Exception e) {
-                if (isColumnAlreadyExistsError(e.getMessage())) {
-                    logger.warn("字段已存在，跳过：{}", field.getName());
-                } else {
-                    logger.error("DDL 执行异常：{}", field.getName(), e);
-                    throw e;
-                }
+                logger.error("DDL 执行异常：{}", field.getName(), e);
+                throw e;
             }
         }
-    }
-
-    /**
-     * 判断是否为“字段已存在”错误
-     */
-    private boolean isColumnAlreadyExistsError(String errorMessage) {
-        if (errorMessage == null) {
-            return false;
-        }
-        String[] patterns = {
-                "Duplicate column name",
-                "column already exists",
-                "ORA-01430",
-                "There is already an object",
-                "already exists"
-        };
-
-        String lowerError = errorMessage.toLowerCase();
-        for (String pattern : patterns) {
-            if (lowerError.contains(pattern.toLowerCase())) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**
