@@ -218,7 +218,7 @@ public class MappingController extends BaseController {
 
     @PostMapping("/reset")
     @ResponseBody
-    @PreAuthorize("hasRole('admin')")
+    // @PreAuthorize("hasRole('admin')") // 暂时注释，目前不区分user和admin
     public RestResult reset(@RequestParam(value = "id") String id) {
         try {
             return RestResult.restSuccess(mappingService.reset(id));
