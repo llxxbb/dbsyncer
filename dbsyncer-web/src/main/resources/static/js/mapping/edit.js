@@ -1062,6 +1062,43 @@ function updateTableGroups(mappingId, total, successCount, failCount) {
     });
 }
 
+// 获取排序状态的存储键
+function getSortingStorageKey() {
+    var mappingId = $("#mappingId").val() || 'default';
+    return 'tableGroupSorting_' + mappingId;
+}
+
+// 保存排序状态到 localStorage
+function saveSortingState(columnIndex, direction) {
+    var key = getSortingStorageKey();
+    var state = {
+        columnIndex: columnIndex,
+        direction: direction,
+        timestamp: new Date().getTime()
+    };
+    localStorage.setItem(key, JSON.stringify(state));
+}
+
+// 从 localStorage 读取排序状态
+function loadSortingState() {
+    var key = getSortingStorageKey();
+    var stored = localStorage.getItem(key);
+    if (stored) {
+        try {
+            return JSON.parse(stored);
+        } catch (e) {
+            return null;
+        }
+    }
+    return null;
+}
+
+// 清除排序状态
+function clearSortingState() {
+    var key = getSortingStorageKey();
+    localStorage.removeItem(key);
+}
+
 // 添加表格排序功能
 function addTableSorting() {
     var table = $('#tableGroupProgress');
@@ -1093,11 +1130,40 @@ function addTableSorting() {
                 header.data('sort', newSort);
                 header.find('.sort-icon').text(newSort === 'asc' ? '↑' : '↓');
                 
+                // 保存排序状态
+                saveSortingState(index, newSort);
+                
                 // 排序表格
                 sortTable(table, index, newSort);
             });
         }
     });
+    
+    // 恢复之前的排序状态
+    restoreSortingState(table);
+}
+
+// 恢复排序状态
+function restoreSortingState(table) {
+    var state = loadSortingState();
+    if (state && state.columnIndex !== undefined && state.direction) {
+        var headers = table.find('thead th');
+        var header = headers.eq(state.columnIndex);
+        
+        // 检查是否是可排序的列
+        if (header.length && (state.columnIndex === 2 || state.columnIndex === 3 || state.columnIndex === 4)) {
+            // 更新表头状态
+            headers.each(function() {
+                $(this).data('sort', '');
+                $(this).find('.sort-icon').text('↕');
+            });
+            header.data('sort', state.direction);
+            header.find('.sort-icon').text(state.direction === 'asc' ? '↑' : '↓');
+            
+            // 应用排序
+            sortTable(table, state.columnIndex, state.direction);
+        }
+    }
 }
 
 // 排序表格
