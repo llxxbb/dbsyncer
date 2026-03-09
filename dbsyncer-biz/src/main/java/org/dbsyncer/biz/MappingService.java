@@ -85,8 +85,9 @@ public interface MappingService {
      * 重置混合同步任务
      *
      * @param id
+     * @param truncateTarget 是否清除目标源表
      */
-    String reset(String id) throws Exception;
+    String reset(String id, boolean truncateTarget) throws Exception;
 
     /**
      * 刷新驱动数据源和目标源表

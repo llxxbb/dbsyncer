@@ -219,9 +219,10 @@ public class MappingController extends BaseController {
     @PostMapping("/reset")
     @ResponseBody
     // @PreAuthorize("hasRole('admin')") // 暂时注释，目前不区分user和admin
-    public RestResult reset(@RequestParam(value = "id") String id) {
+    public RestResult reset(@RequestParam(value = "id") String id,
+                            @RequestParam(value = "truncateTarget", defaultValue = "false") boolean truncateTarget) {
         try {
-            return RestResult.restSuccess(mappingService.reset(id));
+            return RestResult.restSuccess(mappingService.reset(id, truncateTarget));
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage(), e);
             return RestResult.restFail(e.getMessage());

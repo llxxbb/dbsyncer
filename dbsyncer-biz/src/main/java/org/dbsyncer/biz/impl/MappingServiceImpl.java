@@ -547,7 +547,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
     }
 
     @Override
-    public String reset(String id) throws Exception {
+    public String reset(String id, boolean truncateTarget) throws Exception {
         Mapping mapping = profileComponent.getMapping(id);
         Assert.notNull(mapping, "驱动不存在");
 
@@ -562,6 +562,11 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
                 profileComponent.editConfigModel(tableGroup);
             }
 
+            // 根据用户选择决定是否 TRUNCATE 目标源表
+            if (truncateTarget) {
+                truncateTargetTables(mapping, tableGroupAll);
+            }
+
             mapping.setUpdateTime(Instant.now().toEpochMilli());
             profileComponent.editConfigModel(mapping);
 
@@ -574,5 +579,81 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         submitMappingCountTask(mapping);
 
         return "重置成功";
+    }
+
+    /**
+     * 使用 TRUNCATE 清空目标源表
+     *
+     * @param mapping       驱动映射关系
+     * @param tableGroupAll 表映射关系列表
+     */
+    private void truncateTargetTables(Mapping mapping, List<TableGroup> tableGroupAll) {
+        if (CollectionUtils.isEmpty(tableGroupAll)) {
+            return;
+        }
+
+        Connector targetConnector = profileComponent.getConnector(mapping.getTargetConnectorId());
+        if (targetConnector == null) {
+            logger.warn("目标连接器不存在，跳过 TRUNCATE 操作");
+            return;
+        }
+
+        org.dbsyncer.sdk.spi.ConnectorService<?, ?> targetConnectorService =
+                connectorFactory.getConnectorService(targetConnector.getConfig().getConnectorType());
+
+        // 只支持数据库类型的连接器执行 TRUNCATE
+        if (!(targetConnectorService instanceof org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector)) {
+            logger.info("目标连接器类型 {} 不支持 TRUNCATE 操作，跳过清空目标表", targetConnector.getConfig().getConnectorType());
+            return;
+        }
+
+        org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector dbConnector =
+                (org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector) targetConnectorService;
+
+        try {
+            org.dbsyncer.sdk.connector.ConnectorInstance connectorInstance = connectorFactory.connect(targetConnector.getConfig());
+            org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance dbInstance =
+                    (org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance) connectorInstance;
+
+            String schema = ((org.dbsyncer.sdk.config.DatabaseConfig) targetConnector.getConfig()).getSchema();
+
+            for (TableGroup tableGroup : tableGroupAll) {
+                org.dbsyncer.sdk.model.Table targetTable = tableGroup.getTargetTable();
+                if (targetTable == null || StringUtil.isBlank(targetTable.getName())) {
+                    continue;
+                }
+
+                String tableName = targetTable.getName();
+                try {
+                    String truncateSql = buildTruncateSql(dbConnector.getSqlTemplate(), schema, tableName);
+                    logger.info("执行 TRUNCATE 目标表: {}", truncateSql);
+
+                    dbInstance.execute(databaseTemplate -> {
+                        databaseTemplate.execute(truncateSql);
+                        return null;
+                    });
+
+                    logger.info("TRUNCATE 目标表成功: {}", tableName);
+                } catch (Exception e) {
+                    logger.error("TRUNCATE 目标表失败: {}, 错误: {}", tableName, e.getMessage(), e);
+                }
+            }
+        } catch (Exception e) {
+            logger.error("TRUNCATE 目标表操作失败: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 构建 TRUNCATE SQL 语句
+     *
+     * @param sqlTemplate SQL 模板
+     * @param schema      架构名
+     * @param tableName   表名
+     * @return TRUNCATE SQL 语句
+     */
+    private String buildTruncateSql(org.dbsyncer.sdk.connector.database.sql.SqlTemplate sqlTemplate,
+                                    String schema, String tableName) {
+        String quotedTableName = sqlTemplate.buildTable(schema, tableName);
+        return "TRUNCATE TABLE " + quotedTableName;
     }
 }

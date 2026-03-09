@@ -828,6 +828,7 @@ function bindEditPageOperationButtons() {
         $url = $url ? $url.replace('javascript:;', '') : '';
         var $confirm = $(this).attr("confirm");
         var $confirmMessage = $(this).attr("confirmMessage");
+        var $isReset = $url && $url.indexOf('/mapping/reset') !== -1;
 
         if ("true" == $confirm) {
             BootstrapDialog.show({
@@ -838,8 +839,13 @@ function bindEditPageOperationButtons() {
                 buttons: [{
                     label: "确定",
                     action: function (dialog) {
-                        doPostForEditPage($url);
                         dialog.close();
+                        // 如果是重置按钮，显示第二个确认对话框
+                        if ($isReset) {
+                            showTruncateTargetConfirmDialog($url);
+                        } else {
+                            doPostForEditPage($url);
+                        }
                     }
                 }, {
                     label: "取消",
@@ -863,6 +869,41 @@ function bindEditPageOperationButtons() {
         if ($url) {
             doPostForEditPage($url);
         }
+    });
+}
+
+// 显示清除目标源表确认对话框
+function showTruncateTargetConfirmDialog(resetUrl) {
+    BootstrapDialog.show({
+        title: "清除目标源表",
+        type: BootstrapDialog.TYPE_WARNING,
+        message: '<div style="padding: 10px;">' +
+                 '<p><strong>是否同时清除目标源表数据？</strong></p>' +
+                 '<p style="color: #999; font-size: 12px;">选择"是"将使用 TRUNCATE 清空所有目标源表的数据</p>' +
+                 '<p style="color: #999; font-size: 12px;">选择"否"仅重置任务状态，不清除目标源表数据</p>' +
+                 '</div>',
+        size: BootstrapDialog.SIZE_NORMAL,
+        buttons: [{
+            label: "是，清除目标表",
+            cssClass: "btn-danger",
+            action: function (dialog) {
+                dialog.close();
+                doPostForEditPage(resetUrl + '&truncateTarget=true');
+            }
+        }, {
+            label: "否，仅重置状态",
+            cssClass: "btn-primary",
+            action: function (dialog) {
+                dialog.close();
+                doPostForEditPage(resetUrl + '&truncateTarget=false');
+            }
+        }, {
+            label: "取消",
+            cssClass: "btn-default",
+            action: function (dialog) {
+                dialog.close();
+            }
+        }]
     });
 }
 
