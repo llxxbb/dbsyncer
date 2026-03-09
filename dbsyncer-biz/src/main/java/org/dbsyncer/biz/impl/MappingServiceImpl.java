@@ -89,6 +89,23 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         // 先保存 Mapping，确保 Mapping 保存成功
         String id = profileComponent.addConfigModel(model);
 
+        // 如果有指定分组，将任务添加到对应分组
+        String projectGroupId = params.get("projectGroupId");
+        if (StringUtil.isNotBlank(projectGroupId)) {
+            ProjectGroup projectGroup = profileComponent.getProjectGroup(projectGroupId);
+            if (projectGroup != null) {
+                List<String> mappingIds = projectGroup.getMappingIds();
+                if (mappingIds == null) {
+                    mappingIds = new ArrayList<>();
+                }
+                if (!mappingIds.contains(id)) {
+                    mappingIds.add(id);
+                    projectGroup.setMappingIds(mappingIds);
+                    profileComponent.editConfigModel(projectGroup);
+                }
+            }
+        }
+
         // Mapping 保存成功后，再创建并保存 Meta
         // 这样可以避免出现 Meta 存在但 Mapping 不存在的数据不一致问题
         Mapping mapping = (Mapping) model;
@@ -115,6 +132,24 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         Assert.notNull(mapping, "The mapping id is invalid.");
         Mapping newMapping = mapping.copy(snowflakeIdWorker);
         log(LogType.MappingLog.COPY, newMapping);
+
+        // 将复制的任务添加到原任务所在的分组
+        String newMappingId = newMapping.getId();
+        List<ProjectGroup> projectGroupAll = profileComponent.getProjectGroupAll();
+        if (!CollectionUtils.isEmpty(projectGroupAll)) {
+            for (ProjectGroup projectGroup : projectGroupAll) {
+                List<String> mappingIds = projectGroup.getMappingIds();
+                if (mappingIds != null && mappingIds.contains(id)) {
+                    // 原任务在该分组中，将新任务也添加到该分组
+                    if (!mappingIds.contains(newMappingId)) {
+                        mappingIds.add(newMappingId);
+                        projectGroup.setMappingIds(mappingIds);
+                        profileComponent.editConfigModel(projectGroup);
+                    }
+                    break; // 假设一个任务只在一个分组中，找到后退出循环
+                }
+            }
+        }
 
         // 统计总数
         submitMappingCountTask(newMapping);

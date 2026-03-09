@@ -55,7 +55,8 @@
                            title="删除任务">
                             <i class="fa fa-trash"></i> 删除
                         </a>
-                        <a th:attr="data-url='/mapping/reset?id='+${mapping?.id}"
+                        <a th:if="${currentUser?.roleCode eq 'admin'}"
+                           th:attr="data-url='/mapping/reset?id='+${mapping?.id}"
                            href="javascript:;"
                            confirm="true"
                            confirmMessage="确认重置任务?"
