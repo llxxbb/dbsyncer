@@ -583,7 +583,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
 
     /**
      * 使用 TRUNCATE 清空目标源表
-     *
+     *x
      * @param mapping       驱动映射关系
      * @param tableGroupAll 表映射关系列表
      */

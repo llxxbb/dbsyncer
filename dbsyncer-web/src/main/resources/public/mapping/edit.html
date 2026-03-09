@@ -101,6 +101,7 @@
                                     <div class="col-md-8">
                                         <p class="driver_break_word">[[${mapping?.sourceConnector?.name}]]</p>
                                         <p>数据源：[[${mapping?.sourceConnector?.config?.connectorType}]]</p>
+                                        <p><a href="javascript:;" class="source-detail-btn" th:attr="data-id=${mapping?.sourceConnector?.id}"><i class="fa fa-eye"></i> 详情</a></p>
                                     </div>
                                 </div>
                             </div>
@@ -119,6 +120,7 @@
                                     <div class="col-md-8">
                                         <p class="driver_break_word">[[${mapping?.targetConnector?.name}]]</p>
                                         <p>目标源：[[${mapping?.targetConnector?.config?.connectorType}]]</p>
+                                        <p><a href="javascript:;" class="target-detail-btn" th:attr="data-id=${mapping?.targetConnector?.id}"><i class="fa fa-eye"></i> 详情</a></p>
                                     </div>
                                 </div>
                             </div>

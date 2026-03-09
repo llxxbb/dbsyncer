@@ -661,6 +661,10 @@ function showConvertHelpDialog() {
 
 // HTML 转义函数
 function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
+    if (typeof text !== 'string') {
+        text = String(text);
+    }
     var map = {
         '&': '&amp;',
         '<': '&lt;',
@@ -668,7 +672,7 @@ function escapeHtml(text) {
         '"': '&quot;',
         "'": '&#039;'
     };
-    return text ? text.replace(/[&<>"']/g, function(m) { return map[m]; }) : '';
+    return text.replace(/[&<>"']/g, function(m) { return map[m]; });
 }
 
 // 绑定转换配置帮助图标点击事件

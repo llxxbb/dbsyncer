@@ -1012,6 +1012,9 @@ $(function () {
     // 绑定编辑页面操作按钮事件
     bindEditPageOperationButtons();
 
+    // 绑定数据源详情按钮点击事件
+    bindConnectorDetailBtnClick();
+
     // 返回
     $("#mappingBackBtn").click(function () {
          //清除定时器
@@ -1535,3 +1538,108 @@ $(function() {
     });
 });
 //*********************************** 错误队列 结束位置***********************************//
+
+//*********************************** 数据源详情 开始位置***********************************//
+function bindConnectorDetailBtnClick() {
+    $(document).off('click', '.source-detail-btn, .target-detail-btn').on('click', '.source-detail-btn, .target-detail-btn', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var connectorId = $(this).data('id');
+        if (connectorId) {
+            showConnectorDetail(connectorId);
+        } else {
+            bootGrowl('无法获取数据源ID', 'danger');
+        }
+    });
+}
+
+function showConnectorDetail(connectorId) {
+    $.ajax({
+        url: '/datasource/connector/get?id=' + connectorId,
+        type: 'GET',
+        dataType: 'json',
+        success: function(data) {
+            if (data.success === true) {
+                renderConnectorDetailDialog(data.resultValue);
+            } else {
+                var errorMsg = typeof data.resultValue === 'string' ? data.resultValue : JSON.stringify(data.resultValue);
+                bootGrowl('加载数据源详情失败：' + errorMsg, 'danger');
+            }
+        },
+        error: function() {
+            bootGrowl('加载数据源详情失败', 'danger');
+        }
+    });
+}
+
+function renderConnectorDetailDialog(connector) {
+    try {
+        var content = '<style>.connector-detail-dialog { width: 100%; } .connector-detail-dialog table { width: 100%; table-layout: fixed; } .connector-detail-dialog td { word-break: break-all !important; word-wrap: break-word !important; overflow-wrap: break-word !important; white-space: normal !important; }</style>';
+        content += '<div class="connector-detail-dialog">';
+        content += '<table class="table table-bordered table-striped">';
+        content += '<tbody>';
+        
+        content += '<tr><td style="width: 120px; font-weight: bold; white-space: nowrap;">数据源名称</td><td>' + escapeHtml(connector.name) + '</td></tr>';
+        content += '<tr><td style="font-weight: bold; white-space: nowrap;">数据源类型</td><td>' + escapeHtml(connector.type) + '</td></tr>';
+        
+        if (connector.config && typeof connector.config === 'object') {
+            for (var key in connector.config) {
+                if (connector.config.hasOwnProperty(key)) {
+                    if (key === 'password') {
+                        continue;
+                    }
+                    var value = connector.config[key];
+                    if (typeof value === 'object') {
+                        value = JSON.stringify(value);
+                    }
+                    content += '<tr><td style="font-weight: bold; white-space: nowrap;">' + getConfigLabel(key) + '</td><td>' + escapeHtml(value) + '</td></tr>';
+                }
+            }
+        }
+        
+        content += '</tbody>';
+        content += '</table>';
+        content += '</div>';
+        
+        BootstrapDialog.show({
+            title: '数据源详情',
+            size: BootstrapDialog.SIZE_WIDE,
+            message: content,
+            type: BootstrapDialog.TYPE_PRIMARY,
+            buttons: [{
+                label: '关闭',
+                action: function(dialog) {
+                    dialog.close();
+                }
+            }]
+        });
+    } catch (e) {
+        bootGrowl('渲染数据源详情失败: ' + e.message, 'danger');
+    }
+}
+
+function getConfigLabel(key) {
+    var labels = {
+        'username': '用户名',
+        'password': '密码',
+        'url': '数据源URL',
+        'host': '主机',
+        'port': '端口',
+        'database': '数据库名',
+        'driverClassName': '驱动类名',
+        'connectorType': '连接器类型',
+        'schema': 'Schema'
+    };
+    return labels[key] || key;
+}
+
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    if (typeof str !== 'string') {
+        str = String(str);
+    }
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+}
+//*********************************** 数据源详情 结束位置***********************************//
