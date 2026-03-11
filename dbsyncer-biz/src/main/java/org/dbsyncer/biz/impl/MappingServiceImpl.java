@@ -656,4 +656,81 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         String quotedTableName = sqlTemplate.buildTable(schema, tableName);
         return "TRUNCATE TABLE " + quotedTableName;
     }
+
+    @Override
+    public String updateConnectors(Map<String, String> params) throws Exception {
+        String id = params.get(ConfigConstant.CONFIG_MODEL_ID);
+        String newSourceConnectorId = params.get("sourceConnectorId");
+        String newTargetConnectorId = params.get("targetConnectorId");
+
+        Assert.hasText(id, "任务ID不能为空");
+        Assert.hasText(newSourceConnectorId, "源数据源不能为空");
+        Assert.hasText(newTargetConnectorId, "目标数据源不能为空");
+
+        Mapping mapping = assertMappingExist(id);
+
+        synchronized (LOCK) {
+            mapping.assertDisableEdit();
+
+            String oldSourceConnectorId = mapping.getSourceConnectorId();
+            String oldTargetConnectorId = mapping.getTargetConnectorId();
+
+            boolean sourceChanged = !oldSourceConnectorId.equals(newSourceConnectorId);
+            boolean targetChanged = !oldTargetConnectorId.equals(newTargetConnectorId);
+
+            if (!sourceChanged && !targetChanged) {
+                return id;
+            }
+
+            validateConnectorExists(newSourceConnectorId, "源连接器");
+            validateConnectorExists(newTargetConnectorId, "目标连接器");
+
+            List<TableGroup> tableGroupAll = profileComponent.getTableGroupAll(id);
+
+            if (sourceChanged) {
+                logger.info("修改源数据源，清空所有表映射关系，mappingId: {}, oldSourceConnectorId: {}, newSourceConnectorId: {}",
+                        id, oldSourceConnectorId, newSourceConnectorId);
+
+                for (TableGroup tableGroup : tableGroupAll) {
+                    profileComponent.removeTableGroup(tableGroup.getId());
+                }
+
+                tableGroupContext.clear(mapping.getMetaId());
+
+                mapping.setSourceConnectorId(newSourceConnectorId);
+                mapping.setSourceColumn(null);
+
+                if (targetChanged) {
+                    mapping.setTargetConnectorId(newTargetConnectorId);
+                    mapping.setTargetColumn(null);
+                }
+
+            } else if (targetChanged) {
+                logger.info("修改目标数据源，清空目标表信息，mappingId: {}, oldTargetConnectorId: {}, newTargetConnectorId: {}",
+                        id, oldTargetConnectorId, newTargetConnectorId);
+
+                for (TableGroup tableGroup : tableGroupAll) {
+                    profileComponent.removeTableGroup(tableGroup.getId());
+                }
+
+                mapping.setTargetConnectorId(newTargetConnectorId);
+                mapping.setTargetColumn(null);
+            }
+
+            mapping.setUpdateTime(Instant.now().toEpochMilli());
+            profileComponent.editConfigModel(mapping);
+
+            log(LogType.MappingLog.UPDATE, mapping);
+        }
+
+        return id;
+    }
+
+    private void validateConnectorExists(String connectorId, String connectorType) {
+        Connector connector = profileComponent.getConnector(connectorId);
+        if (connector == null) {
+            throw new org.dbsyncer.parser.ParserException(
+                    String.format("%s不存在，connectorId: %s", connectorType, connectorId));
+        }
+    }
 }

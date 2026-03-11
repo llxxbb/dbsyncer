@@ -96,11 +96,15 @@
                             <div class="col-md-4">
                                 <div class="row">
                                     <div class="col-md-4 text-right">
-                                        <img draggable="false" class="dbsyncer_img" th:src="@{'/img/'+ ${mapping?.sourceConnector?.config?.connectorType} + '.png'}">
+                                        <img draggable="false" class="dbsyncer_img" id="sourceConnectorImg" th:src="@{'/img/'+ ${mapping?.sourceConnector?.config?.connectorType} + '.png'}">
                                     </div>
                                     <div class="col-md-8">
-                                        <p class="driver_break_word">[[${mapping?.sourceConnector?.name}]]</p>
-                                        <p>数据源：[[${mapping?.sourceConnector?.config?.connectorType}]]</p>
+                                        <p class="driver_break_word">
+                                            <select id="sourceConnectorSelect" name="sourceConnectorId" class="form-control input-sm" th:disabled="${mapping?.meta?.state eq 1}">
+                                                <option th:each="c,s:${connectors}" th:value="${c?.id}" th:text="${c?.name + '(' + c?.config?.connectorType + ')'}" th:selected="${c?.id == mapping?.sourceConnector?.id}"/>
+                                            </select>
+                                        </p>
+                                        <p>数据源：<span id="sourceConnectorType">[[${mapping?.sourceConnector?.config?.connectorType}]]</span></p>
                                         <p><a href="javascript:;" class="source-detail-btn" th:attr="data-id=${mapping?.sourceConnector?.id}"><i class="fa fa-eye"></i> 详情</a></p>
                                     </div>
                                 </div>
@@ -115,11 +119,15 @@
                             <div class="col-md-4">
                                 <div class="row">
                                     <div class="col-md-4 text-right">
-                                        <img draggable="false" class="dbsyncer_img" th:src="@{'/img/'+ ${mapping?.targetConnector?.config?.connectorType} + '.png'}">
+                                        <img draggable="false" class="dbsyncer_img" id="targetConnectorImg" th:src="@{'/img/'+ ${mapping?.targetConnector?.config?.connectorType} + '.png'}">
                                     </div>
                                     <div class="col-md-8">
-                                        <p class="driver_break_word">[[${mapping?.targetConnector?.name}]]</p>
-                                        <p>目标源：[[${mapping?.targetConnector?.config?.connectorType}]]</p>
+                                        <p class="driver_break_word">
+                                            <select id="targetConnectorSelect" name="targetConnectorId" class="form-control input-sm" th:disabled="${mapping?.meta?.state eq 1}">
+                                                <option th:each="c,s:${connectors}" th:value="${c?.id}" th:text="${c?.name + '(' + c?.config?.connectorType + ')'}" th:selected="${c?.id == mapping?.targetConnector?.id}"/>
+                                            </select>
+                                        </p>
+                                        <p>目标源：<span id="targetConnectorType">[[${mapping?.targetConnector?.config?.connectorType}]]</span></p>
                                         <p><a href="javascript:;" class="target-detail-btn" th:attr="data-id=${mapping?.targetConnector?.id}"><i class="fa fa-eye"></i> 详情</a></p>
                                     </div>
                                 </div>

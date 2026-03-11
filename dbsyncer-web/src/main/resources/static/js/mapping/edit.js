@@ -1015,6 +1015,9 @@ $(function () {
     // 绑定数据源详情按钮点击事件
     bindConnectorDetailBtnClick();
 
+    // 绑定数据源选择变更事件
+    bindConnectorSelectChange();
+
     // 返回
     $("#mappingBackBtn").click(function () {
          //清除定时器
@@ -1643,3 +1646,166 @@ function escapeHtml(str) {
     return div.innerHTML;
 }
 //*********************************** 数据源详情 结束位置***********************************//
+
+//*********************************** 数据源选择变更 开始位置***********************************//
+var originalSourceConnectorId = null;
+var originalTargetConnectorId = null;
+
+function bindConnectorSelectChange() {
+    var $sourceSelect = $("#sourceConnectorSelect");
+    var $targetSelect = $("#targetConnectorSelect");
+    
+    if ($sourceSelect.length === 0 || $targetSelect.length === 0) {
+        return;
+    }
+    
+    originalSourceConnectorId = $sourceSelect.val();
+    originalTargetConnectorId = $targetSelect.val();
+    
+    $sourceSelect.on('change', function() {
+        var newConnectorId = $(this).val();
+        if (newConnectorId !== originalSourceConnectorId) {
+            showSourceConnectorChangeConfirmDialog(newConnectorId, $(this));
+        }
+    });
+    
+    $targetSelect.on('change', function() {
+        var newConnectorId = $(this).val();
+        if (newConnectorId !== originalTargetConnectorId) {
+            showTargetConnectorChangeConfirmDialog(newConnectorId, $(this));
+        }
+    });
+}
+
+function showSourceConnectorChangeConfirmDialog(newConnectorId, $select) {
+    var hasTableGroups = $("#tableGroupList tr").length > 0;
+    var message = '';
+    
+    if (hasTableGroups) {
+        message = '<div style="padding: 10px;">' +
+            '<p><strong>修改源数据源将清空所有表映射关系！</strong></p>' +
+            '<p style="color: #999; font-size: 12px;">当前任务已有表映射关系，修改源数据源后，这些映射关系将被删除。</p>' +
+            '<p style="color: #999; font-size: 12px;">目标数据源的表信息将被清空。</p>' +
+            '</div>';
+    } else {
+        message = '<div style="padding: 10px;">' +
+            '<p><strong>确认修改源数据源？</strong></p>' +
+            '<p style="color: #999; font-size: 12px;">目标数据源的表信息将被清空。</p>' +
+            '</div>';
+    }
+    
+    BootstrapDialog.show({
+        title: "修改源数据源",
+        type: BootstrapDialog.TYPE_WARNING,
+        message: message,
+        size: BootstrapDialog.SIZE_NORMAL,
+        buttons: [{
+            label: "取消",
+            cssClass: "btn-default",
+            action: function(dialog) {
+                $select.val(originalSourceConnectorId);
+                dialog.close();
+            }
+        }, {
+            label: "确定",
+            cssClass: "btn-primary",
+            action: function(dialog) {
+                dialog.close();
+                originalSourceConnectorId = newConnectorId;
+                updateConnectorInfo(newConnectorId, 'source');
+                reloadPageWithConnectorChange();
+            }
+        }]
+    });
+}
+
+function showTargetConnectorChangeConfirmDialog(newConnectorId, $select) {
+    var hasTableGroups = $("#tableGroupList tr").length > 0;
+    var message = '';
+    
+    if (hasTableGroups) {
+        message = '<div style="padding: 10px;">' +
+            '<p><strong>修改目标数据源将清空目标表信息！</strong></p>' +
+            '<p style="color: #999; font-size: 12px;">当前任务已有表映射关系，修改目标数据源后：</p>' +
+            '<ul style="margin: 10px 0; padding-left: 20px;">' +
+            '<li>源数据源的表信息将保留</li>' +
+            '<li>目标数据源的表信息将被清空</li>' +
+            '<li>您需要重新配置目标表映射关系</li>' +
+            '</ul>' +
+            '</div>';
+    } else {
+        message = '<div style="padding: 10px;">' +
+            '<p><strong>确认修改目标数据源？</strong></p>' +
+            '<p style="color: #999; font-size: 12px;">目标数据源的表信息将被清空。</p>' +
+            '</div>';
+    }
+    
+    BootstrapDialog.show({
+        title: "修改目标数据源",
+        type: BootstrapDialog.TYPE_WARNING,
+        message: message,
+        size: BootstrapDialog.SIZE_NORMAL,
+        buttons: [{
+            label: "取消",
+            cssClass: "btn-default",
+            action: function(dialog) {
+                $select.val(originalTargetConnectorId);
+                dialog.close();
+            }
+        }, {
+            label: "确定",
+            cssClass: "btn-primary",
+            action: function(dialog) {
+                dialog.close();
+                originalTargetConnectorId = newConnectorId;
+                updateConnectorInfo(newConnectorId, 'target');
+                reloadPageWithConnectorChange();
+            }
+        }]
+    });
+}
+
+function updateConnectorInfo(connectorId, type) {
+    $.ajax({
+        url: '/datasource/connector/get?id=' + connectorId,
+        type: 'GET',
+        dataType: 'json',
+        success: function(data) {
+            if (data.success === true) {
+                var connector = data.resultValue;
+                var connectorType = connector.config ? connector.config.connectorType : '';
+                
+                if (type === 'source') {
+                    $('#sourceConnectorType').text(connectorType);
+                    $('#sourceConnectorImg').attr('src', '/img/' + connectorType + '.png');
+                    $('.source-detail-btn').attr('data-id', connectorId);
+                } else {
+                    $('#targetConnectorType').text(connectorType);
+                    $('#targetConnectorImg').attr('src', '/img/' + connectorType + '.png');
+                    $('.target-detail-btn').attr('data-id', connectorId);
+                }
+            }
+        }
+    });
+}
+
+function reloadPageWithConnectorChange() {
+    var mappingId = $("#mappingId").val();
+    var sourceConnectorId = $("#sourceConnectorSelect").val();
+    var targetConnectorId = $("#targetConnectorSelect").val();
+    
+    doPoster("/mapping/updateConnectors", {
+        'id': mappingId,
+        'sourceConnectorId': sourceConnectorId,
+        'targetConnectorId': targetConnectorId
+    }, function(data) {
+        if (data.success === true) {
+            bootGrowl("数据源更新成功!", "success");
+            var url = '/mapping/page/edit?id=' + mappingId + "&classOn=1&refresh=" + new Date().getTime();
+            doLoaderWithoutHashUpdate(url, 0);
+        } else {
+            bootGrowl(data.resultValue || "更新失败", "danger");
+        }
+    });
+}
+//*********************************** 数据源选择变更 结束位置***********************************//
