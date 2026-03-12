@@ -96,12 +96,4 @@ public interface MappingService {
      */
     String refreshMappingTables(String id) throws Exception;
 
-    /**
-     * 更新任务的数据源配置
-     *
-     * @param params 包含 id, sourceConnectorId, targetConnectorId
-     * @return 任务ID
-     */
-    String updateConnectors(Map<String, String> params) throws Exception;
-
 }

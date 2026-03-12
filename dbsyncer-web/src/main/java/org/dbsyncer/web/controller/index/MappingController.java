@@ -60,7 +60,6 @@ public class MappingController extends BaseController {
         model.put("mapping", mappingService.getMapping(id, exclude));
         model.put("classOn", classOn);
         model.put("tableGroups", tableGroupService.getTableGroupAll(id));
-        model.put("connectors", connectorService.getConnectorAll());
         initConfig(model);
         
         // 获取当前登录用户信息
@@ -219,7 +218,7 @@ public class MappingController extends BaseController {
 
     @PostMapping("/reset")
     @ResponseBody
-    @PreAuthorize("hasRole('admin')")
+    // @PreAuthorize("hasRole('admin')") // 暂时注释，目前不区分user和admin
     public RestResult reset(@RequestParam(value = "id") String id,
                             @RequestParam(value = "truncateTarget", defaultValue = "false") boolean truncateTarget) {
         try {
@@ -235,18 +234,6 @@ public class MappingController extends BaseController {
     public RestResult refreshTables(@RequestParam(value = "id") String id) {
         try {
             return RestResult.restSuccess(mappingService.refreshMappingTables(id));
-        } catch (Exception e) {
-            logger.error(e.getLocalizedMessage(), e);
-            return RestResult.restFail(e.getMessage());
-        }
-    }
-
-    @PostMapping(value = "/updateConnectors")
-    @ResponseBody
-    public RestResult updateConnectors(HttpServletRequest request) {
-        try {
-            Map<String, String> params = getParams(request);
-            return RestResult.restSuccess(mappingService.updateConnectors(params));
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage(), e);
             return RestResult.restFail(e.getMessage());
