@@ -115,6 +115,20 @@ public class TableGroupController extends BaseController {
         }
     }
 
+    @PostMapping("/resetTableGroups")
+    @ResponseBody
+    public RestResult resetTableGroups(
+            @RequestParam(value = "mappingId") String mappingId,
+            @RequestParam(value = "tableGroupIds") String tableGroupIds,
+            @RequestParam(value = "truncateTarget", defaultValue = "false") boolean truncateTarget) {
+        try {
+            return RestResult.restSuccess(tableGroupService.resetTableGroups(mappingId, tableGroupIds, truncateTarget));
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
+        }
+    }
+
     @PostMapping(value = "/createTargetTable")
     @ResponseBody
     public RestResult createTargetTable(HttpServletRequest request) {

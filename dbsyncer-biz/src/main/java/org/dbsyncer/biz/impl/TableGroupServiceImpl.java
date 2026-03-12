@@ -3,6 +3,7 @@
  */
 package org.dbsyncer.biz.impl;
 
+import org.dbsyncer.biz.BizException;
 import org.dbsyncer.biz.PrimaryKeyRequiredException;
 import org.dbsyncer.biz.TableGroupService;
 import org.dbsyncer.biz.checker.impl.tablegroup.TableGroupChecker;
@@ -11,18 +12,27 @@ import org.dbsyncer.common.dispatch.DispatchTaskService;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
+import org.dbsyncer.manager.ManagerFactory;
 import org.dbsyncer.parser.LogService;
 import org.dbsyncer.parser.LogType;
 import org.dbsyncer.parser.ParserComponent;
 import org.dbsyncer.parser.ProfileComponent;
+import org.dbsyncer.parser.enums.MetaEnum;
+import org.dbsyncer.parser.model.Connector;
 import org.dbsyncer.parser.model.Convert;
 import org.dbsyncer.parser.model.Mapping;
+import org.dbsyncer.parser.model.Meta;
 import org.dbsyncer.parser.model.TableGroup;
 import org.dbsyncer.sdk.config.DDLConfig;
+import org.dbsyncer.sdk.connector.ConnectorInstance;
+import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
+import org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance;
 import org.dbsyncer.sdk.connector.database.sql.SqlTemplate;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.MetaInfo;
+import org.dbsyncer.sdk.model.Table;
+import org.dbsyncer.sdk.spi.ConnectorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -59,6 +69,9 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
 
     @Resource
     private DispatchTaskService dispatchTaskService;
+
+    @Resource
+    private ManagerFactory managerFactory;
 
     @Override
     public String add(Map<String, String> params) throws Exception {
@@ -352,6 +365,142 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
 
         // 重新初始化 command
         tableGroup.initCommand(mapping, connectorFactory);
+    }
+
+    @Override
+    public String resetTableGroups(String mappingId, String tableGroupIds, boolean truncateTarget) throws Exception {
+        Assert.hasText(mappingId, "驱动ID不能为空");
+        Assert.hasText(tableGroupIds, "表映射关系ID不能为空");
+
+        Mapping mapping = profileComponent.getMapping(mappingId);
+        Assert.notNull(mapping, "驱动不存在");
+
+        Meta meta = profileComponent.getMeta(mapping.getMetaId());
+        Assert.notNull(meta, "任务元信息不存在");
+
+        if (meta.isRunning()) {
+            throw new BizException("任务正在运行中，请先停止任务再执行重新同步操作");
+        }
+
+        synchronized (LOCK) {
+            logger.info("重新同步表映射关系：驱动={}, 表组IDs={}", mapping.getName(), tableGroupIds);
+
+            String[] ids = StringUtil.split(tableGroupIds, ",");
+            List<TableGroup> tableGroupsToReset = new ArrayList<>();
+
+            for (String id : ids) {
+                TableGroup tableGroup = profileComponent.getTableGroup(id.trim());
+                if (tableGroup != null && mappingId.equals(tableGroup.getMappingId())) {
+                    tableGroupsToReset.add(tableGroup);
+                }
+            }
+
+            if (tableGroupsToReset.isEmpty()) {
+                throw new BizException("未找到有效的表映射关系");
+            }
+
+            if (truncateTarget) {
+                truncateTargetTables(mapping, tableGroupsToReset);
+            }
+
+            for (TableGroup tableGroup : tableGroupsToReset) {
+                tableGroup.clear();
+                profileComponent.editConfigModel(tableGroup);
+                log(LogType.TableGroupLog.UPDATE, tableGroup);
+            }
+
+            meta.clear(mapping.getModel());
+            profileComponent.editConfigModel(meta);
+
+            mapping.setUpdateTime(java.time.Instant.now().toEpochMilli());
+            profileComponent.editConfigModel(mapping);
+
+            String model = org.dbsyncer.sdk.enums.ModelEnum.getModelEnum(mapping.getModel()).getName();
+            sendNotifyMessage("重新同步", String.format("手动重新同步驱动：%s(%s)，共 %d 个表映射关系", 
+                    mapping.getName(), model, tableGroupsToReset.size()));
+
+            managerFactory.start(mapping);
+            log(LogType.MappingLog.RUNNING, mapping);
+
+            logger.info("重新同步完成，已自动启动任务：{}", mapping.getName());
+
+            submitTableGroupCountTask(mapping, tableGroupsToReset.stream()
+                    .map(TableGroup::getId)
+                    .collect(java.util.stream.Collectors.toList()));
+
+            return String.format("重新同步成功，共重置 %d 个表映射关系，任务已自动启动", tableGroupsToReset.size());
+        }
+    }
+
+    /**
+     * 使用 TRUNCATE 清空目标源表
+     *
+     * @param mapping       驱动映射关系
+     * @param tableGroups   表映射关系列表
+     */
+    private void truncateTargetTables(Mapping mapping, List<TableGroup> tableGroups) {
+        if (CollectionUtils.isEmpty(tableGroups)) {
+            return;
+        }
+
+        Connector targetConnector = profileComponent.getConnector(mapping.getTargetConnectorId());
+        if (targetConnector == null) {
+            logger.warn("目标连接器不存在，跳过 TRUNCATE 操作");
+            return;
+        }
+
+        ConnectorService targetConnectorService = connectorFactory.getConnectorService(targetConnector.getConfig().getConnectorType());
+
+        if (!(targetConnectorService instanceof AbstractDatabaseConnector)) {
+            logger.info("目标连接器类型 {} 不支持 TRUNCATE 操作，跳过清空目标表", targetConnector.getConfig().getConnectorType());
+            return;
+        }
+
+        AbstractDatabaseConnector dbConnector = (AbstractDatabaseConnector) targetConnectorService;
+
+        try {
+            ConnectorInstance connectorInstance = connectorFactory.connect(targetConnector.getConfig());
+            DatabaseConnectorInstance dbInstance = (DatabaseConnectorInstance) connectorInstance;
+
+            String schema = ((org.dbsyncer.sdk.config.DatabaseConfig) targetConnector.getConfig()).getSchema();
+
+            for (TableGroup tableGroup : tableGroups) {
+                Table targetTable = tableGroup.getTargetTable();
+                if (targetTable == null || StringUtil.isBlank(targetTable.getName())) {
+                    continue;
+                }
+
+                String tableName = targetTable.getName();
+                try {
+                    String truncateSql = buildTruncateSql(dbConnector.getSqlTemplate(), schema, tableName);
+                    logger.info("执行 TRUNCATE 目标表: {}", truncateSql);
+
+                    dbInstance.execute(databaseTemplate -> {
+                        databaseTemplate.execute(truncateSql);
+                        return null;
+                    });
+
+                    logger.info("TRUNCATE 目标表成功: {}", tableName);
+                } catch (Exception e) {
+                    logger.error("TRUNCATE 目标表失败: {}, 错误: {}", tableName, e.getMessage(), e);
+                }
+            }
+        } catch (Exception e) {
+            logger.error("TRUNCATE 目标表操作失败: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 构建 TRUNCATE SQL 语句
+     *
+     * @param sqlTemplate SQL 模板
+     * @param schema      架构名
+     * @param tableName   表名
+     * @return TRUNCATE SQL 语句
+     */
+    private String buildTruncateSql(SqlTemplate sqlTemplate, String schema, String tableName) {
+        String quotedTableName = sqlTemplate.buildTable(schema, tableName);
+        return "TRUNCATE TABLE " + quotedTableName;
     }
 
 }

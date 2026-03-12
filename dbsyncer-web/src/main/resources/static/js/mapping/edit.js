@@ -81,6 +81,7 @@ function bindMappingTableGroupCheckBoxClick() {
     var $checkboxAll = $('.tableGroupCheckboxAll');
     var $checkbox = $('.tableGroupCheckbox');
     var $delBtn = $("#tableGroupDelBtn");
+    var $resyncBtn = $("#tableGroupResyncBtn");
     $checkboxAll.iCheck({
         checkboxClass: 'icheckbox_square-red',
         labelHover: false,
@@ -90,7 +91,9 @@ function bindMappingTableGroupCheckBoxClick() {
     }).on('ifUnchecked', function (event) {
         $checkbox.iCheck('uncheck');
     }).on('ifChanged', function (event) {
-        $delBtn.prop('disabled', getCheckedBoxSize($checkbox).length < 1);
+        var hasChecked = getCheckedBoxSize($checkbox).length > 0;
+        $delBtn.prop('disabled', !hasChecked);
+        updateResyncButtonState($resyncBtn, hasChecked);
     });
 
     // 初始化icheck插件
@@ -98,8 +101,17 @@ function bindMappingTableGroupCheckBoxClick() {
         checkboxClass: 'icheckbox_square-red',
         cursor: true
     }).on('ifChanged', function (event) {
-        $delBtn.prop('disabled', getCheckedBoxSize($checkbox).length < 1);
+        var hasChecked = getCheckedBoxSize($checkbox).length > 0;
+        $delBtn.prop('disabled', !hasChecked);
+        updateResyncButtonState($resyncBtn, hasChecked);
     });
+}
+
+// 更新重新同步按钮状态
+function updateResyncButtonState($resyncBtn, hasChecked) {
+    var mappingState = $("#mappingState").text();
+    var isStopped = mappingState.indexOf('未运行') !== -1 || mappingState.indexOf('异常') !== -1;
+    $resyncBtn.prop('disabled', !hasChecked || !isStopped);
 }
 
 // 获取选择的CheckBox[value]
@@ -397,6 +409,74 @@ function bindMappingTableGroupDelClick() {
                     bootGrowl(data.resultValue, "danger");
                 }
             });
+        }
+    });
+}
+
+// 绑定重新同步按钮点击事件
+function bindMappingTableGroupResyncClick() {
+    $("#tableGroupResyncBtn").click(function () {
+        var ids = getCheckedBoxSize($(".tableGroupCheckbox"));
+        if (ids.length > 0) {
+            var $mappingId = $(this).attr("mappingId");
+            showResyncConfirmDialog($mappingId, ids.join());
+        }
+    });
+}
+
+// 显示重新同步确认对话框
+function showResyncConfirmDialog(mappingId, tableGroupIds) {
+    var messageHtml = '<div style="padding: 10px;">' +
+        '<p><strong>确认重新同步选中的表映射关系？</strong></p>' +
+        '<p style="color: #999; font-size: 12px;">重新同步将重置选中表映射关系的同步状态，并自动启动任务。</p>' +
+        '<div style="margin-top: 15px;">' +
+        '<label style="cursor: pointer;">' +
+        '<input type="checkbox" id="resyncTruncateTarget" style="margin-right: 5px;">' +
+        '<span style="color: #d9534f; font-weight: bold;">同时清空目标源表数据（TRUNCATE）</span>' +
+        '</label>' +
+        '</div>' +
+        '<p style="color: #999; font-size: 12px; margin-top: 5px;">注意：清空目标表数据将删除目标表中的所有记录，此操作不可恢复！</p>' +
+        '</div>';
+
+    BootstrapDialog.show({
+        title: "重新同步确认",
+        type: BootstrapDialog.TYPE_WARNING,
+        message: messageHtml,
+        size: BootstrapDialog.SIZE_NORMAL,
+        buttons: [{
+            label: "取消",
+            cssClass: "btn-default",
+            action: function (dialog) {
+                dialog.close();
+            }
+        }, {
+            label: "确认重新同步",
+            cssClass: "btn-warning",
+            action: function (dialog) {
+                var truncateTarget = $('#resyncTruncateTarget').is(':checked');
+                dialog.close();
+                executeResync(mappingId, tableGroupIds, truncateTarget);
+            }
+        }]
+    });
+}
+
+// 执行重新同步
+function executeResync(mappingId, tableGroupIds, truncateTarget) {
+    bootGrowl("正在执行重新同步...", "info");
+    
+    doPoster("/tableGroup/resetTableGroups", {
+        "mappingId": mappingId,
+        "tableGroupIds": tableGroupIds,
+        "truncateTarget": truncateTarget
+    }, function (data) {
+        if (data.success == true) {
+            bootGrowl(data.resultValue, "success");
+            // 刷新页面
+            var url = '/mapping/page/edit?id=' + mappingId + "&classOn=1&refresh=" + new Date().getTime();
+            doLoaderWithoutHashUpdate(url, 0);
+        } else {
+            bootGrowl(data.resultValue, "danger");
         }
     });
 }
@@ -748,6 +828,14 @@ function getMappping(id) {
                                     }
                                     $("#mappingState").html(stateHtmlContent);
 
+                                    // 更新重新同步按钮状态
+                                    var $resyncBtn = $("#tableGroupResyncBtn");
+                                    if ($resyncBtn.length > 0) {
+                                        var hasChecked = getCheckedBoxSize($(".tableGroupCheckbox")).length > 0;
+                                        var isStopped = state == 0 || state == 3;
+                                        $resyncBtn.prop('disabled', !hasChecked || !isStopped);
+                                    }
+
                                     $("#metaPercent").find("p").text("数据同步进度:");
                                     if (counting) {
                                         $("#metaPercent").find(".highlight-number").text("(正在统计中)");
@@ -999,6 +1087,8 @@ $(function () {
     initMultipleInputTags();
     // 绑定删除表关系点击事件
     bindMappingTableGroupDelClick();
+    // 绑定重新同步按钮点击事件
+    bindMappingTableGroupResyncClick();
     //binding刷新数据表按钮点击事件
     bindRefreshTablesClick();
 

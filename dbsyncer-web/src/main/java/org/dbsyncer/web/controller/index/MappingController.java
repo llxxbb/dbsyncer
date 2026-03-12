@@ -218,7 +218,7 @@ public class MappingController extends BaseController {
 
     @PostMapping("/reset")
     @ResponseBody
-    // @PreAuthorize("hasRole('admin')") // 暂时注释，目前不区分user和admin
+    @PreAuthorize("hasRole('admin')")
     public RestResult reset(@RequestParam(value = "id") String id,
                             @RequestParam(value = "truncateTarget", defaultValue = "false") boolean truncateTarget) {
         try {

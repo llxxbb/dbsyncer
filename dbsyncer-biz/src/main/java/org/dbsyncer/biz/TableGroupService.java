@@ -59,4 +59,14 @@ public interface TableGroupService {
      * @return
      */
     List<TableGroup> getTableGroupAll(String mappingId) throws Exception;
+
+    /**
+     * 重置选中的表映射关系
+     *
+     * @param mappingId      驱动ID
+     * @param tableGroupIds  表映射关系ID列表（逗号分隔）
+     * @param truncateTarget 是否清空目标源表
+     * @return 重置结果消息
+     */
+    String resetTableGroups(String mappingId, String tableGroupIds, boolean truncateTarget) throws Exception;
 }

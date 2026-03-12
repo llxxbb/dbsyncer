@@ -73,6 +73,7 @@ public class DataSourceController {
      */
     @RequestMapping(value = "/connector/get", method = RequestMethod.GET)
     @ResponseBody
+    @PreAuthorize("hasRole('admin')")
     public RestResult getConnector(String id) {
         try {
             Connector connector = connectorService.getConnector(id);

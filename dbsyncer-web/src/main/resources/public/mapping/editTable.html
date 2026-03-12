@@ -63,6 +63,9 @@
             </div>
             <div class="col-md-6"></div>
             <div class="col-md-4 text-right">
+                <button id="tableGroupResyncBtn" th:mappingId="${mapping?.id}" type="button" class="btn btn-warning" disabled="disabled">
+                    <span class="fa fa-refresh"></span>重新同步
+                </button>
                 <button id="tableGroupDelBtn" th:mappingId="${mapping?.id}" type="button" class="btn btn-default" disabled="disabled">
                     <span class="fa fa-remove"></span>删除
                 </button>
