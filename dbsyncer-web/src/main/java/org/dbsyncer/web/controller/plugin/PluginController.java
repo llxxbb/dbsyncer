@@ -8,6 +8,7 @@ import org.dbsyncer.common.config.AppConfig;
 import org.dbsyncer.common.util.JsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -38,6 +39,7 @@ public class PluginController {
     private AppConfig appConfig;
 
     @RequestMapping("")
+    @PreAuthorize("hasRole('admin')")
     public String index(ModelMap model) throws Exception {
         model.put("plugins", pluginService.getPluginAll());
         model.put("version", appConfig.getVersion());
@@ -46,6 +48,7 @@ public class PluginController {
 
     @PostMapping(value = "/upload")
     @ResponseBody
+    @PreAuthorize("hasRole('admin')")
     public RestResult upload(MultipartFile[] files) {
         try {
             if (files != null && files.length > 0) {
@@ -72,6 +75,7 @@ public class PluginController {
     }
 
     @GetMapping("/download")
+    @PreAuthorize("hasRole('admin')")
     public void download(HttpServletResponse response, String name) {
         String fileName = String.format("dbsyncer-%s-%s.jar", name, appConfig.getVersion());
         File file = new File(pluginService.getLibraryPath() + fileName);

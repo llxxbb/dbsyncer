@@ -370,9 +370,7 @@ public class MonitorServiceImpl extends BaseServiceImpl implements MonitorServic
             String msg = String.format("mapping missing, id: %s, metaId: %s", meta.getMappingId(), meta.getId());
             logger.error(msg);
             logService.log(LogType.MappingLog.CONFIG, msg);
-            MetaVo metaVo = new MetaVo("异常", msg);
-            metaVo.setId(meta.getId());
-            return metaVo;
+            return new MetaVo("异常", msg);
         }
         ModelEnum modelEnum = ModelEnum.getModelEnum(mapping.getModel());
         MetaVo metaVo = new MetaVo(modelEnum.getName(), mapping.getName());

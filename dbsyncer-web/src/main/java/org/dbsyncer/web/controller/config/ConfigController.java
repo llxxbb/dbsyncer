@@ -12,6 +12,7 @@ import org.dbsyncer.parser.LogService;
 import org.dbsyncer.parser.LogType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -49,6 +50,7 @@ public class ConfigController {
     private SnowflakeIdWorker snowflakeIdWorker;
 
     @RequestMapping("")
+    @PreAuthorize("hasRole('admin')")
     public String index(ModelMap model) throws Exception {
         model.put("config", systemConfigService.getConfigModelAll());
         model.put("fileSize", JsonUtil.objToJson(cacheService.getAll()).getBytes(Charset.defaultCharset()).length);
@@ -57,6 +59,7 @@ public class ConfigController {
 
     @PostMapping(value = "/getAll")
     @ResponseBody
+    @PreAuthorize("hasRole('admin')")
     public RestResult getAll() {
         try {
             return RestResult.restSuccess("ok");
@@ -68,6 +71,7 @@ public class ConfigController {
 
     @PostMapping(value = "/upload")
     @ResponseBody
+    @PreAuthorize("hasRole('admin')")
     public RestResult upload(MultipartFile[] files) {
         try {
             if (files != null && files.length > 0) {
@@ -95,6 +99,7 @@ public class ConfigController {
     }
 
     @GetMapping("/download")
+    @PreAuthorize("hasRole('admin')")
     public void download(HttpServletResponse response) {
         String fileName = String.format("%s-%s-%s.json", appConfig.getName(), appConfig.getVersion(), snowflakeIdWorker.nextId());
         response.setHeader("content-type", "application/octet-stream");

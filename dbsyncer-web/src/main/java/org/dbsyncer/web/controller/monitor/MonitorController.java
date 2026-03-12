@@ -200,6 +200,7 @@ public class MonitorController extends BaseController {
 
     @ResponseBody
     @GetMapping("/queryAppReportMetric")
+    @PreAuthorize("hasRole('admin')")
     public RestResult queryAppReportMetric() {
         try {
             List<MetricResponse> list = new ArrayList<>();
