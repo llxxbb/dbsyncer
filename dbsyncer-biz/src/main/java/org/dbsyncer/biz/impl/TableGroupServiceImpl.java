@@ -409,8 +409,8 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
                 log(LogType.TableGroupLog.UPDATE, tableGroup);
             }
 
-            meta.clear(mapping.getModel());
-            profileComponent.editConfigModel(meta);
+            // 使用 partialClear 而不是 clear，保留 syncPhase 和 snapshot
+            meta.partialClear();
 
             mapping.setUpdateTime(java.time.Instant.now().toEpochMilli());
             profileComponent.editConfigModel(mapping);
@@ -419,7 +419,8 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
             sendNotifyMessage("重新同步", String.format("手动重新同步驱动：%s(%s)，共 %d 个表映射关系", 
                     mapping.getName(), model, tableGroupsToReset.size()));
 
-            managerFactory.start(mapping);
+            // 传递要同步的 TableGroup 列表，实现选择性同步
+            managerFactory.start(mapping, tableGroupsToReset);
             log(LogType.MappingLog.RUNNING, mapping);
 
             logger.info("重新同步完成，已自动启动任务：{}", mapping.getName());

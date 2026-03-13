@@ -3,6 +3,7 @@
  */
 package org.dbsyncer.manager.impl;
 
+import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.manager.ManagerException;
 import org.dbsyncer.manager.Puller;
@@ -13,6 +14,7 @@ import org.dbsyncer.parser.enums.MetaEnum;
 import org.dbsyncer.parser.enums.SyncPhaseEnum;
 import org.dbsyncer.parser.model.Mapping;
 import org.dbsyncer.parser.model.Meta;
+import org.dbsyncer.parser.model.TableGroup;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.model.ConnectorConfig;
 import org.dbsyncer.sdk.spi.ConnectorService;
@@ -21,6 +23,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -52,6 +55,10 @@ public final class FullIncrementPuller implements Puller {
 
     @Override
     public void start(Mapping mapping) {
+        start(mapping, null);
+    }
+
+    public void start(Mapping mapping, List<TableGroup> tableGroupsToSync) {
         final String metaId = mapping.getMetaId();
 
         Meta meta = profileComponent.getMeta(mapping.getMetaId());
@@ -66,10 +73,28 @@ public final class FullIncrementPuller implements Puller {
                     case FULL:
                         // 记录增量起始点并执行全量同步
                         recordIncrementStartPoint(mapping, meta);
-                        startFullThenIncrement(mapping, meta);
+                        startFullThenIncrement(mapping, meta, tableGroupsToSync);
                         break;
 
                     case INCREMENTAL:
+                        // 增量阶段，检查是否有需要重新全量同步的TableGroup
+                        if (!CollectionUtils.isEmpty(tableGroupsToSync)) {
+                            // 检查勾选的TableGroup是否都已完成全量
+                            boolean allCompleted = true;
+                            for (TableGroup tg : tableGroupsToSync) {
+                                if (!tg.isFullCompleted()) {
+                                    allCompleted = false;
+                                    break;
+                                }
+                            }
+                            
+                            if (!allCompleted) {
+                                // 有需要全量同步的TableGroup，重新执行全量
+                                logger.info("混合同步增量阶段，部分TableGroup需要重新全量同步: metaId={}", metaId);
+                                startFullThenIncrement(mapping, meta, tableGroupsToSync);
+                                break;
+                            }
+                        }
                         // 直接启动增量（全量已完成）
                         startIncrementSync(mapping, meta);
                         break;
@@ -103,7 +128,7 @@ public final class FullIncrementPuller implements Puller {
     }
 
     // 核心：运行全量同步并在完成后执行回调
-    private void startFullThenIncrement(Mapping mapping, Meta meta) throws Exception {
+    private void startFullThenIncrement(Mapping mapping, Meta meta, List<TableGroup> tableGroupsToSync) throws Exception {
         // 设置阶段回调：全量完成后启动增量同步
         meta.setPhaseHandler(() -> {
             // 启动增量同步
@@ -114,8 +139,8 @@ public final class FullIncrementPuller implements Puller {
             }
         });
 
-        // 启动全量同步
-        fullPuller.start(mapping);
+        // 启动全量同步（支持选择性同步）
+        fullPuller.start(mapping, tableGroupsToSync);
     }
 
     /**

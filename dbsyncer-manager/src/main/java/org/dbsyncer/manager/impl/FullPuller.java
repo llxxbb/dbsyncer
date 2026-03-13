@@ -4,6 +4,7 @@
 package org.dbsyncer.manager.impl;
 
 import org.dbsyncer.common.ProcessEvent;
+import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.parser.LogService;
 import org.dbsyncer.parser.LogType;
@@ -21,7 +22,9 @@ import org.springframework.util.Assert;
 import javax.annotation.Resource;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -53,8 +56,20 @@ public final class FullPuller implements org.dbsyncer.manager.Puller, ProcessEve
 
     @Override
     public void start(Mapping mapping) throws Exception {
+        start(mapping, null);
+    }
+
+    public void start(Mapping mapping, List<TableGroup> tableGroupsToSync) throws Exception {
         List<TableGroup> list = profileComponent.getSortedTableGroupAll(mapping.getId());
         Assert.notEmpty(list, "映射关系不能为空");
+        
+        final Set<String> tableGroupIdsToSync = new HashSet<>();
+        if (!CollectionUtils.isEmpty(tableGroupsToSync)) {
+            for (TableGroup tg : tableGroupsToSync) {
+                tableGroupIdsToSync.add(tg.getId());
+            }
+        }
+        
         Thread worker = new Thread(() -> {
             final String metaId = mapping.getMetaId();
             ExecutorService executor = Executors.newFixedThreadPool(mapping.getThreadNum());
@@ -62,7 +77,7 @@ public final class FullPuller implements org.dbsyncer.manager.Puller, ProcessEve
             assert meta != null;
             try {
                 logger.info("开始全量同步：{}, {}", metaId, mapping.getName());
-                doTask(metaId, mapping, list, executor);
+                doTask(metaId, mapping, list, executor, tableGroupIdsToSync);
             } catch (Exception e) {
                 // 记录运行时异常状态和异常信息
                 try {
@@ -100,7 +115,7 @@ public final class FullPuller implements org.dbsyncer.manager.Puller, ProcessEve
         mapping.resetMetaState();
     }
 
-    private void doTask(String metaId, Mapping mapping, List<TableGroup> list, Executor executor) throws Exception {
+    private void doTask(String metaId, Mapping mapping, List<TableGroup> list, Executor executor, Set<String> tableGroupIdsToSync) throws Exception {
         // 获取Meta对象
         Meta meta = profileComponent.getMeta(metaId);
         Assert.notNull(meta, "Meta对象不存在");
@@ -108,6 +123,11 @@ public final class FullPuller implements org.dbsyncer.manager.Puller, ProcessEve
         // 并发处理所有TableGroup
         List<CompletableFuture<Void>> futures = new ArrayList<>();
         for (TableGroup tableGroup : list) {
+            // 如果指定了要同步的TableGroup列表，则只处理指定的TableGroup
+            if (!CollectionUtils.isEmpty(tableGroupIdsToSync) && !tableGroupIdsToSync.contains(tableGroup.getId())) {
+                continue;
+            }
+            
             if (tableGroup.isFullCompleted()) {
                 continue;
             }

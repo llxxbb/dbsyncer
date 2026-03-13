@@ -99,6 +99,41 @@ public class Meta extends ConfigModel {
         profileComponent.editConfigModel(this);
     }
 
+    /**
+     * 部分重置状态（用于重新同步部分表映射关系）
+     * 从所有 TableGroup 重新计算 success 和 fail，保留已完成的映射关系的统计
+     * 将 syncPhase 重置为 FULL 以便正确统计总数
+     * 保留 snapshot（增量起始点）
+     * 
+     * @throws Exception 保存异常
+     */
+    public void partialClear() throws Exception {
+        long now = Instant.now().toEpochMilli();
+        this.state = MetaEnum.READY.getCode();
+        
+        // 从所有 TableGroup 重新计算 success 和 fail
+        long totalSuccess = 0;
+        long totalFail = 0;
+        List<TableGroup> groupAll = profileComponent.getTableGroupAll(this.getMappingId());
+        if (!CollectionUtils.isEmpty(groupAll)) {
+            for (TableGroup g : groupAll) {
+                totalSuccess += g.getSuccess();
+                totalFail += g.getFail();
+            }
+        }
+        this.success = new AtomicLong(totalSuccess);
+        this.fail = new AtomicLong(totalFail);
+        
+        this.total = new AtomicLong(0);
+        this.beginTime = now;
+        this.setUpdateTime(now);
+        this.endTime = now;
+        this.errorMessage = "";
+        // 将 syncPhase 重置为 FULL，以便 updateFullTotal() 能正确统计总数
+        this.syncPhase = SyncPhaseEnum.FULL;
+        profileComponent.editConfigModel(this);
+    }
+
 
     private void init() {
         long now = Instant.now().toEpochMilli();

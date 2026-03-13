@@ -1,16 +1,20 @@
 package org.dbsyncer.manager;
 
+import org.dbsyncer.manager.impl.FullIncrementPuller;
+import org.dbsyncer.manager.impl.FullPuller;
 import org.dbsyncer.parser.LogService;
 import org.dbsyncer.parser.LogType;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.enums.MetaEnum;
 import org.dbsyncer.parser.model.Mapping;
 import org.dbsyncer.parser.model.Meta;
+import org.dbsyncer.parser.model.TableGroup;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 
 import javax.annotation.Resource;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -31,6 +35,10 @@ public class ManagerFactory {
     private LogService logService;
 
     public void start(Mapping mapping) throws Exception {
+        start(mapping, null);
+    }
+
+    public void start(Mapping mapping, List<TableGroup> tableGroupsToSync) throws Exception {
         Puller puller = getPuller(mapping);
 
         // 标记运行中，使用Meta类的统一方法
@@ -42,7 +50,13 @@ public class ManagerFactory {
         profileComponent.editConfigModel(mapping);
         
         try {
-            puller.start(mapping);
+            if (puller instanceof FullPuller) {
+                ((FullPuller) puller).start(mapping, tableGroupsToSync);
+            } else if (puller instanceof FullIncrementPuller) {
+                ((FullIncrementPuller) puller).start(mapping, tableGroupsToSync);
+            } else {
+                puller.start(mapping);
+            }
         } catch (Exception e) {
             // 记录异常状态和异常信息到Meta对象，使用统一方法
             meta.saveState(MetaEnum.ERROR, e.getMessage());
