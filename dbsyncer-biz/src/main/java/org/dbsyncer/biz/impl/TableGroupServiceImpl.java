@@ -410,7 +410,12 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
             }
 
             // 使用 partialClear 而不是 clear，保留 syncPhase 和 snapshot
-            meta.partialClear();
+            // 传入需要重置的 TableGroup ID 集合（用于日志记录）
+            // partialClear 会统计所有 TableGroup，因为被重置的已经清零，所以实际上保留了未被重置的统计数据
+            Set<String> resetTableGroupIds = tableGroupsToReset.stream()
+                    .map(TableGroup::getId)
+                    .collect(java.util.stream.Collectors.toSet());
+            meta.partialClear(resetTableGroupIds);
 
             mapping.setUpdateTime(java.time.Instant.now().toEpochMilli());
             profileComponent.editConfigModel(mapping);

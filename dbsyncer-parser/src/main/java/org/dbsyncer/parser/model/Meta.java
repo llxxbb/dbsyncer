@@ -101,19 +101,25 @@ public class Meta extends ConfigModel {
 
     /**
      * 部分重置状态（用于重新同步部分表映射关系）
-     * 从所有 TableGroup 重新计算 success 和 fail，保留已完成的映射关系的统计
+     * 从所有 TableGroup 重新计算 success 和 fail
+     * 注意：被重置的 TableGroup 的 success 和 fail 已经在调用此方法前被清零
+     * 所以统计所有 TableGroup 就等于保留了未被重置的 TableGroup 的统计数据
      * 将 syncPhase 重置为 FULL 以便正确统计总数
      * 保留 snapshot（增量起始点）
      * 
+     * @param resetTableGroupIds 需要重置的 TableGroup ID 集合（用于日志记录，实际统计所有 TableGroup）
      * @throws Exception 保存异常
      */
-    public void partialClear() throws Exception {
+    public void partialClear(Set<String> resetTableGroupIds) throws Exception {
         long now = Instant.now().toEpochMilli();
         this.state = MetaEnum.READY.getCode();
         
         // 从所有 TableGroup 重新计算 success 和 fail
+        // 被重置的 TableGroup 的 success 和 fail 已经在调用此方法前被清零
+        // 所以这里统计所有 TableGroup，实际上就是保留了未被重置的 TableGroup 的统计数据
         long totalSuccess = 0;
         long totalFail = 0;
+        
         List<TableGroup> groupAll = profileComponent.getTableGroupAll(this.getMappingId());
         if (!CollectionUtils.isEmpty(groupAll)) {
             for (TableGroup g : groupAll) {
@@ -121,6 +127,7 @@ public class Meta extends ConfigModel {
                 totalFail += g.getFail();
             }
         }
+        
         this.success = new AtomicLong(totalSuccess);
         this.fail = new AtomicLong(totalFail);
         
