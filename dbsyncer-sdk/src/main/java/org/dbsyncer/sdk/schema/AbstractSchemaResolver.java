@@ -159,6 +159,10 @@ public abstract class AbstractSchemaResolver implements SchemaResolver {
         if (standardField.getSrid() != null) {
             result.setSrid(standardField.getSrid());
         }
+        // 保留枚举值列表（用于 ENUM/SET 类型）
+        if (standardField.getEnumValues() != null) {
+            result.setEnumValues(standardField.getEnumValues());
+        }
         return result;
     }
 

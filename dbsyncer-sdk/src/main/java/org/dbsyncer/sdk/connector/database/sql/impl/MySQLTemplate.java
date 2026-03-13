@@ -196,9 +196,10 @@ public class MySQLTemplate extends AbstractSqlTemplate {
                 buildTable(schema, tableName), columns, pkClause);
     }
 
+
     @Override
     public String convertToDatabaseType(Field column) {
-        // 使用SchemaResolver进行类型转换，完全委托给SchemaResolver处理
+        // 使用 SchemaResolver 进行类型转换，完全委托给 SchemaResolver 处理
         Field targetField = schemaResolver.fromStandardType(column);
         String typeName = targetField.getTypeName();
         
@@ -229,12 +230,12 @@ public class MySQLTemplate extends AbstractSqlTemplate {
                 }
                 throw new IllegalArgumentException("should give size for column: " + column.getTypeName());
             case "TEXT":
-                // 根据columnSize判断使用哪种TEXT类型
-                // MySQL的TEXT类型容量：
-                // - TINYTEXT: 最大255字节
-                // - TEXT: 最大65,535字节 (64KB)
-                // - MEDIUMTEXT: 最大16,777,215字节 (16MB)
-                // - LONGTEXT: 最大4,294,967,295字节 (4GB)
+                // 根据 columnSize 判断使用哪种 TEXT 类型
+                // MySQL 的 TEXT 类型容量：
+                // - TINYTEXT: 最大 255 字节
+                // - TEXT: 最大 65,535 字节 (64KB)
+                // - MEDIUMTEXT: 最大 16,777,215 字节 (16MB)
+                // - LONGTEXT: 最大 4,294,967,295 字节 (4GB)
                 long columnSize = column.getColumnSize();
                 if (columnSize > 0) {
                     if (columnSize <= 255L) {
@@ -247,7 +248,7 @@ public class MySQLTemplate extends AbstractSqlTemplate {
                         return "LONGTEXT";
                     }
                 }
-                // 如果没有columnSize信息，默认使用TEXT
+                // 如果没有 columnSize 信息，默认使用 TEXT
                 return "TEXT";
             case "DECIMAL":
                 if (column.getColumnSize() > 0 && column.getRatio() >= 0) {
@@ -257,27 +258,27 @@ public class MySQLTemplate extends AbstractSqlTemplate {
                 }
                 return "DECIMAL(10,0)";
             case "VARBINARY":
-                // BYTES类型：用于小容量二进制数据
-                // 对于固定长度的二进制数据，使用BINARY类型
-                // MySQL的BINARY类型用于固定长度二进制数据，VARBINARY用于可变长度
-                // 当columnSize存在且<=255时，使用BINARY以获得更好的性能
+                // BYTES 类型：用于小容量二进制数据
+                // 对于固定长度的二进制数据，使用 BINARY 类型
+                // MySQL 的 BINARY 类型用于固定长度二进制数据，VARBINARY 用于可变长度
+                // 当 columnSize 存在且<=255 时，使用 BINARY 以获得更好的性能
                 long binarySize = column.getColumnSize();
                 if (binarySize > 0 && binarySize <= 255) {
-                    // 固定长度且小于等于255，使用BINARY
+                    // 固定长度且小于等于 255，使用 BINARY
                     return "BINARY(" + binarySize + ")";
                 } else if (binarySize > 255 && binarySize <= 65535) {
-                    // 有长度但大于255且<=65535，使用VARBINARY
+                    // 有长度但大于 255 且<=65535，使用 VARBINARY
                     return "VARBINARY(" + binarySize + ")";
                 }
-                // 没有长度信息或长度超过65535，默认使用VARBINARY(65535)
+                // 没有长度信息或长度超过 65535，默认使用 VARBINARY(65535)
                 return "VARBINARY(65535)";
             case "BLOB":
-                // BLOB类型：用于大容量二进制数据
-                // MySQL的BLOB类型容量：
-                // - TINYBLOB: 最大255字节
-                // - BLOB: 最大65,535字节 (64KB)
-                // - MEDIUMBLOB: 最大16,777,215字节 (16MB)
-                // - LONGBLOB: 最大4,294,967,295字节 (4GB)
+                // BLOB 类型：用于大容量二进制数据
+                // MySQL 的 BLOB 类型容量：
+                // - TINYBLOB: 最大 255 字节
+                // - BLOB: 最大 65,535 字节 (64KB)
+                // - MEDIUMBLOB: 最大 16,777,215 字节 (16MB)
+                // - LONGBLOB: 最大 4,294,967,295 字节 (4GB)
                 long blobSize = column.getColumnSize();
                 if (blobSize > 0) {
                     if (blobSize <= 255L) {
@@ -290,26 +291,48 @@ public class MySQLTemplate extends AbstractSqlTemplate {
                         return "LONGBLOB";
                     }
                 }
-                // 没有长度信息，默认使用BLOB（适合大多数场景）
+                // 没有长度信息，默认使用 BLOB（适合大多数场景）
                 return "BLOB";
             case "BINARY":
-                // 如果已经是BINARY类型，保持BINARY并添加长度
+                // 如果已经是 BINARY 类型，保持 BINARY 并添加长度
                 if (column.getColumnSize() > 0) {
                     return "BINARY(" + column.getColumnSize() + ")";
                 }
                 return "BINARY";
             case "TINYINT":
-                // BOOLEAN类型映射到TINYINT，对于布尔类型使用TINYINT(1)
-                // 检查是否是BOOLEAN标准类型（通过column的typeName判断）
+                // BOOLEAN 类型映射到 TINYINT，对于布尔类型使用 TINYINT(1)
+                // 检查是否是 BOOLEAN 标准类型（通过 column 的 typeName 判断）
                 String standardType = column.getTypeName();
                 if ("BOOLEAN".equals(standardType)) {
                     return "TINYINT(1)";
                 }
-                // 如果是普通的TINYINT类型，根据columnSize处理
+                // 如果是普通的 TINYINT 类型，根据 columnSize 处理
                 if (column.getColumnSize() > 0) {
                     return typeName + "(" + column.getColumnSize() + ")";
                 }
                 return typeName;
+            case "ENUM":
+                // ENUM 类型必须有枚举值列表
+                List<String> enumValues = column.getEnumValues();
+                if (enumValues != null && !enumValues.isEmpty()) {
+                    String valuesStr = enumValues.stream()
+                            .map(v -> "'" + v.replace("'", "''") + "'")
+                            .collect(java.util.stream.Collectors.joining(", "));
+                    return "ENUM(" + valuesStr + ")";
+                }
+                // 如果没有枚举值，回退到默认行为（但这会导致 SQL 错误，所以抛异常提示）
+                throw new IllegalArgumentException("ENUM type must have enum values for column: " + column.getName());
+            case "SET":
+                // SET 类型必须有集合值列表
+                List<String> setValues = column.getEnumValues();
+                if (setValues != null && !setValues.isEmpty()) {
+                    String valuesStr = setValues.stream()
+                            .map(v -> "'" + v.replace("'", "''") + "'")
+                            .collect(java.util.stream.Collectors.joining(", "));
+                    return "SET(" + valuesStr + ")";
+                }
+                // 如果没有集合值，回退到默认行为（但这会导致 SQL 错误，所以抛异常提示）
+                throw new IllegalArgumentException("SET type must have set values for column: " + column.getName());
             default:
                 return typeName;
         }

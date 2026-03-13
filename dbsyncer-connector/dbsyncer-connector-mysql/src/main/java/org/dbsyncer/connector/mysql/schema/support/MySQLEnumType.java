@@ -28,22 +28,27 @@ public final class MySQLEnumType extends EnumType {
     public Field handleDDLParameters(ColDataType colDataType) {
         Field result = super.handleDDLParameters(colDataType);
         
-        // 处理ENUM类型，根据枚举值列表计算最大长度
-        // ENUM类型只存储单个值，所以长度应该是所有枚举值中字符串长度最大的那个
+        // 处理 ENUM 类型，保存枚举值列表并计算最大长度
         List<String> argsList = colDataType.getArgumentsStringList();
         if (argsList != null && !argsList.isEmpty()) {
-            int maxLength = argsList.stream()
-                    .mapToInt(value -> {
-                        // 移除可能的引号（单引号或双引号）
+            // 保存枚举值列表（清理引号）
+            List<String> enumValues = argsList.stream()
+                    .map(value -> {
                         String cleanValue = value.trim();
                         if ((cleanValue.startsWith("'") && cleanValue.endsWith("'")) ||
                             (cleanValue.startsWith("\"") && cleanValue.endsWith("\""))) {
                             cleanValue = cleanValue.substring(1, cleanValue.length() - 1);
                         }
-                        return cleanValue.length();
+                        return cleanValue;
                     })
+                    .collect(java.util.stream.Collectors.toList());
+            result.setEnumValues(enumValues);
+            
+            // 计算最大长度（ENUM 类型只存储单个值，取最长的那个）
+            int maxLength = enumValues.stream()
+                    .mapToInt(String::length)
                     .max()
-                    .orElse(255); // 如果没有枚举值，使用默认值255
+                    .orElse(255);
             
             result.setColumnSize(maxLength);
         } else {
