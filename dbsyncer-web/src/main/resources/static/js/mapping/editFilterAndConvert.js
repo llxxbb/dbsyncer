@@ -214,13 +214,53 @@ function updateDeleteFieldButton() {
     var $select = $("#convertTargetField");
     var $selectedOption = $select.find("option:selected");
     var fieldMetadata = $selectedOption.data('fieldMetadata');
+    var fieldName = $selectedOption.val();
+    var $deleteBtn = $("#deleteTargetFieldBtn");
     
-    // 只有选中自定义字段时才显示删除按钮
-    if (fieldMetadata) {
-        $("#deleteTargetFieldBtn").removeClass("hidden");
-    } else {
-        $("#deleteTargetFieldBtn").addClass("hidden");
+    // 没有选中字段或选中的不是自定义字段 → 隐藏删除按钮
+    if (!fieldMetadata) {
+        $deleteBtn.addClass("hidden");
+        $deleteBtn.prop("disabled", true);
+        $deleteBtn.attr("title", "只能删除自定义字段");
+        return;
     }
+    
+    // 检查是否被转换配置引用
+    var isReferenced = isFieldReferencedInConvertList(fieldName);
+    if (isReferenced) {
+        $deleteBtn.removeClass("hidden");
+        $deleteBtn.prop("disabled", true);
+        $deleteBtn.attr("title", "字段被转换配置引用，无法删除");
+        return;
+    }
+    
+    // 可以删除
+    $deleteBtn.removeClass("hidden");
+    $deleteBtn.prop("disabled", false);
+    $deleteBtn.attr("title", "删除自定义字段（仅未保存）");
+}
+
+// 检查字段是否在转换配置列表中被引用
+function isFieldReferencedInConvertList(fieldName) {
+    var referenced = false;
+    $("#convertList tr").each(function() {
+        var targetField = $(this).find("td:eq(1)").text().trim();
+        var args = $(this).find("td:eq(2)").text().trim();
+        
+        // 检查是否作为目标字段
+        if (targetField === fieldName) {
+            referenced = true;
+            return false;
+        }
+        
+        // 检查是否在参数/表达式中引用（${fieldName} 格式）
+        if (args.indexOf("${" + fieldName + "}") >= 0) {
+            referenced = true;
+            return false;
+        }
+    });
+    
+    return referenced;
 }
 
 // 打开字段编辑对话框
@@ -589,6 +629,8 @@ function bindConvertAddClick() {
         // 清空参数
         $(".convertParam").val("");
         initConvert();
+        // 更新字段删除按钮状态（检查引用）
+        updateDeleteFieldButton();
     });
 }
 
@@ -808,6 +850,8 @@ function bindCustomFieldDeleteClick() {
                     $tr.remove();
                     // 重新初始化转换器参数
                     initConvert();
+                    // 更新字段删除按钮状态
+                    updateDeleteFieldButton();
                     bootGrowl("删除成功", "success");
                 }
             }
