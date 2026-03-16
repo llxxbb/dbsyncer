@@ -178,7 +178,8 @@ function bindDeleteTargetFieldClick() {
         var $selectedOption = $select.find("option:selected");
         var fieldMetadata = $selectedOption.data('fieldMetadata');
         
-        if (!fieldMetadata) {
+        // 检查是否为自定义字段
+        if (!fieldMetadata || fieldMetadata.isCustom !== true) {
             bootGrowl("只能删除自定义字段", "danger");
             return;
         }
@@ -213,12 +214,27 @@ function bindDeleteTargetFieldClick() {
 function updateDeleteFieldButton() {
     var $select = $("#convertTargetField");
     var $selectedOption = $select.find("option:selected");
+    
+    // 尝试两种方式读取 fieldMetadata（兼容服务端渲染和前端新增）
     var fieldMetadata = $selectedOption.data('fieldMetadata');
+    if (!fieldMetadata) {
+        // 尝试读取 data-field-metadata 属性（服务端渲染的 JSON 字符串）
+        var fieldMetadataStr = $selectedOption.attr("data-field-metadata");
+        if (fieldMetadataStr) {
+            try {
+                fieldMetadata = JSON.parse(fieldMetadataStr);
+            } catch (e) {
+                console.warn("解析 fieldMetadata 失败:", e);
+            }
+        }
+    }
+    
     var fieldName = $selectedOption.val();
     var $deleteBtn = $("#deleteTargetFieldBtn");
     
     // 没有选中字段或选中的不是自定义字段 → 隐藏删除按钮
-    if (!fieldMetadata) {
+    // 自定义字段的判断：fieldMetadata.isCustom === true
+    if (!fieldMetadata || fieldMetadata.isCustom !== true) {
         $deleteBtn.addClass("hidden");
         $deleteBtn.prop("disabled", true);
         $deleteBtn.attr("title", "只能删除自定义字段");
@@ -433,7 +449,8 @@ function createFieldMetadata(fieldName, fieldType, fieldSize, fieldScale, fieldN
         nullable: fieldNullable,
         comment: fieldComment,
         pk: false,
-        autoincrement: false
+        autoincrement: false,
+        isCustom: true  // 标记为自定义字段
     };
     
     // 添加到下拉列表
@@ -623,7 +640,12 @@ function bindConvertAddClick() {
         trHtml += "<td value='" + convertOperatorVal + "'>" + convertOperatorText + "</td>";
         trHtml += "<td>" + convertTargetField + "</td>";
         trHtml += "<td>" + convertArg + "</td>";
-        trHtml += "<td><a class='fa fa-remove fa-2x convertDelete dbsyncer_pointer' title='删除' ></a></td>";
+        trHtml += "<td><a class='fa fa-remove fa-2x convertDelete dbsyncer_pointer' title='删除' ></a>";
+        // 只给自定义字段添加删除按钮
+        if (fieldMetadata && fieldMetadata.isCustom === true) {
+            trHtml += "<a class='fa fa-minus-circle fa-2x customFieldDelete dbsyncer_pointer' title='删除自定义字段（仅未保存）' style='color: #d9534f; margin-left: 10px;'></a>";
+        }
+        trHtml += "</td>";
         trHtml += "</tr>";
         $convertList.append(trHtml);
         // 清空参数
@@ -808,7 +830,7 @@ function isFieldReferenced(fieldName, currentTr) {
     return referenced;
 }
 
-// 绑定自定义字段删除按钮点击事件
+// 绑定自定义字段删除按钮点击事件（转换配置列表中的删除）
 function bindCustomFieldDeleteClick() {
     // 使用事件委托，因为删除按钮是动态添加的
     $("#convertList").off("click", ".customFieldDelete");
@@ -823,6 +845,20 @@ function bindCustomFieldDeleteClick() {
         if (!isCustomField) {
             bootGrowl("只能删除自定义字段", "danger");
             return;
+        }
+        
+        // 获取 fieldMetadata，检查是否为真正的自定义字段
+        var fieldMetadataStr = $tr.attr("data-fieldmetadata");
+        if (fieldMetadataStr) {
+            try {
+                var fieldMetadata = JSON.parse(fieldMetadataStr);
+                if (!fieldMetadata || fieldMetadata.isCustom !== true) {
+                    bootGrowl("只能删除自定义字段", "danger");
+                    return;
+                }
+            } catch (e) {
+                console.warn("解析 fieldMetadata 失败:", e);
+            }
         }
         
         // 检查是否已保存
@@ -887,6 +923,8 @@ $(function() {
         initConvertParamsVisibility();
         // 初始化删除按钮状态
         updateDeleteFieldButton();
+        // 隐藏服务端渲染的非自定义字段的删除按钮
+        hideNonCustomFieldDeleteButtons();
     }, 200);
     
     // 绑定字段编辑对话框确认按钮
@@ -897,3 +935,22 @@ $(function() {
     // 绑定自定义字段删除按钮（转换配置列表中的删除）
     bindCustomFieldDeleteClick();
 });
+
+// 隐藏服务端渲染的非自定义字段的删除按钮
+function hideNonCustomFieldDeleteButtons() {
+    $("#convertList tr").each(function() {
+        var $tr = $(this);
+        var fieldMetadataStr = $tr.attr("data-fieldmetadata");
+        if (fieldMetadataStr) {
+            try {
+                var fieldMetadata = JSON.parse(fieldMetadataStr);
+                if (!fieldMetadata || fieldMetadata.isCustom !== true) {
+                    // 非自定义字段，隐藏删除按钮
+                    $tr.find(".customFieldDelete").remove();
+                }
+            } catch (e) {
+                console.warn("解析 fieldMetadata 失败:", e);
+            }
+        }
+    });
+}
