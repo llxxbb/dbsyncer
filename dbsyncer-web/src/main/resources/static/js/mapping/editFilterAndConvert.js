@@ -163,11 +163,64 @@ function bindAddTargetFieldClick() {
     });
 }
 
-// 绑定添加目标字段按钮点击事件
-function bindAddTargetFieldClick() {
-    $("#addTargetFieldBtn").on('click', function() {
-        openFieldEditDialog(null);
+// 绑定删除目标字段按钮点击事件
+function bindDeleteTargetFieldClick() {
+    $("#deleteTargetFieldBtn").on('click', function() {
+        var $select = $("#convertTargetField");
+        var fieldName = $select.selectpicker('val');
+        
+        if (!fieldName) {
+            bootGrowl("请先选择字段", "warning");
+            return;
+        }
+        
+        // 获取选中选项的 fieldMetadata
+        var $selectedOption = $select.find("option:selected");
+        var fieldMetadata = $selectedOption.data('fieldMetadata');
+        
+        if (!fieldMetadata) {
+            bootGrowl("只能删除自定义字段", "danger");
+            return;
+        }
+        
+        // 确认删除
+        BootstrapDialog.confirm({
+            title: "确认删除",
+            message: "确定要删除自定义字段 [" + fieldName + "] 吗？",
+            type: BootstrapDialog.TYPE_DANGER,
+            btnCancelLabel: "取消",
+            btnOKLabel: "确定",
+            callback: function(result) {
+                if (result) {
+                    // 从下拉框中移除选项
+                    $selectedOption.remove();
+                    $select.selectpicker('refresh');
+                    
+                    // 清空参数
+                    $(".convertParam").val("");
+                    
+                    bootGrowl("删除成功", "success");
+                    
+                    // 更新删除按钮状态
+                    updateDeleteFieldButton();
+                }
+            }
+        });
     });
+}
+
+// 更新删除字段按钮的显示状态
+function updateDeleteFieldButton() {
+    var $select = $("#convertTargetField");
+    var $selectedOption = $select.find("option:selected");
+    var fieldMetadata = $selectedOption.data('fieldMetadata');
+    
+    // 只有选中自定义字段时才显示删除按钮
+    if (fieldMetadata) {
+        $("#deleteTargetFieldBtn").removeClass("hidden");
+    } else {
+        $("#deleteTargetFieldBtn").addClass("hidden");
+    }
 }
 
 // 打开字段编辑对话框
@@ -359,6 +412,9 @@ function createFieldMetadata(fieldName, fieldType, fieldSize, fieldScale, fieldN
         $select.selectpicker('val', fieldName);
         bootGrowl("字段添加成功", "success");
     }
+    
+    // 更新删除按钮状态
+    updateDeleteFieldButton();
     
     $('#fieldEditDialog').modal('hide');
 }
@@ -772,12 +828,21 @@ $(function() {
     bindConvertAddClick();
     bindConvertOperatorChange();
     bindConvertHelpIconClick();
-    // 目标字段添加
+    // 目标字段添加/删除
     bindAddTargetFieldClick();
+    bindDeleteTargetFieldClick();
+    
+    // 绑定字段选择变化事件，更新删除按钮状态
+    $("#convertTargetField").on('changed.bs.select', function() {
+        updateDeleteFieldButton();
+    });
+    
     // 初始化转换类型参数显示（需要在 selectpicker 初始化后调用）
     // 使用 setTimeout 确保 selectpicker 完全初始化完成
     setTimeout(function() {
         initConvertParamsVisibility();
+        // 初始化删除按钮状态
+        updateDeleteFieldButton();
     }, 200);
     
     // 绑定字段编辑对话框确认按钮
@@ -785,6 +850,6 @@ $(function() {
         saveCustomField();
     });
     
-    // 绑定自定义字段删除按钮
+    // 绑定自定义字段删除按钮（转换配置列表中的删除）
     bindCustomFieldDeleteClick();
 });
