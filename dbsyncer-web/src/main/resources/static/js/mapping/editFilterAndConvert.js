@@ -681,6 +681,35 @@ function bindConvertHelpIconClick() {
     });
 }
 
+// 检查字段是否被其他转换器引用
+function isFieldReferenced(fieldName, currentTr) {
+    var referenced = false;
+    $("#convertList tr").each(function() {
+        var $tr = $(this);
+        // 跳过自身
+        if ($tr[0] === currentTr) {
+            return;
+        }
+        
+        var targetField = $tr.find("td:eq(1)").text().trim();
+        var args = $tr.find("td:eq(2)").text().trim();
+        
+        // 检查是否作为目标字段
+        if (targetField === fieldName) {
+            referenced = true;
+            return false;
+        }
+        
+        // 检查是否在参数/表达式中引用（${fieldName} 格式）
+        if (args.indexOf("${" + fieldName + "}") >= 0) {
+            referenced = true;
+            return false;
+        }
+    });
+    
+    return referenced;
+}
+
 // 绑定自定义字段删除按钮点击事件
 function bindCustomFieldDeleteClick() {
     // 使用事件委托，因为删除按钮是动态添加的
@@ -700,7 +729,13 @@ function bindCustomFieldDeleteClick() {
         
         // 检查是否已保存
         if (isSaved) {
-            bootGrowl("已保存的自定义字段无法删除，请联系管理员", "warning");
+            bootGrowl("已保存的自定义字段无法删除", "warning");
+            return;
+        }
+        
+        // 检查是否被其他转换器引用
+        if (isFieldReferenced(fieldName, $tr[0])) {
+            bootGrowl("字段被其他转换器引用，无法删除：" + fieldName, "danger");
             return;
         }
         

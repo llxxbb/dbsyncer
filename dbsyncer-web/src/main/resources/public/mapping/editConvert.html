@@ -110,11 +110,12 @@
                         </tr>
                     </thead>
                     <tbody id="convertList">
-                        <!-- Mapping convert -->
+                        <!-- Mapping convert（未保存的配置） -->
                         <tr th:if="${tableGroup} == null" th:each="f,s:${mapping?.convert}" 
                             th:data-id="${f?.id}" 
                             th:data-isroot="${f?.root}"
-                            th:data-is-custom-field="${f?.fieldMetadata != null}">
+                            th:data-is-custom-field="${f?.fieldMetadata != null}"
+                            th:data-saved="${f?.fieldMetadata != null ? 'false' : 'true'}">
                             <td th:value="${f?.convertCode}">[[${f?.convertName}]]</td>
                             <td>[[${f?.name}]]</td>
                             <td th:text="${f?.args}"></td>
@@ -127,21 +128,18 @@
                                    style='color: #d9534f; margin-left: 10px;'></a>
                             </td>
                         </tr>
-                        <!-- TableGroup convert -->
+                        <!-- TableGroup convert（已保存的配置） -->
                         <tr th:each="f,s:${tableGroup?.convert}" 
                             th:data-id="${f?.id}" 
                             th:data-isroot="${f?.root}"
-                            th:data-is-custom-field="${f?.fieldMetadata != null}">
+                            th:data-is-custom-field="${f?.fieldMetadata != null}"
+                            th:data-saved="'true'">
                             <td th:value="${f?.convertCode}">[[${f?.convertName}]]</td>
                             <td>[[${f?.name}]]</td>
                             <td th:text="${f?.args}"></td>
                             <td>
                                 <a class='fa fa-remove fa-2x convertDelete dbsyncer_pointer' title='删除' ></a>
-                                <!-- 自定义字段删除按钮（只针对未保存的自定义字段） -->
-                                <a th:if="${f?.fieldMetadata != null}" 
-                                   class='fa fa-minus-circle fa-2x customFieldDelete dbsyncer_pointer' 
-                                   title='删除自定义字段（仅未保存）' 
-                                   style='color: #d9534f; margin-left: 10px;'></a>
+                                <!-- 已保存的自定义字段不显示删除按钮 -->
                             </td>
                         </tr>
                     </tbody>
