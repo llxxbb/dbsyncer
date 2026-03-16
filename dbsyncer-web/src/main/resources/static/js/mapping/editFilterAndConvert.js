@@ -518,6 +518,8 @@ function bindConvertAddClick() {
         var trHtml = "<tr";
         trHtml += " data-id='" + nextId + "'";
         trHtml += " data-isroot='true'";
+        // 标记为未保存（前端新增的字段）
+        trHtml += " data-saved='false'";
         if (fieldMetadata) {
             trHtml += " data-fieldmetadata='" + JSON.stringify(fieldMetadata).replace(/'/g, "\\'") + "'";
         }
@@ -679,6 +681,49 @@ function bindConvertHelpIconClick() {
     });
 }
 
+// 绑定自定义字段删除按钮点击事件
+function bindCustomFieldDeleteClick() {
+    // 使用事件委托，因为删除按钮是动态添加的
+    $("#convertList").off("click", ".customFieldDelete");
+    $("#convertList").on("click", ".customFieldDelete", function() {
+        event.cancelBubble = true;
+        
+        var $tr = $(this).parent().parent();
+        var fieldName = $tr.find("td:eq(1)").text().trim();
+        var isCustomField = $tr.attr("data-is-custom-field") === "true";
+        var isSaved = $tr.attr("data-saved") === "true";
+        
+        if (!isCustomField) {
+            bootGrowl("只能删除自定义字段", "danger");
+            return;
+        }
+        
+        // 检查是否已保存
+        if (isSaved) {
+            bootGrowl("已保存的自定义字段无法删除，请联系管理员", "warning");
+            return;
+        }
+        
+        // 确认删除（未保存的字段）
+        BootstrapDialog.confirm({
+            title: "确认删除",
+            message: "确定要删除未保存的自定义字段 [" + fieldName + "] 吗？",
+            type: BootstrapDialog.TYPE_DANGER,
+            btnCancelLabel: "取消",
+            btnOKLabel: "确定",
+            callback: function(result) {
+                if (result) {
+                    // 纯前端删除：直接从 DOM 移除
+                    $tr.remove();
+                    // 重新初始化转换器参数
+                    initConvert();
+                    bootGrowl("删除成功", "success");
+                }
+            }
+        });
+    });
+}
+
 // 页面初始化
 $(function() {
     initSelectIndex($(".select-control"), 1);
@@ -704,4 +749,7 @@ $(function() {
     $('#confirmFieldEdit').on('click', function() {
         saveCustomField();
     });
+    
+    // 绑定自定义字段删除按钮
+    bindCustomFieldDeleteClick();
 });
