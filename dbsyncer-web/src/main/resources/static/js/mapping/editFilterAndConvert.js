@@ -640,12 +640,7 @@ function bindConvertAddClick() {
         trHtml += "<td value='" + convertOperatorVal + "'>" + convertOperatorText + "</td>";
         trHtml += "<td>" + convertTargetField + "</td>";
         trHtml += "<td>" + convertArg + "</td>";
-        trHtml += "<td><a class='fa fa-remove fa-2x convertDelete dbsyncer_pointer' title='删除' ></a>";
-        // 只给自定义字段添加删除按钮
-        if (fieldMetadata && fieldMetadata.isCustom === true) {
-            trHtml += "<a class='fa fa-minus-circle fa-2x customFieldDelete dbsyncer_pointer' title='删除自定义字段（仅未保存）' style='color: #d9534f; margin-left: 10px;'></a>";
-        }
-        trHtml += "</td>";
+        trHtml += "<td><a class='fa fa-remove fa-2x convertDelete dbsyncer_pointer' title='删除' ></a></td>";
         trHtml += "</tr>";
         $convertList.append(trHtml);
         // 清空参数
@@ -801,99 +796,7 @@ function bindConvertHelpIconClick() {
     });
 }
 
-// 检查字段是否被其他转换器引用
-function isFieldReferenced(fieldName, currentTr) {
-    var referenced = false;
-    $("#convertList tr").each(function() {
-        var $tr = $(this);
-        // 跳过自身
-        if ($tr[0] === currentTr) {
-            return;
-        }
-        
-        var targetField = $tr.find("td:eq(1)").text().trim();
-        var args = $tr.find("td:eq(2)").text().trim();
-        
-        // 检查是否作为目标字段
-        if (targetField === fieldName) {
-            referenced = true;
-            return false;
-        }
-        
-        // 检查是否在参数/表达式中引用（${fieldName} 格式）
-        if (args.indexOf("${" + fieldName + "}") >= 0) {
-            referenced = true;
-            return false;
-        }
-    });
-    
-    return referenced;
-}
 
-// 绑定自定义字段删除按钮点击事件（转换配置列表中的删除）
-function bindCustomFieldDeleteClick() {
-    // 使用事件委托，因为删除按钮是动态添加的
-    $("#convertList").off("click", ".customFieldDelete");
-    $("#convertList").on("click", ".customFieldDelete", function() {
-        event.cancelBubble = true;
-        
-        var $tr = $(this).parent().parent();
-        var fieldName = $tr.find("td:eq(1)").text().trim();
-        var isCustomField = $tr.attr("data-is-custom-field") === "true";
-        var isSaved = $tr.attr("data-saved") === "true";
-        
-        if (!isCustomField) {
-            bootGrowl("只能删除自定义字段", "danger");
-            return;
-        }
-        
-        // 获取 fieldMetadata，检查是否为真正的自定义字段
-        var fieldMetadataStr = $tr.attr("data-fieldmetadata");
-        if (fieldMetadataStr) {
-            try {
-                var fieldMetadata = JSON.parse(fieldMetadataStr);
-                if (!fieldMetadata || fieldMetadata.isCustom !== true) {
-                    bootGrowl("只能删除自定义字段", "danger");
-                    return;
-                }
-            } catch (e) {
-                console.warn("解析 fieldMetadata 失败:", e);
-            }
-        }
-        
-        // 检查是否已保存
-        if (isSaved) {
-            bootGrowl("已保存的自定义字段无法删除", "warning");
-            return;
-        }
-        
-        // 检查是否被其他转换器引用
-        if (isFieldReferenced(fieldName, $tr[0])) {
-            bootGrowl("字段被其他转换器引用，无法删除：" + fieldName, "danger");
-            return;
-        }
-        
-        // 确认删除（未保存的字段）
-        BootstrapDialog.confirm({
-            title: "确认删除",
-            message: "确定要删除未保存的自定义字段 [" + fieldName + "] 吗？",
-            type: BootstrapDialog.TYPE_DANGER,
-            btnCancelLabel: "取消",
-            btnOKLabel: "确定",
-            callback: function(result) {
-                if (result) {
-                    // 纯前端删除：直接从 DOM 移除
-                    $tr.remove();
-                    // 重新初始化转换器参数
-                    initConvert();
-                    // 更新字段删除按钮状态
-                    updateDeleteFieldButton();
-                    bootGrowl("删除成功", "success");
-                }
-            }
-        });
-    });
-}
 
 // 页面初始化
 $(function() {
@@ -923,34 +826,12 @@ $(function() {
         initConvertParamsVisibility();
         // 初始化删除按钮状态
         updateDeleteFieldButton();
-        // 隐藏服务端渲染的非自定义字段的删除按钮
-        hideNonCustomFieldDeleteButtons();
     }, 200);
     
     // 绑定字段编辑对话框确认按钮
     $('#confirmFieldEdit').on('click', function() {
         saveCustomField();
     });
-    
-    // 绑定自定义字段删除按钮（转换配置列表中的删除）
-    bindCustomFieldDeleteClick();
 });
 
-// 隐藏服务端渲染的非自定义字段的删除按钮
-function hideNonCustomFieldDeleteButtons() {
-    $("#convertList tr").each(function() {
-        var $tr = $(this);
-        var fieldMetadataStr = $tr.attr("data-fieldmetadata");
-        if (fieldMetadataStr) {
-            try {
-                var fieldMetadata = JSON.parse(fieldMetadataStr);
-                if (!fieldMetadata || fieldMetadata.isCustom !== true) {
-                    // 非自定义字段，隐藏删除按钮
-                    $tr.find(".customFieldDelete").remove();
-                }
-            } catch (e) {
-                console.warn("解析 fieldMetadata 失败:", e);
-            }
-        }
-    });
-}
+
