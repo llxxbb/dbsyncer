@@ -378,9 +378,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         Meta meta = profileComponent.getMeta(mapping.getMetaId());
         Assert.notNull(meta, "任务元信息不存在");
 
-        if (meta.isRunning()) {
-            throw new BizException("任务正在运行中，请先停止任务再执行重新同步操作");
-        }
+        meta.assertNotRunning();
 
         synchronized (LOCK) {
             logger.info("重新同步表映射关系：驱动={}, 表组IDs={}", mapping.getName(), tableGroupIds);

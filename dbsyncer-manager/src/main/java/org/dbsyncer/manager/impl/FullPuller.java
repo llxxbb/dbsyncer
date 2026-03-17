@@ -63,12 +63,7 @@ public final class FullPuller implements org.dbsyncer.manager.Puller, ProcessEve
         List<TableGroup> list = profileComponent.getSortedTableGroupAll(mapping.getId());
         Assert.notEmpty(list, "映射关系不能为空");
         
-        final Set<String> tableGroupIdsToSync = new HashSet<>();
-        if (!CollectionUtils.isEmpty(tableGroupsToSync)) {
-            for (TableGroup tg : tableGroupsToSync) {
-                tableGroupIdsToSync.add(tg.getId());
-            }
-        }
+        final Set<String> tableGroupIdsToSync = toTableGroupIdSet(tableGroupsToSync);
         
         Thread worker = new Thread(() -> {
             final String metaId = mapping.getMetaId();
@@ -212,5 +207,15 @@ public final class FullPuller implements org.dbsyncer.manager.Puller, ProcessEve
         if (meta != null) {
             flush(meta);
         }
+    }
+
+    private Set<String> toTableGroupIdSet(List<TableGroup> tableGroups) {
+        Set<String> ids = new HashSet<>();
+        if (!CollectionUtils.isEmpty(tableGroups)) {
+            for (TableGroup tg : tableGroups) {
+                ids.add(tg.getId());
+            }
+        }
+        return ids;
     }
 }

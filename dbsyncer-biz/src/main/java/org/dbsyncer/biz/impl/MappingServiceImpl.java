@@ -205,7 +205,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         String metaId = mapping.getMetaId();
         Meta meta = profileComponent.getMeta(metaId);
         synchronized (LOCK) {
-            meta.assertRunning();
+            meta.assertNotRunning();
 
             // 删除数据
             monitorService.clearData(metaId);
@@ -294,7 +294,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         Mapping mapping = assertMappingExist(id);
 
         synchronized (LOCK) {
-            mapping.getMeta().assertRunning();
+            mapping.getMeta().assertNotRunning();
 
             // 启动
             managerFactory.start(mapping);

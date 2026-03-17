@@ -379,7 +379,7 @@ public class Meta extends ConfigModel {
      * @throws ParserException 如果当前 Meta 正在运行，抛出异常
      */
     @JsonIgnore
-    public void assertRunning() {
+    public void assertNotRunning() {
         if (this.isRunning()) {
             throw new ParserException("驱动正在运行, 请先停止.");
         }
