@@ -42,7 +42,7 @@ public class TableGroup extends AbstractConfigModel {
     }
 
     @JsonIgnore
-    public static final int Version = 1;
+    public static final int Version = 2;
     public int currentVersion;
     @JsonIgnore
     public boolean isInit = false;
@@ -67,7 +67,13 @@ public class TableGroup extends AbstractConfigModel {
     // 字段映射关系
     private List<FieldMapping> fieldMapping = new ArrayList<>();
 
-    // 执行命令，例SQL等
+    /**
+     * 目标表主键配置（逗号分隔，按顺序）
+     * 用于持久化用户自定义的主键顺序
+     */
+    private String targetTablePK;
+
+    // 执行命令，例 SQL 等
     @JsonIgnore
     private Map<String, String> command = new HashMap<>();
 
@@ -120,6 +126,15 @@ public class TableGroup extends AbstractConfigModel {
 
     public void setFieldMapping(List<FieldMapping> fieldMapping) {
         this.fieldMapping = fieldMapping;
+    }
+
+    public String getTargetTablePK() {
+        return targetTablePK;
+    }
+
+    public TableGroup setTargetTablePK(String targetTablePK) {
+        this.targetTablePK = targetTablePK;
+        return this;
     }
 
     public Map<String, String> getCommand() {

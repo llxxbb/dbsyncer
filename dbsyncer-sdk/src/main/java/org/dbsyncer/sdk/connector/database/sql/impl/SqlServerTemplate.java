@@ -757,4 +757,38 @@ public class SqlServerTemplate extends AbstractSqlTemplate {
         return String.format("SELECT COUNT(*) FROM sys.change_tracking_tables WITH (NOLOCK) WHERE object_id = OBJECT_ID('%s.%s')", 
                 escapedSchema, escapedTableName);
     }
+
+    @Override
+    public String buildAlterPrimaryKeySql(String tableName, List<String> oldPrimaryKeys, List<String> newPrimaryKeys, String schema) {
+        String quotedTableName = buildTable(schema, tableName);
+        String quotedKeys = buildQuotedFieldList(newPrimaryKeys);
+        
+        StringBuilder sql = new StringBuilder();
+        
+        if (oldPrimaryKeys != null && !oldPrimaryKeys.isEmpty()) {
+            // SQL Server 需要查询主键约束名
+            String pkConstraintName = getPrimaryKeyConstraintName(tableName);
+            if (pkConstraintName != null && !pkConstraintName.isEmpty()) {
+                sql.append("ALTER TABLE ").append(quotedTableName)
+                   .append(" DROP CONSTRAINT ").append(pkConstraintName)
+                   .append(", ADD PRIMARY KEY (").append(quotedKeys).append(")");
+            } else {
+                sql.append("ALTER TABLE ").append(quotedTableName)
+                   .append(" ADD PRIMARY KEY (").append(quotedKeys).append(")");
+            }
+        } else {
+            sql.append("ALTER TABLE ").append(quotedTableName)
+               .append(" ADD PRIMARY KEY (").append(quotedKeys).append(")");
+        }
+        
+        return sql.toString();
+    }
+
+    /**
+     * 获取主键约束名（简化实现，返回默认约束名）
+     * 后续可优化为查询系统视图 sys.key_constraints
+     */
+    private String getPrimaryKeyConstraintName(String tableName) {
+        return "PK_" + tableName;
+    }
 }

@@ -15,14 +15,18 @@ import org.dbsyncer.parser.LogService;
 import org.dbsyncer.parser.LogType;
 import org.dbsyncer.parser.ParserComponent;
 import org.dbsyncer.parser.ProfileComponent;
+import org.dbsyncer.parser.model.Connector;
 import org.dbsyncer.parser.model.Convert;
 import org.dbsyncer.parser.model.Mapping;
 import org.dbsyncer.parser.model.TableGroup;
 import org.dbsyncer.sdk.config.DDLConfig;
+import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
 import org.dbsyncer.sdk.connector.database.sql.SqlTemplate;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.MetaInfo;
+import org.dbsyncer.sdk.model.Table;
+import org.dbsyncer.sdk.util.PrimaryKeyUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -30,6 +34,7 @@ import org.springframework.util.Assert;
 
 import javax.annotation.Resource;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -139,7 +144,36 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         // 检查是否禁止编辑
         mapping.assertDisableEdit();
 
+        // 【新增】保存原主键信息（在 checkEditConfigModel 修改之前）
+        List<String> oldPrimaryKeys = PrimaryKeyUtil.findTablePrimaryKeys(tableGroup.getTargetTable());
+        
+        // 解析新主键参数
+        String targetTablePK = params.get("targetTablePK");
+        List<String> newPrimaryKeys = new ArrayList<>();
+        if (StringUtil.isNotBlank(targetTablePK)) {
+            String[] pks = StringUtil.split(targetTablePK, StringUtil.COMMA);
+            for (String pk : pks) {
+                newPrimaryKeys.add(pk.trim());
+            }
+        }
+
+        // 应用主键参数（内存修改）
         TableGroup model = (TableGroup) tableGroupChecker.checkEditConfigModel(params);
+        
+        // 【修正】先执行 DDL，成功后再保存配置
+        if (!oldPrimaryKeys.equals(newPrimaryKeys)) {
+            Connector targetConnector = profileComponent.getConnector(mapping.getTargetConnectorId());
+            if (targetConnector != null) {
+                try {
+                    alterPrimaryKey(model, targetConnector, oldPrimaryKeys, newPrimaryKeys);
+                } catch (Exception e) {
+                    logger.error("执行主键 DDL 失败，配置未保存", e);
+                    throw new RuntimeException("修改主键约束失败：" + e.getMessage(), e);
+                }
+            }
+        }
+        
+        // DDL 成功后保存配置
         log(LogType.TableGroupLog.UPDATE, model);
         profileComponent.editTableGroup(model);
 
@@ -219,7 +253,42 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
     public TableGroup getTableGroup(String id) throws Exception {
         TableGroup tableGroup = profileComponent.getTableGroup(id);
         Assert.notNull(tableGroup, "TableGroup can not be null");
+        
+        // 版本迁移：如果 currentVersion=1，自动构建 targetTablePK 并升级版本
+        if (tableGroup.currentVersion == 1) {
+            migrateVersion1ToVersion2(tableGroup);
+            // 保存升级后的版本
+            profileComponent.editTableGroup(tableGroup);
+        }
+        
         return tableGroup;
+    }
+
+    /**
+     * 版本迁移：从 version 1 升级到 version 2
+     * 自动构建 targetTablePK 字段
+     */
+    private void migrateVersion1ToVersion2(TableGroup tableGroup) {
+        logger.info("TableGroup [{}] 从 version 1 升级到 version 2", tableGroup.getId());
+        
+        Table targetTable = tableGroup.getTargetTable();
+        if (targetTable != null && targetTable.getColumn() != null) {
+            // 从目标表字段中提取主键
+            List<String> primaryKeys = targetTable.getColumn().stream()
+                    .filter(Field::isPk)
+                    .map(Field::getName)
+                    .collect(Collectors.toList());
+            
+            if (!primaryKeys.isEmpty()) {
+                String targetTablePK = String.join(",", primaryKeys);
+                tableGroup.setTargetTablePK(targetTablePK);
+                logger.info("自动构建 targetTablePK: {}", targetTablePK);
+            }
+        }
+        
+        // 升级版本号
+        tableGroup.currentVersion = 2;
+        logger.info("TableGroup [{}] 版本升级完成", tableGroup.getId());
     }
 
     @Override
@@ -352,6 +421,55 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
 
         // 重新初始化 command
         tableGroup.initCommand(mapping, connectorFactory);
+    }
+
+    /**
+     * 修改目标表的主键约束
+     * 使用项目的 DDL 处理框架，由各数据库连接器提供各自的 SQL 实现
+     *
+     * @param tableGroup 表组对象
+     * @param targetConnector 目标连接器
+     * @param oldPrimaryKeys 原主键列表
+     * @param newPrimaryKeys 新主键列表
+     * @throws Exception 执行异常
+     */
+    public void alterPrimaryKey(TableGroup tableGroup, Connector targetConnector, 
+                                List<String> oldPrimaryKeys, List<String> newPrimaryKeys) throws Exception {
+        if (CollectionUtils.isEmpty(newPrimaryKeys)) {
+            throw new RuntimeException("新主键列表不能为空");
+        }
+        
+        // 如果主键没有变化，跳过
+        if (oldPrimaryKeys.equals(newPrimaryKeys)) {
+            logger.info("主键未变化，跳过 DDL 执行");
+            return;
+        }
+        
+        // 使用 SqlTemplate 构建 DDL（由各数据库连接器提供实现）
+        AbstractDatabaseConnector dbConnector = 
+            (AbstractDatabaseConnector) connectorFactory.getConnectorService(targetConnector.getConfig().getConnectorType());
+        SqlTemplate sqlTemplate = dbConnector.getSqlTemplate();
+        
+        String tableName = tableGroup.getTargetTable().getName();
+        String schema = ((org.dbsyncer.sdk.config.DatabaseConfig) targetConnector.getConfig()).getSchema();
+        
+        // 使用 SqlTemplate 构建 DDL
+        String alterPkSql = sqlTemplate.buildAlterPrimaryKeySql(tableName, oldPrimaryKeys, newPrimaryKeys, schema);
+        
+        // 使用项目的 DDL 框架执行
+        DDLConfig ddlConfig = new DDLConfig();
+        ddlConfig.setSql("/*dbs*/" + alterPkSql);  // 添加前缀防止双向同步循环
+        
+        org.dbsyncer.common.model.Result result = connectorFactory.writerDDL(
+            connectorFactory.connect(targetConnector.getConfig()),
+            ddlConfig,
+            null);
+        
+        if (StringUtil.isNotBlank(result.error)) {
+            throw new RuntimeException("执行 DDL 失败：" + result.error);
+        }
+        
+        logger.info("修改主键约束成功：{} -> {}", oldPrimaryKeys, newPrimaryKeys);
     }
 
 }

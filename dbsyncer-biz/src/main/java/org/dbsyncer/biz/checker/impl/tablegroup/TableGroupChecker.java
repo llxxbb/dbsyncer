@@ -117,31 +117,29 @@ public class TableGroupChecker extends AbstractChecker {
         Assert.notNull(mapping, "mapping can not be null.");
         String fieldMappingJson = params.get("fieldMapping");
 
-        // 新增：支持修改目标表名称
+        // 处理目标表变化（前端已感应并提交，后端直接使用）
         String newTargetTableName = params.get("targetTable");
-        if (StringUtil.isNotBlank(newTargetTableName)) {
-            String sourceTableName = tableGroup.getSourceTable().getName();
-            String oldTargetTableName = tableGroup.getTargetTable().getName();
-
-            // 如果目标表名称发生变化，需要重新获取目标表信息
-            if (!StringUtil.equals(newTargetTableName, oldTargetTableName)) {
-                // 检查是否与其他表映射冲突
-                checkRepeatedTable(mapping.getId(), sourceTableName, newTargetTableName, id);
-
-                // 获取新目标表的主键信息（保持原有主键配置）
-                List<String> targetTablePks = new ArrayList<>();
-                if (tableGroup.getTargetTable().getColumn() != null) {
-                    targetTablePks = tableGroup.getTargetTable().getColumn().stream()
-                            .filter(Field::isPk)
-                            .map(Field::getName)
-                            .collect(Collectors.toList());
-                }
-                String targetTablePK = StringUtil.join(targetTablePks, ",");
-
-                // 重新获取目标表信息
-                Table newTargetTable = getTable(mapping.getTargetConnectorId(), newTargetTableName, targetTablePK);
-                tableGroup.setTargetTable(newTargetTable);
-            }
+        String newTargetTablePK = params.get("targetTablePK");
+        
+        // 前置验证：如果修改目标表，必须提供主键配置
+        if (StringUtil.isNotBlank(newTargetTableName) && StringUtil.isBlank(newTargetTablePK)) {
+            throw new BizException("目标表，主键不能为空");
+        }
+        
+        // 应用目标表配置
+        if (StringUtil.isNotBlank(newTargetTableName) && StringUtil.isNotBlank(newTargetTablePK)) {
+            // 检查是否与其他表映射冲突
+            checkRepeatedTable(mapping.getId(), tableGroup.getSourceTable().getName(), newTargetTableName, id);
+            
+            // 直接使用前端提供的主键配置
+            Table newTargetTable = getTable(mapping.getTargetConnectorId(), newTargetTableName, newTargetTablePK);
+            tableGroup.setTargetTable(newTargetTable);
+            tableGroup.setTargetTablePK(newTargetTablePK);
+        } else if (StringUtil.isNotBlank(newTargetTablePK)) {
+            // 只修改主键配置（不修改目标表名称）
+            Table newTargetTable = getTable(mapping.getTargetConnectorId(), tableGroup.getTargetTable().getName(), newTargetTablePK);
+            tableGroup.setTargetTable(newTargetTable);
+            tableGroup.setTargetTablePK(newTargetTablePK);
         }
 
         // 修改基本配置
@@ -194,19 +192,30 @@ public class TableGroupChecker extends AbstractChecker {
     private Table getTable(String connectorId, String tableName, String primaryKeyStr) throws Exception {
         MetaInfo metaInfo = parserComponent.getMetaInfo(connectorId, tableName);
         Assert.notNull(metaInfo, "无法获取连接器表信息:" + tableName);
-        // 自定义主键
-        if (StringUtil.isNotBlank(primaryKeyStr) && !CollectionUtils.isEmpty(metaInfo.getColumn())) {
+        
+        List<Field> fields = metaInfo.getColumn();
+        
+        // 自定义主键：只标记主键字段，不调整字段顺序
+        if (StringUtil.isNotBlank(primaryKeyStr) && !CollectionUtils.isEmpty(fields)) {
             String[] pks = StringUtil.split(primaryKeyStr, StringUtil.COMMA);
-            Arrays.stream(pks).forEach(pk -> {
-                for (Field field : metaInfo.getColumn()) {
-                    if (StringUtil.equalsIgnoreCase(field.getName(), pk)) {
+            
+            // 1. 清除所有主键标记
+            for (Field field : fields) {
+                field.setPk(false);
+            }
+            
+            // 2. 按用户指定的主键配置标记主键字段
+            for (String pk : pks) {
+                for (Field field : fields) {
+                    if (StringUtil.equalsIgnoreCase(field.getName(), pk.trim())) {
                         field.setPk(true);
                         break;
                     }
                 }
-            });
+            }
         }
-        return new Table(tableName, metaInfo.getTableType(), metaInfo.getColumn(), metaInfo.getSql(), metaInfo.getIndexType());
+        
+        return new Table(tableName, metaInfo.getTableType(), fields, metaInfo.getSql(), metaInfo.getIndexType());
     }
 
     /**

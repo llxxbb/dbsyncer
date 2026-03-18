@@ -104,6 +104,10 @@ function bindFieldMappingListClick(){
         let $text = $pk.html();
         let isPk = $text == "" || $.trim($text).length == 0;
         $pk.html(isPk ? '<i title="主键" class="fa fa-key fa-fw fa-rotate-90 text-warning"></i>' : '');
+        
+        // 同步更新 targetTablePK
+        updateTargetTablePKFromFieldMapping();
+        
         initFieldMappingParams();
     });
 }
@@ -432,6 +436,163 @@ function doTableGroupSubmit() {
    }
 }
 
+// 绑定主键顺序按钮
+function bindPrimaryKeyOrderBtn() {
+    $('#primaryKeyOrderBtn').on('click', function() {
+        // 获取当前主键列表
+        let currentPKs = $('#targetTablePK').val() || '';
+        
+        // 设置 tooltip
+        $(this).attr('title', '当前主键顺序：' + (currentPKs || '无'));
+        $('[data-toggle="tooltip"]').tooltip('fixTitle').tooltip('show');
+        setTimeout(function() { $('[data-toggle="tooltip"]').tooltip('hide'); }, 2000);
+        
+        // 打开对话框
+        showPrimaryKeyOrderModal(currentPKs);
+    });
+    
+    // 绑定保存按钮
+    $('#savePrimaryKeyOrderBtn').on('click', function() {
+        // 收集新的主键顺序
+        let newPKs = collectPrimaryKeyOrder();
+        $('#targetTablePK').val(newPKs);
+        
+        // 更新字段映射表格中的主键标记
+        updatePrimaryKeyMarkers(newPKs);
+        
+        // 关闭对话框
+        $('#primaryKeyOrderModal').modal('hide');
+        
+        bootGrowl("主键顺序已更新!", "success");
+    });
+}
+
+// 显示主键顺序对话框
+function showPrimaryKeyOrderModal(currentPKs) {
+    // 解析当前主键
+    let pkArray = currentPKs ? currentPKs.split(',').map(s => s.trim()) : [];
+    
+    // 生成可拖拽的主键列表
+    let html = '<div class="list-group" id="primaryKeyDragList">';
+    pkArray.forEach((pk, index) => {
+        html += '<div class="list-group-item" style="cursor: move;" draggable="true" data-pk="' + pk + '">' +
+                '<i class="fa fa-arrows"></i> ' + (index + 1) + '. ' + pk +
+                '</div>';
+    });
+    html += '</div>';
+    
+    $('#primaryKeyList').html(html);
+    
+    // 绑定拖拽事件
+    bindPrimaryKeyDragDrop();
+    
+    // 显示对话框
+    $('#primaryKeyOrderModal').modal('show');
+}
+
+// 绑定拖拽事件
+function bindPrimaryKeyDragDrop() {
+    let dragSrcEl = null;
+    
+    $('#primaryKeyDragList .list-group-item').on('dragstart', function(e) {
+        dragSrcEl = this;
+        e.originalEvent.dataTransfer.effectAllowed = 'move';
+        e.originalEvent.dataTransfer.setData('text/html', this.innerHTML);
+        $(this).addClass('dragging');
+    });
+    
+    $('#primaryKeyDragList .list-group-item').on('dragover', function(e) {
+        if (e.preventDefault) e.preventDefault();
+        e.originalEvent.dataTransfer.dropEffect = 'move';
+        return false;
+    });
+    
+    $('#primaryKeyDragList .list-group-item').on('dragenter', function(e) {
+        $(this).addClass('over');
+    });
+    
+    $('#primaryKeyDragList .list-group-item').on('dragleave', function(e) {
+        $(this).removeClass('over');
+    });
+    
+    $('#primaryKeyDragList .list-group-item').on('drop', function(e) {
+        if (e.stopPropagation) e.stopPropagation();
+        
+        if (dragSrcEl !== this) {
+            // 交换元素位置
+            let srcIndex = $(dragSrcEl).index();
+            let targetIndex = $(this).index();
+            
+            if (srcIndex < targetIndex) {
+                $(this).after($(dragSrcEl));
+            } else {
+                $(this).before($(dragSrcEl));
+            }
+            
+            // 更新显示顺序
+            updatePrimaryKeyOrderDisplay();
+        }
+        
+        $('.list-group-item').removeClass('dragging over');
+        return false;
+    });
+    
+    $('#primaryKeyDragList .list-group-item').on('dragend', function(e) {
+        $(this).removeClass('dragging');
+        $('.list-group-item').removeClass('over');
+    });
+}
+
+// 更新主键顺序显示
+function updatePrimaryKeyOrderDisplay() {
+    let newPKs = collectPrimaryKeyOrder();
+    // 不再显示新主键顺序（删除了 UI 元素）
+}
+
+// 从字段映射表格同步更新 targetTablePK
+function updateTargetTablePKFromFieldMapping() {
+    let pks = [];
+    $('#fieldMappingList tr').each(function() {
+        let $pkCell = $(this).find('td:eq(2)');
+        let targetField = $(this).find('td:eq(1)').text().trim();
+        
+        // 检查是否有主键图标
+        if ($pkCell.find('i.fa-key').length > 0) {
+            pks.push(targetField);
+        }
+    });
+    
+    // 更新隐藏字段
+    $('#targetTablePK').val(pks.join(','));
+}
+
+// 收集新的主键顺序
+function collectPrimaryKeyOrder() {
+    let pks = [];
+    $('#primaryKeyDragList .list-group-item').each(function() {
+        pks.push($(this).data('pk'));
+    });
+    return pks.join(',');
+}
+
+// 更新字段映射表格中的主键标记
+function updatePrimaryKeyMarkers(pkString) {
+    let pkArray = pkString ? pkString.split(',').map(s => s.trim()) : [];
+    
+    $('#fieldMappingList tr').each(function() {
+        let targetField = $(this).find('td:eq(1)').text().trim();
+        let $pkCell = $(this).find('td:eq(2)');
+        
+        if (pkArray.includes(targetField)) {
+            if ($pkCell.find('i').length === 0) {
+                $pkCell.html('<i title="主键" class="fa fa-key fa-fw text-warning"></i>');
+            }
+        } else {
+            $pkCell.html('');
+        }
+    });
+}
+
 $(function() {
     // 初始化select插件
     initSelectIndex($(".select-control-table"), -1);
@@ -460,8 +621,9 @@ $(function() {
     bindFieldMappingCheckBoxClick();
     bindFieldMappingListClick();
     bindFieldMappingDelClick();
-
-
+    
+    // 绑定主键顺序按钮
+    bindPrimaryKeyOrderBtn();
 
     // 返回按钮，跳转至上个页面
     $("#tableGroupBackBtn").bind('click', function(){

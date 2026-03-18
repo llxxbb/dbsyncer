@@ -436,4 +436,16 @@ public class MySQLTemplate extends AbstractSqlTemplate {
             );
         }
     }
+
+    @Override
+    public String buildAlterPrimaryKeySql(String tableName, List<String> oldPrimaryKeys, List<String> newPrimaryKeys, String schema) {
+        String quotedTableName = buildTable(schema, tableName);
+        String quotedKeys = buildQuotedFieldList(newPrimaryKeys);
+        
+        if (oldPrimaryKeys != null && !oldPrimaryKeys.isEmpty()) {
+            return "ALTER TABLE " + quotedTableName + " DROP PRIMARY KEY, ADD PRIMARY KEY (" + quotedKeys + ")";
+        } else {
+            return "ALTER TABLE " + quotedTableName + " ADD PRIMARY KEY (" + quotedKeys + ")";
+        }
+    }
 }
