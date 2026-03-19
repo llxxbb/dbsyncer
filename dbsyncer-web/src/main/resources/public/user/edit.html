@@ -123,9 +123,15 @@ xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
     $("#userGroupIds").prop("disabled", true);
     $("#userGroupIds").selectpicker("refresh");
   }
-  // 跳转用户管理
+// 跳转用户管理或返回主页
   function backUserIndexPage() {
-    doLoader("/user?refresh=" + new Date().getTime());
+    if (isAdmin) {
+      // 管理员跳转到用户管理页面
+      doLoader("/user?refresh=" + new Date().getTime());
+    } else {
+      // 普通用户返回主页
+      backIndexPage('', true);
+    }
   }
 
   //保存

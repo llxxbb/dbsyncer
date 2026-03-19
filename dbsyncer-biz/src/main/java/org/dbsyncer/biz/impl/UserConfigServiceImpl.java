@@ -119,7 +119,10 @@ public class UserConfigServiceImpl implements UserConfigService {
         updateUser.setEmail(email);
         updateUser.setPhone(phone);
         updateUser.setGroupIds(params.get("groupIds"));
-        updateUser.setUserGroupIds(newUserGroupIds);
+        // 只有管理员才能修改用户组，普通用户修改自己信息时保留原有用户组
+        if (admin) {
+            updateUser.setUserGroupIds(newUserGroupIds);
+        }
         // 修改密码
         if (StringUtil.isNotBlank(newPwd)) {
             // 修改自己的密码需要验证
@@ -140,14 +143,16 @@ public class UserConfigServiceImpl implements UserConfigService {
         // 保存用户配置
         String result = profileComponent.editConfigModel(userConfig);
 
-        // 维护用户组的双向关联
-        // 1. 从旧的用户组中移除该用户
-        if (StringUtil.isNotBlank(oldUserGroupIds)) {
-            userGroupService.removeUserFromGroups(username, oldUserGroupIds);
-        }
-        // 2. 将用户添加到新的用户组中
-        if (StringUtil.isNotBlank(newUserGroupIds)) {
-            userGroupService.addUserToGroups(username, newUserGroupIds);
+        // 维护用户组的双向关联（只有管理员修改用户组时才需要更新）
+        if (admin) {
+            // 1. 从旧的用户组中移除该用户
+            if (StringUtil.isNotBlank(oldUserGroupIds)) {
+                userGroupService.removeUserFromGroups(username, oldUserGroupIds);
+            }
+            // 2. 将用户添加到新的用户组中
+            if (StringUtil.isNotBlank(newUserGroupIds)) {
+                userGroupService.addUserToGroups(username, newUserGroupIds);
+            }
         }
 
         return result;

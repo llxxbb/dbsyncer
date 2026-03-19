@@ -476,7 +476,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
 
                 String tableName = targetTable.getName();
                 try {
-                    String truncateSql = buildTruncateSql(dbConnector.getSqlTemplate(), schema, tableName);
+                    String truncateSql = dbConnector.getSqlTemplate().buildTruncateTableSql(schema, tableName);
                     logger.info("执行 TRUNCATE 目标表: {}", truncateSql);
 
                     dbInstance.execute(databaseTemplate -> {
@@ -492,19 +492,6 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         } catch (Exception e) {
             logger.error("TRUNCATE 目标表操作失败: {}", e.getMessage(), e);
         }
-    }
-
-    /**
-     * 构建 TRUNCATE SQL 语句
-     *
-     * @param sqlTemplate SQL 模板
-     * @param schema      架构名
-     * @param tableName   表名
-     * @return TRUNCATE SQL 语句
-     */
-    private String buildTruncateSql(SqlTemplate sqlTemplate, String schema, String tableName) {
-        String quotedTableName = sqlTemplate.buildTable(schema, tableName);
-        return "TRUNCATE TABLE " + quotedTableName;
     }
 
 }

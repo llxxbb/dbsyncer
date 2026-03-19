@@ -583,7 +583,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
 
     /**
      * 使用 TRUNCATE 清空目标源表
-     *x
+     *
      * @param mapping       驱动映射关系
      * @param tableGroupAll 表映射关系列表
      */
@@ -625,7 +625,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
 
                 String tableName = targetTable.getName();
                 try {
-                    String truncateSql = buildTruncateSql(dbConnector.getSqlTemplate(), schema, tableName);
+                    String truncateSql = dbConnector.getSqlTemplate().buildTruncateTableSql(schema, tableName);
                     logger.info("执行 TRUNCATE 目标表: {}", truncateSql);
 
                     dbInstance.execute(databaseTemplate -> {
@@ -641,19 +641,5 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         } catch (Exception e) {
             logger.error("TRUNCATE 目标表操作失败: {}", e.getMessage(), e);
         }
-    }
-
-    /**
-     * 构建 TRUNCATE SQL 语句
-     *
-     * @param sqlTemplate SQL 模板
-     * @param schema      架构名
-     * @param tableName   表名
-     * @return TRUNCATE SQL 语句
-     */
-    private String buildTruncateSql(org.dbsyncer.sdk.connector.database.sql.SqlTemplate sqlTemplate,
-                                    String schema, String tableName) {
-        String quotedTableName = sqlTemplate.buildTable(schema, tableName);
-        return "TRUNCATE TABLE " + quotedTableName;
     }
 }

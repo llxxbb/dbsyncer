@@ -322,6 +322,19 @@ public interface SqlTemplate {
     }
 
     /**
+     * 构建 TRUNCATE TABLE SQL 语句
+     * 用于清空表数据但保留表结构
+     *
+     * @param schema    架构名（可为null）
+     * @param tableName 表名
+     * @return TRUNCATE SQL 语句
+     */
+    default String buildTruncateTableSql(String schema, String tableName) {
+        String schemaTable = buildTable(schema, tableName);
+        return "TRUNCATE TABLE " + schemaTable;
+    }
+
+    /**
      * 构建创建表的SQL语句
      * 负责SQL模板的组装，包括列定义、主键定义等
      *

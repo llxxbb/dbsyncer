@@ -478,8 +478,8 @@ function performMappingSearch() {
     if (keyword === '' && state === '' && sourceConnectorType === '' && targetConnectorType === '') {
         var isCardView = $('#cardView').is(':visible');
         if (isCardView) {
-            // 卡片视图：显示所有卡片的外层容器
-            $('#cardView .col-md-4, #cardView .col-sm-6, #cardView .col-md-2').show();
+            // 卡片视图：显示所有卡片
+            $('#cardView .mapping-card').show();
         } else {
             // 列表视图：显示所有行
             $(".table.table-hover tbody tr").show();
@@ -508,8 +508,8 @@ function performMappingSearch() {
 
                 if (searchResults.length === 0) {
                     if (isCardView) {
-                        // 卡片视图：隐藏所有卡片的外层容器
-                        $('#cardView .col-md-4, #cardView .col-sm-6, #cardView .col-md-2').hide();
+                        // 卡片视图：隐藏所有卡片
+                        $('#cardView .mapping-card').hide();
                     } else {
                         // 列表视图：隐藏所有行
                         $(".table.table-hover tbody tr").hide();
@@ -524,14 +524,10 @@ function performMappingSearch() {
                     });
                     
                     if (isCardView) {
-                        // 卡片视图：先隐藏所有外层容器
-                        $('#cardView .col-md-4, #cardView .col-sm-6, #cardView .col-md-2').hide();
-                        // 然后显示匹配ID的卡片的外层容器
+                        // 卡片视图：先隐藏所有卡片，再显示匹配的卡片
+                        $('#cardView .mapping-card').hide();
                         resultIds.forEach(function(id) {
-                            var matchedCard = $('#cardView #' + id);
-                            if (matchedCard.length > 0) {
-                                matchedCard.closest('.col-md-4, .col-sm-6, .col-md-2').show();
-                            }
+                            $('#cardView .mapping-card#' + id).show();
                         });
                     } else {
                         // 列表视图：先隐藏所有行，再显示匹配的行
