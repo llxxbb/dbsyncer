@@ -142,9 +142,11 @@ public class MappingController extends BaseController {
     @PostMapping("/copy")
     @ResponseBody
     @PreAuthorize("hasRole('admin')")
-    public RestResult add(@RequestParam("id") String id) {
+    public RestResult copy(@RequestParam("id") String id,
+                           @RequestParam(value = "name", required = false) String name,
+                           @RequestParam(value = "targetConnectorId", required = false) String targetConnectorId) {
         try {
-            return RestResult.restSuccess(mappingService.copy(id));
+            return RestResult.restSuccess(mappingService.copy(id, name, targetConnectorId));
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage(), e);
             return RestResult.restFail(e.getMessage());

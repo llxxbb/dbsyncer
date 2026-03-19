@@ -23,11 +23,13 @@ public interface MappingService {
     String add(Map<String, String> params) throws Exception;
 
     /**
-     * 复制驱动
+     * 复制驱动（支持自定义名称和目标源）
      *
-     * @param id
+     * @param id 原驱动ID
+     * @param name 新驱动名称（如果为空，则使用原名称+"(复制)"）
+     * @param targetConnectorId 新目标源ID（如果为空，则使用原目标源）
      */
-    String copy(String id) throws Exception;
+    String copy(String id, String name, String targetConnectorId) throws Exception;
 
     /**
      * 修改驱动

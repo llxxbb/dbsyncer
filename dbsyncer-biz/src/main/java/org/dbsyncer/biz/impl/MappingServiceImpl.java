@@ -110,13 +110,15 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
     }
 
     @Override
-    public String copy(String id) throws Exception {
+    public String copy(String id, String name, String targetConnectorId) throws Exception {
         Mapping mapping = profileComponent.getMapping(id);
         Assert.notNull(mapping, "The mapping id is invalid.");
-        Mapping newMapping = mapping.copy(snowflakeIdWorker);
+        
+        String newName = (name != null && !name.trim().isEmpty()) ? name.trim() : mapping.getName() + "(复制)";
+        
+        Mapping newMapping = mapping.copy(snowflakeIdWorker, newName, targetConnectorId);
         log(LogType.MappingLog.COPY, newMapping);
 
-        // 统计总数
         submitMappingCountTask(newMapping);
         return String.format("复制成功[%s]", newMapping.getName());
     }
