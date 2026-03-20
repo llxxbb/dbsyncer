@@ -5,6 +5,9 @@
 <div class="container-fluid">
     <div class="container">
         <form id="mappingAddForm" class="form-horizontal" role="form" method="post">
+            <!-- 分组ID隐藏字段 -->
+            <input type="hidden" name="projectGroupId" th:value="${projectGroupId}" />
+
             <!-- 标题 -->
             <div class="row text-center">
                 <h3>添加任务</h3>

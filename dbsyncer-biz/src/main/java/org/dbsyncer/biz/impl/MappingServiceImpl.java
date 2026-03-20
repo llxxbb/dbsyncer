@@ -89,6 +89,23 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         // 先保存 Mapping，确保 Mapping 保存成功
         String id = profileComponent.addConfigModel(model);
 
+        // 如果有指定分组，将任务添加到对应分组
+        String projectGroupId = params.get("projectGroupId");
+        if (StringUtil.isNotBlank(projectGroupId)) {
+            ProjectGroup projectGroup = profileComponent.getProjectGroup(projectGroupId);
+            if (projectGroup != null) {
+                List<String> mappingIds = projectGroup.getMappingIds();
+                if (mappingIds == null) {
+                    mappingIds = new ArrayList<>();
+                }
+                if (!mappingIds.contains(id)) {
+                    mappingIds.add(id);
+                    projectGroup.setMappingIds(mappingIds);
+                    profileComponent.editConfigModel(projectGroup);
+                }
+            }
+        }
+
         // Mapping 保存成功后，再创建并保存 Meta
         // 这样可以避免出现 Meta 存在但 Mapping 不存在的数据不一致问题
         Mapping mapping = (Mapping) model;
@@ -113,9 +130,9 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
     public String copy(String id, String name, String targetConnectorId) throws Exception {
         Mapping mapping = profileComponent.getMapping(id);
         Assert.notNull(mapping, "The mapping id is invalid.");
-        
+
         String newName = (name != null && !name.trim().isEmpty()) ? name.trim() : mapping.getName() + "(复制)";
-        
+
         Mapping newMapping = mapping.copy(snowflakeIdWorker, newName, targetConnectorId);
         log(LogType.MappingLog.COPY, newMapping);
 

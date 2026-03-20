@@ -496,6 +496,20 @@ public interface SqlTemplate {
         throw new UnsupportedOperationException("Need to overwrite this function");
     }
 
+
+    /**
+     * 构建修改主键的 SQL 语句
+     *
+     * @param tableName 表名
+     * @param oldPrimaryKeys 原主键列表
+     * @param newPrimaryKeys 新主键列表
+     * @param schema 模式名（可为 null）
+     * @return 修改主键的 SQL 语句
+     */
+    default String buildAlterPrimaryKeySql(String tableName, List<String> oldPrimaryKeys, List<String> newPrimaryKeys, String schema) {
+        throw new UnsupportedOperationException("Need to overwrite this function");
+    }
+
     /**
      * 在SQL中替换表名（用于同构数据库的DDL同步）
      * 根据数据库的引号规则，识别并替换SQL中各种格式的表名

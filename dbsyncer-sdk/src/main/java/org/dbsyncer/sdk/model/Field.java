@@ -47,15 +47,15 @@ public class Field {
     private int ratio;
 
     /**
-     * 空间参考系统标识符（SRID），用于Geometry类型
+     * 空间参考系统标识符（SRID），用于 Geometry 类型
      * 例如：4326 (WGS84), 3857 (Web Mercator) 等
      */
     private Integer srid;
 
     /**
      * 字段长度是否固定
-     * true: 固定长度（如CHAR、NCHAR、BINARY）
-     * false: 可变长度（如VARCHAR、NVARCHAR、VARBINARY）
+     * true: 固定长度（如 CHAR、NCHAR、BINARY）
+     * false: 可变长度（如 VARCHAR、NVARCHAR、VARBINARY）
      * null: 未设置或不适用（如数值类型、日期类型等）
      */
     private Boolean isSizeFixed;
@@ -70,7 +70,7 @@ public class Field {
 
     /**
      * 字段注释
-     * 例如：'年龄', '用户ID' 等
+     * 例如：'年龄', '用户 ID' 等
      */
     private String comment;
 
@@ -80,6 +80,12 @@ public class Field {
      * false: 非自增字段
      */
     private boolean autoincrement;
+
+    /**
+     * 枚举值列表，用于 ENUM 和 SET 类型
+     * 例如：["option1", "option2", "option3"]
+     */
+    private java.util.List<String> enumValues;
 
     public Field() {
     }
@@ -174,7 +180,7 @@ public class Field {
 
     /**
      * 获取空间参考系统标识符（SRID）
-     * @return SRID值，如果未设置则返回null
+     * @return SRID 值，如果未设置则返回 null
      */
     public Integer getSrid() {
         return srid;
@@ -182,7 +188,7 @@ public class Field {
 
     /**
      * 设置空间参考系统标识符（SRID）
-     * @param srid SRID值，例如：4326 (WGS84), 3857 (Web Mercator) 等
+     * @param srid SRID 值，例如：4326 (WGS84), 3857 (Web Mercator) 等
      */
     public void setSrid(Integer srid) {
         this.srid = srid;
@@ -190,7 +196,7 @@ public class Field {
 
     /**
      * 获取字段长度是否固定
-     * @return true表示固定长度，false表示可变长度，null表示未设置或不适用
+     * @return true 表示固定长度，false 表示可变长度，null 表示未设置或不适用
      */
     public Boolean getIsSizeFixed() {
         return isSizeFixed;
@@ -198,7 +204,7 @@ public class Field {
 
     /**
      * 设置字段长度是否固定
-     * @param isSizeFixed true表示固定长度（如CHAR、NCHAR、BINARY），false表示可变长度（如VARCHAR、NVARCHAR、VARBINARY），null表示未设置或不适用
+     * @param isSizeFixed true 表示固定长度（如 CHAR、NCHAR、BINARY），false 表示可变长度（如 VARCHAR、NVARCHAR、VARBINARY），null 表示未设置或不适用
      */
     public void setIsSizeFixed(Boolean isSizeFixed) {
         this.isSizeFixed = isSizeFixed;
@@ -206,7 +212,7 @@ public class Field {
 
     /**
      * 获取字段是否允许为空
-     * @return true表示允许为空，false表示不允许为空，null表示未设置
+     * @return true 表示允许为空，false 表示不允许为空，null 表示未设置
      */
     public Boolean getNullable() {
         return nullable;
@@ -214,7 +220,7 @@ public class Field {
 
     /**
      * 设置字段是否允许为空
-     * @param nullable true表示允许为空（NULL），false表示不允许为空（NOT NULL），null表示未设置
+     * @param nullable true 表示允许为空（NULL），false 表示不允许为空（NOT NULL），null 表示未设置
      */
     public void setNullable(Boolean nullable) {
         this.nullable = nullable;
@@ -222,7 +228,7 @@ public class Field {
 
     /**
      * 获取字段注释
-     * @return 注释字符串，如果未设置则返回null
+     * @return 注释字符串，如果未设置则返回 null
      */
     public String getComment() {
         return comment;
@@ -230,7 +236,7 @@ public class Field {
 
     /**
      * 设置字段注释
-     * @param comment 注释字符串，例如：'年龄', '用户ID' 等
+     * @param comment 注释字符串，例如：'年龄', '用户 ID' 等
      */
     public void setComment(String comment) {
         this.comment = comment;
@@ -238,7 +244,7 @@ public class Field {
 
     /**
      * 获取字段是否自增
-     * @return true表示自增字段，false表示非自增字段
+     * @return true 表示自增字段，false 表示非自增字段
      */
     public boolean isAutoincrement() {
         return autoincrement;
@@ -246,10 +252,26 @@ public class Field {
 
     /**
      * 设置字段是否自增
-     * @param autoincrement true表示自增字段（如 MySQL 的 AUTO_INCREMENT，SQL Server 的 IDENTITY），false表示非自增字段
+     * @param autoincrement true 表示自增字段（如 MySQL 的 AUTO_INCREMENT，SQL Server 的 IDENTITY），false 表示非自增字段
      */
     public void setAutoincrement(boolean autoincrement) {
         this.autoincrement = autoincrement;
+    }
+
+    /**
+     * 获取枚举值列表
+     * @return 枚举值列表，用于 ENUM 和 SET 类型，如果未设置则返回 null
+     */
+    public java.util.List<String> getEnumValues() {
+        return enumValues;
+    }
+
+    /**
+     * 设置枚举值列表
+     * @param enumValues 枚举值列表，用于 ENUM 和 SET 类型
+     */
+    public void setEnumValues(java.util.List<String> enumValues) {
+        this.enumValues = enumValues;
     }
 
     @Override

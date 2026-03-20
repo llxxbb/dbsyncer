@@ -15,6 +15,7 @@ import org.dbsyncer.sdk.SdkException;
 import org.dbsyncer.sdk.config.DDLConfig;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
+import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
 import org.dbsyncer.sdk.connector.database.sql.SqlTemplate;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.MetaInfo;
@@ -30,7 +31,9 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import org.dbsyncer.sdk.util.PrimaryKeyUtil;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -179,30 +182,36 @@ public class TableGroupController extends BaseController {
             String createTableDDL;
 
             if (isSameType) {
-                // 同类型数据库优化：直接使用源 MetaInfo，跳过类型转换，提高性能并保持一致性
-                logger.debug("检测到同类型数据库（{}），使用优化路径创建表", sourceType);
-
-                // 获取目标连接器的 SqlTemplate
-                ConnectorService targetConnectorService = connectorFactory.getConnectorService(targetType);
-                if (!(targetConnectorService instanceof AbstractDatabaseConnector)) {
-                    throw new UnsupportedOperationException("目标连接器不支持直接访问 SqlTemplate: " + targetType);
-                }
-
-                AbstractDatabaseConnector targetDatabaseConnector = (AbstractDatabaseConnector) targetConnectorService;
-                SqlTemplate sqlTemplate = targetDatabaseConnector.sqlTemplate;
-                if (sqlTemplate == null) {
-                    throw new UnsupportedOperationException("目标连接器未初始化 SqlTemplate: " + targetType);
-                }
-
+                // 同类型数据库：直接复用源表元数据
+                logger.debug("检测到同类型数据库（{}），使用优化路径", sourceType);
+                
                 // 提取字段和主键
                 List<Field> fields = sourceMetaInfo.getColumn();
-                List<String> primaryKeys = new ArrayList<>();
-                for (Field field : fields) {
-                    if (field.isPk()) {
-                        primaryKeys.add(field.getName());
+                List<String> primaryKeys;
+                
+                // 优先使用用户指定的主键配置，否则从字段中提取
+                String targetTablePK = params.get("targetTablePK");
+                if (StringUtil.isNotBlank(targetTablePK)) {
+                    // 使用用户指定的主键顺序
+                    primaryKeys = new ArrayList<>();
+                    for (String pk : StringUtil.split(targetTablePK, StringUtil.COMMA)) {
+                        primaryKeys.add(pk.trim());
+                    }
+                } else {
+                    // 从字段中提取（按字段在列表中的顺序）
+                    primaryKeys = new ArrayList<>();
+                    for (Field field : fields) {
+                        if (field.isPk()) {
+                            primaryKeys.add(field.getName());
+                        }
                     }
                 }
 
+                // 获取目标连接器的 SqlTemplate
+                AbstractDatabaseConnector targetDatabaseConnector = 
+                    (AbstractDatabaseConnector) connectorFactory.getConnectorService(targetType);
+                SqlTemplate sqlTemplate = targetDatabaseConnector.getSqlTemplate();
+                
                 // 直接调用 buildCreateTableSql，跳过类型转换
                 createTableDDL = sqlTemplate.buildCreateTableSql(null, targetTable, fields, primaryKeys);
                 logger.debug("使用优化路径生成 CREATE TABLE DDL（跳过类型转换）");
@@ -232,7 +241,23 @@ public class TableGroupController extends BaseController {
                 standardizedMetaInfo.setColumn(standardizedFields);
 
                 // 生成 CREATE TABLE DDL（使用标准化后的 MetaInfo）
-                createTableDDL = targetConnectorService.generateCreateTableDDL(standardizedMetaInfo, targetTable);
+                // 优先使用用户指定的主键配置
+                String targetTablePK = params.get("targetTablePK");
+                if (targetConnectorService instanceof org.dbsyncer.connector.mysql.MySQLConnector) {
+                    createTableDDL = ((org.dbsyncer.connector.mysql.MySQLConnector) targetConnectorService)
+                            .generateCreateTableDDL(standardizedMetaInfo, targetTable, targetTablePK);
+                } else if (targetConnectorService instanceof org.dbsyncer.connector.sqlserver.SqlServerConnector) {
+                    createTableDDL = ((org.dbsyncer.connector.sqlserver.SqlServerConnector) targetConnectorService)
+                            .generateCreateTableDDL(standardizedMetaInfo, targetTable, targetTablePK);
+                } else if (targetConnectorService instanceof org.dbsyncer.connector.oracle.OracleConnector) {
+                    createTableDDL = ((org.dbsyncer.connector.oracle.OracleConnector) targetConnectorService)
+                            .generateCreateTableDDL(standardizedMetaInfo, targetTable, targetTablePK);
+                } else if (targetConnectorService instanceof org.dbsyncer.connector.postgresql.PostgreSQLConnector) {
+                    createTableDDL = ((org.dbsyncer.connector.postgresql.PostgreSQLConnector) targetConnectorService)
+                            .generateCreateTableDDL(standardizedMetaInfo, targetTable, targetTablePK);
+                } else {
+                    createTableDDL = targetConnectorService.generateCreateTableDDL(standardizedMetaInfo, targetTable);
+                }
             }
 
             // 检查连接器是否支持生成 CREATE TABLE DDL

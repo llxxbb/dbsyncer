@@ -6,6 +6,7 @@ package org.dbsyncer.connector.sqlserver;
 import org.dbsyncer.common.model.Result;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
+import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.sqlserver.bulk.SqlServerBulkCopyUtil;
 import org.dbsyncer.connector.sqlserver.cdc.Lsn;
 import org.dbsyncer.connector.sqlserver.cdc.SqlServerListener;
@@ -277,30 +278,40 @@ public class SqlServerConnector extends AbstractDatabaseConnector {
         return result;
     }
 
-    @Override
-    public String generateCreateTableDDL(MetaInfo sourceMetaInfo, String targetTableName) {
+    /**
+     * 生成创建目标表的 DDL
+     * 
+     * @param sourceMetaInfo 源表元数据
+     * @param targetTableName 目标表名称
+     * @param primaryKeys 主键列表（逗号分隔），必须传递
+     * @return CREATE TABLE DDL
+     */
+    public String generateCreateTableDDL(MetaInfo sourceMetaInfo, String targetTableName, String primaryKeys) {
         SqlTemplate sqlTemplate = this.sqlTemplate;
         if (sqlTemplate == null) {
-            throw new UnsupportedOperationException("SQL Server连接器不支持自动生成 CREATE TABLE DDL");
+            throw new UnsupportedOperationException("SQL Server 连接器不支持自动生成 CREATE TABLE DDL");
         }
 
-        // 从 MetaInfo 中提取字段列表和主键列表
+        // 主键配置必须传递，确保 100% 正确性
+        if (StringUtil.isBlank(primaryKeys)) {
+            throw new IllegalArgumentException("主键配置不能为空");
+        }
+
+        // 从 MetaInfo 中提取字段列表
         List<Field> fields = sourceMetaInfo.getColumn();
-        List<String> primaryKeys = new ArrayList<>();
-        for (Field field : fields) {
-            if (field.isPk()) {
-                primaryKeys.add(field.getName());
-            }
+        
+        // 使用用户指定的主键顺序（100% 正确性）
+        List<String> primaryKeysList = new ArrayList<>();
+        for (String pk : StringUtil.split(primaryKeys, StringUtil.COMMA)) {
+            primaryKeysList.add(pk.trim());
         }
 
         // 调用 SqlTemplate 的 buildCreateTableSql 方法进行 SQL 模板组装
-        // SqlTemplate 负责 SQL 语法和模板组装，Connector 只负责参数加工
         StringBuilder ddl = new StringBuilder();
-        ddl.append(sqlTemplate.buildCreateTableSql(null, targetTableName, fields, primaryKeys));
+        ddl.append(sqlTemplate.buildCreateTableSql(null, targetTableName, fields, primaryKeysList));
         
         // 如果有 COMMENT，追加 COMMENT 语句（使用分号分隔，作为独立的 SQL 语句）
-        // 注意：COMMENT 必须使用独立的 EXEC 语句，无法合并到 CREATE TABLE 中
-        String effectiveSchema = "dbo"; // SQL Server 默认 schema
+        String effectiveSchema = "dbo";
         List<Field> fieldsWithComment = new ArrayList<>();
         for (Field field : fields) {
             if (field.getComment() != null && !field.getComment().trim().isEmpty()) {

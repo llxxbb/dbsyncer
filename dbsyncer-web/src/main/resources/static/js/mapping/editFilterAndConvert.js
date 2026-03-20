@@ -163,11 +163,120 @@ function bindAddTargetFieldClick() {
     });
 }
 
-// 绑定添加目标字段按钮点击事件
-function bindAddTargetFieldClick() {
-    $("#addTargetFieldBtn").on('click', function() {
-        openFieldEditDialog(null);
+// 绑定删除目标字段按钮点击事件
+function bindDeleteTargetFieldClick() {
+    $("#deleteTargetFieldBtn").on('click', function() {
+        var $select = $("#convertTargetField");
+        var fieldName = $select.selectpicker('val');
+        
+        if (!fieldName) {
+            bootGrowl("请先选择字段", "warning");
+            return;
+        }
+        
+        // 获取选中选项的 fieldMetadata
+        var $selectedOption = $select.find("option:selected");
+        var fieldMetadata = $selectedOption.data('fieldMetadata');
+        
+        // 检查是否为自定义字段
+        if (!fieldMetadata || fieldMetadata.isCustom !== true) {
+            bootGrowl("只能删除自定义字段", "danger");
+            return;
+        }
+        
+        // 确认删除
+        BootstrapDialog.confirm({
+            title: "确认删除",
+            message: "确定要删除自定义字段 [" + fieldName + "] 吗？",
+            type: BootstrapDialog.TYPE_DANGER,
+            btnCancelLabel: "取消",
+            btnOKLabel: "确定",
+            callback: function(result) {
+                if (result) {
+                    // 从下拉框中移除选项
+                    $selectedOption.remove();
+                    $select.selectpicker('refresh');
+                    
+                    // 清空参数
+                    $(".convertParam").val("");
+                    
+                    bootGrowl("删除成功", "success");
+                    
+                    // 更新删除按钮状态
+                    updateDeleteFieldButton();
+                }
+            }
+        });
     });
+}
+
+// 更新删除字段按钮的显示状态
+function updateDeleteFieldButton() {
+    var $select = $("#convertTargetField");
+    var $selectedOption = $select.find("option:selected");
+    
+    // 尝试两种方式读取 fieldMetadata（兼容服务端渲染和前端新增）
+    var fieldMetadata = $selectedOption.data('fieldMetadata');
+    if (!fieldMetadata) {
+        // 尝试读取 data-field-metadata 属性（服务端渲染的 JSON 字符串）
+        var fieldMetadataStr = $selectedOption.attr("data-field-metadata");
+        if (fieldMetadataStr) {
+            try {
+                fieldMetadata = JSON.parse(fieldMetadataStr);
+            } catch (e) {
+                console.warn("解析 fieldMetadata 失败:", e);
+            }
+        }
+    }
+    
+    var fieldName = $selectedOption.val();
+    var $deleteBtn = $("#deleteTargetFieldBtn");
+    
+    // 没有选中字段或选中的不是自定义字段 → 隐藏删除按钮
+    // 自定义字段的判断：fieldMetadata.isCustom === true
+    if (!fieldMetadata || fieldMetadata.isCustom !== true) {
+        $deleteBtn.addClass("hidden");
+        $deleteBtn.prop("disabled", true);
+        $deleteBtn.attr("title", "只能删除自定义字段");
+        return;
+    }
+    
+    // 检查是否被转换配置引用
+    var isReferenced = isFieldReferencedInConvertList(fieldName);
+    if (isReferenced) {
+        $deleteBtn.removeClass("hidden");
+        $deleteBtn.prop("disabled", true);
+        $deleteBtn.attr("title", "字段被转换配置引用，无法删除");
+        return;
+    }
+    
+    // 可以删除
+    $deleteBtn.removeClass("hidden");
+    $deleteBtn.prop("disabled", false);
+    $deleteBtn.attr("title", "删除自定义字段（仅未保存）");
+}
+
+// 检查字段是否在转换配置列表中被引用
+function isFieldReferencedInConvertList(fieldName) {
+    var referenced = false;
+    $("#convertList tr").each(function() {
+        var targetField = $(this).find("td:eq(1)").text().trim();
+        var args = $(this).find("td:eq(2)").text().trim();
+        
+        // 检查是否作为目标字段
+        if (targetField === fieldName) {
+            referenced = true;
+            return false;
+        }
+        
+        // 检查是否在参数/表达式中引用（${fieldName} 格式）
+        if (args.indexOf("${" + fieldName + "}") >= 0) {
+            referenced = true;
+            return false;
+        }
+    });
+    
+    return referenced;
 }
 
 // 打开字段编辑对话框
@@ -340,7 +449,8 @@ function createFieldMetadata(fieldName, fieldType, fieldSize, fieldScale, fieldN
         nullable: fieldNullable,
         comment: fieldComment,
         pk: false,
-        autoincrement: false
+        autoincrement: false,
+        isCustom: true  // 标记为自定义字段
     };
     
     // 添加到下拉列表
@@ -359,6 +469,9 @@ function createFieldMetadata(fieldName, fieldType, fieldSize, fieldScale, fieldN
         $select.selectpicker('val', fieldName);
         bootGrowl("字段添加成功", "success");
     }
+    
+    // 更新删除按钮状态
+    updateDeleteFieldButton();
     
     $('#fieldEditDialog').modal('hide');
 }
@@ -518,6 +631,8 @@ function bindConvertAddClick() {
         var trHtml = "<tr";
         trHtml += " data-id='" + nextId + "'";
         trHtml += " data-isroot='true'";
+        // 标记为未保存（前端新增的字段）
+        trHtml += " data-saved='false'";
         if (fieldMetadata) {
             trHtml += " data-fieldmetadata='" + JSON.stringify(fieldMetadata).replace(/'/g, "\\'") + "'";
         }
@@ -531,6 +646,8 @@ function bindConvertAddClick() {
         // 清空参数
         $(".convertParam").val("");
         initConvert();
+        // 更新字段删除按钮状态（检查引用）
+        updateDeleteFieldButton();
     });
 }
 
@@ -683,6 +800,8 @@ function bindConvertHelpIconClick() {
     });
 }
 
+
+
 // 页面初始化
 $(function() {
     initSelectIndex($(".select-control"), 1);
@@ -696,12 +815,21 @@ $(function() {
     bindConvertAddClick();
     bindConvertOperatorChange();
     bindConvertHelpIconClick();
-    // 目标字段添加
+    // 目标字段添加/删除
     bindAddTargetFieldClick();
+    bindDeleteTargetFieldClick();
+    
+    // 绑定字段选择变化事件，更新删除按钮状态
+    $("#convertTargetField").on('changed.bs.select', function() {
+        updateDeleteFieldButton();
+    });
+    
     // 初始化转换类型参数显示（需要在 selectpicker 初始化后调用）
     // 使用 setTimeout 确保 selectpicker 完全初始化完成
     setTimeout(function() {
         initConvertParamsVisibility();
+        // 初始化删除按钮状态
+        updateDeleteFieldButton();
     }, 200);
     
     // 绑定字段编辑对话框确认按钮
@@ -709,3 +837,5 @@ $(function() {
         saveCustomField();
     });
 });
+
+

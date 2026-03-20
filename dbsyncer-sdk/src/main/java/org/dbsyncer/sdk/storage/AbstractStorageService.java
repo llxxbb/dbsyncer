@@ -96,6 +96,12 @@ public abstract class AbstractStorageService implements StorageService, Disposab
         } catch (NullExecutorException e) {
             // 存储表不存在或已删除，请重试
         } catch (Exception e) {
+            // 表不存在时打印警告并忽略
+            String errorMessage = e.getMessage();
+            if (errorMessage != null && errorMessage.contains("doesn't exist")) {
+                logger.warn("表不存在，已忽略：{}", errorMessage);
+                return;
+            }
             throw new RuntimeException(e);
         } finally {
             if (locked) {

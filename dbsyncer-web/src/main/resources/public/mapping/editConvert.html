@@ -59,6 +59,9 @@
                             <button type="button" class="btn btn-default" id="addTargetFieldBtn" title="添加新字段">
                                 <span class="fa fa-plus"></span>
                             </button>
+                            <button type="button" class="btn btn-default hidden" id="deleteTargetFieldBtn" title="删除自定义字段（仅未保存）" style="color: #d9534f;">
+                                <span class="fa fa-minus"></span>
+                            </button>
                         </span>
                     </div>
                 </div>
@@ -110,19 +113,32 @@
                         </tr>
                     </thead>
                     <tbody id="convertList">
-                        <!-- Mapping convert -->
-                        <tr th:if="${tableGroup} == null" th:each="f,s:${mapping?.convert}" th:data-id="${f?.id}" th:data-isroot="${f?.root}">
+                        <!-- Mapping convert（未保存的配置） -->
+                        <tr th:if="${tableGroup} == null" th:each="f,s:${mapping?.convert}" 
+                            th:data-id="${f?.id}" 
+                            th:data-isroot="${f?.root}"
+                            th:data-is-custom-field="${f?.fieldMetadata != null}"
+                            th:data-saved="${f?.fieldMetadata != null ? 'false' : 'true'}">
                             <td th:value="${f?.convertCode}">[[${f?.convertName}]]</td>
                             <td>[[${f?.name}]]</td>
                             <td th:text="${f?.args}"></td>
-                            <td><a class='fa fa-remove fa-2x convertDelete dbsyncer_pointer' title='删除' ></a></td>
+                            <td>
+                                <a class='fa fa-remove fa-2x convertDelete dbsyncer_pointer' title='删除' ></a>
+                            </td>
                         </tr>
-                        <!-- TableGroup convert -->
-                        <tr th:each="f,s:${tableGroup?.convert}" th:data-id="${f?.id}" th:data-isroot="${f?.root}">
+                        <!-- TableGroup convert（已保存的配置） -->
+                        <tr th:each="f,s:${tableGroup?.convert}" 
+                            th:data-id="${f?.id}" 
+                            th:data-isroot="${f?.root}"
+                            th:data-is-custom-field="${f?.fieldMetadata != null}"
+                            th:data-saved="'true'">
                             <td th:value="${f?.convertCode}">[[${f?.convertName}]]</td>
                             <td>[[${f?.name}]]</td>
                             <td th:text="${f?.args}"></td>
-                            <td><a class='fa fa-remove fa-2x convertDelete dbsyncer_pointer' title='删除' ></a></td>
+                            <td>
+                                <a class='fa fa-remove fa-2x convertDelete dbsyncer_pointer' title='删除' ></a>
+                                <!-- 已保存的自定义字段不显示删除按钮 -->
+                            </td>
                         </tr>
                     </tbody>
                 </table>

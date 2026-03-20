@@ -128,8 +128,13 @@
                                                     <span class="fa fa-refresh"></span>刷新字段
                                                 </button>
                                             </div>
-                                            <div class="col-md-8"></div>
-                                            <div class="col-md-2 text-right">
+                                            <div class="col-md-6"></div>
+                                            <div class="col-md-4 text-right">
+                                                <button id="primaryKeyOrderBtn" type="button" class="btn btn-default" 
+                                                        data-toggle="tooltip" data-placement="top" 
+                                                        title="当前主键顺序：无">
+                                                    <span class="fa fa-sort"></span> 主键顺序
+                                                </button>
                                                 <button id="fieldMappingDelBtn" type="button" class="btn btn-default" disabled="disabled">
                                                     <span class="fa fa-remove"></span>删除
                                                 </button>
@@ -171,6 +176,8 @@
                                     <div class="form-group hidden">
                                         <input name="id" class="form-control" type="text" th:value="${tableGroup?.id}"/>
                                         <input id="fieldMapping" name="fieldMapping" class="form-control" type="text"/>
+                                        <input id="targetTablePK" name="targetTablePK" class="form-control" type="text" 
+                                               th:value="${tableGroup?.targetTablePK}"/>
                                     </div>
                                 </div>
                             </div>
@@ -212,6 +219,33 @@
 </div>
     <!-- 字段编辑对话框 -->
     <div th:replace="field-edit-dialog :: fieldEditDialog"></div>
+
+                    <!-- 主键顺序对话框 -->
+                    <div class="modal fade" id="primaryKeyOrderModal" tabindex="-1" role="dialog">
+                        <div class="modal-dialog" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h4 class="modal-title">调整主键顺序</h4>
+                                </div>
+                                <div class="modal-body">
+                                    <!-- 风险提示（醒目） -->
+                                    <div class="alert alert-danger" style="font-weight: bold;">
+                                        <i class="fa fa-exclamation-triangle"></i> 
+                                        此操作将修改目标表的主键约束
+                                    </div>
+                                    
+                                    <!-- 可拖拽的主键列表 -->
+                                    <div id="primaryKeyList" style="max-height: 300px; overflow-y: auto;">
+                                        <!-- 动态生成 -->
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
+                                    <button type="button" class="btn btn-primary" id="savePrimaryKeyOrderBtn">保存</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
 
 <script th:src="@{/js/mapping/editTableGroup.js}"></script>

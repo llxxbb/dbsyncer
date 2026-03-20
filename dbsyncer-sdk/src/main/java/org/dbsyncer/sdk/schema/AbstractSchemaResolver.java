@@ -136,6 +136,10 @@ public abstract class AbstractSchemaResolver implements SchemaResolver {
             result.setComment(field.getComment());
             result.setAutoincrement(field.isAutoincrement());
             result.setIsSizeFixed(field.getIsSizeFixed());
+            // 保留枚举值列表（用于 ENUM/SET 类型）
+            if (field.getEnumValues() != null) {
+                result.setEnumValues(field.getEnumValues());
+            }
             return result;
         }
 
@@ -158,6 +162,10 @@ public abstract class AbstractSchemaResolver implements SchemaResolver {
         // 保留SRID信息（用于Geometry类型）
         if (standardField.getSrid() != null) {
             result.setSrid(standardField.getSrid());
+        }
+        // 保留枚举值列表（用于 ENUM/SET 类型）
+        if (standardField.getEnumValues() != null) {
+            result.setEnumValues(standardField.getEnumValues());
         }
         return result;
     }

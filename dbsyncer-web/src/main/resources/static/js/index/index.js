@@ -82,7 +82,8 @@ function bindEditConnector() {
 // 添加任务
 function bindAddMapping() {
     $("#indexAddMappingBtn").click(function () {
-        updateHash('/mapping/pageAdd');
+        var projectGroupId = $("#projectGroup").val() || '';
+        updateHash('/mapping/pageAdd?projectGroupId=' + projectGroupId);
     });
 }
 

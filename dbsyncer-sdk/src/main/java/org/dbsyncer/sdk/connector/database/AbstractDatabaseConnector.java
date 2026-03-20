@@ -196,7 +196,22 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
             }
             return fields;
         });
-        return new MetaInfo().setColumn(fields);
+        return new MetaInfo().setColumn(enhanceFields(connectorInstance, fields, tableNamePattern));
+    }
+
+    /**
+     * 增强字段信息（子类可重写以补充特定数据库的元数据）
+     * 默认实现直接返回原字段列表，不做任何修改
+     *
+     * @param connectorInstance 连接器实例
+     * @param fields 基础字段列表（已从 JDBC DatabaseMetaData 获取）
+     * @param tableName 表名
+     * @return 增强后的字段列表
+     * @throws Exception 增强过程中可能的异常
+     */
+    protected List<Field> enhanceFields(DatabaseConnectorInstance connectorInstance, List<Field> fields, String tableName) throws Exception {
+        // 默认实现：直接返回，不做增强
+        return fields;
     }
 
     @Override
