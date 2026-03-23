@@ -202,6 +202,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
                 Map<String, String> tableMapping = new HashMap<>();
                 tableMapping.put("sourceTable", tableGroup.getSourceTable().getName());
                 tableMapping.put("targetTable", targetTableName);
+                tableMapping.put("targetTablePK", tableGroup.getTargetTablePK());
                 missingTables.add(tableMapping);
             }
         }

@@ -164,6 +164,7 @@ public class ProfileComponentImpl implements ProfileComponent {
         List<TableGroup> tableGroups = operationTemplate.queryAll(new QueryConfig<>(temp, GroupStrategyEnum.TABLE));
         for (TableGroup t : tableGroups){
             t.initTableGroup(parserComponent, profileComponent, connectorFactory);
+            t.migrateVersion();
         }
         return tableGroups;
     }

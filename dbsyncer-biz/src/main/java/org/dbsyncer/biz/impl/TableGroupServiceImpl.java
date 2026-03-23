@@ -258,42 +258,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
     public TableGroup getTableGroup(String id) throws Exception {
         TableGroup tableGroup = profileComponent.getTableGroup(id);
         Assert.notNull(tableGroup, "TableGroup can not be null");
-
-        // 版本迁移：如果 currentVersion=1，自动构建 targetTablePK 并升级版本
-        if (tableGroup.currentVersion == 1) {
-            migrateVersion1ToVersion2(tableGroup);
-            // 保存升级后的版本
-            profileComponent.editTableGroup(tableGroup);
-        }
-
         return tableGroup;
-    }
-
-    /**
-     * 版本迁移：从 version 1 升级到 version 2
-     * 自动构建 targetTablePK 字段
-     */
-    private void migrateVersion1ToVersion2(TableGroup tableGroup) {
-        logger.info("TableGroup [{}] 从 version 1 升级到 version 2", tableGroup.getId());
-
-        Table targetTable = tableGroup.getTargetTable();
-        if (targetTable != null && targetTable.getColumn() != null) {
-            // 从目标表字段中提取主键
-            List<String> primaryKeys = targetTable.getColumn().stream()
-                    .filter(Field::isPk)
-                    .map(Field::getName)
-                    .collect(Collectors.toList());
-
-            if (!primaryKeys.isEmpty()) {
-                String targetTablePK = String.join(",", primaryKeys);
-                tableGroup.setTargetTablePK(targetTablePK);
-                logger.info("自动构建 targetTablePK: {}", targetTablePK);
-            }
-        }
-
-        // 升级版本号
-        tableGroup.currentVersion = 2;
-        logger.info("TableGroup [{}] 版本升级完成", tableGroup.getId());
     }
 
     @Override

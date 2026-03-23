@@ -190,6 +190,7 @@ function bindTargetTableRenameClick() {
 function handleTargetTableRenameClick($icon) {
     var tableGroupId = $icon.data('id');
     var currentName = $icon.data('current-name');
+    var targetTablePK = $icon.data('target-table-pk');
     
     if (!tableGroupId) {
         bootGrowl("无法获取表映射ID", "danger");
@@ -202,12 +203,12 @@ function handleTargetTableRenameClick($icon) {
     }
     
     // 显示自定义模态框
-    showTargetTableRenameModal(tableGroupId, currentName, $icon);
+    showTargetTableRenameModal(tableGroupId, currentName, targetTablePK, $icon);
     return false;
 }
 
 // 显示目标表重命名模态框
-function showTargetTableRenameModal(tableGroupId, currentName, $icon) {
+function showTargetTableRenameModal(tableGroupId, currentName, targetTablePK, $icon) {
     // 创建模态框HTML（如果不存在）
     if ($('#targetTableRenameModal').length === 0) {
         var modalHtml = '<div class="modal fade" id="targetTableRenameModal" tabindex="-1" role="dialog">' +
@@ -256,7 +257,7 @@ function showTargetTableRenameModal(tableGroupId, currentName, $icon) {
         $('#targetTableRenameModal').modal('hide');
         
         // 更新目标表名称
-        updateTargetTableName(tableGroupId, newName, $icon);
+        updateTargetTableName(tableGroupId, newName, targetTablePK, $icon);
     });
     
     // 回车键确认
@@ -274,12 +275,13 @@ function showTargetTableRenameModal(tableGroupId, currentName, $icon) {
 }
 
 // 更新目标表名称
-function updateTargetTableName(tableGroupId, newTableName, $icon) {
+function updateTargetTableName(tableGroupId, newTableName, targetTablePK, $icon) {
     // 构建更新参数
     // 注意：不传 fieldMapping 参数，后端会自动映射全部源表字段
     var params = {
         'id': tableGroupId,
-        'targetTable': newTableName
+        'targetTable': newTableName,
+        'targetTablePK': targetTablePK
     };
     
     // 调用编辑API更新目标表名称
@@ -624,7 +626,8 @@ function createTargetTablesAndRetry(errorInfo) {
         let createParams = {
             mappingId: mappingId,
             sourceTable: mapping.sourceTable,
-            targetTable: mapping.targetTable
+            targetTable: mapping.targetTable,
+            targetTablePK: mapping.targetTablePK
         };
         
         doPoster("/tableGroup/createTargetTable", createParams, function (data) {

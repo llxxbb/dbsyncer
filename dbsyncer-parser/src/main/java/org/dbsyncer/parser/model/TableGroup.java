@@ -42,7 +42,7 @@ public class TableGroup extends AbstractConfigModel {
     }
 
     @JsonIgnore
-    public static final int Version = 2;
+    public static final int Version = 5;
     public int currentVersion;
     @JsonIgnore
     public boolean isInit = false;
@@ -171,10 +171,6 @@ public class TableGroup extends AbstractConfigModel {
         this.profileComponent = profileComponent;
         Mapping mapping = profileComponent.getMapping(mappingId);
         initCommand(mapping, connectorFactory);
-        if (currentVersion != TableGroup.Version) {
-            currentVersion = TableGroup.Version;
-            profileComponent.editConfigModel(this);
-        }
         // 如果estimatedTotal为0，则设置为sourceTable.getCount()
         if (this.estimatedTotal == 0 && this.sourceTable != null && this.sourceTable.getCount() > 0) {
             this.estimatedTotal = this.sourceTable.getCount();
@@ -214,7 +210,7 @@ public class TableGroup extends AbstractConfigModel {
                 tTable.getColumn().add(m.getTarget());
             }
         });
-        
+
         // 【新增】处理转换配置中的自定义字段
         List<Convert> convert = this.getConvert();
         if (!CollectionUtils.isEmpty(convert)) {
@@ -229,8 +225,8 @@ public class TableGroup extends AbstractConfigModel {
                 }
             });
         }
-        
-        
+
+
         // 如果 tableGroup.getFilter()空使用 mapping.getFilter()0
         List<Filter> filters = CollectionUtils.isEmpty(this.getFilter()) ? mapping.getFilter() : this.getFilter();
         // 初始化命令时不需要验证连接，避免触发 kafka 等连接器的连接检查
@@ -269,7 +265,7 @@ public class TableGroup extends AbstractConfigModel {
     private Object[] cursors; // 当前TableGroup的cursor
     private boolean fullCompleted; // 流式处理是否完成
     private String errorMessage; // 错误信息
-    
+
     // 同步进度相关字段
     private long success; // 成功计数（全量+增量总和，用于兼容）
     private long fail; // 失败计数（全量+增量总和，用于兼容）
@@ -455,5 +451,30 @@ public class TableGroup extends AbstractConfigModel {
 
         profileComponent.addTableGroup(newTableGroup);
         return newTableGroup;
+    }
+
+    /**
+     * 版本迁移：从 version 1 升级到 version 2
+     * 自动构建 targetTablePK 字段
+     */
+    public void migrateVersion() throws Exception {
+        if (this.currentVersion == Version) return;
+
+        if (currentVersion < Version && targetTable != null && targetTable.getColumn() != null) {
+            // 从目标表字段中提取主键
+            List<String> primaryKeys = targetTable.getColumn().stream()
+                    .filter(Field::isPk)
+                    .map(Field::getName)
+                    .collect(Collectors.toList());
+
+            if (!primaryKeys.isEmpty()) {
+                String targetTablePK = String.join(",", primaryKeys);
+                this.setTargetTablePK(targetTablePK);
+            }
+        }
+
+        // 升级版本号
+        this.currentVersion = Version;
+        this.profileComponent.editTableGroup(this);
     }
 }
