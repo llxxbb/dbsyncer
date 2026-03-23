@@ -78,6 +78,10 @@ public class TableGroupChecker extends AbstractChecker {
         tableGroup.setSourceTable(getTable(mapping.getSourceConnectorId(), sourceTable, sourceTablePK));
         tableGroup.setTargetTable(getTable(mapping.getTargetConnectorId(), targetTable, targetTablePK));
 
+        // 保存主键配置到 tableGroup
+        if (StringUtil.isNotBlank(targetTablePK)) {
+            tableGroup.setTargetTablePK(targetTablePK);
+        }
         // 修改基本配置
         this.modifyConfigModel(tableGroup, params);
 
