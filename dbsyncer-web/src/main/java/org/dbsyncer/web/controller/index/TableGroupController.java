@@ -1,5 +1,7 @@
 package org.dbsyncer.web.controller.index;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.dbsyncer.biz.MappingService;
 import org.dbsyncer.biz.TableGroupService;
 import org.dbsyncer.biz.vo.RestResult;
@@ -33,6 +35,7 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import org.dbsyncer.sdk.util.PrimaryKeyUtil;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -288,6 +291,69 @@ public class TableGroupController extends BaseController {
         } catch (Exception e) {
             logger.error("创建表异常: {}", e.getMessage(), e);
             return RestResult.restFail("创建表失败: " + e.getMessage(), 500);
+        }
+    }
+
+    @PostMapping(value = "/fieldDifference")
+    @ResponseBody
+    public RestResult getFieldDifference(@RequestParam(value = "id") String id) {
+        try {
+            return RestResult.restSuccess(tableGroupService.getFieldDifference(id));
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
+        }
+    }
+
+    @PostMapping(value = "/fieldDifferenceBatch")
+    @ResponseBody
+    public RestResult getFieldDifferenceBatch(@RequestParam(value = "ids") String ids) {
+        try {
+            List<String> idList = Arrays.asList(ids.split(","));
+            Map<String, Boolean> result = new HashMap<>();
+
+            for (String id : idList) {
+                if (StringUtil.isNotBlank(id)) {
+                    result.put(id, tableGroupService.getFieldDifference(id).isHasDifference());
+                }
+            }
+
+            return RestResult.restSuccess(result);
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
+        }
+    }
+
+    @PostMapping(value = "/fieldDiffFixPreview")
+    @ResponseBody
+    public RestResult getFieldDiffFixPreview(
+            @RequestParam(value = "id") String id,
+            @RequestParam(value = "fixDirection") String fixDirection) {
+        try {
+            return RestResult.restSuccess(tableGroupService.getFieldDiffFixPreview(id, fixDirection));
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
+        }
+    }
+
+    @PostMapping(value = "/executeFieldDiffFixSelective")
+    @ResponseBody
+    public RestResult executeFieldDiffFixSelective(
+            @RequestParam(value = "id") String id,
+            @RequestParam(value = "fixDirection") String fixDirection,
+            @RequestParam(value = "selectedIds", required = false) String selectedIds) {
+        try {
+            List<String> ids = null;
+            if (StringUtil.isNotBlank(selectedIds)) {
+                ObjectMapper objectMapper = new ObjectMapper();
+                ids = objectMapper.readValue(selectedIds, new TypeReference<List<String>>() {});
+            }
+            return RestResult.restSuccess(tableGroupService.executeFieldDiffFix(id, fixDirection, ids));
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
         }
     }
 

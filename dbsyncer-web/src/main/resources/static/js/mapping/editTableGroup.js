@@ -593,6 +593,56 @@ function updatePrimaryKeyMarkers(pkString) {
     });
 }
 
+function checkFieldMappingDifferences() {
+    let tableGroupId = $("#fieldDifferenceBtn").attr("tableGroupId");
+    if (!tableGroupId) {
+        return;
+    }
+    
+    doPoster("/tableGroup/fieldDifference", {'id': tableGroupId}, function (data) {
+        if (data.success == true && data.resultValue) {
+            highlightFieldMappingDifferences(data.resultValue);
+        }
+    });
+}
+
+function highlightFieldMappingDifferences(result) {
+    if (!result.hasDifference) {
+        return;
+    }
+    
+    let diffFieldNames = new Set();
+    let fieldArrays = [
+        result.addedFields,
+        result.missingFields,
+        result.typeMismatched,
+        result.lengthMismatched
+    ];
+    
+    fieldArrays.forEach(function(fields) {
+        if (fields && fields.length > 0) {
+            fields.forEach(function(item) {
+                diffFieldNames.add(item.fieldName);
+            });
+        }
+    });
+    
+    if (diffFieldNames.size === 0) {
+        return;
+    }
+    
+    let $fieldMappingList = $("#fieldMappingList");
+    $fieldMappingList.find("tr").each(function() {
+        let $tr = $(this);
+        let sourceField = $tr.find("td:eq(0)").text().trim();
+        let targetField = $tr.find("td:eq(1)").text().trim();
+        
+        if (diffFieldNames.has(sourceField) || diffFieldNames.has(targetField)) {
+            $tr.addClass("field-diff-warning");
+        }
+    });
+}
+
 $(function() {
     // 初始化select插件
     initSelectIndex($(".select-control-table"), -1);
@@ -629,4 +679,332 @@ $(function() {
     $("#tableGroupBackBtn").bind('click', function(){
         backMappingPage($(this));
     });
+
+    // 绑定字段差异按钮点击事件
+    bindFieldDifferenceClick();
+    
+    // 绑定字段差异修复按钮点击事件
+    bindFieldDiffFixClick();
+    
+    checkFieldMappingDifferences();
 });
+
+let fieldDifferenceData = null;
+
+function bindFieldDifferenceClick() {
+    let $diffBtn = $("#fieldDifferenceBtn");
+    $diffBtn.bind('click', function(){
+        let id = $(this).attr("tableGroupId");
+        showFieldDifference(id);
+    });
+}
+
+function showFieldDifference(id) {
+    $('#fieldDifferenceModal').modal('show');
+    $('#fieldDifferenceContent').html('<div class="text-center"><span class="fa fa-spinner fa-spin fa-2x"></span> 加载中...</div>');
+    
+    doPoster("/tableGroup/fieldDifference", {'id': id}, function (data) {
+        if (data.success == true) {
+            fieldDifferenceData = data.resultValue;
+            renderFieldDifference(data.resultValue);
+        } else {
+            $('#fieldDifferenceContent').html('<div class="alert alert-danger">' + data.resultValue + '</div>');
+        }
+    });
+}
+
+function renderFieldDifference(result) {
+    if (!result.hasDifference) {
+        $('#fieldDifferenceContent').html(
+            '<div class="alert alert-success text-center">' +
+            '<span class="fa fa-check-circle fa-2x"></span><br>' +
+            '<strong>字段结构一致</strong><br>' +
+            '<small>数据源表和目标源表的字段结构完全匹配</small>' +
+            '</div>'
+        );
+        return;
+    }
+
+    let html = '<div class="field-difference-container">';
+
+    if (result.addedFields && result.addedFields.length > 0) {
+        html += buildDifferenceSection(
+            '目标表多出的字段',
+            'fa-plus-circle',
+            'info',
+            result.addedFields.length,
+            result.addedFields,
+            'added'
+        );
+    }
+
+    if (result.missingFields && result.missingFields.length > 0) {
+        html += buildDifferenceSection(
+            '目标表缺少的字段',
+            'fa-minus-circle',
+            'warning',
+            result.missingFields.length,
+            result.missingFields,
+            'missing'
+        );
+    }
+
+    if (result.typeMismatched && result.typeMismatched.length > 0) {
+        html += buildDifferenceSection(
+            '类型不匹配的字段',
+            'fa-exchange',
+            'danger',
+            result.typeMismatched.length,
+            result.typeMismatched,
+            'type'
+        );
+    }
+
+    if (result.lengthMismatched && result.lengthMismatched.length > 0) {
+        html += buildDifferenceSection(
+            'VARCHAR长度差异',
+            'fa-arrows-h',
+            'primary',
+            result.lengthMismatched.length,
+            result.lengthMismatched,
+            'length'
+        );
+    }
+
+    html += '</div>';
+    $('#fieldDifferenceContent').html(html);
+}
+
+function buildDifferenceSection(title, icon, alertClass, count, items, type) {
+    let html = '<div class="panel panel-' + alertClass + '">' +
+        '<div class="panel-heading">' +
+        '<span class="fa ' + icon + '"></span> ' + title +
+        ' <span class="badge">' + count + '</span>' +
+        '</div>' +
+        '<div class="panel-body">' +
+        '<table class="table table-condensed table-hover">' +
+        '<thead><tr><th>字段名</th>';
+
+    if (type === 'added') {
+        html += '<th>目标类型</th><th>目标长度</th>';
+    } else if (type === 'missing') {
+        html += '<th>源类型</th><th>源长度</th>';
+    } else if (type === 'type') {
+        html += '<th>源类型</th><th>目标类型</th>';
+    } else if (type === 'length') {
+        html += '<th>源长度</th><th>目标长度</th>';
+    }
+
+    html += '<th>说明</th></tr></thead><tbody>';
+
+    items.forEach(function(item) {
+        html += '<tr>';
+        html += '<td><strong>' + item.fieldName + '</strong></td>';
+        
+        if (type === 'added') {
+            html += '<td>' + (item.targetType || '-') + '</td>';
+            html += '<td>' + (item.targetLength || '-') + '</td>';
+        } else if (type === 'missing') {
+            html += '<td>' + (item.sourceType || '-') + '</td>';
+            html += '<td>' + (item.sourceLength || '-') + '</td>';
+        } else if (type === 'type') {
+            html += '<td>' + (item.sourceType || '-') + '</td>';
+            html += '<td>' + (item.targetType || '-') + '</td>';
+        } else if (type === 'length') {
+            html += '<td>' + (item.sourceLength || '-') + '</td>';
+            html += '<td>' + (item.targetLength || '-') + '</td>';
+        }
+        
+        html += '<td>' + (item.description || '') + '</td>';
+        html += '</tr>';
+    });
+
+    html += '</tbody></table></div></div>';
+    return html;
+}
+
+let currentFixDirection = null;
+
+function bindFieldDiffFixClick() {
+    let $fixTargetBtn = $("#fixTargetTableBtn");
+    let $fixSourceBtn = $("#fixSourceTableBtn");
+    let $confirmBtn = $("#confirmFieldDiffFixBtn");
+    
+    $fixTargetBtn.bind('click', function(){
+        let id = $("#fieldDifferenceBtn").attr("tableGroupId");
+        showFieldDiffFixPreview(id, 'TARGET');
+    });
+    
+    $fixSourceBtn.bind('click', function(){
+        let id = $("#fieldDifferenceBtn").attr("tableGroupId");
+        showFieldDiffFixPreview(id, 'SOURCE');
+    });
+    
+    $confirmBtn.bind('click', function(){
+        let id = $("#fieldDifferenceBtn").attr("tableGroupId");
+        if (currentFixDirection) {
+            executeFieldDiffFix(id, currentFixDirection);
+        }
+    });
+}
+
+function showFieldDiffFixPreview(id, fixDirection) {
+    currentFixDirection = fixDirection;
+    
+    $('#fieldDiffFixModal').modal('show');
+    $('#fieldDiffFixWarning').removeClass('alert-danger').addClass('alert-warning');
+    $('#fieldDiffFixWarning').html('<strong>加载中...</strong>');
+    $('#fieldDiffFixInfoContent').html('');
+    $('#fieldDiffFixSqlContent').text('');
+    $('#confirmFieldDiffFixBtn').prop('disabled', true);
+    
+    doPoster("/tableGroup/fieldDiffFixPreview", {'id': id, 'fixDirection': fixDirection}, function (data) {
+        if (data.success === true) {
+            renderFieldDiffFixPreview(data.resultValue);
+        } else {
+            $('#fieldDiffFixWarning').removeClass('alert-warning').addClass('alert-danger');
+            $('#fieldDiffFixWarning').html('<strong>错误：</strong>' + (data.resultValue || '获取修复预览失败'));
+        }
+    });
+}
+
+function renderFieldDiffFixPreview(result) {
+    window.currentFieldDiffFixResult = result;
+    
+    if (result.warning) {
+        if (result.warning.indexOf('DROP') !== -1) {
+            $('#fieldDiffFixWarning').removeClass('alert-warning').addClass('alert-danger');
+        }
+        $('#fieldDiffFixWarning').html('<strong>警告：</strong>' + result.warning);
+    } else {
+        $('#fieldDiffFixWarning').html('');
+        $('#fieldDiffFixWarning').hide();
+    }
+
+    let infoHtml = '<div class="panel panel-default">' +
+        '<div class="panel-heading">修复信息</div>' +
+        '<div class="panel-body">' +
+        '<p><strong>源表：</strong>' + result.sourceTableName + '</p>' +
+        '<p><strong>目标表：</strong>' + result.targetTableName + '</p>' +
+        '<p><strong>修复方向：</strong>' + (result.fixDirection === 'TARGET' ? '修改目标表' : '修改源表') + '</p>' +
+        '</div></div>';
+
+    if (result.items && result.items.length > 0) {
+        infoHtml += '<div class="panel panel-info">' +
+            '<div class="panel-heading">修复项列表 <span class="badge">' + result.items.length + '</span></div>' +
+            '<div class="panel-body" style="max-height: 250px; overflow-y: auto;">' +
+            '<table class="table table-condensed">' +
+            '<thead><tr><th><input type="checkbox" id="selectAllDiffItems" checked/></th><th>字段名</th><th>差异类型</th><th>操作</th><th>说明</th></tr></thead>' +
+            '<tbody>';
+
+        result.items.forEach(function(item) {
+            infoHtml += '<tr>' +
+                '<td><input type="checkbox" class="diff-item-checkbox" data-id="' + item.id + '" checked/></td>' +
+                '<td><strong>' + item.fieldName + '</strong></td>' +
+                '<td><span class="label label-' + getDiffTypeLabel(item.diffType) + '">' + item.diffType + '</span></td>' +
+                '<td><span class="label label-' + getOperationLabel(item.operation) + '">' + item.operation + '</span></td>' +
+                '<td>' + item.description + '</td>' +
+                '</tr>';
+        });
+
+        infoHtml += '</tbody></table></div></div>';
+    }
+
+    $('#fieldDiffFixInfoContent').html(infoHtml);
+
+    if (result.sqlStatements && result.sqlStatements.length > 0) {
+        $('#fieldDiffFixSqlContent').text(result.sqlStatements.join('\n\n'));
+        $('#confirmFieldDiffFixBtn').prop('disabled', false);
+    } else {
+        $('#fieldDiffFixSqlContent').text('无 SQL 语句需要执行');
+        $('#confirmFieldDiffFixBtn').prop('disabled', true);
+    }
+
+    $('#selectAllDiffItems').on('change', function() {
+        $('.diff-item-checkbox').prop('checked', $(this).prop('checked'));
+        updateCurrentResultSelection();
+    });
+
+    $('.diff-item-checkbox').on('change', function() {
+        updateCurrentResultSelection();
+    });
+}
+
+function updateCurrentResultSelection() {
+    if (window.currentFieldDiffFixResult && window.currentFieldDiffFixResult.items) {
+        window.currentFieldDiffFixResult.items.forEach(function(item) {
+            let $checkbox = $('.diff-item-checkbox[data-id="' + item.id + '"]');
+            item.selected = $checkbox.prop('checked');
+        });
+    }
+}
+
+function getDiffTypeLabel(diffType) {
+    switch(diffType) {
+        case 'ADDED': return 'info';
+        case 'MISSING': return 'warning';
+        case 'TYPE_MISMATCH': return 'danger';
+        case 'LENGTH_MISMATCH': return 'primary';
+        default: return 'default';
+    }
+}
+
+function getOperationLabel(operation) {
+    switch(operation) {
+        case 'ADD': return 'success';
+        case 'DROP': return 'danger';
+        case 'MODIFY': return 'warning';
+        default: return 'default';
+    }
+}
+
+function executeFieldDiffFix(id, fixDirection) {
+    let $confirmBtn = $("#confirmFieldDiffFixBtn");
+    $confirmBtn.prop('disabled', true);
+    $confirmBtn.html('<span class="fa fa-spinner fa-spin"></span> 执行中...');
+    
+    let selectedIds = [];
+    if (window.currentFieldDiffFixResult && window.currentFieldDiffFixResult.items) {
+        window.currentFieldDiffFixResult.items.forEach(function(item) {
+            if (item.selected) {
+                selectedIds.push(item.id);
+            }
+        });
+    }
+    
+    if (selectedIds.length === 0) {
+        $('#fieldDiffFixWarning').removeClass('alert-warning').addClass('alert-danger');
+        $('#fieldDiffFixWarning').html('<strong>错误：</strong>请至少选择一项进行修复');
+        $confirmBtn.html('<span class="fa fa-check"></span> 确认执行');
+        $confirmBtn.prop('disabled', false);
+        return;
+    }
+    
+    let params = {
+        'id': id,
+        'fixDirection': fixDirection,
+        'selectedIds': JSON.stringify(selectedIds)
+    };
+    
+    doPoster("/tableGroup/executeFieldDiffFixSelective", params, function (data) {
+        if (data.success === true) {
+            $('#fieldDiffFixModal').modal('hide');
+            $('#fieldDifferenceModal').modal('hide');
+            
+            $('.modal-backdrop').remove();
+            $('body').removeClass('modal-open');
+            $('body').css('padding-right', '');
+            $('body').css('overflow', '');
+            
+            bootGrowl(data.resultValue, "success");
+            
+            let tableGroupId = $("#fieldDifferenceBtn").attr("tableGroupId");
+            doLoader('/tableGroup/page/editTableGroup?id=' + tableGroupId);
+        } else {
+            $('#fieldDiffFixWarning').removeClass('alert-warning').addClass('alert-danger');
+            $('#fieldDiffFixWarning').html('<strong>执行失败：</strong>' + (data.resultValue || '未知错误'));
+            $confirmBtn.html('<span class="fa fa-check"></span> 确认执行');
+            $confirmBtn.prop('disabled', false);
+        }
+    });
+}
