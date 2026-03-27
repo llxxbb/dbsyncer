@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-2">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h4 class="panel-title">
+                        <i class="fa fa-list"></i> 文档列表
+                        <button type="button" class="btn btn-primary btn-xs pull-right" id="createDocBtn" th:if="${currentUser?.roleCode eq 'admin'}">
+                            <i class="fa fa-plus"></i> 新建
+                        </button>
+                    </h4>
+                </div>
+                <div class="panel-body" style="max-height: calc(100vh - 180px); overflow-y: auto;">
+                    <ul id="docList" class="list-group">
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-10">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h4 class="panel-title">
+                        <i class="fa fa-file-text-o"></i> <span id="currentDocTitle">请选择文档</span>
+                        <span id="docActionBtns" class="pull-right hidden" th:if="${currentUser?.roleCode eq 'admin'}">
+                            <button type="button" class="btn btn-success btn-xs" id="saveDocBtn">
+                                <i class="fa fa-save"></i> 保存
+                            </button>
+                            <button type="button" class="btn btn-info btn-xs" id="renameDocBtn">
+                                <i class="fa fa-pencil"></i> 重命名
+                            </button>
+                            <button type="button" class="btn btn-danger btn-xs" id="deleteDocBtn">
+                                <i class="fa fa-trash"></i> 删除
+                            </button>
+                        </span>
+                    </h4>
+                </div>
+                <div class="panel-body" style="padding: 0;">
+                    <div id="editorContainer" class="hidden">
+                        <div id="editorToolbar" style="border-bottom: 1px solid #ccc; padding: 8px 10px; background-color: #f8f8f8;" th:if="${currentUser?.roleCode eq 'admin'}">
+                            <button type="button" class="btn btn-default btn-sm" data-command="bold" title="加粗"><i class="fa fa-bold"></i></button>
+                            <button type="button" class="btn btn-default btn-sm" data-command="italic" title="斜体"><i class="fa fa-italic"></i></button>
+                            <button type="button" class="btn btn-default btn-sm" data-command="underline" title="下划线"><i class="fa fa-underline"></i></button>
+                            <button type="button" class="btn btn-default btn-sm" data-command="strikeThrough" title="删除线"><i class="fa fa-strikethrough"></i></button>
+                            <span class="separator">|</span>
+                            <button type="button" class="btn btn-default btn-sm" data-command="justifyLeft" title="左对齐"><i class="fa fa-align-left"></i></button>
+                            <button type="button" class="btn btn-default btn-sm" data-command="justifyCenter" title="居中"><i class="fa fa-align-center"></i></button>
+                            <button type="button" class="btn btn-default btn-sm" data-command="justifyRight" title="右对齐"><i class="fa fa-align-right"></i></button>
+                            <span class="separator">|</span>
+                            <button type="button" class="btn btn-default btn-sm" data-command="insertOrderedList" title="有序列表"><i class="fa fa-list-ol"></i></button>
+                            <button type="button" class="btn btn-default btn-sm" data-command="insertUnorderedList" title="无序列表"><i class="fa fa-list-ul"></i></button>
+                            <span class="separator">|</span>
+                            <button type="button" class="btn btn-default btn-sm" data-command="createLink" title="插入链接"><i class="fa fa-link"></i></button>
+                            <button type="button" class="btn btn-default btn-sm" data-command="unlink" title="取消链接"><i class="fa fa-unlink"></i></button>
+                            <button type="button" class="btn btn-default btn-sm" id="insertImageBtn" title="插入图片"><i class="fa fa-picture-o"></i></button>
+                            <span class="separator">|</span>
+                            <button type="button" class="btn btn-default btn-sm" data-command="formatBlock" data-value="h1" title="标题1">H1</button>
+                            <button type="button" class="btn btn-default btn-sm" data-command="formatBlock" data-value="h2" title="标题2">H2</button>
+                            <button type="button" class="btn btn-default btn-sm" data-command="formatBlock" data-value="h3" title="标题3">H3</button>
+                            <button type="button" class="btn btn-default btn-sm" data-command="formatBlock" data-value="p" title="段落">P</button>
+                            <span class="separator">|</span>
+                            <button type="button" class="btn btn-default btn-sm" data-command="undo" title="撤销"><i class="fa fa-undo"></i></button>
+                            <button type="button" class="btn btn-default btn-sm" data-command="redo" title="重做"><i class="fa fa-repeat"></i></button>
+                        </div>
+                        <div id="editorContent" th:attr="contenteditable=${currentUser?.roleCode eq 'admin'}" style="min-height: calc(100vh - 230px); padding: 15px; overflow-y: auto;">
+                        </div>
+                    </div>
+                    <div id="noDocSelected" class="text-center text-muted" style="padding: 100px 0;">
+                        <i class="fa fa-file-text-o" style="font-size: 48px;"></i>
+                        <p style="margin-top: 20px;">请从左侧选择文档查看</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<input type="file" id="imageUploadInput" accept="image/*" style="display: none;">
+<input type="hidden" id="isAdmin" th:value="${currentUser?.roleCode eq 'admin'}">
+
+<script th:src="@{/js/helpdoc/index.js}"></script>
+</html>
