@@ -823,34 +823,22 @@ function buildDifferenceSection(title, icon, alertClass, count, items, type) {
     return html;
 }
 
-let currentFixDirection = null;
-
 function bindFieldDiffFixClick() {
     let $fixTargetBtn = $("#fixTargetTableBtn");
-    let $fixSourceBtn = $("#fixSourceTableBtn");
     let $confirmBtn = $("#confirmFieldDiffFixBtn");
     
     $fixTargetBtn.bind('click', function(){
         let id = $("#fieldDifferenceBtn").attr("tableGroupId");
-        showFieldDiffFixPreview(id, 'TARGET');
-    });
-    
-    $fixSourceBtn.bind('click', function(){
-        let id = $("#fieldDifferenceBtn").attr("tableGroupId");
-        showFieldDiffFixPreview(id, 'SOURCE');
+        showFieldDiffFixPreview(id);
     });
     
     $confirmBtn.bind('click', function(){
         let id = $("#fieldDifferenceBtn").attr("tableGroupId");
-        if (currentFixDirection) {
-            executeFieldDiffFix(id, currentFixDirection);
-        }
+        executeFieldDiffFix(id);
     });
 }
 
-function showFieldDiffFixPreview(id, fixDirection) {
-    currentFixDirection = fixDirection;
-    
+function showFieldDiffFixPreview(id) {
     $('#fieldDiffFixModal').modal('show');
     $('#fieldDiffFixWarning').removeClass('alert-danger').addClass('alert-warning');
     $('#fieldDiffFixWarning').html('<strong>加载中...</strong>');
@@ -858,7 +846,7 @@ function showFieldDiffFixPreview(id, fixDirection) {
     $('#fieldDiffFixSqlContent').text('');
     $('#confirmFieldDiffFixBtn').prop('disabled', true);
     
-    doPoster("/tableGroup/fieldDiffFixPreview", {'id': id, 'fixDirection': fixDirection}, function (data) {
+    doPoster("/tableGroup/fieldDiffFixPreview", {'id': id}, function (data) {
         if (data.success === true) {
             renderFieldDiffFixPreview(data.resultValue);
         } else {
@@ -886,7 +874,7 @@ function renderFieldDiffFixPreview(result) {
         '<div class="panel-body">' +
         '<p><strong>源表：</strong>' + result.sourceTableName + '</p>' +
         '<p><strong>目标表：</strong>' + result.targetTableName + '</p>' +
-        '<p><strong>修复方向：</strong>' + (result.fixDirection === 'TARGET' ? '修改目标表' : '修改源表') + '</p>' +
+        '<p><strong>修复方向：</strong>以源表为基准修复目标表</p>' +
         '</div></div>';
 
     if (result.items && result.items.length > 0) {
@@ -958,7 +946,7 @@ function getOperationLabel(operation) {
     }
 }
 
-function executeFieldDiffFix(id, fixDirection) {
+function executeFieldDiffFix(id) {
     let $confirmBtn = $("#confirmFieldDiffFixBtn");
     $confirmBtn.prop('disabled', true);
     $confirmBtn.html('<span class="fa fa-spinner fa-spin"></span> 执行中...');
@@ -982,7 +970,6 @@ function executeFieldDiffFix(id, fixDirection) {
     
     let params = {
         'id': id,
-        'fixDirection': fixDirection,
         'selectedIds': JSON.stringify(selectedIds)
     };
     

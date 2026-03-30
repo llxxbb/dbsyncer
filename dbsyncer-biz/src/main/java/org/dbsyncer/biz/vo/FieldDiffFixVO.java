@@ -10,8 +10,6 @@ public class FieldDiffFixVO implements Serializable {
 
     private String tableGroupId;
 
-    private String fixDirection;
-
     private List<String> sqlStatements = new ArrayList<>();
 
     private List<FieldDiffFixItem> items = new ArrayList<>();
@@ -30,14 +28,6 @@ public class FieldDiffFixVO implements Serializable {
 
     public void setTableGroupId(String tableGroupId) {
         this.tableGroupId = tableGroupId;
-    }
-
-    public String getFixDirection() {
-        return fixDirection;
-    }
-
-    public void setFixDirection(String fixDirection) {
-        this.fixDirection = fixDirection;
     }
 
     public List<String> getSqlStatements() {
@@ -92,7 +82,6 @@ public class FieldDiffFixVO implements Serializable {
     public String toString() {
         return "FieldDiffFixVO{" +
                 "tableGroupId='" + tableGroupId + '\'' +
-                ", fixDirection='" + fixDirection + '\'' +
                 ", sqlStatements=" + sqlStatements.size() +
                 ", items=" + items.size() +
                 ", hasSql=" + hasSql +

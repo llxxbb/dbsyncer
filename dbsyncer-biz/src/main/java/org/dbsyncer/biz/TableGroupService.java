@@ -83,19 +83,17 @@ public interface TableGroupService {
     /**
      * 获取字段差异修复 SQL 预览
      *
-     * @param id           TableGroup ID
-     * @param fixDirection 修复方向: "TARGET" 或 "SOURCE"
+     * @param id TableGroup ID
      * @return 修复 SQL 预览信息
      */
-    FieldDiffFixVO getFieldDiffFixPreview(String id, String fixDirection) throws Exception;
+    FieldDiffFixVO getFieldDiffFixPreview(String id) throws Exception;
 
     /**
      * 执行字段差异修复（支持选择性修复）
      *
-     * @param id           TableGroup ID
-     * @param fixDirection 修复方向: "TARGET" 或 "SOURCE"
-     * @param selectedIds  选中的差异项 ID 列表（为空表示全选）
+     * @param id          TableGroup ID
+     * @param selectedIds 选中的差异项 ID 列表（为空表示全选）
      * @return 执行结果消息
      */
-    String executeFieldDiffFix(String id, String fixDirection, List<String> selectedIds) throws Exception;
+    String executeFieldDiffFix(String id, List<String> selectedIds) throws Exception;
 }

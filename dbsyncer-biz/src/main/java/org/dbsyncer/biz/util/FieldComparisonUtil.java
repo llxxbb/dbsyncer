@@ -9,8 +9,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 字段比较工具类
+ * 用于比较源表和目标表的字段差异，包括新增字段、缺失字段、类型不匹配和长度不匹配
+ */
 public final class FieldComparisonUtil {
 
+    /**
+     * 字段比较结果类
+     * 封装字段比较后的各类差异信息
+     */
     public static final class FieldComparisonResult {
         private List<FieldDiffItem> addedFields = new ArrayList<>();
         private List<FieldDiffItem> missingFields = new ArrayList<>();
@@ -33,6 +41,10 @@ public final class FieldComparisonUtil {
             return lengthMismatched;
         }
 
+        /**
+         * 判断是否存在字段差异
+         * @return true-存在差异，false-无差异
+         */
         public boolean hasDifference() {
             return !addedFields.isEmpty()
                     || !missingFields.isEmpty()
@@ -41,6 +53,12 @@ public final class FieldComparisonUtil {
         }
     }
 
+    /**
+     * 比较源表和目标表的字段差异
+     * @param sourceFields 源表字段列表
+     * @param targetFields 目标表字段列表
+     * @return 字段比较结果，包含新增、缺失、类型不匹配和长度不匹配的字段信息
+     */
     public static FieldComparisonResult compareFields(List<Field> sourceFields, List<Field> targetFields) {
         FieldComparisonResult result = new FieldComparisonResult();
 
@@ -60,6 +78,9 @@ public final class FieldComparisonUtil {
 
         // 检查目标表多出的字段
         for (Field targetField : targetFields) {
+            if (targetField == null || targetField.getName() == null) {
+                continue;
+            }
             String fieldNameLower = targetField.getName().toLowerCase();
             Field sourceField = sourceFieldMap.get(fieldNameLower);
 
@@ -102,6 +123,9 @@ public final class FieldComparisonUtil {
 
         // 检查目标表缺少的字段
         for (Field sourceField : sourceFields) {
+            if (sourceField == null || sourceField.getName() == null) {
+                continue;
+            }
             String fieldNameLower = sourceField.getName().toLowerCase();
             if (!targetFieldMap.containsKey(fieldNameLower)) {
                 FieldDiffItem item = new FieldDiffItem();
@@ -117,12 +141,24 @@ public final class FieldComparisonUtil {
         return result;
     }
 
+    /**
+     * 判断两个字段的类型是否匹配
+     * @param sourceField 源字段
+     * @param targetField 目标字段
+     * @return true-类型匹配，false-类型不匹配
+     */
     private static boolean isTypeMatch(Field sourceField, Field targetField) {
         String sourceType = normalizeType(sourceField.getTypeName());
         String targetType = normalizeType(targetField.getTypeName());
         return sourceType.equals(targetType);
     }
 
+    /**
+     * 标准化字段类型名称
+     * 处理带精度的类型（如VARCHAR(255)）和带空格的类型（如INT IDENTITY）
+     * @param typeName 原始类型名称
+     * @return 标准化后的类型名称
+     */
     private static String normalizeType(String typeName) {
         if (typeName == null) {
             return "";
@@ -141,6 +177,11 @@ public final class FieldComparisonUtil {
         return normalized;
     }
 
+    /**
+     * 判断是否为字符串类型（VARCHAR或CHAR类型）
+     * @param typeName 字段类型名称
+     * @return true-是字符串类型，false-不是字符串类型
+     */
     private static boolean isVarcharType(String typeName) {
         if (typeName == null) {
             return false;
