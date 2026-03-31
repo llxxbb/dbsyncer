@@ -172,8 +172,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
                 try {
                     alterPrimaryKey(model, targetConnector, oldPrimaryKeys, newPrimaryKeys);
                 } catch (Exception e) {
-                    logger.error("执行主键 DDL 失败，配置未保存", e);
-                    throw new RuntimeException("修改主键约束失败：" + e.getMessage(), e);
+                    throw new RuntimeException("请确认表已经创建！修改主键约束失败：" + e.getMessage(), e);
                 }
             }
         }
@@ -209,6 +208,10 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         List<String> list = new ArrayList<>();
         list.add(model.getId());
         submitTableGroupCountTask(mapping, list);
+        
+        // 合并驱动公共字段（更新 mapping.targetColumn）
+        mergeMappingColumn(mapping);
+        
         return id;
     }
 
@@ -361,10 +364,15 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
                 ddlConfig.setSql(ddl);
 
                 // 使用 connectorFactory 执行 DDL
-                connectorFactory.writerDDL(
+                org.dbsyncer.common.model.Result result = connectorFactory.writerDDL(
                         connectorFactory.connect(targetConnector.getConfig()),
                         ddlConfig,
                         null);
+
+                // 检查执行结果
+                if (result != null && result.error != null) {
+                    throw new Exception("请确认表已经创建！执行自定义字段 DDL 失败 ：" + result.error);
+                }
 
                 logger.info("自定义字段 DDL 执行成功：{}.{}",
                         tableGroup.getTargetTable().getName(), field.getName());
