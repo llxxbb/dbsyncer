@@ -379,13 +379,20 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
 
                 // 检查执行结果
                 if (result != null && result.error != null) {
-                    throw new Exception("请确认表已经创建！执行自定义字段 DDL 失败 ：" + result.error);
+                    String errorMsg = "请确认表已经创建！执行自定义字段 DDL 失败：" + result.error;
+                    throw new Exception(errorMsg);
                 }
 
                 logger.info("自定义字段 DDL 执行成功：{}.{}",
                         tableGroup.getTargetTable().getName(), field.getName());
             } catch (Exception e) {
                 logger.error("DDL 执行异常：{}", field.getName(), e);
+                // 持久化异常到数据库，带上 mappingId 便于定位
+                String mappingId = mapping != null ? mapping.getId() : "unknown";
+                logService.log(LogType.SystemLog.ERROR,
+                        String.format("[mappingId=%s] DDL 执行异常：表=%s, 字段=%s, 错误=%s",
+                                mappingId, tableGroup.getTargetTable().getName(),
+                                field.getName(), e.getMessage()));
                 throw e;
             }
         }
@@ -459,6 +466,12 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
                     null);
 
             if (StringUtil.isNotBlank(result.error)) {
+                    // 持久化异常到数据库，带上 mappingId 便于定位
+                    String mappingId = tableGroup.getMappingId();
+                    logService.log(LogType.SystemLog.ERROR, 
+                            String.format("[mappingId=%s] 修改主键约束失败：表=%s, SQL=%s, 错误=%s",
+                                    mappingId, tableGroup.getTargetTable().getName(), 
+                                    trimmedSql, result.error));
                 throw new RuntimeException("执行 DDL 失败：" + result.error + ", SQL: " + trimmedSql);
             }
         }
