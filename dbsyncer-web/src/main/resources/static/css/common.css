@@ -17,3 +17,45 @@
 /* 去掉框架黑边框样式 */
 .btn:active:focus, .btn:focus{outline:none; }
 .bootstrap-select .dropdown-toggle:focus,.bootstrap-select>select.mobile-device:focus+.dropdown-toggle {outline:none !important;}
+
+/* 字段差异相关样式 */
+.field-difference-container {
+    max-height: 400px;
+    overflow-y: auto;
+}
+.field-difference-container .panel {
+    margin-bottom: 10px;
+}
+.field-difference-container .panel-heading {
+    padding: 8px 15px;
+    font-weight: bold;
+}
+.field-difference-container .panel-body {
+    padding: 10px;
+}
+.field-difference-container .table {
+    margin-bottom: 0;
+}
+.field-difference-container .badge {
+    background-color: #337ab7;
+}
+.diff-item-checkbox {
+    cursor: pointer;
+}
+.well-sign-green {
+    color: #5cb85c;
+}
+.well-sign-green:hover {
+    color: #4cae4c;
+}
+
+/* 帮助文档样式 */
+.doc-item {cursor: pointer;}
+.doc-item:hover {background-color: #f5f5f5;}
+.doc-item.active {background-color: #337ab7; color: white;}
+.doc-item.active .text-muted {color: #ccc !important;}
+#editorToolbar {background-color: #f8f8f8;}
+#editorToolbar .separator {margin: 0 5px; color: #ccc;}
+#editorToolbar button {border-radius: 3px; margin: 2px;}
+#editorContent:focus {outline: none;}
+#editorContent img {max-width: 100%; border-radius: 4px;}

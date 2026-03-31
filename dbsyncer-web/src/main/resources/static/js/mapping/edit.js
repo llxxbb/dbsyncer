@@ -126,10 +126,41 @@ function getCheckedBoxSize($checkbox) {
 }
 
 // 绑定表关系点击事件
+function checkFieldDifferencesForTableGroups() {
+    var $tableGroupList = $("#tableGroupList");
+    if ($tableGroupList.length === 0) {
+        return;
+    }
+    
+    // 收集所有映射组ID
+    var ids = [];
+    $tableGroupList.find("tr").each(function() {
+        var tableGroupId = $(this).attr("id");
+        if (tableGroupId) {
+            ids.push(tableGroupId);
+        }
+    });
+    
+    if (ids.length === 0) {
+        return;
+    }
+    
+    // 使用批量接口一次请求
+    doPoster("/tableGroup/fieldDifferenceBatch", {'ids': ids.join(',')}, function(data) {
+        if (data.success === true && data.resultValue) {
+            // resultValue 是 Map<tableGroupId, hasDifference>
+            $.each(data.resultValue, function(tableGroupId, hasDiff) {
+                if (hasDiff) {
+                    $("#" + tableGroupId).addClass("field-diff-warning");
+                }
+            });
+        }
+    });
+}
+
 function bindMappingTableGroupListClick() {
     var $tableGroupList = $("#tableGroupList");
     if ($tableGroupList.length === 0) {
-        // 如果tableGroupList不存在，延迟绑定
         setTimeout(function() {
             bindMappingTableGroupListClick();
         }, 100);
@@ -138,14 +169,12 @@ function bindMappingTableGroupListClick() {
     
     $tableGroupList.unbind("click");
     $tableGroupList.find("tr").bind('click', function (e) {
-        // 如果点击的是编辑图标，不触发跳转
         if ($(e.target).hasClass('target-table-rename') || $(e.target).closest('.target-table-rename').length > 0) {
             return;
         }
         updateHash('/tableGroup/page/editTableGroup?id=' + $(this).attr("id"));
     });
 
-    // 绑定表格拖拽事件
     $tableGroupList.tableDnD({
         onDrop: function (table, row) {
             var newData = [];
@@ -157,8 +186,9 @@ function bindMappingTableGroupListClick() {
         }
     });
     
-    // 绑定目标表重命名事件
     bindTargetTableRenameClick();
+    
+    checkFieldDifferencesForTableGroups();
 }
 
 // 绑定目标表重命名点击事件

@@ -1,7 +1,10 @@
 package org.dbsyncer.web.controller.index;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.dbsyncer.biz.MappingService;
 import org.dbsyncer.biz.TableGroupService;
+import org.dbsyncer.biz.vo.FieldDifferenceVO;
 import org.dbsyncer.biz.vo.RestResult;
 import org.dbsyncer.common.model.Result;
 import org.dbsyncer.common.util.StringUtil;
@@ -33,6 +36,7 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import org.dbsyncer.sdk.util.PrimaryKeyUtil;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -62,7 +66,9 @@ public class TableGroupController extends BaseController {
     @GetMapping("/page/{page}")
     public String page(ModelMap model, @PathVariable("page") String page, @RequestParam(value = "id") String id) throws Exception {
         TableGroup tableGroup = tableGroupService.getTableGroup(id);
+        FieldDifferenceVO fieldDifference = tableGroupService.getFieldDifference(id);
         model.put("tableGroup", tableGroup);
+        model.put("fieldDifference", fieldDifference);
         String mappingId = tableGroup.getMappingId();
         model.put("mapping", mappingService.getMapping(mappingId));
         initConfig(model);
@@ -288,6 +294,105 @@ public class TableGroupController extends BaseController {
         } catch (Exception e) {
             logger.error("创建表异常: {}", e.getMessage(), e);
             return RestResult.restFail("创建表失败: " + e.getMessage(), 500);
+        }
+    }
+
+    /**
+     * 批量获取多个表映射关系的字段差异
+     * <p>
+     * 用于批量检查多个表映射关系是否存在字段差异，返回每个ID对应的差异状态（是否有差异）。
+     * 适用于列表页快速展示哪些表映射关系存在结构差异。
+     *
+     * @param ids 表映射关系ID列表，逗号分隔（如："id1,id2,id3"）
+     * @return Map&lt;表映射关系ID, 是否有差异&gt;，true表示存在字段差异
+     */
+    @PostMapping(value = "/fieldDifferenceBatch")
+    @ResponseBody
+    public RestResult getFieldDifferenceBatch(@RequestParam(value = "ids") String ids) {
+        try {
+            List<String> idList = Arrays.asList(ids.split(","));
+            Map<String, Boolean> result = new HashMap<>();
+
+            for (String id : idList) {
+                if (StringUtil.isNotBlank(id)) {
+                    result.put(id, tableGroupService.getFieldDifference(id).isHasDifference());
+                }
+            }
+
+            return RestResult.restSuccess(result);
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
+        }
+    }
+
+    /**
+     * 获取字段差异修复的SQL预览
+     * <p>
+     * 根据检测到的字段差异，生成对应的DDL修复语句预览，包括：
+     * <ul>
+     *   <li>ADD COLUMN：添加缺失字段</li>
+     *   <li>DROP COLUMN：删除多余字段</li>
+     *   <li>MODIFY COLUMN：修改字段类型或长度</li>
+     * </ul>
+     * <p>
+     * 修复方向：以源表为基准，修复目标表结构（使目标表与源表一致）
+     *
+     * @param id 表映射关系ID（TableGroup ID）
+     * @return 修复预览信息 ，包含生成的SQL语句列表和警告信息
+     */
+    @PostMapping(value = "/fieldDiffFixPreview")
+    @ResponseBody
+    public RestResult getFieldDiffFixPreview(@RequestParam(value = "id") String id) {
+        try {
+            return RestResult.restSuccess(tableGroupService.getFieldDiffFixPreview(id));
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
+        }
+    }
+
+    /**
+     * 执行字段差异修复（支持选择性修复）
+     * <p>
+     * 根据预览生成的DDL语句，实际执行数据库结构修复操作。
+     * 支持全量修复或选择性修复部分差异项。
+     * <p>
+     * 执行流程：
+     * <ol>
+     *   <li>验证驱动状态（不能处于运行中）</li>
+     *   <li>获取修复预览（复用预览逻辑生成SQL）</li>
+     *   <li>根据selectedIds过滤需要执行的修复项（为空则执行全部）</li>
+     *   <li>逐个执行DDL语句</li>
+     *   <li>刷新表字段元数据并更新配置</li>
+     * </ol>
+     * <p>
+     * 注意事项：
+     * <ul>
+     *   <li>DROP COLUMN 操作会导致数据丢失，请谨慎操作</li>
+     *   <li>DDL 操作不可逆，执行前请确认预览的SQL语句</li>
+     *   <li>只支持数据库类型的连接器</li>
+     * </ul>
+     *
+     * @param id          表映射关系ID（TableGroup ID）
+     * @param selectedIds 选中的差异项ID列表（JSON格式字符串），为空表示执行全部修复项
+     * @return 执行结果消息，包含成功/失败的DDL语句数量
+     */
+    @PostMapping(value = "/executeFieldDiffFixSelective")
+    @ResponseBody
+    public RestResult executeFieldDiffFixSelective(
+            @RequestParam(value = "id") String id,
+            @RequestParam(value = "selectedIds", required = false) String selectedIds) {
+        try {
+            List<String> ids = null;
+            if (StringUtil.isNotBlank(selectedIds)) {
+                ObjectMapper objectMapper = new ObjectMapper();
+                ids = objectMapper.readValue(selectedIds, new TypeReference<List<String>>() {});
+            }
+            return RestResult.restSuccess(tableGroupService.executeFieldDiffFix(id, ids));
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
         }
     }
 

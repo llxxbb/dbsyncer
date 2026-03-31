@@ -8,6 +8,11 @@ import org.dbsyncer.biz.PrimaryKeyRequiredException;
 import org.dbsyncer.biz.TableGroupService;
 import org.dbsyncer.biz.checker.impl.tablegroup.TableGroupChecker;
 import org.dbsyncer.biz.task.TableGroupCountTask;
+import org.dbsyncer.biz.util.FieldComparisonUtil;
+import org.dbsyncer.biz.vo.FieldDiffFixVO;
+import org.dbsyncer.biz.vo.FieldDiffFixItem;
+import org.dbsyncer.biz.vo.FieldDiffItem;
+import org.dbsyncer.biz.vo.FieldDifferenceVO;
 import org.dbsyncer.common.dispatch.DispatchTaskService;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.StringUtil;
@@ -36,6 +41,7 @@ import org.springframework.util.Assert;
 
 import javax.annotation.Resource;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -48,6 +54,8 @@ import java.util.stream.Stream;
 public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroupService {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
+
+    private final Map<String, Object> locks = new ConcurrentHashMap<>();
 
     @Resource
     private LogService logService;
@@ -575,6 +583,379 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         } catch (Exception e) {
             logger.error("TRUNCATE 目标表操作失败: {}", e.getMessage(), e);
         }
+    }
+
+    @Override
+    public FieldDifferenceVO getFieldDifference(String id) throws Exception {
+        TableGroup tableGroup = profileComponent.getTableGroup(id);
+        Assert.notNull(tableGroup, "TableGroup不能为空");
+
+        List<Field> sourceFields = tableGroup.getSourceTable().getColumn();
+        List<Field> targetFields = tableGroup.getTargetTable().getColumn();
+
+        FieldComparisonUtil.FieldComparisonResult comparison = FieldComparisonUtil.compareFields(sourceFields, targetFields);
+
+        FieldDifferenceVO result = new FieldDifferenceVO();
+        result.setAddedFields(comparison.getAddedFields());
+        result.setMissingFields(comparison.getMissingFields());
+        result.setTypeMismatched(comparison.getTypeMismatched());
+        result.setLengthMismatched(comparison.getLengthMismatched());
+
+        return result;
+    }
+
+    @Override
+    public FieldDiffFixVO getFieldDiffFixPreview(String id) throws Exception {
+        Assert.hasText(id, "TableGroup ID 不能为空");
+
+        TableGroup tableGroup = profileComponent.getTableGroup(id);
+        Assert.notNull(tableGroup, "TableGroup 不存在");
+
+        Mapping mapping = profileComponent.getMapping(tableGroup.getMappingId());
+        Assert.notNull(mapping, "Mapping 不存在");
+
+        mapping.assertDisableEdit();
+
+        FieldDifferenceVO diffVO = getFieldDifference(id);
+
+        FieldDiffFixVO fixVO = new FieldDiffFixVO();
+        fixVO.setTableGroupId(id);
+        fixVO.setSourceTableName(tableGroup.getSourceTable().getName());
+        fixVO.setTargetTableName(tableGroup.getTargetTable().getName());
+
+        if (!diffVO.isHasDifference()) {
+            fixVO.setHasSql(false);
+            fixVO.setWarning("没有字段差异需要修复");
+            return fixVO;
+        }
+
+        Connector sourceConnector = profileComponent.getConnector(mapping.getSourceConnectorId());
+        Connector targetConnector = profileComponent.getConnector(mapping.getTargetConnectorId());
+
+        ConnectorService sourceConnectorService = connectorFactory.getConnectorService(sourceConnector.getConfig().getConnectorType());
+        ConnectorService targetConnectorService = connectorFactory.getConnectorService(targetConnector.getConfig().getConnectorType());
+
+        if (!isDatabaseConnector(sourceConnectorService) || !isDatabaseConnector(targetConnectorService)) {
+            fixVO.setHasSql(false);
+            fixVO.setWarning("只支持数据库类型的连接器");
+            return fixVO;
+        }
+
+        AbstractDatabaseConnector sourceDbConnector = (AbstractDatabaseConnector) sourceConnectorService;
+        AbstractDatabaseConnector targetDbConnector = (AbstractDatabaseConnector) targetConnectorService;
+
+        List<FieldDiffFixItem> items = new ArrayList<>();
+        List<String> sqlStatements = new ArrayList<>();
+        boolean hasDropOperation = false;
+
+        Map<String, Field> sourceFieldMap = FieldComparisonUtil.buildFieldMap(tableGroup.getSourceTable().getColumn());
+        Map<String, Field> targetFieldMap = FieldComparisonUtil.buildFieldMap(tableGroup.getTargetTable().getColumn());
+
+        hasDropOperation = processTargetAddedFields(diffVO.getAddedFields(), targetFieldMap, tableGroup, targetDbConnector, items, sqlStatements);
+        processTargetMissingFields(diffVO.getMissingFields(), sourceFieldMap, tableGroup, sourceDbConnector, targetDbConnector, items, sqlStatements);
+        processTargetTypeMismatched(diffVO.getTypeMismatched(), sourceFieldMap, tableGroup, sourceDbConnector, targetDbConnector, items, sqlStatements);
+        processTargetLengthMismatched(diffVO.getLengthMismatched(), sourceFieldMap, tableGroup, sourceDbConnector, targetDbConnector, items, sqlStatements);
+
+        fixVO.setItems(items);
+        fixVO.setSqlStatements(sqlStatements);
+        fixVO.setHasSql(!sqlStatements.isEmpty());
+
+        if (hasDropOperation) {
+            fixVO.setWarning("警告：包含 DROP COLUMN 操作，删除列将导致数据丢失，请谨慎操作！");
+        } else if (!sqlStatements.isEmpty()) {
+            fixVO.setWarning("注意：DDL 操作不可逆，请确认 SQL 语句后再执行");
+        }
+
+        return fixVO;
+    }
+
+    @Override
+    public String executeFieldDiffFix(String id, List<String> selectedIds) throws Exception {
+        Assert.hasText(id, "TableGroup ID 不能为空");
+
+        TableGroup tableGroup = profileComponent.getTableGroup(id);
+        Assert.notNull(tableGroup, "TableGroup 不存在");
+
+        Mapping mapping = profileComponent.getMapping(tableGroup.getMappingId());
+        Assert.notNull(mapping, "Mapping 不存在");
+
+        mapping.assertDisableEdit();
+
+        Meta meta = profileComponent.getMeta(mapping.getMetaId());
+        if (meta != null) {
+            meta.assertNotRunning();
+        }
+
+        synchronized (getLock(id)) {
+            FieldDiffFixVO fixVO = getFieldDiffFixPreview(id);
+
+            if (!fixVO.isHasSql()) {
+                return "没有需要执行的 DDL 语句";
+            }
+
+            List<FieldDiffFixItem> itemsToFix;
+            if (CollectionUtils.isEmpty(selectedIds)) {
+                itemsToFix = fixVO.getItems();
+            } else {
+                itemsToFix = new ArrayList<>();
+                for (FieldDiffFixItem item : fixVO.getItems()) {
+                    if (selectedIds.contains(item.getId())) {
+                        itemsToFix.add(item);
+                    }
+                }
+            }
+
+            if (CollectionUtils.isEmpty(itemsToFix)) {
+                return "没有选中的修复项需要执行";
+            }
+
+            List<String> sqlStatements = new ArrayList<>();
+            for (FieldDiffFixItem item : itemsToFix) {
+                if (StringUtil.isNotBlank(item.getSql())) {
+                    sqlStatements.add(item.getSql());
+                }
+            }
+
+            if (CollectionUtils.isEmpty(sqlStatements)) {
+                return "没有需要执行的 DDL 语句";
+            }
+
+            Connector connector = profileComponent.getConnector(mapping.getTargetConnectorId());
+            String tableName = tableGroup.getTargetTable().getName();
+
+            String connectorType = connector.getConfig().getConnectorType();
+            ConnectorService connectorService = connectorFactory.getConnectorService(connectorType);
+
+            if (!isDatabaseConnector(connectorService)) {
+                throw new UnsupportedOperationException("只支持数据库类型的连接器");
+            }
+
+            validateIdentifier(tableName, "表名");
+
+            ConnectorInstance connectorInstance = null;
+            int successCount = 0;
+            List<String> failedSqls = new ArrayList<>();
+
+            try {
+                connectorInstance = connectorFactory.connect(connector.getConfig());
+
+                for (String sql : sqlStatements) {
+                    try {
+                        DDLConfig ddlConfig = new DDLConfig();
+                        ddlConfig.setSql(sql);
+
+                        org.dbsyncer.common.model.Result result = connectorFactory.writerDDL(connectorInstance, ddlConfig, null);
+
+                        if (result.error != null && !result.error.isEmpty()) {
+                            logger.error("DDL 执行失败 [tableGroupId={}]: {}, 错误: {}", id, sql, result.error);
+                            failedSqls.add(sql + " (错误: " + result.error + ")");
+                        } else {
+                            logger.info("DDL 执行成功 [tableGroupId={}]: {}", id, sql);
+                            successCount++;
+                        }
+                    } catch (Exception e) {
+                        logger.error("DDL 执行异常 [tableGroupId={}]: {}", id, sql, e);
+                        failedSqls.add(sql + " (异常: " + e.getMessage() + ")");
+                    }
+                }
+
+                if (successCount > 0) {
+                    try {
+                        tableGroupChecker.refreshTableFields(tableGroup);
+                        profileComponent.editTableGroup(tableGroup);
+                        log(LogType.TableGroupLog.UPDATE, tableGroup);
+                    } catch (Exception e) {
+                        logger.error("刷新表字段失败", e);
+                    }
+                }
+            } finally {
+                if (connectorInstance != null) {
+                    try {
+                        connectorFactory.disconnect(connector.getConfig());
+                        logger.debug("数据库连接已关闭 [tableGroupId={}]", id);
+                    } catch (Exception e) {
+                        logger.warn("关闭数据库连接失败 [tableGroupId={}]: {}", id, e.getMessage());
+                    }
+                }
+            }
+
+            int totalSelected = itemsToFix.size();
+            if (failedSqls.isEmpty()) {
+                String message = String.format("成功修复目标表字段差异，共执行 %d/%d 条 DDL 语句", successCount, totalSelected);
+                logService.log(LogType.SystemLog.INFO, message);
+                return message;
+            } else {
+                String message = String.format("部分 DDL 执行失败，成功 %d/%d 条，失败 %d 条。失败的 SQL: %s",
+                        successCount, totalSelected, failedSqls.size(), String.join("; ", failedSqls));
+                logService.log(LogType.SystemLog.ERROR, message);
+                return message;
+            }
+        }
+    }
+
+    private boolean isDatabaseConnector(ConnectorService connectorService) {
+        return connectorService instanceof AbstractDatabaseConnector;
+    }
+
+    // ==========================================
+    // TARGET方向处理方法（以源表为基准修复目标表）
+    // ==========================================
+
+    /**
+     * 【TARGET-1】处理目标表多出字段 -> 执行 DROP COLUMN
+     * @return 是否包含DROP操作
+     */
+    private boolean processTargetAddedFields(List<FieldDiffItem> addedFields, Map<String, Field> targetFieldMap,
+                                          TableGroup tableGroup, AbstractDatabaseConnector targetDbConnector,
+                                          List<FieldDiffFixItem> items, List<String> sqlStatements) {
+        if (CollectionUtils.isEmpty(addedFields)) {
+            return false;
+        }
+        String tableName = tableGroup.getTargetTable().getName();
+        final boolean[] hasDrop = {false};
+        addedFields.forEach(diffItem -> {
+            Field targetField = targetFieldMap.get(diffItem.getFieldName().toLowerCase());
+            if (targetField == null) {
+                return;
+            }
+            FieldDiffFixItem fixItem = createFixItem(diffItem, "ADDED", "DROP",
+                    "目标表多出的字段，将删除", diffItem.getTargetType(), diffItem.getTargetLength(), null, null);
+            String sql = targetDbConnector.getSqlTemplate().buildDropColumnSql(tableName, diffItem.getFieldName());
+            fixItem.setSql(sql);
+            items.add(fixItem);
+            sqlStatements.add(sql);
+            hasDrop[0] = true;
+        });
+        return hasDrop[0];
+    }
+
+    /**
+     * 【TARGET-2】处理目标表缺少字段 -> 执行 ADD COLUMN
+     */
+    private void processTargetMissingFields(List<FieldDiffItem> missingFields, Map<String, Field> sourceFieldMap,
+                                            TableGroup tableGroup, AbstractDatabaseConnector sourceDbConnector,
+                                            AbstractDatabaseConnector targetDbConnector,
+                                            List<FieldDiffFixItem> items, List<String> sqlStatements) {
+        if (CollectionUtils.isEmpty(missingFields)) {
+            return;
+        }
+        String tableName = tableGroup.getTargetTable().getName();
+        missingFields.forEach(diffItem -> {
+            Field sourceField = sourceFieldMap.get(diffItem.getFieldName().toLowerCase());
+            if (sourceField == null) {
+                return;
+            }
+            FieldDiffFixItem fixItem = createFixItem(diffItem, "MISSING", "ADD",
+                    "目标表缺少的字段，将添加", null, null, diffItem.getSourceType(), diffItem.getSourceLength());
+            Field fieldToAdd = convertFieldForTarget(sourceField, sourceDbConnector, targetDbConnector);
+            String sql = targetDbConnector.getSqlTemplate().buildAddColumnSql(tableName, fieldToAdd);
+            fixItem.setSql(sql);
+            items.add(fixItem);
+            sqlStatements.add(sql);
+        });
+    }
+
+    /**
+     * 【TARGET-3】处理类型不匹配字段 -> 执行 MODIFY COLUMN
+     */
+    private void processTargetTypeMismatched(List<FieldDiffItem> typeMismatched, Map<String, Field> sourceFieldMap,
+                                             TableGroup tableGroup, AbstractDatabaseConnector sourceDbConnector,
+                                             AbstractDatabaseConnector targetDbConnector,
+                                             List<FieldDiffFixItem> items, List<String> sqlStatements) {
+        if (CollectionUtils.isEmpty(typeMismatched)) {
+            return;
+        }
+        String tableName = tableGroup.getTargetTable().getName();
+        typeMismatched.forEach(diffItem -> {
+            Field sourceField = sourceFieldMap.get(diffItem.getFieldName().toLowerCase());
+            if (sourceField == null) {
+                return;
+            }
+            FieldDiffFixItem fixItem = createFixItem(diffItem, "TYPE_MISMATCH", "MODIFY",
+                    "类型不匹配，将修改为目标类型", diffItem.getTargetType(), null, diffItem.getSourceType(), null);
+            Field fieldToModify = convertFieldForTarget(sourceField, sourceDbConnector, targetDbConnector);
+            String sql = targetDbConnector.getSqlTemplate().buildModifyColumnSql(tableName, fieldToModify);
+            fixItem.setSql(sql);
+            items.add(fixItem);
+            sqlStatements.add(sql);
+        });
+    }
+
+    /**
+     * 【TARGET-4】处理长度不匹配字段 -> 执行 MODIFY COLUMN
+     */
+    private void processTargetLengthMismatched(List<FieldDiffItem> lengthMismatched, Map<String, Field> sourceFieldMap,
+                                               TableGroup tableGroup, AbstractDatabaseConnector sourceDbConnector,
+                                               AbstractDatabaseConnector targetDbConnector,
+                                               List<FieldDiffFixItem> items, List<String> sqlStatements) {
+        if (CollectionUtils.isEmpty(lengthMismatched)) {
+            return;
+        }
+        String tableName = tableGroup.getTargetTable().getName();
+        lengthMismatched.forEach(diffItem -> {
+            Field sourceField = sourceFieldMap.get(diffItem.getFieldName().toLowerCase());
+            if (sourceField == null) {
+                return;
+            }
+            String description = String.format("源长度(%s) ≠ 目标长度(%s)，将修改为目标长度",
+                    diffItem.getSourceLength(), diffItem.getTargetLength());
+            FieldDiffFixItem fixItem = createFixItem(diffItem, "LENGTH_MISMATCH", "MODIFY", description,
+                    diffItem.getTargetType(), diffItem.getTargetLength(), diffItem.getSourceType(), diffItem.getSourceLength());
+            Field fieldToModify = convertFieldForTarget(sourceField, sourceDbConnector, targetDbConnector);
+            String sql = targetDbConnector.getSqlTemplate().buildModifyColumnSql(tableName, fieldToModify);
+            fixItem.setSql(sql);
+            items.add(fixItem);
+            sqlStatements.add(sql);
+        });
+    }
+
+    /**
+     * 创建FieldDiffFixItem的工厂方法
+     */
+    private FieldDiffFixItem createFixItem(FieldDiffItem diffItem, String diffType, String operation,
+                                           String description, String targetType, Long targetLength,
+                                           String sourceType, Long sourceLength) {
+        FieldDiffFixItem fixItem = new FieldDiffFixItem();
+        fixItem.setFieldName(diffItem.getFieldName());
+        fixItem.setDiffType(diffType);
+        fixItem.setOperation(operation);
+        fixItem.setDescription(description);
+        fixItem.setId(diffItem.getFieldName() + "_" + diffType);
+        fixItem.setTargetType(targetType);
+        fixItem.setTargetLength(targetLength);
+        fixItem.setSourceType(sourceType);
+        fixItem.setSourceLength(sourceLength);
+        return fixItem;
+    }
+
+    private Field convertFieldForTarget(Field sourceField, AbstractDatabaseConnector sourceDbConnector,
+                                         AbstractDatabaseConnector targetDbConnector) {
+        org.dbsyncer.sdk.schema.SchemaResolver sourceSchemaResolver = sourceDbConnector.getSchemaResolver();
+        org.dbsyncer.sdk.schema.SchemaResolver targetSchemaResolver = targetDbConnector.getSchemaResolver();
+
+        if (sourceSchemaResolver != null && targetSchemaResolver != null) {
+            Field standardField = sourceSchemaResolver.toStandardType(sourceField);
+            Field targetField = targetSchemaResolver.fromStandardType(standardField);
+            targetField.setPk(sourceField.isPk());
+            return targetField;
+        }
+        return sourceField;
+    }
+
+    private void validateIdentifier(String identifier, String name) {
+        if (StringUtil.isBlank(identifier)) {
+            throw new IllegalArgumentException(name + " 不能为空");
+        }
+        if (!identifier.matches("^[a-zA-Z_][a-zA-Z0-9_]*$")) {
+            throw new IllegalArgumentException(name + " 包含非法字符，只能包含字母、数字、下划线，且必须以字母或下划线开头: " + identifier);
+        }
+        if (identifier.length() > 64) {
+            throw new IllegalArgumentException(name + " 长度不能超过 64 个字符: " + identifier);
+        }
+    }
+
+    private Object getLock(String id) {
+        return locks.computeIfAbsent(id, k -> new Object());
     }
 
 }

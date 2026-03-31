@@ -3,6 +3,8 @@
  */
 package org.dbsyncer.biz;
 
+import org.dbsyncer.biz.vo.FieldDiffFixVO;
+import org.dbsyncer.biz.vo.FieldDifferenceVO;
 import org.dbsyncer.parser.model.TableGroup;
 
 import java.util.List;
@@ -69,4 +71,29 @@ public interface TableGroupService {
      * @return 重置结果消息
      */
     String resetTableGroups(String mappingId, String tableGroupIds, boolean truncateTarget) throws Exception;
+
+    /**
+     * 获取字段差异
+     *
+     * @param id TableGroup ID
+     * @return 字段差异信息
+     */
+    FieldDifferenceVO getFieldDifference(String id) throws Exception;
+
+    /**
+     * 获取字段差异修复 SQL 预览
+     *
+     * @param id TableGroup ID
+     * @return 修复 SQL 预览信息
+     */
+    FieldDiffFixVO getFieldDiffFixPreview(String id) throws Exception;
+
+    /**
+     * 执行字段差异修复（支持选择性修复）
+     *
+     * @param id          TableGroup ID
+     * @param selectedIds 选中的差异项 ID 列表（为空表示全选）
+     * @return 执行结果消息
+     */
+    String executeFieldDiffFix(String id, List<String> selectedIds) throws Exception;
 }
