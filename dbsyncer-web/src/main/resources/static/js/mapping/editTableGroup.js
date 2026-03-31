@@ -594,6 +594,11 @@ function updatePrimaryKeyMarkers(pkString) {
 }
 
 function checkFieldMappingDifferences() {
+    if (typeof pageFieldDifference !== 'undefined' && pageFieldDifference) {
+        highlightFieldMappingDifferences(pageFieldDifference);
+        return;
+    }
+    
     let tableGroupId = $("#fieldDifferenceBtn").attr("tableGroupId");
     if (!tableGroupId) {
         return;
@@ -701,6 +706,13 @@ function bindFieldDifferenceClick() {
 
 function showFieldDifference(id) {
     $('#fieldDifferenceModal').modal('show');
+    
+    if (typeof pageFieldDifference !== 'undefined' && pageFieldDifference) {
+        fieldDifferenceData = pageFieldDifference;
+        renderFieldDifference(pageFieldDifference);
+        return;
+    }
+    
     $('#fieldDifferenceContent').html('<div class="text-center"><span class="fa fa-spinner fa-spin fa-2x"></span> 加载中...</div>');
     
     doPoster("/tableGroup/fieldDifference", {'id': id}, function (data) {

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.dbsyncer.biz.MappingService;
 import org.dbsyncer.biz.TableGroupService;
+import org.dbsyncer.biz.vo.FieldDifferenceVO;
 import org.dbsyncer.biz.vo.RestResult;
 import org.dbsyncer.common.model.Result;
 import org.dbsyncer.common.util.StringUtil;
@@ -65,7 +66,9 @@ public class TableGroupController extends BaseController {
     @GetMapping("/page/{page}")
     public String page(ModelMap model, @PathVariable("page") String page, @RequestParam(value = "id") String id) throws Exception {
         TableGroup tableGroup = tableGroupService.getTableGroup(id);
+        FieldDifferenceVO fieldDifference = tableGroupService.getFieldDifference(id);
         model.put("tableGroup", tableGroup);
+        model.put("fieldDifference", fieldDifference);
         String mappingId = tableGroup.getMappingId();
         model.put("mapping", mappingService.getMapping(mappingId));
         initConfig(model);
@@ -291,31 +294,6 @@ public class TableGroupController extends BaseController {
         } catch (Exception e) {
             logger.error("创建表异常: {}", e.getMessage(), e);
             return RestResult.restFail("创建表失败: " + e.getMessage(), 500);
-        }
-    }
-
-    /**
-     * 获取单个表映射关系的字段差异
-     * <p>
-     * 比较源表和目标表的字段结构，返回字段差异信息，包括：
-     * <ul>
-     *   <li>新增字段：目标表存在但源表不存在的字段</li>
-     *   <li>缺失字段：源表存在但目标表不存在的字段</li>
-     *   <li>类型不匹配：字段名相同但数据类型不同的字段</li>
-     *   <li>长度不匹配：字段名相同但长度/精度不同的字段</li>
-     * </ul>
-     *
-     * @param id 表映射关系ID（TableGroup ID）
-     * @return 字段差异信息
-     */
-    @PostMapping(value = "/fieldDifference")
-    @ResponseBody
-    public RestResult getFieldDifference(@RequestParam(value = "id") String id) {
-        try {
-            return RestResult.restSuccess(tableGroupService.getFieldDifference(id));
-        } catch (Exception e) {
-            logger.error(e.getLocalizedMessage(), e);
-            return RestResult.restFail(e.getMessage());
         }
     }
 

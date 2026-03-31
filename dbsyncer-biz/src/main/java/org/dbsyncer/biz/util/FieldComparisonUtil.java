@@ -66,15 +66,8 @@ public final class FieldComparisonUtil {
             return result;
         }
 
-        Map<String, Field> sourceFieldMap = new HashMap<>();
-        if (!CollectionUtils.isEmpty(sourceFields)) {
-            sourceFields.forEach(f -> sourceFieldMap.put(f.getName().toLowerCase(), f));
-        }
-
-        Map<String, Field> targetFieldMap = new HashMap<>();
-        if (!CollectionUtils.isEmpty(targetFields)) {
-            targetFields.forEach(f -> targetFieldMap.put(f.getName().toLowerCase(), f));
-        }
+        Map<String, Field> sourceFieldMap = buildFieldMap(sourceFields);
+        Map<String, Field> targetFieldMap = buildFieldMap(targetFields);
 
         // 检查目标表多出的字段
         for (Field targetField : targetFields) {
@@ -188,5 +181,18 @@ public final class FieldComparisonUtil {
         }
         String upperType = typeName.toUpperCase();
         return upperType.contains("VARCHAR") || upperType.contains("CHAR");
+    }
+
+    /**
+     * 构建字段名称到字段对象的映射（忽略大小写）
+     * @param fields 字段列表
+     * @return 字段名称（小写）到字段对象的映射
+     */
+    public static Map<String, Field> buildFieldMap(List<Field> fields) {
+        Map<String, Field> fieldMap = new HashMap<>();
+        if (!CollectionUtils.isEmpty(fields)) {
+            fields.forEach(f -> fieldMap.put(f.getName().toLowerCase(), f));
+        }
+        return fieldMap;
     }
 }

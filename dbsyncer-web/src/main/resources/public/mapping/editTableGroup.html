@@ -132,6 +132,9 @@
                                                 </button>
                                                 <button id="fieldDifferenceBtn" type="button" class="btn btn-info" th:title="查看字段差异" th:tableGroupId="${tableGroup?.id}" style="margin-left: 5px;">
                                                     <span class="fa fa-exchange"></span>字段差异
+                                                    <span th:if="${fieldDifference?.hasDifference}" class="badge badge-danger" style="margin-left: 5px;">
+                                                        <span th:text="${#lists.size(fieldDifference?.addedFields) + #lists.size(fieldDifference?.missingFields) + #lists.size(fieldDifference?.typeMismatched) + #lists.size(fieldDifference?.lengthMismatched)}">0</span>
+                                                    </span>
                                                 </button>
                                             </div>
                                             <div class="col-md-4"></div>
@@ -307,6 +310,9 @@
                         </div>
                     </div>
 
+<script th:inline="javascript">
+    var pageFieldDifference = [[${fieldDifference}]];
+</script>
 <script th:src="@{/js/mapping/editTableGroup.js}"></script>
 <script th:src="@{/js/mapping/editPlugin.js}"></script>
 <script th:src="@{/js/mapping/editFilterAndConvert.js}"></script>

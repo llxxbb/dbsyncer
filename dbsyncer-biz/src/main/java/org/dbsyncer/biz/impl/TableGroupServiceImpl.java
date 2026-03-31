@@ -9,8 +9,8 @@ import org.dbsyncer.biz.TableGroupService;
 import org.dbsyncer.biz.checker.impl.tablegroup.TableGroupChecker;
 import org.dbsyncer.biz.task.TableGroupCountTask;
 import org.dbsyncer.biz.util.FieldComparisonUtil;
-import org.dbsyncer.biz.vo.FieldDiffFixItem;
 import org.dbsyncer.biz.vo.FieldDiffFixVO;
+import org.dbsyncer.biz.vo.FieldDiffFixItem;
 import org.dbsyncer.biz.vo.FieldDiffItem;
 import org.dbsyncer.biz.vo.FieldDifferenceVO;
 import org.dbsyncer.common.dispatch.DispatchTaskService;
@@ -640,8 +640,8 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         List<String> sqlStatements = new ArrayList<>();
         boolean hasDropOperation = false;
 
-        Map<String, Field> sourceFieldMap = buildFieldMap(tableGroup.getSourceTable().getColumn());
-        Map<String, Field> targetFieldMap = buildFieldMap(tableGroup.getTargetTable().getColumn());
+        Map<String, Field> sourceFieldMap = FieldComparisonUtil.buildFieldMap(tableGroup.getSourceTable().getColumn());
+        Map<String, Field> targetFieldMap = FieldComparisonUtil.buildFieldMap(tableGroup.getTargetTable().getColumn());
 
         hasDropOperation = processTargetAddedFields(diffVO.getAddedFields(), targetFieldMap, tableGroup, targetDbConnector, items, sqlStatements);
         processTargetMissingFields(diffVO.getMissingFields(), sourceFieldMap, tableGroup, sourceDbConnector, targetDbConnector, items, sqlStatements);
@@ -787,14 +787,6 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
 
     private boolean isDatabaseConnector(ConnectorService connectorService) {
         return connectorService instanceof AbstractDatabaseConnector;
-    }
-
-    private Map<String, Field> buildFieldMap(List<Field> fields) {
-        Map<String, Field> fieldMap = new HashMap<>();
-        if (!CollectionUtils.isEmpty(fields)) {
-            fields.forEach(f -> fieldMap.put(f.getName().toLowerCase(), f));
-        }
-        return fieldMap;
     }
 
     // ==========================================
