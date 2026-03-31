@@ -1,35 +1,39 @@
-# 架构决策记录 (ADR) 索引
+# Architecture Decision Records (ADR)
 
-本项目使用架构决策记录（Architecture Decision Record, ADR）来跟踪重要的架构决策。
+本项目使用 ADR（Architecture Decision Record）记录重要架构决策。
 
 ## ADR 列表
 
 | 编号 | 标题 | 状态 | 日期 |
 |------|------|------|------|
-| [0001](0001-field-mapping-advanced-config.md) | 字段映射高级配置功能 | Accepted | 2026-03-06 |
-| [0002](0002-支持编辑表映射时修改主键配置.md) | 支持编辑表映射时修改主键配置（带 DDL 确认） | Proposed | 2026-03-16 |
+| [0001](0001-field-mapping-advanced-config.md) | 字段映射高级配置 | Accepted | 2026-03-20 |
+| [0002](0002-支持编辑表映射时修改主键配置.md) | 支持编辑表映射时修改主键配置 | Accepted | 2026-03-20 |
+| [0003](0003-tablegroup-primary-key-order-fix.md) | TableGroup 主键顺序修复 | Accepted | 2026-03-30 |
+| [0004](0004-sqlserver-ct-bigtx-optimization.md) | SQL Server CT 大事务同步优化 | Proposed | 2026-03-27 |
 
 ## 状态说明
 
-| 状态 | 说明 |
-|------|------|
-| Proposed | 提议中，待讨论和决策 |
-| Accepted | 已接受，将按此执行 |
-| Deprecated | 已废弃，不再推荐但历史存在 |
-| Superseded | 已被新 ADR 替代 |
+- **Proposed**: 提议中，待讨论和决策
+- **Accepted**: 已接受，将按此执行
+- **Deprecated**: 已废弃，不再推荐
+- **Superseded**: 已被新 ADR 替代
 
-## 相关文件
+## 相关文档
 
-- ADR 模板：参见项目根目录或技能目录中的模板
-- 相关技能：`adr-tracker`
+- [设计文档](design/)
+- [历史过程文档](history/)
 
-## 如何贡献
+## 如何创建 ADR
 
-1. 创建新的 ADR 文件，命名格式：`NNNN-决策名称.md`
-2. 使用标准模板（标题、状态、日期、背景、决策、影响等）
-3. 更新本索引文件
-4. 提交 PR 进行讨论和审查
+```bash
+# 使用 decision-tracker 技能
+openclaw decision create "ADR 标题"
+
+# 或手动创建
+mkdir -p doc/adr doc/history/NNNN
+# 复制模板并编辑
+```
 
 ---
 
-*最后更新：2026-03-16*
+*最后更新：2026-03-30*

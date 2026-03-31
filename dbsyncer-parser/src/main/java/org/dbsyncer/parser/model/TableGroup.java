@@ -15,10 +15,7 @@ import org.dbsyncer.sdk.SdkException;
 import org.dbsyncer.sdk.config.CommandConfig;
 import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
 import org.dbsyncer.sdk.constant.ConfigConstant;
-import org.dbsyncer.sdk.model.ConnectorConfig;
-import org.dbsyncer.sdk.model.Field;
-import org.dbsyncer.sdk.model.Filter;
-import org.dbsyncer.sdk.model.Table;
+import org.dbsyncer.sdk.model.*;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.sdk.util.PrimaryKeyUtil;
 import org.dbsyncer.storage.impl.SnowflakeIdWorker;
@@ -135,6 +132,33 @@ public class TableGroup extends AbstractConfigModel {
     public TableGroup setTargetTablePK(String targetTablePK) {
         this.targetTablePK = targetTablePK;
         return this;
+    }
+
+    /**
+     * 从源表元数据初始化目标表主键配置
+     * 原则：主键顺序应该从数据库元数据查询获取，而不是从 Field.isPk 标记推断
+     * 
+     * @param parserComponent 解析器组件
+     * @param connectorId 源连接器 ID
+     * @param tableName 源表名
+     * @return 是否成功设置主键配置
+     */
+    @JsonIgnore
+    public boolean initTargetTablePKFromSource(ParserComponent parserComponent, String connectorId, String tableName) {
+        if (StringUtil.isNotBlank(this.targetTablePK)) {
+            // 已有配置，不需要初始化
+            return true;
+        }
+        try {
+            MetaInfo metaInfo = parserComponent.getMetaInfo(connectorId, tableName);
+            if (metaInfo != null && !CollectionUtils.isEmpty(metaInfo.getPrimaryKeys())) {
+                this.targetTablePK = String.join(",", metaInfo.getPrimaryKeys());
+                return true;
+            }
+        } catch (Exception e) {
+            // 静默失败
+        }
+        return false;
     }
 
     public Map<String, String> getCommand() {
@@ -460,16 +484,14 @@ public class TableGroup extends AbstractConfigModel {
     public void migrateVersion() throws Exception {
         if (this.currentVersion == Version) return;
 
-        if (currentVersion < Version && targetTable != null && targetTable.getColumn() != null) {
-            // 从目标表字段中提取主键
-            List<String> primaryKeys = targetTable.getColumn().stream()
-                    .filter(Field::isPk)
-                    .map(Field::getName)
-                    .collect(Collectors.toList());
-
-            if (!primaryKeys.isEmpty()) {
-                String targetTablePK = String.join(",", primaryKeys);
-                this.setTargetTablePK(targetTablePK);
+        if (currentVersion < Version) {
+            // 原则：目标表是源表的复制，主键配置应从源表获取
+            // 注意：不能从 sourceTable.getColumn().filter(Field::isPk) 获取，因为 Field 列表顺序不代表主键顺序
+            if (sourceTable != null && profileComponent != null && mappingId != null) {
+                // 从元数据获取有序主键列表（通过查询数据库）
+                Mapping mapping = profileComponent.getMapping(mappingId);
+                assert mapping != null;
+                initTargetTablePKFromSource(parserComponent, mapping.getSourceConnectorId(), sourceTable.getName());
             }
         }
 

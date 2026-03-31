@@ -33,6 +33,12 @@ public class MetaInfo {
      */
     private String indexType;
 
+    /**
+     * 主键列表（按数据库定义的顺序）
+     * 用于保持复合主键的正确顺序
+     */
+    private List<String> primaryKeys;
+
     public String getTableType() {
         return tableType;
     }
@@ -66,6 +72,15 @@ public class MetaInfo {
 
     public MetaInfo setIndexType(String indexType) {
         this.indexType = indexType;
+        return this;
+    }
+
+    public List<String> getPrimaryKeys() {
+        return primaryKeys;
+    }
+
+    public MetaInfo setPrimaryKeys(List<String> primaryKeys) {
+        this.primaryKeys = primaryKeys;
         return this;
     }
 

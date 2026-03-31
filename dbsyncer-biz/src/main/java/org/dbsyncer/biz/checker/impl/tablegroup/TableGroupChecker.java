@@ -79,8 +79,18 @@ public class TableGroupChecker extends AbstractChecker {
         tableGroup.setTargetTable(getTable(mapping.getTargetConnectorId(), targetTable, targetTablePK));
 
         // 保存主键配置到 tableGroup
+        // 原则：主键顺序应该从数据库元数据查询获取，而不是从 Field.isPk 标记推断
         if (StringUtil.isNotBlank(targetTablePK)) {
             tableGroup.setTargetTablePK(targetTablePK);
+        } else {
+            // 从源表元数据获取主键（通过查询数据库，保持主键顺序）
+            boolean initialized = tableGroup.initTargetTablePKFromSource(parserComponent, mapping.getSourceConnectorId(), sourceTable);
+            if (initialized) {
+                logger.info("目标表 {} 未提供主键配置，从源表元数据获取：{}", 
+                    tableGroup.getTargetTable().getName(), 
+                    tableGroup.getSourceTable().getName(), 
+                    tableGroup.getTargetTablePK());
+            }
         }
         // 修改基本配置
         this.modifyConfigModel(tableGroup, params);

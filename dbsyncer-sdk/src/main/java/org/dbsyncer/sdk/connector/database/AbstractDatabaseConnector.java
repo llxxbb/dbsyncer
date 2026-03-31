@@ -141,13 +141,14 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         // 非DQL模式：直接查询表结构元数据
         List<Field> fields = new ArrayList<>();
         final String schema = getSchema(connectorInstance.getConfig());
+        List<String> primaryKeys = new ArrayList<>();
         connectorInstance.execute(databaseTemplate -> {
             SimpleConnection connection = databaseTemplate.getSimpleConnection();
             Connection conn = connection.getConnection();
             String catalog = conn.getCatalog();
             String schemaNamePattern = null == schema ? conn.getSchema() : schema;
             DatabaseMetaData metaData = conn.getMetaData();
-            List<String> primaryKeys = findTablePrimaryKeys(metaData, catalog, schemaNamePattern, tableNamePattern);
+            primaryKeys.addAll(findTablePrimaryKeys(metaData, catalog, schemaNamePattern, tableNamePattern));
             try (ResultSet columnMetadata = metaData.getColumns(catalog, schemaNamePattern, tableNamePattern, null)) {
                 while (columnMetadata.next()) {
                     String columnName = columnMetadata.getString("COLUMN_NAME");
@@ -176,18 +177,12 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
                     }
 
                     // 填充 autoincrement 属性
-                    // JDBC 的 DatabaseMetaData.getColumns() 返回的 ResultSet 中包含 IS_AUTOINCREMENT 列
-                    // 值为 "YES" 表示自增，值为 "NO" 表示非自增
                     try {
-                        String isAutoIncrement = columnMetadata.getString("IS_AUTOINCREMENT");
-                        if ("YES".equalsIgnoreCase(isAutoIncrement)) {
-                            field.setAutoincrement(true);
-                        } else {
-                            field.setAutoincrement(false);
-                        }
+                        processAutoIncrement(field, columnMetadata);
                     } catch (SQLException e) {
                         // 如果数据库驱动不支持 IS_AUTOINCREMENT 列，则默认为 false
                         // 某些旧版本的数据库驱动可能不支持此列
+                        logger.warn("数据库驱动不支持 IS_AUTOINCREMENT 列，字段={}，默认设置为 false", field.getName(), e);
                         field.setAutoincrement(false);
                     }
 
@@ -196,7 +191,26 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
             }
             return fields;
         });
-        return new MetaInfo().setColumn(enhanceFields(connectorInstance, fields, tableNamePattern));
+        return new MetaInfo()
+                .setColumn(enhanceFields(connectorInstance, fields, tableNamePattern))
+                .setPrimaryKeys(primaryKeys);
+    }
+
+    /**
+     * 处理自增字段属性（从 DatabaseMetaData 的 IS_AUTOINCREMENT 列）
+     * 如果数据库驱动不支持该列，抛出 SQLException
+     *
+     * @param field 字段对象
+     * @param columnMetadata 列元数据 ResultSet
+     * @throws SQLException 数据库访问异常
+     */
+    private void processAutoIncrement(Field field, ResultSet columnMetadata) throws SQLException {
+        String isAutoIncrement = columnMetadata.getString("IS_AUTOINCREMENT");
+        if ("YES".equalsIgnoreCase(isAutoIncrement)) {
+            field.setAutoincrement(true);
+        } else {
+            field.setAutoincrement(false);
+        }
     }
 
     /**
