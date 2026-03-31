@@ -504,9 +504,9 @@ public interface SqlTemplate {
      * @param oldPrimaryKeys 原主键列表
      * @param newPrimaryKeys 新主键列表
      * @param schema 模式名（可为 null）
-     * @return 修改主键的 SQL 语句
+     * @return 修改主键的 SQL 语句列表
      */
-    default String buildAlterPrimaryKeySql(String tableName, List<String> oldPrimaryKeys, List<String> newPrimaryKeys, String schema) {
+    default List<String> buildAlterPrimaryKeySql(String tableName, List<String> oldPrimaryKeys, List<String> newPrimaryKeys, String schema) {
         throw new UnsupportedOperationException("Need to overwrite this function");
     }
 

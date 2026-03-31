@@ -439,20 +439,28 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         String tableName = tableGroup.getTargetTable().getName();
         String schema = ((org.dbsyncer.sdk.config.DatabaseConfig) targetConnector.getConfig()).getSchema();
 
-        // 使用 SqlTemplate 构建 DDL
-        String alterPkSql = sqlTemplate.buildAlterPrimaryKeySql(tableName, oldPrimaryKeys, newPrimaryKeys, schema);
+        // 使用 SqlTemplate 构建 DDL（返回 List，某些数据库可能返回多条 SQL）
+        List<String> sqlList = sqlTemplate.buildAlterPrimaryKeySql(tableName, oldPrimaryKeys, newPrimaryKeys, schema);
 
-        // 使用项目的 DDL 框架执行
-        DDLConfig ddlConfig = new DDLConfig();
-        ddlConfig.setSql("/*dbs*/" + alterPkSql);  // 添加前缀防止双向同步循环
+        // 执行每条 SQL
+        for (String sql : sqlList) {
+            String trimmedSql = sql.trim();
+            if (trimmedSql.isEmpty()) {
+                continue;
+            }
+            
+            // 使用项目的 DDL 框架执行
+            DDLConfig ddlConfig = new DDLConfig();
+            ddlConfig.setSql("/*dbs*/" + trimmedSql);  // 添加前缀防止双向同步循环
 
-        org.dbsyncer.common.model.Result result = connectorFactory.writerDDL(
-                connectorFactory.connect(targetConnector.getConfig()),
-                ddlConfig,
-                null);
+            org.dbsyncer.common.model.Result result = connectorFactory.writerDDL(
+                    connectorFactory.connect(targetConnector.getConfig()),
+                    ddlConfig,
+                    null);
 
-        if (StringUtil.isNotBlank(result.error)) {
-            throw new RuntimeException("执行 DDL 失败：" + result.error);
+            if (StringUtil.isNotBlank(result.error)) {
+                throw new RuntimeException("执行 DDL 失败：" + result.error + ", SQL: " + trimmedSql);
+            }
         }
 
         logger.info("修改主键约束成功：{} -> {}", oldPrimaryKeys, newPrimaryKeys);
