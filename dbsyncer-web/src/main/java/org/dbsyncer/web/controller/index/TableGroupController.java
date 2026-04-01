@@ -66,9 +66,7 @@ public class TableGroupController extends BaseController {
     @GetMapping("/page/{page}")
     public String page(ModelMap model, @PathVariable("page") String page, @RequestParam(value = "id") String id) throws Exception {
         TableGroup tableGroup = tableGroupService.getTableGroup(id);
-        FieldDifferenceVO fieldDifference = tableGroupService.getFieldDifference(id);
         model.put("tableGroup", tableGroup);
-        model.put("fieldDifference", fieldDifference);
         String mappingId = tableGroup.getMappingId();
         model.put("mapping", mappingService.getMapping(mappingId));
         initConfig(model);
@@ -302,23 +300,67 @@ public class TableGroupController extends BaseController {
      * <p>
      * 用于批量检查多个表映射关系是否存在字段差异，返回每个ID对应的差异状态（是否有差异）。
      * 适用于列表页快速展示哪些表映射关系存在结构差异。
+     * <p>
+     * 支持可选的刷新字段功能，当 refreshBeforeCheck=true 时，会先刷新字段元数据再检测差异，
+     * 确保检测结果基于最新的数据库表结构。
      *
-     * @param ids 表映射关系ID列表，逗号分隔（如："id1,id2,id3"）
+     * @param ids                表映射关系ID列表，逗号分隔（如："id1,id2,id3"）
+     * @param refreshBeforeCheck 是否在检测前先刷新字段元数据，默认false
      * @return Map&lt;表映射关系ID, 是否有差异&gt;，true表示存在字段差异
      */
     @PostMapping(value = "/fieldDifferenceBatch")
     @ResponseBody
-    public RestResult getFieldDifferenceBatch(@RequestParam(value = "ids") String ids) {
+    public RestResult getFieldDifferenceBatch(
+            @RequestParam(value = "ids") String ids,
+            @RequestParam(value = "refreshBeforeCheck", defaultValue = "false") boolean refreshBeforeCheck) {
         try {
             List<String> idList = Arrays.asList(ids.split(","));
             Map<String, Boolean> result = new HashMap<>();
 
             for (String id : idList) {
                 if (StringUtil.isNotBlank(id)) {
+                    // 如果需要，先刷新字段元数据
+                    if (refreshBeforeCheck) {
+                        try {
+                            tableGroupService.refreshFields(id);
+                        } catch (Exception e) {
+                            logger.error("刷新字段失败 [{}]: {}", id, e.getMessage());
+                            // 刷新失败仍继续检测，但记录为异常
+                            result.put(id, false);
+                            continue;
+                        }
+                    }
+                    // 检测字段差异
                     result.put(id, tableGroupService.getFieldDifference(id).isHasDifference());
                 }
             }
 
+            return RestResult.restSuccess(result);
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
+        }
+    }
+
+    /**
+     * 获取单个表映射关系的字段差异详情
+     * <p>
+     * 用于获取指定表映射关系的详细字段差异信息，包括：
+     * <ul>
+     *   <li>目标表多出的字段</li>
+     *   <li>目标表缺少的字段</li>
+     *   <li>类型不匹配的字段</li>
+     *   <li>VARCHAR长度差异</li>
+     * </ul>
+     *
+     * @param id 表映射关系ID
+     * @return 字段差异详情VO
+     */
+    @PostMapping(value = "/fieldDifference")
+    @ResponseBody
+    public RestResult getFieldDifference(@RequestParam(value = "id") String id) {
+        try {
+            FieldDifferenceVO result = tableGroupService.getFieldDifference(id);
             return RestResult.restSuccess(result);
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage(), e);

@@ -82,6 +82,7 @@
             <tr>
                 <th>数据源表</th>
                 <th>目标源表</th>
+                <th>字段差异</th>
                 <th><input type="checkbox" class="tableGroupCheckboxAll" /></th>
             </tr>
             </thead>
@@ -97,11 +98,34 @@
                            title="重命名目标表"
                            style="margin-left: 8px;"></i>
                     </td>
+                    <td class="field-diff-status" th:data-id="${t?.id}" style="cursor: pointer;">
+                        <span class="label label-default">检测中...</span>
+                    </td>
                     <td><input th:value="${t?.id}" th:mappingId="${mapping?.id}" type="checkbox" class="tableGroupCheckbox" /></td>
                 </tr>
             </tbody>
         </table>
         <input id="sortedTableGroupIds" name="sortedTableGroupIds" type="hidden" />
+    </div>
+
+    <!-- 字段差异详情弹窗 -->
+    <div class="modal fade" id="fieldDifferenceModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    <h4 class="modal-title">字段差异分析</h4>
+                </div>
+                <div class="modal-body">
+                    <div id="fieldDifferenceContent">
+                        <!-- 动态生成 -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 

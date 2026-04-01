@@ -3,7 +3,9 @@ function submit(data) {
     doPoster("/mapping/edit", data, function (data) {
         if (data.success == true) {
             bootGrowl("修改驱动成功!", "success");
-            backIndexPage();
+            // 保存成功后刷新当前页面，保留在驱动编辑页面
+            var id = $("#mappingId").val();
+            doLoader('/mapping/page/edit?id=' + id + "&classOn=1&refresh=" + new Date().getTime());
         } else {
             // 检查是否是目标表不存在的异常（通过错误码识别）
             if (data.status == 400 && data.resultValue &&
@@ -125,13 +127,16 @@ function getCheckedBoxSize($checkbox) {
     return checked;
 }
 
-// 绑定表关系点击事件
-function checkFieldDifferencesForTableGroups() {
+// 检查表映射组的字段差异并在列表中显示
+// 参数 refreshBeforeCheck: 是否在检测前先刷新字段元数据，默认true
+function checkFieldDifferencesForTableGroups(refreshBeforeCheck) {
+    refreshBeforeCheck = refreshBeforeCheck !== false; // 默认为true
+
     var $tableGroupList = $("#tableGroupList");
     if ($tableGroupList.length === 0) {
         return;
     }
-    
+
     // 收集所有映射组ID
     var ids = [];
     $tableGroupList.find("tr").each(function() {
@@ -140,19 +145,59 @@ function checkFieldDifferencesForTableGroups() {
             ids.push(tableGroupId);
         }
     });
-    
+
     if (ids.length === 0) {
         return;
     }
-    
-    // 使用批量接口一次请求
-    doPoster("/tableGroup/fieldDifferenceBatch", {'ids': ids.join(',')}, function(data) {
+
+    // 显示检测中状态
+    if (refreshBeforeCheck) {
+        $tableGroupList.find('.field-diff-status').each(function() {
+            $(this).html('<span class="label label-default"><i class="fa fa-spinner fa-spin"></i> 检测中...</span>');
+        });
+    }
+
+    // 使用批量接口一次请求，根据参数决定是否先刷新字段
+    doPoster("/tableGroup/fieldDifferenceBatch", {
+        'ids': ids.join(','),
+        'refreshBeforeCheck': refreshBeforeCheck
+    }, function(data) {
         if (data.success === true && data.resultValue) {
             // resultValue 是 Map<tableGroupId, hasDifference>
             $.each(data.resultValue, function(tableGroupId, hasDiff) {
+                var $row = $("#" + tableGroupId);
+                var $diffStatusCell = $row.find('.field-diff-status');
+
                 if (hasDiff) {
-                    $("#" + tableGroupId).addClass("field-diff-warning");
+                    // 添加高亮样式
+                    $row.addClass("field-diff-warning");
+                    // 更新字段差异列显示
+                    $diffStatusCell.html('<span class="label label-warning"><i class="fa fa-exclamation-triangle"></i> 有差异</span>');
+                } else {
+                    // 更新字段差异列显示为正常
+                    $diffStatusCell.html('<span class="label label-success"><i class="fa fa-check"></i> 一致</span>');
                 }
+            });
+            // 绑定字段差异列点击事件
+            bindFieldDiffStatusClick();
+        } else {
+            // 接口调用失败，显示检测失败
+            $tableGroupList.find('.field-diff-status').each(function() {
+                $(this).html('<span class="label label-default">检测失败</span>');
+            });
+        }
+    });
+}
+
+// 绑定字段差异状态列点击事件
+function bindFieldDiffStatusClick() {
+    $('.field-diff-status').off('click').on('click', function(e) {
+        e.stopPropagation(); // 阻止事件冒泡，避免触发整行点击
+        var tableGroupId = $(this).data('id');
+        if (tableGroupId) {
+            // 使用公共组件显示字段差异弹窗，不显示修复按钮
+            FieldDifferenceComponent.show(tableGroupId, {
+                showFixButton: false
             });
         }
     });
@@ -1240,7 +1285,7 @@ $(function () {
     // 绑定删除表映射事件
     bindMappingTableGroupCheckBoxClick();
 
-    // 绑定表关系点击事件
+    // 绑定表关系点击事件（内部会自动触发字段差异检查）
     bindMappingTableGroupListClick();
     // 绑定下拉选择事件自动匹配相似表事件
     bindTableSelect();
@@ -1265,6 +1310,12 @@ $(function () {
 
     // 绑定数据源详情按钮点击事件
     bindConnectorDetailBtnClick();
+
+    // 页面加载完成后自动触发字段差异检查（延迟执行确保DOM已渲染）
+    // 传入true表示先刷新字段元数据，再检测差异，确保结果准确
+    setTimeout(function() {
+        checkFieldDifferencesForTableGroups(true);
+    }, 500);
 
     // 返回
     $("#mappingBackBtn").click(function () {

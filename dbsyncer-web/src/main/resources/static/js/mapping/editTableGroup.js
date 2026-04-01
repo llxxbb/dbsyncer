@@ -594,16 +594,11 @@ function updatePrimaryKeyMarkers(pkString) {
 }
 
 function checkFieldMappingDifferences() {
-    if (typeof pageFieldDifference !== 'undefined' && pageFieldDifference) {
-        highlightFieldMappingDifferences(pageFieldDifference);
-        return;
-    }
-    
     let tableGroupId = $("#fieldDifferenceBtn").attr("tableGroupId");
     if (!tableGroupId) {
         return;
     }
-    
+
     doPoster("/tableGroup/fieldDifference", {'id': tableGroupId}, function (data) {
         if (data.success == true && data.resultValue) {
             highlightFieldMappingDifferences(data.resultValue);
@@ -700,139 +695,14 @@ function bindFieldDifferenceClick() {
     let $diffBtn = $("#fieldDifferenceBtn");
     $diffBtn.bind('click', function(){
         let id = $(this).attr("tableGroupId");
-        showFieldDifference(id);
+        // 使用公共组件显示字段差异弹窗
+        FieldDifferenceComponent.show(id, {
+            showFixButton: true,
+            onFix: function(data) {
+                showFieldDiffFixPreview(id);
+            }
+        });
     });
-}
-
-function showFieldDifference(id) {
-    $('#fieldDifferenceModal').modal('show');
-    
-    if (typeof pageFieldDifference !== 'undefined' && pageFieldDifference) {
-        fieldDifferenceData = pageFieldDifference;
-        renderFieldDifference(pageFieldDifference);
-        return;
-    }
-    
-    $('#fieldDifferenceContent').html('<div class="text-center"><span class="fa fa-spinner fa-spin fa-2x"></span> 加载中...</div>');
-    
-    doPoster("/tableGroup/fieldDifference", {'id': id}, function (data) {
-        if (data.success == true) {
-            fieldDifferenceData = data.resultValue;
-            renderFieldDifference(data.resultValue);
-        } else {
-            $('#fieldDifferenceContent').html('<div class="alert alert-danger">' + data.resultValue + '</div>');
-        }
-    });
-}
-
-function renderFieldDifference(result) {
-    if (!result.hasDifference) {
-        $('#fieldDifferenceContent').html(
-            '<div class="alert alert-success text-center">' +
-            '<span class="fa fa-check-circle fa-2x"></span><br>' +
-            '<strong>字段结构一致</strong><br>' +
-            '<small>数据源表和目标源表的字段结构完全匹配</small>' +
-            '</div>'
-        );
-        return;
-    }
-
-    let html = '<div class="field-difference-container">';
-
-    if (result.addedFields && result.addedFields.length > 0) {
-        html += buildDifferenceSection(
-            '目标表多出的字段',
-            'fa-plus-circle',
-            'info',
-            result.addedFields.length,
-            result.addedFields,
-            'added'
-        );
-    }
-
-    if (result.missingFields && result.missingFields.length > 0) {
-        html += buildDifferenceSection(
-            '目标表缺少的字段',
-            'fa-minus-circle',
-            'warning',
-            result.missingFields.length,
-            result.missingFields,
-            'missing'
-        );
-    }
-
-    if (result.typeMismatched && result.typeMismatched.length > 0) {
-        html += buildDifferenceSection(
-            '类型不匹配的字段',
-            'fa-exchange',
-            'danger',
-            result.typeMismatched.length,
-            result.typeMismatched,
-            'type'
-        );
-    }
-
-    if (result.lengthMismatched && result.lengthMismatched.length > 0) {
-        html += buildDifferenceSection(
-            'VARCHAR长度差异',
-            'fa-arrows-h',
-            'primary',
-            result.lengthMismatched.length,
-            result.lengthMismatched,
-            'length'
-        );
-    }
-
-    html += '</div>';
-    $('#fieldDifferenceContent').html(html);
-}
-
-function buildDifferenceSection(title, icon, alertClass, count, items, type) {
-    let html = '<div class="panel panel-' + alertClass + '">' +
-        '<div class="panel-heading">' +
-        '<span class="fa ' + icon + '"></span> ' + title +
-        ' <span class="badge">' + count + '</span>' +
-        '</div>' +
-        '<div class="panel-body">' +
-        '<table class="table table-condensed table-hover">' +
-        '<thead><tr><th>字段名</th>';
-
-    if (type === 'added') {
-        html += '<th>目标类型</th><th>目标长度</th>';
-    } else if (type === 'missing') {
-        html += '<th>源类型</th><th>源长度</th>';
-    } else if (type === 'type') {
-        html += '<th>源类型</th><th>目标类型</th>';
-    } else if (type === 'length') {
-        html += '<th>源长度</th><th>目标长度</th>';
-    }
-
-    html += '<th>说明</th></tr></thead><tbody>';
-
-    items.forEach(function(item) {
-        html += '<tr>';
-        html += '<td><strong>' + item.fieldName + '</strong></td>';
-        
-        if (type === 'added') {
-            html += '<td>' + (item.targetType || '-') + '</td>';
-            html += '<td>' + (item.targetLength || '-') + '</td>';
-        } else if (type === 'missing') {
-            html += '<td>' + (item.sourceType || '-') + '</td>';
-            html += '<td>' + (item.sourceLength || '-') + '</td>';
-        } else if (type === 'type') {
-            html += '<td>' + (item.sourceType || '-') + '</td>';
-            html += '<td>' + (item.targetType || '-') + '</td>';
-        } else if (type === 'length') {
-            html += '<td>' + (item.sourceLength || '-') + '</td>';
-            html += '<td>' + (item.targetLength || '-') + '</td>';
-        }
-        
-        html += '<td>' + (item.description || '') + '</td>';
-        html += '</tr>';
-    });
-
-    html += '</tbody></table></div></div>';
-    return html;
 }
 
 function bindFieldDiffFixClick() {

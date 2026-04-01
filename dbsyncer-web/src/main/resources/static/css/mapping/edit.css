@@ -18,3 +18,20 @@
 .task-status{text-align:left;padding:5px 0}
 .data-item{text-align:left;padding:5px 0}
 .field-diff-warning{background-color:#fff9e6 !important}
+/* 字段差异状态列样式 */
+.field-diff-status {
+    white-space: nowrap;
+}
+.field-diff-status .label {
+    font-size: 12px;
+    padding: 4px 8px;
+}
+.field-diff-status .label-warning {
+    background-color: #f0ad4e;
+}
+.field-diff-status .label-success {
+    background-color: #5cb85c;
+}
+.field-diff-status .label-default {
+    background-color: #777;
+}

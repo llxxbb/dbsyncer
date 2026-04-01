@@ -201,7 +201,7 @@
                 <ul class="nav nav-tabs" role="tablist">
                     <li role="presentation" class="active">
                         <a href="#mappingSummary" aria-controls="mappingSummary" role="tab" data-toggle="tab">
-                            概括
+                            概况
                         </a>
                     </li>
                     <li role="presentation" th:if="${currentUser?.roleCode eq 'admin'}">
@@ -380,6 +380,7 @@
 
 
 <script th:src="@{/js/mapping/chart.js}"></script>
+<script th:src="@{/js/mapping/fieldDifferenceComponent.js}"></script>
 <script th:src="@{/js/mapping/edit.js}"></script>
 <script th:src="@{/js/mapping/editFilterAndConvert.js}"></script>
 <script th:src="@{/js/mapping/editIncrement.js}"></script>
