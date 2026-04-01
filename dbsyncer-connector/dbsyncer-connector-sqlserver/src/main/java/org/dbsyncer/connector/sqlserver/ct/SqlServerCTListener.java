@@ -31,6 +31,7 @@ import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
@@ -49,6 +50,14 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
     // 流式查询的 fetchSize，控制每次从数据库获取的记录数
     private static final int STREAMING_FETCH_SIZE = 5000;
 
+    // 增量持久化配置（可配置）
+    private static final int SNAPSHOT_RECORD_INTERVAL = Integer.parseInt(
+            System.getProperty("sqlserver.ct.snapshot.record.interval", "10000"));
+    private static final long SNAPSHOT_TIME_INTERVAL_MS = Long.parseLong(
+            System.getProperty("sqlserver.ct.snapshot.time.interval.ms", "30000"));
+    private static final int MAX_RETRY_PER_VERSION = Integer.parseInt(
+            System.getProperty("sqlserver.ct.max.retry.per.version", "3"));
+
     private final SqlServerTemplate sqlTemplate;
 
     private final Lock connectLock = new ReentrantLock();
@@ -58,6 +67,12 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
     private SqlServerCTQueryUtil queryUtil;
     private Worker worker;
     private Long lastVersion;
+    // 已成功处理的版本号（用于增量持久化）
+    private Long lastSuccessfulVersion;
+    // 优雅停止标志
+    private final AtomicBoolean stopRequested = new AtomicBoolean(false);
+    // 当前版本重试计数
+    private int currentVersionRetryCount = 0;
     private String serverName;
     private String schema;
     private String realDatabaseName;
@@ -118,12 +133,25 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
 
     @Override
     public void close() {
+        stopGracefully();
         if (connected) {
             if (null != worker && !worker.isInterrupted()) {
                 worker.interrupt();
                 worker = null;
             }
             connected = false;
+        }
+    }
+
+    /**
+     * 持久化指定版本号的进度
+     */
+    private void snapshotProgress(Long version) {
+        if (version != null) {
+            ChangedOffset offset = new ChangedOffset();
+            offset.setPosition(version);
+            refreshEvent(offset);
+            logger.debug("已持久化进度: version={}", version);
         }
     }
 
@@ -149,6 +177,25 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
         return lastVersion;
     }
 
+    public void stopGracefully() {
+        stopRequested.set(true);
+    }
+
+    private boolean isRetryableError(Throwable e) {
+        if (e == null) {
+            return false;
+        }
+        String msg = e.getMessage();
+        if (msg == null) {
+            return false;
+        }
+        msg = msg.toLowerCase();
+        return msg.contains("timeout") || msg.contains("connection")
+                || msg.contains("socket") || msg.contains("reset")
+                || msg.contains("transport")
+                || e instanceof java.sql.SQLTimeoutException
+                || e instanceof java.net.SocketException;
+    }
 
     private void connect() throws Exception {
         instance = (DatabaseConnectorInstance) connectorInstance;
@@ -169,12 +216,14 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
         if (!snapshot.containsKey(VERSION_POSITION)) {
             lastVersion = getMaxVersion();
             if (lastVersion != null) {
+                lastSuccessfulVersion = lastVersion;
                 snapshot.put(VERSION_POSITION, String.valueOf(lastVersion));
                 return;
             }
             throw new SqlServerException("No Change Tracking version available");
         }
         lastVersion = Long.valueOf(snapshot.get(VERSION_POSITION));
+        lastSuccessfulVersion = lastVersion;
         logger.info("---- Last Version: {}", lastVersion);
     }
 
@@ -253,15 +302,15 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
      * @param stopVersion  结束版本号
      */
     private void pull(Long startVersion, Long stopVersion) throws Exception {
-        // 流式处理每个表的 DML 变更，直接发送，不需要队列
-        // 所有事件都携带 startVersion，确保快照持久化使用 startVersion，避免数据丢失
+        lastSuccessfulVersion = startVersion - 1;
+
         for (String table : tables) {
             queryDMLChangesWithStreamingAndSend(
                     table, startVersion, stopVersion, primaryKeysCache.get(table),
                     startVersion);
         }
 
-        // 更新内存中的 lastVersion，用于下次查询的起始版本号
+        lastSuccessfulVersion = stopVersion;
         lastVersion = stopVersion;
     }
 
@@ -352,13 +401,10 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
         }
 
         // 检测 DDL 变更（从第一行获取）
-        // 注意：DDL 检测是在处理 DML 查询的第一行时进行的，此时还没有处理任何 DML 事件
-        // 所以可以立即发送 DDL，然后再处理 DML，保证 DDL 在使用新结构的 DML 之前处理
         boolean hasData = false;
         if (schemaInfoColumnIndex > 0 && rs.next()) {
             hasData = true;
             String schemaInfoJson = rs.getString(schemaInfoColumnIndex);
-            // 检测到 DDL 时立即发送，不使用版本号（因为 DDL 是检测生成的，没有实际版本号）
             detectDDLChangesFromSchemaInfoJsonAndSendImmediately(tableName, schemaInfoJson, String.valueOf(startVersion));
         }
 
@@ -390,6 +436,8 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
         }
 
         int processedCount = 0;
+        long recordCount = 0;
+        long lastSnapshotTime = System.currentTimeMillis();
 
         // 处理第一行（如果已读取）
         if (hasData) {
@@ -398,22 +446,35 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
             if (event != null) {
                 sendDMLEvent(event, eventVersion);
                 processedCount++;
+                recordCount++;
             }
         }
 
         // 流式处理后续行：边查询边发送
         while (rs.next()) {
-            // 响应前端停止信号
-            if (!connected) {
+            if (stopRequested.get()) {
                 logger.info("检测到停止信号，停止处理表 {} 的 DML 变更", tableName);
+                snapshotProgress(lastSuccessfulVersion);
                 break;
             }
-            
+
             CTEvent event = processRow(rs, tableName, tStarStartIndex, tStarEndIndex, columnsToSkip,
                     columnIndexToName, columnNames, primaryKeySet, primaryKeyToCTIndex);
             if (event != null) {
                 sendDMLEvent(event, eventVersion);
                 processedCount++;
+                recordCount++;
+
+                // 增量持久化：按记录数
+                if (recordCount % SNAPSHOT_RECORD_INTERVAL == 0) {
+                    snapshotProgress(lastSuccessfulVersion);
+                }
+                // 增量持久化：按时间间隔
+                long now = System.currentTimeMillis();
+                if (now - lastSnapshotTime >= SNAPSHOT_TIME_INTERVAL_MS) {
+                    snapshotProgress(lastSuccessfulVersion);
+                    lastSnapshotTime = now;
+                }
             }
         }
 
@@ -423,7 +484,6 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
                 if (rs2.next()) {
                     String schemaInfoJson = rs2.getString("schema_info");
                     try {
-                        // 检测到 DDL 时立即发送，不使用版本号
                         detectDDLChangesFromSchemaInfoJsonAndSendImmediately(tableName, schemaInfoJson, String.valueOf(startVersion));
                     } catch (Exception e) {
                         logger.error("检测 DDL 变更失败: {}", e.getMessage(), e);
@@ -1173,34 +1233,45 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
     final class Worker extends Thread {
         @Override
         public void run() {
-            while (!isInterrupted() && connected) {
+            while (!isInterrupted() && connected && !stopRequested.get()) {
                 try {
-                    // 直接获取最新版本号
                     Long maxVersion = getMaxVersion();
                     if (maxVersion != null && maxVersion > lastVersion) {
+                        currentVersion = maxVersion;
                         pull(lastVersion, maxVersion);
+                        currentVersionRetryCount = 0;
                     } else {
-                        // 更新快照：使用 startVersion 确保数据安全（即使处理失败也不会丢失数据）
-                        // 注意：所有事件都携带 startVersion，所以这里统一更新快照为 startVersion
                         if (!hasPendingTaskData()) {
-                            ChangedOffset offset = new ChangedOffset();
-                            offset.setPosition(lastVersion);
-                            refreshEvent(offset);
+                            snapshotProgress(lastSuccessfulVersion);
                         }
-
-                        // 没有新版本，等待一段时间后继续轮询
                         sleepInMills(POLL_INTERVAL_MILLIS);
                     }
                 } catch (InterruptedException e) {
                     break;
                 } catch (Exception e) {
-                    if (connected) {
-                        logger.error("轮询版本号失败: {}", e.getMessage(), e);
+                    if (stopRequested.get()) {
+                        break;
+                    }
+                    if (connected && isRetryableError(e)) {
+                        currentVersionRetryCount++;
+                        logger.warn("处理版本 {} 失败，重试次数: {}/{}", lastVersion, currentVersionRetryCount, MAX_RETRY_PER_VERSION);
+                        if (currentVersionRetryCount >= MAX_RETRY_PER_VERSION) {
+                            logger.error("版本 {} 达到最大重试次数 {}，停止同步", lastVersion, MAX_RETRY_PER_VERSION);
+                            snapshotProgress(lastSuccessfulVersion);
+                            break;
+                        }
                         sleepInMills(1000L);
+                    } else {
+                        logger.error("轮询版本号失败: {}", e.getMessage(), e);
+                        snapshotProgress(lastSuccessfulVersion);
+                        break;
                     }
                 }
             }
+            snapshotProgress(lastSuccessfulVersion);
         }
+
+        private Long currentVersion;
     }
 }
 
