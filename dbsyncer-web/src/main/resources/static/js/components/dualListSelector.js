@@ -54,26 +54,36 @@ class DualListSelector {
                                             <span class="badge pull-right" id="availableCount">0</span>
                                         </div>
                                         <div class="panel-body">
-                                            <input type="text" class="form-control input-sm"
-                                                   id="availableSearch" placeholder="搜索...">
-                                            <button type="button" class="btn btn-default btn-xs btn-block"
-                                                    id="selectAllAvailable" style="margin-top: 8px;">
-                                                <i class="fa fa-check-square-o"></i> 全选
-                                            </button>
+                                            <div style="display: flex; gap: 5px;">
+                                                <input type="text" class="form-control input-sm"
+                                                       id="availableSearch" placeholder="搜索..." style="flex: 1;">
+                                                <select class="form-control input-sm" id="availableMatchMode" style="width: 70px; padding: 2px;">
+                                                    <option value="keyword">关键字</option>
+                                                    <option value="exact">全词</option>
+                                                </select>
+                                            </div>
                                             <ul class="list-group dual-list" id="availableList"
-                                                style="max-height: 270px; overflow-y: auto; margin-top: 8px;">
+                                                style="max-height: 240px; overflow-y: auto; margin-top: 8px;">
                                             </ul>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="col-md-2 text-center" style="padding-top: 100px;">
+                                <div class="col-md-2 text-center" style="padding-top: 60px;">
                                     <button type="button" class="btn btn-default btn-block btn-sm"
-                                            id="moveRight" title="添加选中">
+                                            id="selectAllAvailable" title="全选">
+                                        <i class="fa fa-angle-double-right"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-default btn-block btn-sm"
+                                            id="moveRight" title="添加选中" style="margin-top: 10px;">
                                         <i class="fa fa-chevron-right"></i>
                                     </button>
                                     <button type="button" class="btn btn-default btn-block btn-sm"
                                             id="moveLeft" title="移除选中" style="margin-top: 10px;">
                                         <i class="fa fa-chevron-left"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-default btn-block btn-sm"
+                                            id="removeAllSelected" title="全部移除" style="margin-top: 10px;">
+                                        <i class="fa fa-angle-double-left"></i>
                                     </button>
                                 </div>
                                 <div class="col-md-5">
@@ -85,10 +95,6 @@ class DualListSelector {
                                         <div class="panel-body">
                                             <input type="text" class="form-control input-sm"
                                                    id="selectedSearch" placeholder="搜索...">
-                                            <button type="button" class="btn btn-default btn-xs btn-block"
-                                                    id="removeAllSelected" style="margin-top: 8px;">
-                                                <i class="fa fa-trash-o"></i> 全部移除
-                                            </button>
                                             <ul class="list-group dual-list" id="selectedList"
                                                 style="max-height: 270px; overflow-y: auto; margin-top: 8px;">
                                             </ul>
@@ -115,6 +121,7 @@ class DualListSelector {
         this.$selectedList = this.$modal.find('#selectedList');
         this.$availableSearch = this.$modal.find('#availableSearch');
         this.$selectedSearch = this.$modal.find('#selectedSearch');
+        this.$availableMatchMode = this.$modal.find('#availableMatchMode');
 
         // 初始化搜索历史管理器
         this.initSearchHistory();
@@ -138,7 +145,11 @@ class DualListSelector {
         const self = this;
 
         this.$availableSearch.on('input', function() {
-            self.filterList($(this).val(), self.$availableList);
+            self.filterList($(this).val(), self.$availableList, self.$availableMatchMode.val());
+        });
+
+        this.$availableMatchMode.on('change', () => {
+            self.filterList(self.$availableSearch.val(), self.$availableList, self.$availableMatchMode.val());
         });
 
         this.$selectedSearch.on('input', function() {
@@ -210,7 +221,7 @@ class DualListSelector {
             const displayText = item[this.options.displayField];
             const typeText = item[this.options.typeField] ? ` (${item[this.options.typeField]})` : '';
             return `
-                <li class="list-group-item" data-id="${item.id}" style="cursor: pointer;">
+                <li class="list-group-item" data-id="${item.id}" style="cursor: pointer; word-break: break-all;">
                     ${displayText}${typeText}
                 </li>
             `;
@@ -261,7 +272,7 @@ class DualListSelector {
         this.render();
     }
 
-    filterList(keyword, $list) {
+    filterList(keyword, $list, mode = 'keyword') {
         if (!keyword.trim()) {
             $list.find('li').show();
             return;
@@ -270,7 +281,13 @@ class DualListSelector {
         const keywords = keyword.toLowerCase().split(/\s+/).filter(k => k);
         $list.find('li').each(function() {
             const text = $(this).text().toLowerCase();
-            const match = keywords.some(k => text.includes(k));
+            const displayName = $(this).data('id').toString().toLowerCase();
+            let match;
+            if (mode === 'exact') {
+                match = keywords.some(k => displayName === k);
+            } else {
+                match = keywords.some(k => text.includes(k));
+            }
             $(this).toggle(match);
         });
     }
