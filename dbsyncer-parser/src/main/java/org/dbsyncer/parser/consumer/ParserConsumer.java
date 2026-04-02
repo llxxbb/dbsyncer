@@ -6,6 +6,7 @@ package org.dbsyncer.parser.consumer;
 import org.dbsyncer.parser.LogService;
 import org.dbsyncer.parser.LogType;
 import org.dbsyncer.parser.ProfileComponent;
+import org.dbsyncer.parser.enums.MetaEnum;
 import org.dbsyncer.parser.flush.impl.BufferActuatorRouter;
 import org.dbsyncer.parser.model.Meta;
 import org.dbsyncer.parser.model.TableGroup;
@@ -90,7 +91,23 @@ public final class ParserConsumer implements Watcher {
 
     @Override
     public void errorEvent(Exception e) {
+        // 记录错误到数据库
         logService.log(LogType.TableGroupLog.INCREMENT_FAILED, e.getMessage());
+        
+        // 更新 Meta 状态为 ERROR，确保任务状态正确显示为"异常"
+        // 注意：listener 的关闭由 managerFactory.close() 统一处理，这里只更新状态
+        try {
+            Meta meta = profileComponent.getMeta(metaId);
+            if (meta != null && !meta.isError()) {
+                String errorMessage = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+                
+                // 更新状态为 ERROR
+                meta.saveState(MetaEnum.ERROR, errorMessage);
+                logger.info("Meta 状态已更新为 ERROR: metaId={}, errorMessage={}", metaId, errorMessage);
+            }
+        } catch (Exception ex) {
+            logger.error("异常处理失败：metaId={}", metaId, ex);
+        }
     }
 
     @Override

@@ -1233,7 +1233,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
     final class Worker extends Thread {
         @Override
         public void run() {
-            while (!isInterrupted() && connected && !stopRequested.get()) {
+            while (!isInterrupted() && !stopRequested.get()) {
                 try {
                     Long maxVersion = getMaxVersion();
                     if (maxVersion != null && maxVersion > lastVersion) {
@@ -1257,12 +1257,16 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
                         logger.warn("处理版本 {} 失败，重试次数: {}/{}", lastVersion, currentVersionRetryCount, MAX_RETRY_PER_VERSION);
                         if (currentVersionRetryCount >= MAX_RETRY_PER_VERSION) {
                             logger.error("版本 {} 达到最大重试次数 {}，停止同步", lastVersion, MAX_RETRY_PER_VERSION);
+                            // 记录错误到数据库
+                            errorEvent(e);
                             snapshotProgress(lastSuccessfulVersion);
                             break;
                         }
                         sleepInMills(1000L);
                     } else {
                         logger.error("轮询版本号失败: {}", e.getMessage(), e);
+                        // 记录错误到数据库
+                        errorEvent(e);
                         snapshotProgress(lastSuccessfulVersion);
                         break;
                     }
