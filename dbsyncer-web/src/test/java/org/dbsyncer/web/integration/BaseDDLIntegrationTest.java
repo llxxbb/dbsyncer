@@ -310,7 +310,8 @@ public abstract class BaseDDLIntegrationTest {
         tableGroupParams.put("sourceTable", getSourceTableName());
         tableGroupParams.put("targetTable", getTargetTableName());
         tableGroupParams.put("fieldMappings", String.join(",", getInitialFieldMappings()));
-        tableGroupService.add(tableGroupParams);
+        String tableGroupId = tableGroupService.add(tableGroupParams);
+            logger.info("TableGroup 创建成功：{}", tableGroupId);
 
         return mappingId;
     }

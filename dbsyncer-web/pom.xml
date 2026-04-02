@@ -80,6 +80,13 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- JUnit Vintage Engine (用于运行 JUnit 4 测试) -->
+        <dependency>
+            <groupId>org.junit.vintage</groupId>
+            <artifactId>junit-vintage-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- Connector 连接器服务 -->
         <!-- MySQL连接器：运行时需要，因为application.properties中配置了dbsyncer.storage.type=mysql -->
         <dependency>
