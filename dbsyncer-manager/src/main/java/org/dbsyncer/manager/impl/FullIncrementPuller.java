@@ -55,13 +55,28 @@ public final class FullIncrementPuller implements Puller {
 
     @Override
     public void start(Mapping mapping) {
-        start(mapping, null);
+        start(mapping, null, null);  // 兼容现有调用
     }
 
     public void start(Mapping mapping, List<TableGroup> tableGroupsToSync) {
+        start(mapping, tableGroupsToSync, null);  // 兼容现有调用
+    }
+
+    public void start(Mapping mapping, List<TableGroup> tableGroupsToSync, Runnable onClose) {
         final String metaId = mapping.getMetaId();
 
         Meta meta = profileComponent.getMeta(mapping.getMetaId());
+        
+        // 创建顶层关闭回调：同时关闭全量和增量
+        Runnable closeCallback = onClose != null ? onClose : () -> {
+            try {
+                fullPuller.close(mapping);
+                incrementPuller.close(mapping);
+            } catch (Exception ex) {
+                logger.error("混合同步关闭失败", ex);
+            }
+        };
+        
         Thread coordinator = new Thread(() -> {
             try {
                 // 1. 检查故障恢复（零开销）
@@ -73,7 +88,7 @@ public final class FullIncrementPuller implements Puller {
                     case FULL:
                         // 记录增量起始点并执行全量同步
                         recordIncrementStartPoint(mapping, meta);
-                        startFullThenIncrement(mapping, meta, tableGroupsToSync);
+                        startFullThenIncrement(mapping, meta, tableGroupsToSync, closeCallback);
                         break;
 
                     case INCREMENTAL:
@@ -91,12 +106,12 @@ public final class FullIncrementPuller implements Puller {
                             if (!allCompleted) {
                                 // 有需要全量同步的TableGroup，重新执行全量
                                 logger.info("混合同步增量阶段，部分TableGroup需要重新全量同步: metaId={}", metaId);
-                                startFullThenIncrement(mapping, meta, tableGroupsToSync);
+                                startFullThenIncrement(mapping, meta, tableGroupsToSync, closeCallback);
                                 break;
                             }
                         }
                         // 直接启动增量（全量已完成）
-                        startIncrementSync(mapping, meta);
+                        startIncrementSync(mapping, meta, closeCallback);
                         break;
 
                     default:
@@ -128,12 +143,12 @@ public final class FullIncrementPuller implements Puller {
     }
 
     // 核心：运行全量同步并在完成后执行回调
-    private void startFullThenIncrement(Mapping mapping, Meta meta, List<TableGroup> tableGroupsToSync) throws Exception {
+    private void startFullThenIncrement(Mapping mapping, Meta meta, List<TableGroup> tableGroupsToSync, Runnable closeCallback) throws Exception {
         // 设置阶段回调：全量完成后启动增量同步
         meta.setPhaseHandler(() -> {
             // 启动增量同步
             try {
-                startIncrementSync(mapping, meta);
+                startIncrementSync(mapping, meta, closeCallback);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -174,10 +189,10 @@ public final class FullIncrementPuller implements Puller {
         logger.info("已记录增量同步起始位置: metaId={}", mapping.getMetaId());
     }
 
-    private void startIncrementSync(Mapping mapping, Meta meta) throws Exception {
+    private void startIncrementSync(Mapping mapping, Meta meta, Runnable closeCallback) throws Exception {
         // 增量起始点已直接保存在 snapshot 中，无需恢复
         // 直接使用原始Mapping启动增量同步
-        incrementPuller.start(mapping);
+        incrementPuller.start(mapping, closeCallback);
 
         logger.info("增量同步已启动，混合模式进入持续运行状态: {}", mapping.getMetaId());
     }

@@ -80,10 +80,24 @@ public final class IncrementPuller implements Puller {
 
     @Override
     public void start(Mapping mapping) throws Exception {
+        start(mapping, null);  // 兼容现有调用
+    }
+
+    public void start(Mapping mapping, Runnable onClose) throws Exception {
         final String mappingId = mapping.getId();
         final String metaId = mapping.getMetaId();
         logger.info("IncrementPuller.start() 开始: mappingId={}, metaId={}", mappingId, metaId);
         
+        
+        // 如果没有传入关闭回调，创建默认的（独立使用时关闭自己）
+        Runnable closeCallback = onClose != null ? onClose : () -> {
+            try {
+                logger.info("errorEvent 触发独立关闭：metaId={}", metaId);
+                close(mapping);
+            } catch (Exception ex) {
+                logger.error("errorEvent 触发关闭失败：metaId={}", metaId, ex);
+            }
+        };
         Connector connector = profileComponent.getConnector(mapping.getSourceConnectorId());
         Assert.notNull(connector, "连接器不能为空.");
         logger.debug("获取源连接器成功: connectorId={}", mapping.getSourceConnectorId());
@@ -112,7 +126,7 @@ public final class IncrementPuller implements Puller {
                     meta.setEndTime(now);
                     profileComponent.editConfigModel(meta);
                     tableGroupContext.put(mapping, list);
-                    listener = getListener(mapping, connector, targetConnector, list, meta);
+                    listener = getListener(mapping, connector, targetConnector, list, meta, closeCallback);
                     meta.setListener(listener);
                 }
                 logger.info("starting increment puller for mappingId: {}", mappingId);
@@ -153,7 +167,7 @@ public final class IncrementPuller implements Puller {
     }
 
 
-    private Listener getListener(Mapping mapping, Connector connector, Connector targetConnector, List<TableGroup> list, Meta meta) throws Exception {
+    private Listener getListener(Mapping mapping, Connector connector, Connector targetConnector, List<TableGroup> list, Meta meta, Runnable onClose) throws Exception {
         ConnectorConfig connectorConfig = connector.getConfig();
         ConnectorConfig targetConnectorConfig = targetConnector.getConfig();
         ListenerConfig listenerConfig = mapping.getListener();
@@ -163,7 +177,18 @@ public final class IncrementPuller implements Puller {
         if (null == listener) {
             throw new ManagerException(String.format("Unsupported listener type \"%s\".", connectorConfig.getConnectorType()));
         }
-        listener.register(new ParserConsumer(bufferActuatorRouter, profileComponent, pluginFactory, logService, meta.getId(), list));
+        
+        // 创建 ParserConsumer，传递关闭回调
+        ParserConsumer consumer = new ParserConsumer(
+            bufferActuatorRouter, 
+            profileComponent, 
+            pluginFactory, 
+            logService, 
+            meta.getId(), 
+            list, 
+            onClose  // 传递顶层关闭回调
+        );
+        listener.register(consumer);
 
         // 默认定时抽取
         if (ListenerTypeEnum.isTiming(listenerType) && listener instanceof AbstractQuartzListener) {

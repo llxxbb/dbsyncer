@@ -23,6 +23,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * @Version 1.0.0
@@ -37,13 +38,15 @@ public final class ParserConsumer implements Watcher {
     private final PluginFactory pluginFactory;
     private final LogService logService;
     private final String metaId;
+    private final Runnable onClose;
 
-    public ParserConsumer(BufferActuatorRouter bufferActuatorRouter, ProfileComponent profileComponent, PluginFactory pluginFactory, LogService logService, String metaId, List<TableGroup> tableGroups) {
+    public ParserConsumer(BufferActuatorRouter bufferActuatorRouter, ProfileComponent profileComponent, PluginFactory pluginFactory, LogService logService, String metaId, List<TableGroup> tableGroups, Runnable onClose) {
         this.bufferActuatorRouter = bufferActuatorRouter;
         this.profileComponent = profileComponent;
         this.pluginFactory = pluginFactory;
         this.logService = logService;
         this.metaId = metaId;
+        this.onClose = onClose;  // 初始化 onClose
         // 注册到路由服务中
         bufferActuatorRouter.getOrCreateActuator(metaId);
     }
@@ -95,18 +98,27 @@ public final class ParserConsumer implements Watcher {
         logService.log(LogType.TableGroupLog.INCREMENT_FAILED, e.getMessage());
         
         // 更新 Meta 状态为 ERROR，确保任务状态正确显示为"异常"
-        // 注意：listener 的关闭由 managerFactory.close() 统一处理，这里只更新状态
         try {
             Meta meta = profileComponent.getMeta(metaId);
             if (meta != null && !meta.isError()) {
                 String errorMessage = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-                
-                // 更新状态为 ERROR
                 meta.saveState(MetaEnum.ERROR, errorMessage);
                 logger.info("Meta 状态已更新为 ERROR: metaId={}, errorMessage={}", metaId, errorMessage);
             }
         } catch (Exception ex) {
-            logger.error("异常处理失败：metaId={}", metaId, ex);
+            logger.error("更新 Meta 状态失败：metaId={}", metaId, ex);
+        }
+        
+        // 异步触发完整关闭（避免阻塞 errorEvent 调用方）
+        if (onClose != null) {
+            CompletableFuture.runAsync(() -> {
+                try {
+                    onClose.run();
+                    logger.info("errorEvent 触发关闭成功：metaId={}", metaId);
+                } catch (Exception ex) {
+                    logger.error("errorEvent 触发关闭失败：metaId={}", metaId, ex);
+                }
+            });
         }
     }
 
