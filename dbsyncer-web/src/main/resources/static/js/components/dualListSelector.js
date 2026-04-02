@@ -56,8 +56,12 @@ class DualListSelector {
                                         <div class="panel-body">
                                             <input type="text" class="form-control input-sm"
                                                    id="availableSearch" placeholder="搜索...">
+                                            <button type="button" class="btn btn-default btn-xs btn-block"
+                                                    id="selectAllAvailable" style="margin-top: 8px;">
+                                                <i class="fa fa-check-square-o"></i> 全选
+                                            </button>
                                             <ul class="list-group dual-list" id="availableList"
-                                                style="max-height: 300px; overflow-y: auto; margin-top: 10px;">
+                                                style="max-height: 270px; overflow-y: auto; margin-top: 8px;">
                                             </ul>
                                         </div>
                                     </div>
@@ -81,8 +85,12 @@ class DualListSelector {
                                         <div class="panel-body">
                                             <input type="text" class="form-control input-sm"
                                                    id="selectedSearch" placeholder="搜索...">
+                                            <button type="button" class="btn btn-default btn-xs btn-block"
+                                                    id="removeAllSelected" style="margin-top: 8px;">
+                                                <i class="fa fa-trash-o"></i> 全部移除
+                                            </button>
                                             <ul class="list-group dual-list" id="selectedList"
-                                                style="max-height: 300px; overflow-y: auto; margin-top: 10px;">
+                                                style="max-height: 270px; overflow-y: auto; margin-top: 8px;">
                                             </ul>
                                         </div>
                                     </div>
@@ -139,6 +147,8 @@ class DualListSelector {
 
         this.$modal.find('#moveRight').click(() => this.moveRight());
         this.$modal.find('#moveLeft').click(() => this.moveLeft());
+        this.$modal.find('#selectAllAvailable').click(() => this.selectAllAvailable());
+        this.$modal.find('#removeAllSelected').click(() => this.removeAllSelected());
 
         this.$modal.find('#confirmSelection').click(() => {
             if (this.options.onConfirm) {
@@ -235,11 +245,33 @@ class DualListSelector {
         this.render();
     }
 
+    selectAllAvailable() {
+        const self = this;
+        this.$availableList.find('li:visible').each((_, el) => {
+            self.addToSelected($(el).data('id'));
+        });
+        this.render();
+    }
+
+    removeAllSelected() {
+        const self = this;
+        this.$selectedList.find('li:visible').each((_, el) => {
+            self.removeFromSelected($(el).data('id'));
+        });
+        this.render();
+    }
+
     filterList(keyword, $list) {
-        const lowerKeyword = keyword.toLowerCase();
+        if (!keyword.trim()) {
+            $list.find('li').show();
+            return;
+        }
+
+        const keywords = keyword.toLowerCase().split(/\s+/).filter(k => k);
         $list.find('li').each(function() {
             const text = $(this).text().toLowerCase();
-            $(this).toggle(text.includes(lowerKeyword));
+            const match = keywords.some(k => text.includes(k));
+            $(this).toggle(match);
         });
     }
 
