@@ -84,18 +84,34 @@ function bindMappingTableGroupCheckBoxClick() {
     var $checkbox = $('.tableGroupCheckbox');
     var $delBtn = $("#tableGroupDelBtn");
     var $resyncBtn = $("#tableGroupResyncBtn");
+    var $checkCount = $("#tableGroupCheckCount");
+    var totalCount = $checkbox.length;
+
+    // 更新勾选数量显示
+    function updateCheckCount() {
+        var checkedCount = getCheckedBoxSize($checkbox).length;
+        if (checkedCount > 0) {
+            $checkCount.text('(' + checkedCount + '/' + totalCount + ')');
+        } else {
+            $checkCount.text('');
+        }
+    }
+
     $checkboxAll.iCheck({
         checkboxClass: 'icheckbox_square-red',
         labelHover: false,
         cursor: true
     }).on('ifChecked', function (event) {
         $checkbox.iCheck('check');
+        updateCheckCount();
     }).on('ifUnchecked', function (event) {
         $checkbox.iCheck('uncheck');
+        updateCheckCount();
     }).on('ifChanged', function (event) {
         var hasChecked = getCheckedBoxSize($checkbox).length > 0;
         $delBtn.prop('disabled', !hasChecked);
         updateResyncButtonState($resyncBtn, hasChecked);
+        updateCheckCount();
     });
 
     // 初始化icheck插件
@@ -106,6 +122,7 @@ function bindMappingTableGroupCheckBoxClick() {
         var hasChecked = getCheckedBoxSize($checkbox).length > 0;
         $delBtn.prop('disabled', !hasChecked);
         updateResyncButtonState($resyncBtn, hasChecked);
+        updateCheckCount();
     });
 }
 
@@ -374,12 +391,8 @@ function updateTargetTableName(tableGroupId, newTableName, targetTablePK, $icon)
 
 // 绑定下拉选择事件自动匹配相似表事件
 function bindTableSelect() {
-    const $sourceSelect = $("#sourceTable");
-    const $targetSelect = $("#targetTable");
-    $sourceSelect.on('changed.bs.select', function (e) {
-        $targetSelect.selectpicker('val', $(this).selectpicker('val'));
-    });
-    bindMappingTableGroupAddClick($sourceSelect, $targetSelect);
+    // 使用 SelectorManager 统一初始化
+    initTableSelectors();
 }
 
 // 修复 bootstrap-select 选中值不显示的问题
@@ -415,22 +428,78 @@ function bindMultipleSelectFilterBtnClick() {
     });
 }
 
+// 初始化表选择器 - 使用 SelectorManager 消除重复代码
+function initTableSelectors() {
+    // 数据源表选择器
+    const sourceSelector = SelectorManager.init({
+        type: 'table',
+        side: 'source',
+        btnId: 'sourceTableBtn',
+        selectId: 'sourceTable',
+        modalId: 'sourceTableModal',
+        title: '选择数据源表',
+        leftTitle: '可选表',
+        rightTitle: '已选表',
+        onConfirm: function(selectedIds, data) {
+            // 自动同步目标表选择
+            const targetSelected = $('#targetTable').val();
+            if (selectedIds.length === 0) {
+                // 源表清空时，同步清空目标表
+                SelectorManager.get('targetTableSelector').setSelected([]);
+                SelectorManager.updateButtonDisplay('target', 'table', [], data);
+                $('#targetTable').val([]).trigger('change');
+            } else if (!targetSelected || targetSelected.length === 0) {
+                // 目标表未选择时，自动同步源表选择
+                SelectorManager.get('targetTableSelector').setSelected(selectedIds);
+                SelectorManager.updateButtonDisplay('target', 'table', selectedIds, data);
+                $('#targetTable').val(selectedIds).trigger('change');
+            }
+        }
+    });
+
+    // 目标源表选择器
+    SelectorManager.init({
+        type: 'table',
+        side: 'target',
+        btnId: 'targetTableBtn',
+        selectId: 'targetTable',
+        modalId: 'targetTableModal',
+        title: '选择目标源表',
+        leftTitle: '可选表',
+        rightTitle: '已选表'
+    });
+
+    // 绑定添加按钮事件
+    bindMappingTableGroupAddClick();
+}
+
 // 绑定新增表关系点击事件
-function bindMappingTableGroupAddClick($sourceSelect, $targetSelect) {
+function bindMappingTableGroupAddClick() {
     let $addBtn = $("#tableGroupAddBtn");
     $addBtn.unbind("click");
     $addBtn.bind('click', function () {
         let m = {};
         m.mappingId = $(this).attr("mappingId");
-        m.sourceTable = $sourceSelect.selectpicker('val');
-        m.targetTable = $targetSelect.selectpicker('val');
-        if (undefined == m.sourceTable) {
+
+        // 从隐藏的select元素获取选中值
+        const sourceSelected = $("#sourceTable").val();
+        const targetSelected = $("#targetTable").val();
+
+        m.sourceTable = sourceSelected ? sourceSelected : null;
+        m.targetTable = targetSelected ? targetSelected : null;
+
+        if (m.sourceTable === null) {
             bootGrowl("请选择数据源表", "danger");
             return;
         }
+
+        // 转换为数组
+        m.sourceTable = Array.isArray(m.sourceTable) ? m.sourceTable : [m.sourceTable];
+        m.targetTable = Array.isArray(m.targetTable) ? m.targetTable : (m.targetTable ? [m.targetTable] : []);
+
         // 如果未选择目标表，则使用源表作为目标表
-        if (undefined == m.targetTable) {
-            m.targetTable = m.sourceTable;
+        if (m.targetTable.length === 0) {
+            m.targetTable = [...m.sourceTable];
         }
 
         let sLen = m.sourceTable.length;

@@ -35,3 +35,97 @@
 .field-diff-status .label-default {
     background-color: #777;
 }
+
+/* ==================== 双列表选择器样式 ==================== */
+
+/* 选择按钮样式 */
+#sourceTableBtn,
+#targetTableBtn,
+#sourceFieldBtn,
+#targetFieldBtn {
+    min-width: 120px;
+    text-align: left;
+}
+
+#sourceTableBtn .badge,
+#targetTableBtn .badge,
+#sourceFieldBtn .badge,
+#targetFieldBtn .badge {
+    margin-left: 5px;
+    background-color: #5cb85c;
+}
+
+/* 双列表容器样式 */
+.dual-list {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 5px;
+    min-height: 200px;
+}
+
+.dual-list .list-group-item {
+    padding: 8px 12px;
+    margin-bottom: 2px;
+    border: 1px solid #e5e5e5;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+}
+
+.dual-list .list-group-item:hover {
+    background-color: #f5f5f5;
+    border-color: #ccc;
+}
+
+.dual-list .list-group-item.active {
+    background-color: #337ab7;
+    border-color: #337ab7;
+    color: white;
+}
+
+.dual-list .list-group-item.active:hover {
+    background-color: #286090;
+    border-color: #204d74;
+}
+
+/* 搜索框样式 */
+#availableSearch,
+#selectedSearch {
+    margin-bottom: 5px;
+}
+
+/* 面板标题样式 */
+.panel-heading .badge {
+    background-color: #777;
+}
+
+.panel-success .panel-heading .badge {
+    background-color: #5cb85c;
+}
+
+/* 中间操作按钮区域 */
+.col-md-2.text-center {
+    padding-left: 5px;
+    padding-right: 5px;
+}
+
+.col-md-2.text-center .btn {
+    margin-bottom: 5px;
+}
+
+/* 模态框内列表项类型标识 */
+.dual-list .list-group-item .text-muted {
+    font-size: 0.9em;
+    color: #999;
+}
+
+/* 响应式调整 */
+@media (max-width: 991px) {
+    .dual-list {
+        max-height: 200px !important;
+    }
+
+    .col-md-2.text-center {
+        padding-top: 20px !important;
+        padding-bottom: 20px;
+    }
+}

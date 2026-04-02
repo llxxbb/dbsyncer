@@ -113,15 +113,53 @@ function bindFieldMappingListClick(){
 }
 // 绑定下拉选择事件自动匹配相似字段事件
 function bindTableFieldSelect(){
-    let $sourceSelect = $("#sourceTableField");
-    let $targetSelect = $("#targetTableField");
+    // 使用 SelectorManager 统一初始化
+    initFieldSelectors();
+}
 
-    // 绑定数据源下拉切换事件
-    $sourceSelect.on('changed.bs.select',function(e){
-        $targetSelect.selectpicker('val', $(this).selectpicker('val'));
+// 初始化字段选择器 - 使用 SelectorManager 消除重复代码
+function initFieldSelectors() {
+    // 数据源字段选择器
+    SelectorManager.init({
+        type: 'field',
+        side: 'source',
+        btnId: 'sourceFieldBtn',
+        selectId: 'sourceTableField',
+        modalId: 'sourceFieldModal',
+        title: '选择数据源字段',
+        leftTitle: '可选字段',
+        rightTitle: '已选字段',
+        onConfirm: function(selectedIds, data) {
+            // 自动同步目标字段选择
+            const targetSelected = $('#targetTableField').val();
+            if (selectedIds.length === 0) {
+                // 源字段清空时，同步清空目标字段
+                SelectorManager.get('targetFieldSelector').setSelected([]);
+                SelectorManager.updateButtonDisplay('target', 'field', [], data);
+                $('#targetTableField').val([]).trigger('change');
+            } else if (!targetSelected || targetSelected.length === 0) {
+                // 目标字段未选择时，自动同步源字段选择
+                SelectorManager.get('targetFieldSelector').setSelected(selectedIds);
+                SelectorManager.updateButtonDisplay('target', 'field', selectedIds, data);
+                $('#targetTableField').val(selectedIds).trigger('change');
+            }
+        }
     });
-    
-    bindFieldMappingAddClick($sourceSelect, $targetSelect);
+
+    // 目标源字段选择器
+    SelectorManager.init({
+        type: 'field',
+        side: 'target',
+        btnId: 'targetFieldBtn',
+        selectId: 'targetTableField',
+        modalId: 'targetFieldModal',
+        title: '选择目标源字段',
+        leftTitle: '可选字段',
+        rightTitle: '已选字段'
+    });
+
+    // 绑定添加按钮事件
+    bindFieldMappingAddClick();
 }
 
 // 修复 bootstrap-select 选中值不显示的问题
@@ -315,11 +353,13 @@ function isSourceFieldPrimaryKey(fieldName) {
 }
 
 // 绑定添加字段映射点击事件
-function bindFieldMappingAddClick($sourceSelect, $targetSelect){
+function bindFieldMappingAddClick(){
     let $btn = $("#fieldMappingAddBtn");
     $btn.bind('click', function(){
-        let sFields = $sourceSelect.selectpicker("val");
-        let tFields = $targetSelect.selectpicker("val");
+        // 从隐藏的select元素获取选中值
+        let sFields = $("#sourceTableField").val();
+        let tFields = $("#targetTableField").val();
+
         sFields = sFields == null ? [] : (Array.isArray(sFields) ? sFields : [sFields]);
         tFields = tFields == null ? [] : (Array.isArray(tFields) ? tFields : [tFields]);
         

@@ -3,12 +3,21 @@
       xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
 
 <div th:fragment="content">
+    <!-- 数据源表数据 -->
+    <script type="application/json" id="sourceTableData" th:utext="${mapping?.sourceConnector?.table} ? ${#strings.replace(#strings.replace(#strings.toString(mapping?.sourceConnector?.table), '[', '['), ']', ']')}"></script>
+
     <div class="row">
         <!-- 数据源配置 -->
         <div class="col-md-5">
             <label class="col-sm-3 control-label text-right">数据源表</label>
             <div class="col-sm-9">
-                <select id="sourceTable" class="form-control select-control-table" multiple="multiple">
+                <button type="button" class="btn btn-default" id="sourceTableBtn">
+                    <i class="fa fa-table"></i>
+                    <span id="sourceTableText">选择表</span>
+                    <span class="badge" id="sourceTableCount" style="display: none;">0</span>
+                </button>
+                <!-- 隐藏字段存储选中值，保持向后兼容 -->
+                <select id="sourceTable" class="form-control select-control-table hidden" multiple="multiple">
                     <option th:each="t,s:${mapping?.sourceConnector?.table}" th:text="${t?.name} + ' ('+${t?.type}+')'"
                             th:value="${t?.name}"/>
                 </select>
@@ -23,7 +32,13 @@
             <div class="form-group">
                 <label class="col-sm-3 control-label text-right">目标源表</label>
                 <div class="col-sm-9">
-                    <select id="targetTable" class="form-control select-control-table" multiple="multiple">
+                    <button type="button" class="btn btn-default" id="targetTableBtn">
+                        <i class="fa fa-table"></i>
+                        <span id="targetTableText">选择表</span>
+                        <span class="badge" id="targetTableCount" style="display: none;">0</span>
+                    </button>
+                    <!-- 隐藏字段存储选中值，保持向后兼容 -->
+                    <select id="targetTable" class="form-control select-control-table hidden" multiple="multiple">
                         <option th:each="t,s:${mapping?.targetConnector?.table}"
                                 th:text="${t?.name} + ' ('+${t?.type}+')'" th:value="${t?.name}"/>
                     </select>
@@ -83,7 +98,7 @@
                 <th>数据源表</th>
                 <th>目标源表</th>
                 <th>字段差异</th>
-                <th><input type="checkbox" class="tableGroupCheckboxAll" /></th>
+                <th style="white-space: nowrap;"><input type="checkbox" class="tableGroupCheckboxAll" /> <span id="tableGroupCheckCount" class="text-muted" style="font-weight: normal; font-size: 12px; display: inline-block; min-width: 50px;"></span></th>
             </tr>
             </thead>
             <tbody id="tableGroupList">
@@ -91,8 +106,8 @@
                     <td th:text="${t?.sourceTable.name}"/>
                     <td>
                         <span class="target-table-name" th:text="${t?.targetTable.name}"></span>
-                        <i class="fa fa-edit well-sign-green dbsyncer_pointer target-table-rename" 
-                           th:data-id="${t?.id}" 
+                        <i class="fa fa-edit well-sign-green dbsyncer_pointer target-table-rename"
+                           th:data-id="${t?.id}"
                            th:data-current-name="${t?.targetTable.name}"
                            th:data-target-table-pk="${t?.targetTablePK}"
                            title="重命名目标表"

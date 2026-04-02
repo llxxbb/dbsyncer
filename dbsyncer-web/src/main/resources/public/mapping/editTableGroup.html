@@ -102,7 +102,13 @@
                                         <div class="col-md-5">
                                             <label class="col-sm-3 control-label text-right">数据源表字段</label>
                                             <div class="col-sm-9">
-                                                <select id="sourceTableField" class="form-control select-control-table" multiple="multiple">
+                                                <button type="button" class="btn btn-default" id="sourceFieldBtn">
+                                                    <i class="fa fa-columns"></i>
+                                                    <span id="sourceFieldText">选择字段</span>
+                                                    <span class="badge" id="sourceFieldCount" style="display: none;">0</span>
+                                                </button>
+                                                <!-- 隐藏字段存储选中值，保持向后兼容 -->
+                                                <select id="sourceTableField" class="form-control select-control-table hidden" multiple="multiple">
                                                     <option th:each="c,s:${tableGroup?.sourceTable?.column}" th:value="${c?.name}" th:text="${c?.name} +' (' + ${c?.typeName} +')' + (${c?.pk} ? ' [主键]' : '')" th:data-pk="${c?.pk}" />
                                                 </select>
                                             </div>
@@ -116,7 +122,13 @@
                                             <div class="form-group">
                                                 <label class="col-sm-3 control-label text-right">目标源表字段</label>
                                                 <div class="col-sm-9">
-                                                    <select id="targetTableField" class="form-control select-control-table" multiple="multiple">
+                                                    <button type="button" class="btn btn-default" id="targetFieldBtn">
+                                                        <i class="fa fa-columns"></i>
+                                                        <span id="targetFieldText">选择字段</span>
+                                                        <span class="badge" id="targetFieldCount" style="display: none;">0</span>
+                                                    </button>
+                                                    <!-- 隐藏字段存储选中值，保持向后兼容 -->
+                                                    <select id="targetTableField" class="form-control select-control-table hidden" multiple="multiple">
                                                         <option th:each="c,s:${tableGroup?.targetTable?.column}" th:value="${c?.name}" th:text="${c?.name} +' (' + ${c?.typeName} +')' + (${c?.pk} ? ' [主键]' : '')" th:data-pk="${c?.pk}" />
                                                     </select>
                                                 </div>
@@ -311,6 +323,8 @@
                     </div>
 
 <script th:src="@{/js/mapping/fieldDifferenceComponent.js}"></script>
+<script th:src="@{/js/components/searchHistoryManager.js}"></script>
+<script th:src="@{/js/components/dualListSelector.js}"></script>
 <script th:src="@{/js/mapping/editTableGroup.js}"></script>
 <script th:src="@{/js/mapping/editPlugin.js}"></script>
 <script th:src="@{/js/mapping/editFilterAndConvert.js}"></script>
