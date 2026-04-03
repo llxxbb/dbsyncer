@@ -1248,9 +1248,9 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
                     }
                     if (connected && isRetryableError(e)) {
                         currentVersionRetryCount++;
-                        logger.warn("处理版本 {} 失败，重试次数: {}/{}", lastVersion, currentVersionRetryCount, MAX_RETRY_PER_VERSION);
+                        logger.warn("处理版本 {} 失败，重试次数: {}/{}", lastSuccessfulVersion, currentVersionRetryCount, MAX_RETRY_PER_VERSION);
                         if (currentVersionRetryCount >= MAX_RETRY_PER_VERSION) {
-                            logger.error("版本 {} 达到最大重试次数 {}，停止同步", lastVersion, MAX_RETRY_PER_VERSION);
+                            logger.error("版本 {} 达到最大重试次数 {}，停止同步", lastSuccessfulVersion, MAX_RETRY_PER_VERSION);
                             // 记录错误到数据库
                             errorEvent(e);
                             snapshotProgress(lastSuccessfulVersion);
