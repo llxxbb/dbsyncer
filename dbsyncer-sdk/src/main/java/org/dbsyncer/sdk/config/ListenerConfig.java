@@ -58,7 +58,7 @@ public class ListenerConfig {
     /**
      * 禁用ddl事件
      */
-    private boolean enableDDL;
+    private boolean enableDDL = true;
 
     // ========== DDL 细粒度控制配置 ==========
 

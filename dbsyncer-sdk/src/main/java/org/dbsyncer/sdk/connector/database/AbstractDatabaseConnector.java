@@ -157,6 +157,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
                     long columnSize = Math.max(0L, columnMetadata.getLong("COLUMN_SIZE"));
                     int ratio = Math.max(0, columnMetadata.getInt("DECIMAL_DIGITS"));
 
+                    typeName = resolveFieldType(typeName, conn, schemaNamePattern);
+
                     Field field = new Field(columnName, typeName, columnType, primaryKeys.contains(columnName), columnSize, ratio);
 
                     // 填充 nullable 属性
@@ -224,8 +226,11 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
      * @throws Exception 增强过程中可能的异常
      */
     protected List<Field> enhanceFields(DatabaseConnectorInstance connectorInstance, List<Field> fields, String tableName) throws Exception {
-        // 默认实现：直接返回，不做增强
         return fields;
+    }
+
+    protected String resolveFieldType(String typeName, Connection connection, String schemaName) {
+        return typeName;
     }
 
     @Override

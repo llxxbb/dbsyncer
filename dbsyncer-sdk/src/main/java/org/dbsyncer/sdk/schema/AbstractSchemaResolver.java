@@ -9,7 +9,9 @@ import org.dbsyncer.sdk.enums.DataTypeEnum;
 import org.dbsyncer.sdk.model.Field;
 import org.springframework.util.Assert;
 
+import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -48,6 +50,10 @@ public abstract class AbstractSchemaResolver implements SchemaResolver {
      * @return 数据库名称
      */
     protected abstract String getDatabaseName();
+
+    public Set<String> getSupportedTypeNames() {
+        return Collections.unmodifiableSet(mapping.keySet());
+    }
 
     protected DataType getDataType(Field field) {
         return mapping.get(field.getTypeName());

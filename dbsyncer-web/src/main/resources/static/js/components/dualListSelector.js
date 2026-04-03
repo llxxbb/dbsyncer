@@ -36,9 +36,39 @@ class DualListSelector {
         this.render();
     }
 
+    unbindEvents($modal) {
+        if (!$modal || !$modal.length) return;
+        $modal.find('#availableList').off();
+        $modal.find('#selectedList').off();
+        $modal.find('#moveRight').off();
+        $modal.find('#moveLeft').off();
+        $modal.find('#selectAllAvailable').off();
+        $modal.find('#removeAllSelected').off();
+        $modal.find('#confirmSelection').off();
+        $modal.find('#availableSearch').off();
+        $modal.find('#selectedSearch').off();
+        $modal.find('#availableMatchMode').off();
+        $modal.off('hidden.bs.modal');
+    }
+
+    destroy() {
+        this.unbindEvents(this.$modal);
+    }
+
     createModal() {
+        const modalId = this.options.modalId;
+        const existingModal = $(`#${modalId}`);
+        
+        if (existingModal.length > 0) {
+            this.unbindEvents(existingModal);
+            existingModal.find('#availableList').empty();
+            existingModal.find('#selectedList').empty();
+            existingModal.find('#availableSearch').val('');
+            existingModal.find('#selectedSearch').val('');
+        }
+
         const html = `
-            <div class="modal fade" id="${this.options.modalId}" tabindex="-1" role="dialog">
+            <div class="modal fade" id="${modalId}" tabindex="-1" role="dialog">
                 <div class="modal-dialog modal-lg" role="document">
                     <div class="modal-content">
                         <div class="modal-header">
@@ -112,33 +142,16 @@ class DualListSelector {
             </div>
         `;
 
-        if ($(`#${this.options.modalId}`).length === 0) {
+        if (existingModal.length === 0) {
             $('body').append(html);
         }
 
-        this.$modal = $(`#${this.options.modalId}`);
+        this.$modal = $(`#${modalId}`);
         this.$availableList = this.$modal.find('#availableList');
         this.$selectedList = this.$modal.find('#selectedList');
         this.$availableSearch = this.$modal.find('#availableSearch');
         this.$selectedSearch = this.$modal.find('#selectedSearch');
         this.$availableMatchMode = this.$modal.find('#availableMatchMode');
-
-        // 初始化搜索历史管理器
-        this.initSearchHistory();
-    }
-
-    initSearchHistory() {
-        // 为可选列表搜索框添加历史记录功能
-        this.availableHistory = new SearchHistoryManager({
-            storageKey: `${this.options.modalId}_available`,
-            maxItems: 10
-        }).attachTo(this.$availableSearch);
-
-        // 为已选列表搜索框添加历史记录功能
-        this.selectedHistory = new SearchHistoryManager({
-            storageKey: `${this.options.modalId}_selected`,
-            maxItems: 10
-        }).attachTo(this.$selectedSearch);
     }
 
     bindEvents() {
@@ -278,7 +291,7 @@ class DualListSelector {
             return;
         }
 
-        const keywords = keyword.toLowerCase().split(/\s+/).filter(k => k);
+        const keywords = keyword.toLowerCase().split(',').map(k => k.trim()).filter(k => k);
         $list.find('li').each(function() {
             const text = $(this).text().toLowerCase();
             const displayName = $(this).data('id').toString().toLowerCase();
@@ -293,17 +306,8 @@ class DualListSelector {
     }
 
     clearSearchInputs() {
-        // 保存搜索历史（如果有内容）
-        if (this.availableHistory && this.$availableSearch.val()) {
-            this.availableHistory.add(this.$availableSearch.val());
-        }
-        if (this.selectedHistory && this.$selectedSearch.val()) {
-            this.selectedHistory.add(this.$selectedSearch.val());
-        }
-        
         this.$availableSearch.val('');
         this.$selectedSearch.val('');
-        // 重置列表显示，显示所有项
         this.$availableList.find('li').show();
         this.$selectedList.find('li').show();
     }
@@ -330,9 +334,18 @@ class DualListSelector {
  * 选择器管理器 - 统一初始化和管理所有选择器
  * 消除重复代码，提供统一的配置和初始化方式
  */
-window.SelectorManager = {
-    // 存储所有选择器实例
-    instances: {},
+(function() {
+    if (window.SelectorManager && window.SelectorManager.instances) {
+        Object.keys(window.SelectorManager.instances).forEach(key => {
+            const instance = window.SelectorManager.instances[key];
+            if (instance && typeof instance.destroy === 'function') {
+                instance.destroy();
+            }
+        });
+    }
+
+    window.SelectorManager = {
+        instances: {},
 
     /**
      * 通用初始化选择器
@@ -351,10 +364,15 @@ window.SelectorManager = {
     init(config) {
         const key = `${config.side}${config.type === 'table' ? 'Table' : 'Field'}Selector`;
 
-        // 从select元素提取数据
+        if (this.instances[key]) {
+            this.instances[key].destroy();
+            delete this.instances[key];
+        }
+
+        $(`#${config.btnId}`).off('click');
+
         const data = this.extractDataFromSelect(config.selectId, config.type);
 
-        // 创建选择器实例
         this.instances[key] = new DualListSelector({
             modalId: config.modalId,
             title: config.title,
@@ -365,18 +383,14 @@ window.SelectorManager = {
             displayField: 'name',
             typeField: 'type',
             onConfirm: (selectedIds) => {
-                // 更新UI
                 this.updateButtonDisplay(config.side, config.type, selectedIds, data);
-                // 更新隐藏的select
                 $(`#${config.selectId}`).val(selectedIds).trigger('change');
-                // 执行自定义回调
                 if (config.onConfirm) {
                     config.onConfirm(selectedIds, data);
                 }
             }
         });
 
-        // 绑定按钮点击事件
         $(`#${config.btnId}`).click(() => {
             const currentSelected = $(`#${config.selectId}`).val() || [];
             this.instances[key].setSelected(Array.isArray(currentSelected) ? currentSelected : [currentSelected]);
@@ -468,3 +482,4 @@ window.SelectorManager = {
         }
     }
 };
+})();

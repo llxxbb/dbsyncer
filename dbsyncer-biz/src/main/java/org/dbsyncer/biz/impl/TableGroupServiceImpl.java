@@ -590,18 +590,38 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         TableGroup tableGroup = profileComponent.getTableGroup(id);
         Assert.notNull(tableGroup, "TableGroup不能为空");
 
+        Mapping mapping = profileComponent.getMapping(tableGroup.getMappingId());
+        Assert.notNull(mapping, "Mapping不能为空");
+
+        Connector targetConnector = profileComponent.getConnector(mapping.getTargetConnectorId());
+        Assert.notNull(targetConnector, "目标连接器不存在");
+
+        String targetConnectorType = targetConnector.getConfig().getConnectorType();
+
+        FieldDifferenceVO result = new FieldDifferenceVO();
+
+        if (!supportsFieldDifference(targetConnectorType)) {
+            logger.info("目标源类型 {} 不支持字段差异检测，跳过检测", targetConnectorType);
+            result.setSupported(false);
+            result.setMessage(String.format("目标源类型 [%s] 不支持字段差异检测功能，仅支持 MySQL 和 SQL Server", targetConnectorType));
+            return result;
+        }
+
         List<Field> sourceFields = tableGroup.getSourceTable().getColumn();
         List<Field> targetFields = tableGroup.getTargetTable().getColumn();
 
         FieldComparisonUtil.FieldComparisonResult comparison = FieldComparisonUtil.compareFields(sourceFields, targetFields);
 
-        FieldDifferenceVO result = new FieldDifferenceVO();
         result.setAddedFields(comparison.getAddedFields());
         result.setMissingFields(comparison.getMissingFields());
         result.setTypeMismatched(comparison.getTypeMismatched());
         result.setLengthMismatched(comparison.getLengthMismatched());
 
         return result;
+    }
+
+    private boolean supportsFieldDifference(String connectorType) {
+        return "MySQL".equals(connectorType) || "SqlServer".equals(connectorType);
     }
 
     @Override

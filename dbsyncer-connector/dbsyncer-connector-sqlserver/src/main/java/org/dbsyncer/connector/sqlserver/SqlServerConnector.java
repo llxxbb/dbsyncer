@@ -33,6 +33,8 @@ import org.dbsyncer.sdk.plugin.ReaderContext;
 import org.dbsyncer.sdk.schema.SchemaResolver;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -337,5 +339,56 @@ public class SqlServerConnector extends AbstractDatabaseConnector {
         String effectiveCatalog = (catalog != null) ? catalog : conn.getCatalog();
         String effectiveSchema = (schema != null) ? schema : "dbo";
         return new CatalogAndSchema(effectiveCatalog, effectiveSchema);
+    }
+
+    @Override
+    protected String resolveFieldType(String typeName, Connection connection, String schemaName) {
+        if (typeName == null || typeName.trim().isEmpty()) {
+            return typeName;
+        }
+
+        String upperTypeName = typeName.toUpperCase();
+        String baseTypeName = extractBaseTypeName(upperTypeName);
+        
+        if (schemaResolver.getSupportedTypeNames().contains(baseTypeName)) {
+            return typeName;
+        }
+
+        String baseType = queryUserDefinedTypeBase(upperTypeName, connection, schemaName);
+        if (baseType != null) {
+            logger.info("自动转换用户定义类型 [{}] -> [{}]", typeName, baseType);
+            return baseType;
+        }
+
+        return typeName;
+    }
+
+    private String extractBaseTypeName(String typeName) {
+        int idx = typeName.indexOf('(');
+        if (idx > 0) {
+            return typeName.substring(0, idx);
+        }
+        return typeName;
+    }
+
+    private String queryUserDefinedTypeBase(String typeName, Connection connection, String schemaName) {
+        String sql = 
+            "SELECT st.name AS base_type " +
+            "FROM sys.types ty " +
+            "INNER JOIN sys.types st ON ty.system_type_id = st.user_type_id " +
+            "WHERE ty.name = ? AND ty.is_user_defined = 1";
+        
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, typeName);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("base_type");
+                }
+            }
+        } catch (SQLException e) {
+            logger.warn("查询用户定义类型 [{}] 的基础类型失败: {}", typeName, e.getMessage());
+        }
+        
+        return null;
     }
 }

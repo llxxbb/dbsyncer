@@ -16,6 +16,10 @@ public class FieldDifferenceVO implements Serializable {
 
     private List<FieldDiffItem> lengthMismatched = new ArrayList<>();
 
+    private boolean supported = true;
+
+    private String message;
+
     public List<FieldDiffItem> getAddedFields() {
         return addedFields;
     }
@@ -46,6 +50,22 @@ public class FieldDifferenceVO implements Serializable {
 
     public void setLengthMismatched(List<FieldDiffItem> lengthMismatched) {
         this.lengthMismatched = lengthMismatched;
+    }
+
+    public boolean isSupported() {
+        return supported;
+    }
+
+    public void setSupported(boolean supported) {
+        this.supported = supported;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
     }
 
     public boolean isHasDifference() {

@@ -48,7 +48,7 @@ $(function () {
         "deselectAllText": "取消全选",
         "noneResultsText": "没有找到 {0}",
         "selectedTextFormat": "count > 10"
-    }).selectpicker('val', 'full'); // 默认选择全量同步
+    });
 
     // 绑定匹配相似表复选框事件
     bindToggleSwitch($('#autoMatchTable'), $("#tableGroups"));
