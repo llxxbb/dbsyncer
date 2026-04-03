@@ -302,8 +302,6 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
      * @param stopVersion  结束版本号
      */
     private void pull(Long startVersion, Long stopVersion) throws Exception {
-        lastSuccessfulVersion = startVersion - 1;
-
         for (String table : tables) {
             queryDMLChangesWithStreamingAndSend(
                     table, startVersion, stopVersion, primaryKeysCache.get(table),
