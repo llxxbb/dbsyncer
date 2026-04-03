@@ -189,7 +189,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
             return false;
         }
         msg = msg.toLowerCase();
-        return msg.contains("timeout") || msg.contains("connection")
+        return msg.contains("timeout") || msg.contains("connection") || msg.contains("timed")
                 || msg.contains("socket") || msg.contains("reset")
                 || msg.contains("transport")
                 || e instanceof java.sql.SQLTimeoutException
@@ -202,6 +202,18 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
         if (service.isAlive(instance)) {
             DatabaseConfig cfg = instance.getConfig();
             serverName = cfg.getUrl();
+            
+            // 动态添加 socketTimeout 参数（如果 URL 中还没有显式指定）
+            if (!serverName.contains("socketTimeout")) {
+                String newUrl = serverName + ";socketTimeout=10000";
+                cfg.setUrl(newUrl);
+                instance.setConfig(cfg);
+                // 更新 dataSource 的 URL（影响新创建的连接）
+                instance.getDataSource().setUrl(newUrl);
+                logger.info("已添加 socketTimeout=10000 到连接 URL: {}", newUrl);
+                serverName = newUrl;
+            }
+            
             schema = cfg.getSchema();
             if (schema == null || schema.isEmpty()) {
                 schema = "dbo";
