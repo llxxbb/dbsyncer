@@ -66,8 +66,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
     private DatabaseConnectorInstance instance;
     private SqlServerCTQueryUtil queryUtil;
     private Worker worker;
-    private Long lastVersion;
-    // 已成功处理的版本号（用于增量持久化）
+    // 已持久化的版本号（既是查询起点也是安全恢复点）
     private Long lastSuccessfulVersion;
     // 优雅停止标志
     private final AtomicBoolean stopRequested = new AtomicBoolean(false);
@@ -174,7 +173,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
     }
 
     public Long getLastVersion() {
-        return lastVersion;
+        return lastSuccessfulVersion;
     }
 
     public void stopGracefully() {
@@ -214,17 +213,15 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
 
     private void readLastVersion() throws Exception {
         if (!snapshot.containsKey(VERSION_POSITION)) {
-            lastVersion = getMaxVersion();
-            if (lastVersion != null) {
-                lastSuccessfulVersion = lastVersion;
-                snapshot.put(VERSION_POSITION, String.valueOf(lastVersion));
+            lastSuccessfulVersion = getMaxVersion();
+            if (lastSuccessfulVersion != null) {
+                snapshot.put(VERSION_POSITION, String.valueOf(lastSuccessfulVersion));
                 return;
             }
             throw new SqlServerException("No Change Tracking version available");
         }
-        lastVersion = Long.valueOf(snapshot.get(VERSION_POSITION));
-        lastSuccessfulVersion = lastVersion;
-        logger.info("---- Last Version: {}", lastVersion);
+        lastSuccessfulVersion = Long.valueOf(snapshot.get(VERSION_POSITION));
+        logger.info("---- Last Version: {}", lastSuccessfulVersion);
     }
 
     private void readTables() throws Exception {
@@ -309,7 +306,6 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
         }
 
         lastSuccessfulVersion = stopVersion;
-        lastVersion = stopVersion;
     }
 
     /**
@@ -1234,9 +1230,9 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
             while (!isInterrupted() && !stopRequested.get()) {
                 try {
                     Long maxVersion = getMaxVersion();
-                    if (maxVersion != null && maxVersion > lastVersion) {
+                    if (maxVersion != null && maxVersion > lastSuccessfulVersion) {
                         currentVersion = maxVersion;
-                        pull(lastVersion, maxVersion);
+                        pull(lastSuccessfulVersion, maxVersion);
                         currentVersionRetryCount = 0;
                     } else {
                         if (!hasPendingTaskData()) {
