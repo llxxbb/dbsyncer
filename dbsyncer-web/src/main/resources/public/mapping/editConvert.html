@@ -113,44 +113,17 @@
                         </tr>
                     </thead>
                     <tbody id="convertList">
-                        <!-- Mapping convert（未保存的配置） -->
-                        <tr th:if="${tableGroup} == null" th:each="f,s:${mapping?.convert}" 
+                        <tr th:each="f,s : ${tableGroup != null ? tableGroup?.convert : mapping?.convert}"
                             th:data-id="${f?.id}" 
                             th:data-isroot="${f?.root}"
                             th:data-is-custom-field="${f?.fieldMetadata != null}"
-                            th:data-saved="${f?.fieldMetadata != null ? 'false' : 'true'}">
+                            th:data-saved="${tableGroup != null ? 'true' : (f?.fieldMetadata != null ? 'false' : 'true')}"
+                            th:data-fieldmetadata="${f?.fieldMetadata}">
                             <td th:value="${f?.convertCode}">[[${f?.convertName}]]</td>
                             <td>[[${f?.name}]]</td>
                             <td th:text="${f?.args}"></td>
                             <td>
-                                <a class='fa fa-remove fa-2x convertDelete dbsyncer_pointer' title='删除' ></a>
-                            </td>
-                        </tr>
-                        <!-- TableGroup convert（已保存的配置，无 fieldMetadata） -->
-                        <tr th:each="f,s:${tableGroup?.convert}" th:if="${f?.fieldMetadata == null}"
-                            th:data-id="${f?.id}" 
-                            th:data-isroot="${f?.root}"
-                            th:data-is-custom-field="false"
-                            th:data-saved="'true'">
-                            <td th:value="${f?.convertCode}">[[${f?.convertName}]]</td>
-                            <td>[[${f?.name}]]</td>
-                            <td th:text="${f?.args}"></td>
-                            <td>
-                                <a class='fa fa-remove fa-2x convertDelete dbsyncer_pointer' title='删除' ></a>
-                            </td>
-                        </tr>
-                        <!-- TableGroup convert（已保存的配置，有 fieldMetadata） -->
-                        <tr th:each="f,s:${tableGroup?.convert}" th:if="${f?.fieldMetadata != null}"
-                            th:data-id="${f?.id}" 
-                            th:data-isroot="${f?.root}"
-                            th:data-is-custom-field="true"
-                            th:data-saved="'true'"
-                            th:attr="data-fieldmetadata=${f.fieldMetadata}">
-                            <td th:value="${f?.convertCode}">[[${f?.convertName}]]</td>
-                            <td>[[${f?.name}]]</td>
-                            <td th:text="${f?.args}"></td>
-                            <td>
-                                <a class='fa fa-remove fa-2x convertDelete dbsyncer_pointer' title='删除' ></a>
+                                <a class='fa fa-remove fa-2x convertDelete dbsyncer_pointer' title='删除'></a>
                             </td>
                         </tr>
                     </tbody>

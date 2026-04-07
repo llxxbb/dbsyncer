@@ -354,6 +354,24 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
     }
 
     /**
+     * 提取自定义字段名称集合（小写）
+     * 用于字段差异检测时排除自定义字段
+     */
+    private Set<String> extractCustomFieldNames(TableGroup tableGroup) {
+        Set<String> customFieldNames = new HashSet<>();
+        List<Convert> converts = tableGroup.getConvert();
+        if (!CollectionUtils.isEmpty(converts)) {
+            converts.forEach(convert -> {
+                Field fieldMetadata = convert.getFieldMetadata();
+                if (fieldMetadata != null && fieldMetadata.getName() != null) {
+                    customFieldNames.add(fieldMetadata.getName().toLowerCase());
+                }
+            });
+        }
+        return customFieldNames;
+    }
+
+    /**
      * 执行自定义字段 DDL
      */
     private void executeCustomFieldDDL(TableGroup tableGroup, List<Field> customFields) throws Exception {
@@ -623,7 +641,10 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         List<Field> sourceFields = tableGroup.getSourceTable().getColumn();
         List<Field> targetFields = tableGroup.getTargetTable().getColumn();
 
-        FieldComparisonUtil.FieldComparisonResult comparison = FieldComparisonUtil.compareFields(sourceFields, targetFields);
+        Set<String> customFieldNames = extractCustomFieldNames(tableGroup);
+
+        FieldComparisonUtil.FieldComparisonResult comparison = 
+            FieldComparisonUtil.compareFields(sourceFields, targetFields, customFieldNames);
 
         result.setAddedFields(comparison.getAddedFields());
         result.setMissingFields(comparison.getMissingFields());

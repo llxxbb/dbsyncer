@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 字段比较工具类
@@ -60,6 +61,17 @@ public final class FieldComparisonUtil {
      * @return 字段比较结果，包含新增、缺失、类型不匹配和长度不匹配的字段信息
      */
     public static FieldComparisonResult compareFields(List<Field> sourceFields, List<Field> targetFields) {
+        return compareFields(sourceFields, targetFields, null);
+    }
+
+    /**
+     * 比较源表和目标表的字段差异（支持排除自定义字段）
+     * @param sourceFields 源表字段列表
+     * @param targetFields 目标表字段列表
+     * @param customFieldNames 自定义字段名称集合（小写），在检测ADDED类型时排除这些字段
+     * @return 字段比较结果，包含新增、缺失、类型不匹配和长度不匹配的字段信息
+     */
+    public static FieldComparisonResult compareFields(List<Field> sourceFields, List<Field> targetFields, Set<String> customFieldNames) {
         FieldComparisonResult result = new FieldComparisonResult();
 
         if (CollectionUtils.isEmpty(sourceFields) && CollectionUtils.isEmpty(targetFields)) {
@@ -75,6 +87,12 @@ public final class FieldComparisonUtil {
                 continue;
             }
             String fieldNameLower = targetField.getName().toLowerCase();
+
+            // 跳过自定义字段（自定义字段只存在于目标表，不应被报告为差异）
+            if (customFieldNames != null && customFieldNames.contains(fieldNameLower)) {
+                continue;
+            }
+
             Field sourceField = sourceFieldMap.get(fieldNameLower);
 
             if (sourceField == null) {
