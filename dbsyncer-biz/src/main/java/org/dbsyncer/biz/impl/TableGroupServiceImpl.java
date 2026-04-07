@@ -362,7 +362,20 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
 
         SqlTemplate sqlTemplate = ((org.dbsyncer.sdk.connector.database.Database) connectorFactory.getConnectorService(targetConnector.getConfig())).getSqlTemplate();
 
+        // 获取目标表现有字段名称集合，用于判断自定义字段是否已存在
+        List<Field> existingColumns = tableGroup.getTargetTable().getColumn();
+        Set<String> existingColumnNames = existingColumns != null 
+                ? existingColumns.stream().map(Field::getName).collect(Collectors.toSet()) 
+                : Collections.emptySet();
+
         for (Field field : customFields) {
+            // 字段已存在则跳过 DDL 执行，避免重复添加报错
+            if (existingColumnNames.contains(field.getName())) {
+                logger.info("字段已存在，跳过 DDL：{}.{}", 
+                        tableGroup.getTargetTable().getName(), field.getName());
+                continue;
+            }
+
             try {
                 // 生成 DDL
                 String ddl = sqlTemplate.buildAddColumnSql(tableGroup.getTargetTable().getName(), field);
@@ -621,7 +634,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
     }
 
     private boolean supportsFieldDifference(String connectorType) {
-        return "MySQL".equals(connectorType) || "SqlServer".equals(connectorType);
+        return "MySQL".equals(connectorType) || "SqlServerCT".equals(connectorType);
     }
 
     @Override

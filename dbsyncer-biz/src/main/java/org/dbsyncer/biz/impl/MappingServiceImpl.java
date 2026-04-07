@@ -89,27 +89,32 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         // 先保存 Mapping，确保 Mapping 保存成功
         String id = profileComponent.addConfigModel(model);
 
+        // 创建并保存 Meta（必须在分组关联之前执行，确保 Mapping 和 Meta 的原子性）
+        Mapping mapping = (Mapping) model;
+        Meta.create(mapping, snowflakeIdWorker, profileComponent);
+
         // 如果有指定分组，将任务添加到对应分组
         String projectGroupId = params.get("projectGroupId");
         if (StringUtil.isNotBlank(projectGroupId)) {
-            ProjectGroup projectGroup = profileComponent.getProjectGroup(projectGroupId);
-            if (projectGroup != null) {
-                List<String> mappingIds = projectGroup.getMappingIds();
-                if (mappingIds == null) {
-                    mappingIds = new ArrayList<>();
+            try {
+                ProjectGroup projectGroup = profileComponent.getProjectGroup(projectGroupId);
+                if (projectGroup != null) {
+                    List<String> mappingIds = projectGroup.getMappingIds();
+                    if (mappingIds == null) {
+                        mappingIds = new ArrayList<>();
+                    }
+                    if (!mappingIds.contains(id)) {
+                        mappingIds.add(id);
+                        projectGroup.setMappingIds(mappingIds);
+                        profileComponent.editConfigModel(projectGroup);
+                    }
                 }
-                if (!mappingIds.contains(id)) {
-                    mappingIds.add(id);
-                    projectGroup.setMappingIds(mappingIds);
-                    profileComponent.editConfigModel(projectGroup);
-                }
+            } catch (Exception e) {
+                logger.warn("添加任务到分组失败，但任务创建成功。mappingId: {}, projectGroupId: {}, error: {}",
+                        id, projectGroupId, e.getMessage());
             }
         }
 
-        // Mapping 保存成功后，再创建并保存 Meta
-        // 这样可以避免出现 Meta 存在但 Mapping 不存在的数据不一致问题
-        Mapping mapping = (Mapping) model;
-        Meta.create(mapping, snowflakeIdWorker, profileComponent);
         // 匹配相似表 on
         if (StringUtil.isNotBlank(params.get("autoMatchTable"))) {
             matchSimilarTableGroups(model);
