@@ -205,12 +205,12 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
             
             // 动态添加 socketTimeout 参数（如果 URL 中还没有显式指定）
             if (!serverName.contains("socketTimeout")) {
-                String newUrl = serverName + ";socketTimeout=10000";
+                String newUrl = serverName + ";socketTimeout=60000";
                 cfg.setUrl(newUrl);
                 instance.setConfig(cfg);
                 // 更新 dataSource 的 URL（影响新创建的连接）
                 instance.getDataSource().setUrl(newUrl);
-                logger.info("已添加 socketTimeout=10000 到连接 URL: {}", newUrl);
+                logger.info("已添加 socketTimeout=60000 到连接 URL: {}", newUrl);
                 serverName = newUrl;
             }
             
