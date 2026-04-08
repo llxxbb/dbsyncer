@@ -229,7 +229,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         return fields;
     }
 
-    protected String resolveFieldType(String typeName, Connection connection, String schemaName) {
+    protected String resolveFieldType(String typeName, Connection connection, String schemaName) throws SQLException {
         return typeName;
     }
 

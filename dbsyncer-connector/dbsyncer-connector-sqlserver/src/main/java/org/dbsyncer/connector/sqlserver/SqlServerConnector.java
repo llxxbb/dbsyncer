@@ -342,7 +342,7 @@ public class SqlServerConnector extends AbstractDatabaseConnector {
     }
 
     @Override
-    protected String resolveFieldType(String typeName, Connection connection, String schemaName) {
+    protected String resolveFieldType(String typeName, Connection connection, String schemaName) throws SQLException {
         if (typeName == null || typeName.trim().isEmpty()) {
             return typeName;
         }
@@ -371,7 +371,7 @@ public class SqlServerConnector extends AbstractDatabaseConnector {
         return typeName;
     }
 
-    private String queryUserDefinedTypeBase(String typeName, Connection connection, String schemaName) {
+    private String queryUserDefinedTypeBase(String typeName, Connection connection, String schemaName) throws SQLException {
         String sql = 
             "SELECT st.name AS base_type " +
             "FROM sys.types ty " +
@@ -385,8 +385,6 @@ public class SqlServerConnector extends AbstractDatabaseConnector {
                     return rs.getString("base_type");
                 }
             }
-        } catch (SQLException e) {
-            logger.warn("查询用户定义类型 [{}] 的基础类型失败: {}", typeName, e.getMessage());
         }
         
         return null;

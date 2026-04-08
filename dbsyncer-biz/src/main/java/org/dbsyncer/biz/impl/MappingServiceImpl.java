@@ -96,7 +96,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         // 如果有指定分组，将任务添加到对应分组
         String projectGroupId = params.get("projectGroupId");
         if (StringUtil.isNotBlank(projectGroupId)) {
-            try {
+
                 ProjectGroup projectGroup = profileComponent.getProjectGroup(projectGroupId);
                 if (projectGroup != null) {
                     List<String> mappingIds = projectGroup.getMappingIds();
@@ -109,10 +109,6 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
                         profileComponent.editConfigModel(projectGroup);
                     }
                 }
-            } catch (Exception e) {
-                logger.warn("添加任务到分组失败，但任务创建成功。mappingId: {}, projectGroupId: {}, error: {}",
-                        id, projectGroupId, e.getMessage());
-            }
         }
 
         // 匹配相似表 on
