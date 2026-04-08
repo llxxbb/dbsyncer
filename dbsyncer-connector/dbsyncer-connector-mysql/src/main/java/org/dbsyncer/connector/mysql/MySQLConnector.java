@@ -245,4 +245,9 @@ public class MySQLConnector extends AbstractDatabaseConnector {
         String effectiveCatalog = (catalog != null) ? catalog : conn.getCatalog();
         return new CatalogAndSchema(effectiveCatalog, null);
     }
+
+    @Override
+    public boolean supportsFieldDifference() {
+        return true;
+    }
 }

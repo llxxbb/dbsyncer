@@ -389,4 +389,9 @@ public class SqlServerConnector extends AbstractDatabaseConnector {
         
         return null;
     }
+
+    @Override
+    public boolean supportsFieldDifference() {
+        return true;
+    }
 }

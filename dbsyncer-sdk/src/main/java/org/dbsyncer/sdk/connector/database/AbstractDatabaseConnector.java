@@ -849,4 +849,15 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
     public SqlTemplate getSqlTemplate() {
         return sqlTemplate;
     }
+
+    /**
+     * 是否支持字段差异检测
+     * 子类可重写此方法声明自己的能力
+     * 默认不支持，MySQL 和 SQL Server 连接器重写返回 true
+     *
+     * @return true 表示支持字段差异检测，false 表示不支持
+     */
+    public boolean supportsFieldDifference() {
+        return false;
+    }
 }

@@ -648,14 +648,14 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         Connector targetConnector = profileComponent.getConnector(mapping.getTargetConnectorId());
         Assert.notNull(targetConnector, "目标连接器不存在");
 
-        String targetConnectorType = targetConnector.getConfig().getConnectorType();
-
         FieldDifferenceVO result = new FieldDifferenceVO();
 
-        if (!supportsFieldDifference(targetConnectorType)) {
+        ConnectorService connectorService = connectorFactory.getConnectorService(targetConnector.getConfig().getConnectorType());
+        if (!supportsFieldDifference(connectorService)) {
+            String targetConnectorType = targetConnector.getConfig().getConnectorType();
             logger.info("目标源类型 {} 不支持字段差异检测，跳过检测", targetConnectorType);
             result.setSupported(false);
-            result.setMessage(String.format("目标源类型 [%s] 不支持字段差异检测功能，仅支持 MySQL 和 SQL Server", targetConnectorType));
+            result.setMessage(String.format("目标源类型 [%s] 不支持字段差异检测功能", targetConnectorType));
             return result;
         }
 
@@ -675,8 +675,17 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         return result;
     }
 
-    private boolean supportsFieldDifference(String connectorType) {
-        return "MySQL".equals(connectorType) || "SqlServerCT".equals(connectorType);
+    /**
+     * 判断连接器是否支持字段差异检测
+     * 
+     * @param connectorService 连接器服务
+     * @return true 表示支持，false 表示不支持
+     */
+    private boolean supportsFieldDifference(ConnectorService connectorService) {
+        if (connectorService instanceof AbstractDatabaseConnector) {
+            return ((AbstractDatabaseConnector) connectorService).supportsFieldDifference();
+        }
+        return false;
     }
 
     @Override
