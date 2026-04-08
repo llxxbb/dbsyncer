@@ -759,29 +759,28 @@ public class SqlServerTemplate extends AbstractSqlTemplate {
     }
 
     @Override
-    public String buildAlterPrimaryKeySql(String tableName, List<String> oldPrimaryKeys, List<String> newPrimaryKeys, String schema) {
+    public List<String> buildAlterPrimaryKeySql(String tableName, List<String> oldPrimaryKeys, List<String> newPrimaryKeys, String schema) {
         String quotedTableName = buildTable(schema, tableName);
         String quotedKeys = buildQuotedFieldList(newPrimaryKeys);
         
-        StringBuilder sql = new StringBuilder();
+        List<String> sqlList = new ArrayList<>();
         
         if (oldPrimaryKeys != null && !oldPrimaryKeys.isEmpty()) {
             // SQL Server 需要查询主键约束名
             String pkConstraintName = getPrimaryKeyConstraintName(tableName);
             if (pkConstraintName != null && !pkConstraintName.isEmpty()) {
-                sql.append("ALTER TABLE ").append(quotedTableName)
-                   .append(" DROP CONSTRAINT ").append(pkConstraintName)
-                   .append(", ADD PRIMARY KEY (").append(quotedKeys).append(")");
+                // SQL Server 不支持在一条 ALTER TABLE 语句中同时 DROP CONSTRAINT 和 ADD PRIMARY KEY
+                // 需要分两条语句执行
+                sqlList.add("ALTER TABLE " + quotedTableName + " DROP CONSTRAINT " + pkConstraintName);
+                sqlList.add("ALTER TABLE " + quotedTableName + " ADD CONSTRAINT " + pkConstraintName + " PRIMARY KEY (" + quotedKeys + ")");
             } else {
-                sql.append("ALTER TABLE ").append(quotedTableName)
-                   .append(" ADD PRIMARY KEY (").append(quotedKeys).append(")");
+                sqlList.add("ALTER TABLE " + quotedTableName + " ADD PRIMARY KEY (" + quotedKeys + ")");
             }
         } else {
-            sql.append("ALTER TABLE ").append(quotedTableName)
-               .append(" ADD PRIMARY KEY (").append(quotedKeys).append(")");
+            sqlList.add("ALTER TABLE " + quotedTableName + " ADD PRIMARY KEY (" + quotedKeys + ")");
         }
         
-        return sql.toString();
+        return sqlList;
     }
 
     /**

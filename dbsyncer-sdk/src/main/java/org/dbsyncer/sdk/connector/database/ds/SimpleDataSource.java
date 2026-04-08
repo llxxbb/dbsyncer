@@ -54,6 +54,14 @@ public class SimpleDataSource implements DataSource, AutoCloseable {
         pool = new LinkedBlockingQueue<>(maxActive);
     }
 
+    /**
+     * 动态更新 URL（用于添加额外参数，如 socketTimeout）
+     * 注意：只影响新创建的连接，不影响已有连接
+     */
+    public void setUrl(String url) {
+        this.url = url;
+    }
+
     @Override
     public Connection getConnection() throws SQLException {
         try {
