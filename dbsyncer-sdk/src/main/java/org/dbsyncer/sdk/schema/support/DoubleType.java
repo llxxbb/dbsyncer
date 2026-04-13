@@ -20,6 +20,13 @@ public abstract class DoubleType extends AbstractDataType<Double> {
         if (val instanceof Number) {
             return ((Number) val).doubleValue();
         }
+        if (val instanceof String) {
+            try {
+                return Double.parseDouble((String) val);
+            } catch (NumberFormatException e) {
+                return throwUnsupportedException(val, field);
+            }
+        }
         return throwUnsupportedException(val, field);
     }
 }

@@ -20,15 +20,23 @@ public final class MySQLUnsignedByteType extends UnsignedByteType {
     @Override
     protected Short merge(Object val, Field field) {
         if (val instanceof Number) {
-            Number num = (Number) val;
-            int intVal = num.intValue();
-            // 处理可能的负数（JDBC可能返回负数）
-            if (intVal < 0) {
-                intVal = intVal & 0xFF; // 转换为无符号
+            return convertToUnsignedByte(((Number) val).intValue());
+        }
+        if (val instanceof String) {
+            try {
+                return convertToUnsignedByte(Integer.parseInt((String) val));
+            } catch (NumberFormatException e) {
+                return throwUnsupportedException(val, field);
             }
-            return (short) Math.min(intVal, 255);
         }
         return throwUnsupportedException(val, field);
+    }
+
+    private Short convertToUnsignedByte(int intVal) {
+        if (intVal < 0) {
+            intVal = intVal & 0xFF;
+        }
+        return (short) Math.min(intVal, 255);
     }
 }
 

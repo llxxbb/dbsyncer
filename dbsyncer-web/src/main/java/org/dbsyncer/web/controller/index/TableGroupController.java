@@ -3,8 +3,10 @@ package org.dbsyncer.web.controller.index;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.dbsyncer.biz.MappingService;
+import org.dbsyncer.biz.PrimaryKeyDifferenceException;
 import org.dbsyncer.biz.TableGroupService;
 import org.dbsyncer.biz.vo.FieldDifferenceVO;
+import org.dbsyncer.biz.vo.PrimaryKeyDifferenceVO;
 import org.dbsyncer.biz.vo.RestResult;
 import org.dbsyncer.common.model.Result;
 import org.dbsyncer.common.util.StringUtil;
@@ -94,6 +96,13 @@ public class TableGroupController extends BaseController {
         try {
             Map<String, String> params = getParams(request);
             return RestResult.restSuccess(tableGroupService.edit(params));
+        } catch (PrimaryKeyDifferenceException e) {
+            // 特殊处理：返回差异信息，让前端显示弹窗
+            logger.info("检测到主键差异：{}", e.getMessage());
+            Map<String, Object> result = new HashMap<>();
+            result.put("needConfirm", true);
+            result.put("difference", e.getDifference());
+            return RestResult.restSuccess(result);
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage(), e);
             return RestResult.restFail(e.getMessage());

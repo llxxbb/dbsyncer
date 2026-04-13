@@ -23,6 +23,13 @@ public final class SqlServerByteType extends ByteType {
         if (val instanceof Number) {
             return ((Number) val).byteValue();
         }
+        if (val instanceof String) {
+            try {
+                return Byte.parseByte((String) val);
+            } catch (NumberFormatException e) {
+                return throwUnsupportedException(val, field);
+            }
+        }
         return throwUnsupportedException(val, field);
     }
 

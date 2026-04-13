@@ -22,6 +22,13 @@ public abstract class ByteType extends AbstractDataType<Byte> {
         if (val instanceof Number) {
             return ((Number) val).byteValue();
         }
+        if (val instanceof String) {
+            try {
+                return Byte.parseByte((String) val);
+            } catch (NumberFormatException e) {
+                return throwUnsupportedException(val, field);
+            }
+        }
         if (val instanceof Boolean) {
             Boolean b = (Boolean) val;
             ByteBuffer buffer = ByteBuffer.allocate(2);

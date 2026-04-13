@@ -4,6 +4,7 @@
 package org.dbsyncer.biz.impl;
 
 import org.dbsyncer.biz.BizException;
+import org.dbsyncer.biz.PrimaryKeyDifferenceException;
 import org.dbsyncer.biz.PrimaryKeyRequiredException;
 import org.dbsyncer.biz.TableGroupService;
 import org.dbsyncer.biz.checker.impl.tablegroup.TableGroupChecker;
@@ -13,6 +14,7 @@ import org.dbsyncer.biz.vo.FieldDiffFixVO;
 import org.dbsyncer.biz.vo.FieldDiffFixItem;
 import org.dbsyncer.biz.vo.FieldDiffItem;
 import org.dbsyncer.biz.vo.FieldDifferenceVO;
+import org.dbsyncer.biz.vo.PrimaryKeyDifferenceVO;
 import org.dbsyncer.common.dispatch.DispatchTaskService;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.StringUtil;
@@ -170,6 +172,25 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
             }
         }
 
+        // 检查主键差异
+        boolean hasPkDifference = !oldPrimaryKeys.equals(newPrimaryKeys);
+
+        // 【新增】获取确认参数
+        String confirmParam = params.get("confirmPrimaryKeyChange");
+        boolean skipPrimaryKeyDDL = "true".equals(params.get("skipPrimaryKeyDDL"));
+
+        // 【新增】如果有差异且未确认，返回差异信息（不执行保存）
+        if (hasPkDifference && !"true".equals(confirmParam) && !skipPrimaryKeyDDL) {
+            PrimaryKeyDifferenceVO diff = new PrimaryKeyDifferenceVO();
+            diff.setHasDifference(true);
+            diff.setConfiguredPKs(newPrimaryKeys);
+            diff.setActualPKs(oldPrimaryKeys);
+            diff.setAddedPKs(findAddedPKs(oldPrimaryKeys, newPrimaryKeys));
+            diff.setRemovedPKs(findRemovedPKs(oldPrimaryKeys, newPrimaryKeys));
+            diff.setTableName(tableGroup.getTargetTable().getName());
+            throw new PrimaryKeyDifferenceException(diff);
+        }
+
         // 应用主键参数（内存修改）
         TableGroup model = (TableGroup) tableGroupChecker.checkEditConfigModel(params);
 
@@ -221,6 +242,24 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         mergeMappingColumn(mapping);
         
         return id;
+    }
+
+    /**
+     * 查找新增的主键
+     */
+    private List<String> findAddedPKs(List<String> oldPKs, List<String> newPKs) {
+        List<String> added = new ArrayList<>(newPKs);
+        added.removeAll(oldPKs);
+        return added;
+    }
+
+    /**
+     * 查找移除的主键
+     */
+    private List<String> findRemovedPKs(List<String> oldPKs, List<String> newPKs) {
+        List<String> removed = new ArrayList<>(oldPKs);
+        removed.removeAll(newPKs);
+        return removed;
     }
 
     @Override

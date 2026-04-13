@@ -28,6 +28,13 @@ public final class MySQLShortType extends ShortType {
         if (val instanceof Number) {
             return ((Number) val).shortValue();
         }
+        if (val instanceof String) {
+            try {
+                return Short.parseShort((String) val);
+            } catch (NumberFormatException e) {
+                return throwUnsupportedException(val, field);
+            }
+        }
         return throwUnsupportedException(val, field);
     }
 

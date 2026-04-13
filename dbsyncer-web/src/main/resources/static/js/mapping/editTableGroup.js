@@ -1,9 +1,17 @@
-function submit(data) {
+function submit(formData) {
     //保存驱动配置
-    doPoster("/tableGroup/edit", data, function (data) {
+    doPoster("/tableGroup/edit", formData, function (data) {
         if (data.success == true) {
-            bootGrowl("保存表映射关系成功!", "success");
-            backMappingPage($("#tableGroupSubmitBtn"));
+            // 检查是否需要确认主键变更
+            if (data.resultValue && data.resultValue.needConfirm) {
+                // 有差异，显示确认弹窗
+                // 传递原始表单数据和差异信息
+                showPrimaryKeyDifferenceModal(data.resultValue.difference, formData);
+            } else {
+                // 无差异，正常保存成功
+                bootGrowl("保存表映射关系成功!", "success");
+                backMappingPage($("#tableGroupSubmitBtn"));
+            }
         } else {
             bootGrowl(data.resultValue, "danger");
         }
@@ -472,7 +480,8 @@ function doTableGroupSubmit() {
    //保存
    let $form = $("#tableGroupModifyForm");
    if ($form.formValidate() == true) {
-       submit($form.serializeJson());
+       let formData = $form.serializeJson();
+       submit(formData);
    }
 }
 
@@ -916,4 +925,90 @@ function executeFieldDiffFix(id) {
             $confirmBtn.prop('disabled', false);
         }
     });
+}
+
+// ========== 主键差异确认弹窗相关函数 ==========
+
+function showPrimaryKeyDifferenceModal(diffResult, originalData) {
+    // 渲染差异详情
+    let html = renderPkDifferenceHtml(diffResult);
+    $('#pkDifferenceDetails').html(html);
+    $('#pkDifferenceError').addClass('hidden');
+    $('#primaryKeyDifferenceModal').modal('show');
+    
+    // 绑定按钮事件（使用 off 避免重复绑定）
+    $('#pkDiffCancelBtn').off('click').on('click', function() {
+        // 取消：直接回退到任务详情页面，不执行任何保存操作
+        $('#primaryKeyDifferenceModal').modal('hide');
+        
+        // 清理 modal backdrop，防止页面变暗
+        $('.modal-backdrop').remove();
+        $('body').removeClass('modal-open');
+        $('body').css('padding-right', '');
+        $('body').css('overflow', '');
+        
+        backMappingPage($("#tableGroupSubmitBtn"));
+    });
+    
+    $('#pkDiffExecuteBtn').off('click').on('click', function() {
+        saveWithPrimaryKeyDDL(originalData);
+    });
+}
+
+function renderPkDifferenceHtml(diffResult) {
+    let html = '<div class="panel panel-default">' +
+        '<div class="panel-heading">主键差异详情</div>' +
+        '<div class="panel-body">' +
+        '<p><strong>目标表：</strong>' + diffResult.tableName + '</p>';
+    
+    if (diffResult.addedPKs && diffResult.addedPKs.length > 0) {
+        html += '<p class="text-success"><i class="fa fa-plus"></i> <strong>新增主键：</strong>' + 
+            diffResult.addedPKs.join(', ') + '</p>';
+    }
+    
+    if (diffResult.removedPKs && diffResult.removedPKs.length > 0) {
+        html += '<p class="text-danger"><i class="fa fa-minus"></i> <strong>移除主键：</strong>' + 
+            diffResult.removedPKs.join(', ') + '</p>';
+    }
+    
+    html += '<hr/>' +
+        '<p><strong>当前配置主键：</strong>' + (diffResult.configuredPKs || []).join(', ') + '</p>' +
+        '<p><strong>目标表实际主键：</strong>' + (diffResult.actualPKs || []).join(', ') + '</p>' +
+        '</div></div>';
+    
+    return html;
+}
+
+function saveWithPrimaryKeyDDL(originalData) {
+    let $executeBtn = $("#pkDiffExecuteBtn");
+    $executeBtn.prop('disabled', true);
+    $executeBtn.html('<span class="fa fa-spinner fa-spin"></span> 执行中...');
+    
+    // 添加确认参数
+    originalData.confirmPrimaryKeyChange = 'true';
+    
+    // 注意：originalData 现在包含完整的表单数据（包括 id）
+    doPoster("/tableGroup/edit", originalData, function(data) {
+        if (data.success == true) {
+            $('#primaryKeyDifferenceModal').modal('hide');
+            
+            // 清理 modal backdrop，防止页面变暗
+            $('.modal-backdrop').remove();
+            $('body').removeClass('modal-open');
+            $('body').css('padding-right', '');
+            $('body').css('overflow', '');
+            
+            bootGrowl("保存成功!", "success");
+            backMappingPage($("#tableGroupSubmitBtn"));
+        } else {
+            showPkDiffError(data.resultValue);
+            $executeBtn.prop('disabled', false);
+            $executeBtn.html('<i class="fa fa-check"></i> 执行（修改主键约束）');
+        }
+    });
+}
+
+function showPkDiffError(errorMessage) {
+    $('#pkDifferenceError').removeClass('hidden');
+    $('#pkDifferenceError').html('<strong>操作失败：</strong>' + errorMessage);
 }

@@ -20,15 +20,23 @@ public final class MySQLUnsignedShortType extends UnsignedShortType {
     @Override
     protected Integer merge(Object val, Field field) {
         if (val instanceof Number) {
-            Number num = (Number) val;
-            int intVal = num.intValue();
-            // 处理可能的负数（JDBC可能返回负数）
-            if (intVal < 0) {
-                intVal = intVal & 0xFFFF; // 转换为无符号
+            return convertToUnsignedShort(((Number) val).intValue());
+        }
+        if (val instanceof String) {
+            try {
+                return convertToUnsignedShort(Integer.parseInt((String) val));
+            } catch (NumberFormatException e) {
+                return throwUnsupportedException(val, field);
             }
-            return Math.min(intVal, 65535);
         }
         return throwUnsupportedException(val, field);
+    }
+
+    private Integer convertToUnsignedShort(int intVal) {
+        if (intVal < 0) {
+            intVal = intVal & 0xFFFF;
+        }
+        return Math.min(intVal, 65535);
     }
 }
 

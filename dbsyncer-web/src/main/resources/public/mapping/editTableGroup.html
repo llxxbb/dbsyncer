@@ -322,6 +322,33 @@
                         </div>
                     </div>
 
+                    <!-- 主键差异确认弹窗 -->
+                    <div class="modal fade" id="primaryKeyDifferenceModal" tabindex="-1" role="dialog">
+                        <div class="modal-dialog" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                                    <h4 class="modal-title"><i class="fa fa-exclamation-triangle text-warning"></i> 主键变更确认</h4>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="alert alert-warning">
+                                        <i class="fa fa-info-circle"></i> 检测到主键配置与目标表实际主键不一致，请选择操作方式
+                                    </div>
+                                    <div id="pkDifferenceDetails"></div>
+                                    <div id="pkDifferenceError" class="alert alert-danger hidden"></div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-default" id="pkDiffCancelBtn">
+                                        <i class="fa fa-arrow-left"></i> 取消（放弃修改）
+                                    </button>
+                                    <button type="button" class="btn btn-primary" id="pkDiffExecuteBtn">
+                                        <i class="fa fa-check"></i> 执行（修改主键约束）
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
 <script th:src="@{/js/mapping/fieldDifferenceComponent.js}"></script>
 <script th:src="@{/js/components/dualListSelector.js}"></script>
 <script th:src="@{/js/mapping/editTableGroup.js}"></script>
