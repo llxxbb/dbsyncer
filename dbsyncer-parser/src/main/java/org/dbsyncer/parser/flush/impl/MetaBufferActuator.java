@@ -296,13 +296,12 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         TableGroup tableGroup = tableGroupPicker.getTableGroup();
 
         // 1、映射字段
-        // 优先使用事件携带的列名信息，确保字段映射与数据一致
-        List<Field> actualSourceFields;
-        // 根据列名从 TableGroup 中查找对应的 Field 信息
-        actualSourceFields = buildFieldsFromColumnNames(response.getColumnNames(), sourceFields);
-        // 如果无法构建完整的字段列表，回退到使用传入的 sourceFields
-        if (actualSourceFields.size() != sourceFields.size()) {
-            String msg = String.format("字段定位错误！mappingId: %s, 表名: %s, 列名: %s",
+        // 构建字段名到行数据索引的映射，解决 CT 模式下用户删除字段后数据错位的问题
+        Map<String, Integer> fieldIndexMap = buildFieldIndexMap(response.getColumnNames(), sourceFields);
+
+        // 检查是否有字段匹配成功
+        if (fieldIndexMap.isEmpty()) {
+            String msg = String.format("字段定位错误！mappingId: %s, 表名: %s, 列名: %s，未找到任何匹配字段",
                     mapping.getId(), response.getTableName(), response.getColumnNames());
             logger.error(msg);
             logService.log(LogType.MappingLog.RUNNING, msg);
@@ -319,6 +318,11 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             return;
         }
 
+        // 从索引映射中获取实际匹配到的字段列表
+        List<Field> actualSourceFields = sourceFields.stream()
+                .filter(f -> fieldIndexMap.containsKey(f.getName()))
+                .collect(Collectors.toList());
+
         boolean enableSchemaResolver = profileComponent.getSystemConfig().isEnableSchemaResolver();
         ConnectorConfig sourceConfig = getConnectorConfig(mapping.getSourceConnectorId());
         ConnectorService sourceConnector = connectorFactory.getConnectorService(sourceConfig.getConnectorType());
@@ -327,7 +331,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         try {
             List<Map> targetDataList = tableGroupPicker.getPicker()
                     .setSourceResolver(enableSchemaResolver ? sourceConnector.getSchemaResolver() : null)
-                    .pickTargetData(actualSourceFields, enableFilter, response.getDataList(), sourceDataList);
+                    .pickTargetData(actualSourceFields, fieldIndexMap, enableFilter, response.getDataList(), sourceDataList);
 
             // 2、参数转换
             ConvertUtil.convert(tableGroup.getConvert(), targetDataList);
@@ -518,44 +522,41 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
     }
 
     /**
-     * 根据列名列表构建字段列表
-     * 优先使用事件自带的列名顺序，确保与 CDC 数据顺序一致
+     * 构建字段名到行数据索引的映射
+     * <p>
+     * 解决 CT 模式下用户删除字段后数据错位的问题：
+     * - CT 返回的 columnNames 是数据库表的完整列
+     * - 用户配置的 tableColumns 可能只包含部分列
+     * - 通过索引映射，确保每个字段获取正确的值
      *
-     * @param columnNames  CDC 事件中的列名列表（按数据顺序）
-     * @param tableColumns TableGroup 中的源表字段列表
-     * @return 按 columnNames 顺序排列的字段列表（去重，每个字段只出现一次）
+     * @param columnNames  CT 返回的列名列表（按行数据顺序）
+     * @param tableColumns TableGroup 中配置的字段列表
+     * @return Map<字段名, 行数据索引>，只包含在 columnNames 中存在且有对应字段的映射
      */
-    private List<Field> buildFieldsFromColumnNames(List<String> columnNames, List<Field> tableColumns) {
+    private Map<String, Integer> buildFieldIndexMap(List<String> columnNames, List<Field> tableColumns) {
         if (CollectionUtils.isEmpty(columnNames) || CollectionUtils.isEmpty(tableColumns)) {
-            return new ArrayList<>();
+            return new LinkedHashMap<>();
         }
 
-        // 构建字段名到字段对象的映射
         Map<String, Field> fieldMap = tableColumns.stream()
                 .collect(Collectors.toMap(Field::getName, field -> field, (k1, k2) -> k1));
 
-        // 按照 columnNames 的顺序构建字段列表
-        // 使用 LinkedHashSet 保持顺序并去重，防止重复的列名导致同一个字段被添加多次
-        List<Field> fields = new ArrayList<>();
+        Map<String, Integer> fieldIndexMap = new LinkedHashMap<>();
         Set<String> addedFieldNames = new LinkedHashSet<>();
+
+        int rowIndex = 0;
         for (String columnName : columnNames) {
             Field field = fieldMap.get(columnName);
-            if (field != null) {
-                // 只有当字段名还没有被添加过时，才添加到列表中
-                // 这样可以防止 columnNames 中有重复列名时，同一个字段被添加多次
-                if (addedFieldNames.add(columnName)) {
-                    fields.add(field);
-                }
-                if (fields.size() == tableColumns.size()) {
-                    return fields;
-                }
-            } else {
-                // 如果找不到对应的字段，记录警告但继续处理
-                logger.warn("事件中的列名 '{}' 在 TableGroup 中未找到对应的字段信息", columnName);
+            if (field != null && addedFieldNames.add(columnName)) {
+                fieldIndexMap.put(columnName, rowIndex);
             }
+/*            else if (field == null) {
+                logger.warn("事件中的列名 '{}' 在 TableGroup 中未找到对应的字段信息", columnName);
+            }*/
+            rowIndex++;
         }
 
-        return fields;
+        return fieldIndexMap;
     }
 
     /**

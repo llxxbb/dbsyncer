@@ -62,19 +62,22 @@ public class Picker {
      * <p>
      * 工作机制：
      * 1. 遍历原始行数据（List<List<Object>>），将每行数据转换为Map格式（字段名->值）
-     * 2. 根据字段映射关系（sourceFields -> targetFields），通过exchange方法将源字段值映射到目标字段
-     * 3. 如果启用过滤（enableFilter=true），使用filter方法根据配置的过滤条件（AND/OR）过滤数据
-     * 4. 只保留通过过滤条件的数据，将源数据添加到sourceMapList，目标数据添加到返回列表
-     * 5. 如果最终没有数据通过过滤，抛出异常
+     * 2. 使用 fieldIndexMap 获取每个字段在行数据中的正确索引位置
+     * 3. 根据字段映射关系（sourceFields -> targetFields），通过exchange方法将源字段值映射到目标字段
+     * 4. 如果启用过滤（enableFilter=true），使用filter方法根据配置的过滤条件（AND/OR）过滤数据
+     * 5. 只保留通过过滤条件的数据，将源数据添加到sourceMapList，目标数据添加到返回列表
+     * 6. 如果最终没有数据通过过滤，抛出异常
      *
      * @param sourceOriginalFields 源表的原始字段列表
+     * @param fieldIndexMap        字段名到行数据索引的映射（解决字段删除后的数据错位问题）
      * @param enableFilter         是否启用过滤条件
-     * @param rows                 原始数据行（每行是一个List<Object>，按字段顺序存储值）
+     * @param rows                 原始数据行（每行是一个List<Object>，按数据库列顺序存储值）
      * @param sourceMapList        用于存储源数据的Map列表（作为输出参数，方法会向其中添加数据）
      * @return 转换后的目标数据列表（Map格式，key为目标字段名，value为字段值）
      * @throws Exception 当没有数据通过过滤时抛出异常
      */
-    public List<Map> pickTargetData(List<Field> sourceOriginalFields, boolean enableFilter, List<List<Object>> rows, List<Map> sourceMapList) throws Exception {
+    public List<Map> pickTargetData(List<Field> sourceOriginalFields, Map<String, Integer> fieldIndexMap,
+                                    boolean enableFilter, List<List<Object>> rows, List<Map> sourceMapList) throws Exception {
         List<Map> targetMapList = new ArrayList<>();
         if (CollectionUtils.isEmpty(rows)) {
             return targetMapList;
@@ -82,10 +85,13 @@ public class Picker {
         Map<String, Object> source = null;
         Map<String, Object> target = null;
         for (List<Object> row : rows) {
-            assert row.size() == sourceOriginalFields.size();
             source = new HashMap<>();
-            for (int j = 0; j < sourceOriginalFields.size(); j++) {
-                source.put(sourceOriginalFields.get(j).getName(), row.get(j));
+            // 使用索引映射获取正确的值，解决字段删除后的数据错位问题
+            for (Field field : sourceOriginalFields) {
+                Integer index = fieldIndexMap.get(field.getName());
+                if (index != null && index < row.size()) {
+                    source.put(field.getName(), row.get(index));
+                }
             }
             target = new HashMap<>();
             exchange(sFieldSize, tFieldSize, this.sourceFields, this.targetFields, source, target);
