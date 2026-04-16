@@ -21,6 +21,17 @@ public final class MySQLEnumType extends EnumType {
         if (val instanceof String) {
             return (String) val;
         }
+
+        // MySQL JDBC 驱动读取 ENUM 时可能返回 Integer（枚举索引，从1开始）
+        if (val instanceof Integer) {
+            int index = (Integer) val;
+            List<String> enumValues = field.getEnumValues();
+            if (enumValues != null && index >= 1 && index <= enumValues.size()) {
+                return enumValues.get(index - 1);
+            }
+            return String.valueOf(val);
+        }
+
         return throwUnsupportedException(val, field);
     }
 
