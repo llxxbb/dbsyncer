@@ -348,9 +348,8 @@ public class SqlServerConnector extends AbstractDatabaseConnector {
         }
 
         String upperTypeName = typeName.toUpperCase();
-        String baseTypeName = extractBaseTypeName(upperTypeName);
         
-        if (schemaResolver.getSupportedTypeNames().contains(baseTypeName)) {
+        if (schemaResolver.getSupportedTypeNames().contains(upperTypeName)) {
             return typeName;
         }
 
@@ -363,13 +362,6 @@ public class SqlServerConnector extends AbstractDatabaseConnector {
         return typeName;
     }
 
-    private String extractBaseTypeName(String typeName) {
-        int idx = typeName.indexOf('(');
-        if (idx > 0) {
-            return typeName.substring(0, idx);
-        }
-        return typeName;
-    }
 
     private String queryUserDefinedTypeBase(String typeName, Connection connection, String schemaName) throws SQLException {
         String sql = 
