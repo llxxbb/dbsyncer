@@ -5,12 +5,14 @@ package org.dbsyncer.connector.kafka;
 
 import org.dbsyncer.connector.kafka.model.KafkaMessage;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
+import org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.plugin.PluginContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Method;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -98,50 +100,41 @@ public class KafkaConvertor {
 
     /**
      * 从源连接器配置中提取数据库名
+     * 
+     * 修改说明：
+     * 1. 直接从JDBC连接获取catalog（数据库名）
+     * 2. 移除URL解析逻辑（getCatalog更准确可靠）
+     * 3. 不再返回schema属性（schema是架构名，不是数据库名）
      */
     public String getSourceDBNameFromSource(PluginContext context) {
         try {
             ConnectorInstance sourceConnectorInstance = context.getSourceConnectorInstance();
-            if (sourceConnectorInstance != null) {
-                Method getConfigMethod = sourceConnectorInstance.getClass().getMethod("getConfig");
-                Object config = getConfigMethod.invoke(sourceConnectorInstance);
-
-                // 尝试获取schema属性
-                try {
-                    Method getSchemaMethod = config.getClass().getMethod("getSchema");
-                    Object schema = getSchemaMethod.invoke(config);
-                    if (schema != null) {
-                        return schema.toString();
-                    }
-                } catch (NoSuchMethodException e) {
-                    logger.debug("源连接器配置中没有getSchema方法");
-                }
-
-                // 尝试获取URL属性并从中提取数据库名
-                try {
-                    Method getUrlMethod = config.getClass().getMethod("getUrl");
-                    Object url = getUrlMethod.invoke(config);
-                    if (url != null) {
-                        String urlStr = url.toString();
-                        // 简单的数据库名提取逻辑，实际可以根据需要增强
-                        if (urlStr.contains("//")) {
-                            String path = urlStr.split("//")[1];
-                            if (path.contains("/")) {
-                                String dbPart = path.split("/")[1];
-                                if (dbPart.contains("?")) {
-                                    dbPart = dbPart.split("\\?")[0];
-                                }
-                                return dbPart;
-                            }
-                        }
-                    }
-                } catch (NoSuchMethodException e) {
-                    logger.debug("源连接器配置中没有getUrl方法");
-                }
+            if (sourceConnectorInstance instanceof DatabaseConnectorInstance) {
+                DatabaseConnectorInstance dbInstance = (DatabaseConnectorInstance) sourceConnectorInstance;
+                return getCatalogFromConnection(dbInstance);
             }
         } catch (Exception e) {
             logger.warn("无法从源连接器获取数据库名", e);
         }
         return "UNKNOWN";
+    }
+
+    /**
+     * 从JDBC连接获取数据库名
+     * 使用DatabaseConnectorInstance的execute方法自动管理连接
+     * 
+     * @param instance 数据库连接器实例
+     * @return 数据库名
+     * @throws Exception 获取失败时抛出异常
+     */
+    private String getCatalogFromConnection(DatabaseConnectorInstance instance) throws Exception {
+        return instance.execute(databaseTemplate -> {
+            try {
+                String catalog = databaseTemplate.getSimpleConnection().getCatalog();
+                return catalog;
+            } catch (SQLException e) {
+                throw new RuntimeException("获取数据库catalog失败", e);
+            }
+        });
     }
 }
