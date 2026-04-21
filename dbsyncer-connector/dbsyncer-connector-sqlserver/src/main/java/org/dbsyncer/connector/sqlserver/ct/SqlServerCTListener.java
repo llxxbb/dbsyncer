@@ -76,7 +76,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
     private String schema;
     private String realDatabaseName;
     // 版本号轮询间隔（毫秒）
-    private static final long POLL_INTERVAL_MILLIS = 100;
+    private static final long POLL_INTERVAL_MILLIS = 3000;
     // 主键信息缓存（表名 -> 主键列表）
     private final Map<String, List<String>> primaryKeysCache = new HashMap<>();
     // 表列数缓存（表名 -> 列数），避免重复查询 INFORMATION_SCHEMA
@@ -107,6 +107,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
             }
             connected = true;
             connect();
+            
             readTables();
             Assert.notEmpty(tables, "No tables available");
 
@@ -341,8 +342,11 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
 
         // 构建查询 SQL
         String schemaInfoSubquery = sqlTemplate.buildGetTableSchemaInfoSubquery(schema, tableName);
-        String mainQuery = sqlTemplate.buildChangeTrackingDMLMainQuery(schema, tableName, primaryKeys, schemaInfoSubquery);
+        String mainQuery = sqlTemplate.buildChangeTrackingDMLMainQuery(
+            schema, tableName, primaryKeys, schemaInfoSubquery);
         String fallbackQuery = sqlTemplate.buildSchemeOnly(schema, tableName);
+
+        logger.debug("执行CT查询SQL: table={}", tableName);
 
         // 使用流式查询，边查询边发送
         return instance.execute(databaseTemplate -> {

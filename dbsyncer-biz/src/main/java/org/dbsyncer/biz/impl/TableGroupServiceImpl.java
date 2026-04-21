@@ -172,8 +172,8 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
             }
         }
 
-        // 检查主键差异
-        boolean hasPkDifference = !oldPrimaryKeys.equals(newPrimaryKeys);
+        // 检查主键差异（不区分大小写）
+        boolean hasPkDifference = !comparePrimaryKeyListIgnoreCase(oldPrimaryKeys, newPrimaryKeys);
 
         // 【新增】获取确认参数
         String confirmParam = params.get("confirmPrimaryKeyChange");
@@ -185,8 +185,8 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
             diff.setHasDifference(true);
             diff.setConfiguredPKs(newPrimaryKeys);
             diff.setActualPKs(oldPrimaryKeys);
-            diff.setAddedPKs(findAddedPKs(oldPrimaryKeys, newPrimaryKeys));
-            diff.setRemovedPKs(findRemovedPKs(oldPrimaryKeys, newPrimaryKeys));
+            diff.setAddedPKs(findPrimaryKeyDiff(newPrimaryKeys, oldPrimaryKeys));
+            diff.setRemovedPKs(findPrimaryKeyDiff(oldPrimaryKeys, newPrimaryKeys));
             diff.setTableName(tableGroup.getTargetTable().getName());
             throw new PrimaryKeyDifferenceException(diff);
         }
@@ -194,8 +194,8 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         // 应用主键参数（内存修改）
         TableGroup model = (TableGroup) tableGroupChecker.checkEditConfigModel(params);
 
-        // 【修正】先执行 DDL，成功后再保存配置
-        if (!oldPrimaryKeys.equals(newPrimaryKeys)) {
+        // 【修正】先执行 DDL，成功后再保存配置（不区分大小写比较）
+        if (!comparePrimaryKeyListIgnoreCase(oldPrimaryKeys, newPrimaryKeys)) {
             Connector targetConnector = profileComponent.getConnector(mapping.getTargetConnectorId());
             if (targetConnector != null) {
                 try {
@@ -244,22 +244,24 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         return id;
     }
 
-    /**
-     * 查找新增的主键
-     */
-    private List<String> findAddedPKs(List<String> oldPKs, List<String> newPKs) {
-        List<String> added = new ArrayList<>(newPKs);
-        added.removeAll(oldPKs);
-        return added;
+    private boolean comparePrimaryKeyListIgnoreCase(List<String> list1, List<String> list2) {
+        if (list1 == null && list2 == null) {
+            return true;
+        }
+        if (list1 == null || list2 == null) {
+            return false;
+        }
+        if (list1.size() != list2.size()) {
+            return false;
+        }
+        return list1.stream()
+                .allMatch(s -> list2.stream().anyMatch(s::equalsIgnoreCase));
     }
 
-    /**
-     * 查找移除的主键
-     */
-    private List<String> findRemovedPKs(List<String> oldPKs, List<String> newPKs) {
-        List<String> removed = new ArrayList<>(oldPKs);
-        removed.removeAll(newPKs);
-        return removed;
+    private List<String> findPrimaryKeyDiff(List<String> sourceList, List<String> targetList) {
+        return sourceList.stream()
+                .filter(pk -> targetList.stream().noneMatch(pk::equalsIgnoreCase))
+                .collect(Collectors.toList());
     }
 
     @Override

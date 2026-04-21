@@ -650,60 +650,105 @@ public class SqlServerTemplate extends AbstractSqlTemplate {
 
     /**
      * 构建 Change Tracking DML 变更查询的主查询 SQL
+     * 使用窗口函数ROW_NUMBER按主键分组，只返回每个主键的最新版本
+     * 
+     * 优化点：
+     * 1. 先对CT变更记录进行去重，再JOIN原始表
+     * 2. 窗口函数只处理CT列，不处理原始表列
+     * 3. 大幅减少JOIN次数（只JOIN去重后的记录）
+     * 
+     * SQL执行流程：
+     * 1. CTChanges CTE: 从CHANGETABLE获取变更记录，包含变更版本、操作类型、变更列和主键值
+     * 2. RankedChanges CTE: 使用ROW_NUMBER窗口函数按主键分组，按版本号降序排序，标记每组的行号
+     * 3. 主查询: 只选择rn=1的记录（每个主键的最新变更），LEFT JOIN原始表获取完整数据
      * 
      * @param schema 架构名
      * @param tableName 表名
      * @param primaryKeys 主键列表
      * @param schemaInfoSubquery 表结构信息子查询
-     * @return SQL 语句（使用 PreparedStatement 参数，需要设置 3 个参数：startVersion, startVersion, stopVersion）
+     * @return SQL语句（使用 PreparedStatement 参数，需要设置 3 个参数：startVersion, startVersion, stopVersion）
      */
-    public String buildChangeTrackingDMLMainQuery(String schema, String tableName, 
-                                                   List<String> primaryKeys, String schemaInfoSubquery) {
-        // 构建 JOIN 条件（支持复合主键）
-        // buildColumn 已经包含了引号，所以不需要再手动添加
+    public String buildChangeTrackingDMLMainQuery(String schema, String tableName, List<String> primaryKeys, String schemaInfoSubquery) {
+        // 1. 构建JOIN条件
+        // 将主键列映射为JOIN条件：RC.__pk_xxx = T.[xxx]
+        // RC是RankedChanges的别名，__pk_xxx是CT返回的主键列别名
+        // buildColumn已经包含了引号，所以不需要再手动添加
         String joinCondition = primaryKeys.stream()
-                .map(pk -> "CT." + buildColumn(pk) + " = T." + buildColumn(pk))
+                .map(pk -> "RC." + CT_PK_COLUMN_PREFIX  + " = T." + buildColumn(pk))
                 .collect(java.util.stream.Collectors.joining(" AND "));
 
-        // 构建 SELECT 列列表
-        // 将 CT 主键列放在 T.* 前面，简化后续处理（可以通过固定索引直接访问）
-        // 对于主键列：如果 T.[pk] 为 NULL（DELETE 情况），使用 CT.[pk]
-        // 使用双下划线前缀避免与用户列名冲突
+        // 2. 构建冗余主键列（用于DELETE场景和分组）
+        // 在CTChanges CTE中，需要将主键列重命名为__pk_xxx格式
+        // 这样做的原因：
+        // a) DELETE操作时，原始表中没有对应记录，需要从CT中获取主键值
+        // b) 使用双下划线前缀避免与用户列名冲突
+        // c) 用于后续的PARTITION BY分组
         String redundantPrimaryKeys = primaryKeys.stream()
                 .map(pk -> "CT." + buildColumn(pk) + " AS " + CT_PK_COLUMN_PREFIX + pk.replaceAll("[^a-zA-Z0-9_]", "_"))
                 .collect(java.util.stream.Collectors.joining(", "));
 
-        // 将 CT 主键列放在 T.* 前面
-        String selectColumns = (redundantPrimaryKeys.isEmpty() ? "" : redundantPrimaryKeys + ", ") + "T.*";
+        // 3. 构建PARTITION BY子句（按主键分组）
+        // 在RankedChanges CTE中使用，按主键分组后对每组内的记录按版本号排序
+        // 这样可以识别出每个主键的最新变更记录
+        String partitionByClause = primaryKeys.stream()
+                .map(pk -> CT_PK_COLUMN_PREFIX )
+                .collect(java.util.stream.Collectors.joining(", "));
 
-        // 构建表名（带引号）
+        // 4. 构建最终SELECT的主键列
+        // 从RankedChanges中选择主键列，使用RC别名
+        // 这些主键列已经在CTChanges中重命名为__pk_xxx格式
+        String selectPrimaryKeys = primaryKeys.stream()
+                .map(pk -> "RC." + CT_PK_COLUMN_PREFIX )
+                .collect(java.util.stream.Collectors.joining(", "));
+
+        // 构建带引号的表名（schema.table格式）
         String schemaTable = buildTable(schema, tableName);
 
-        // 优化：使用 CROSS APPLY 让表结构信息子查询只执行一次，而不是每行都执行
-        // CROSS APPLY 会将子查询结果与主查询结果集进行关联，SQL Server 优化器会识别出
-        // 子查询结果对所有行都相同，从而只执行一次
-        // 注意：CROSS APPLY 从 SQL Server 2005 开始支持，SQL Server 2008 R2 完全支持
-        // 注意：CROSS APPLY 的别名语法是 "CROSS APPLY (...) alias"，不使用 AS 关键字
-        return String.format(
+        // 构建完整的SQL查询
+        // 使用CTE (Common Table Expression) 分步处理：
+        // 1. CTChanges: 获取指定版本范围内的变更记录
+        //    - CHANGETABLE(CHANGES table, ?) 返回表的变更记录
+        //    - 第一个?参数是起始版本号，由调用者设置
+        //    - WHERE条件过滤版本范围：> startVersion AND <= stopVersion
+        // 2. RankedChanges: 对变更记录按主键分组并排序
+        //    - ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ... DESC) 为每组编号
+        //    - 按版本号降序排序，确保最新变更的rn=1
+        // 3. 主查询: 选择每组的第一条记录（最新变更）
+        //    - WHERE rn = 1 过滤出每个主键的最新变更
+        //    - LEFT JOIN原始表获取完整数据（DELETE时为NULL）
+        //    - CROSS APPLY获取表结构信息（只执行一次，优化性能）
+        //    - ORDER BY版本号升序，确保变更按时间顺序返回
+        return "WITH CTChanges AS ( " +
+                "    SELECT " +
+                "        CT.SYS_CHANGE_VERSION, " +
+                "        CT.SYS_CHANGE_OPERATION, " +
+                "        CT.SYS_CHANGE_COLUMNS, " +
+                "        " + redundantPrimaryKeys + " " +
+                "    FROM CHANGETABLE(CHANGES " + schemaTable + ", ?) AS CT " +
+                "    WHERE CT.SYS_CHANGE_VERSION > ? AND CT.SYS_CHANGE_VERSION <= ? " +
+                "), " +
+                "RankedChanges AS ( " +
+                "    SELECT " +
+                "        *, " +
+                "        ROW_NUMBER() OVER ( " +
+                "            PARTITION BY " + partitionByClause + " " +
+                "            ORDER BY SYS_CHANGE_VERSION DESC " +
+                "        ) AS rn " +
+                "    FROM CTChanges " +
+                ") " +
                 "SELECT " +
-                        "    CT.SYS_CHANGE_VERSION, " +
-                        "    CT.SYS_CHANGE_OPERATION, " +
-                        "    CT.SYS_CHANGE_COLUMNS, " +
-                        "    %s, " +  // 显式的列列表
-                        "    SI.schema_info AS " + CT_DDL_SCHEMA_INFO_COLUMN + " " +
-                        "FROM CHANGETABLE(CHANGES %s, ?) AS CT " +
-                        "LEFT JOIN %s AS T WITH (NOLOCK) ON %s " +
-                        "CROSS APPLY %s SI " +  // 使用 CROSS APPLY，注意：某些 SQL Server 版本不支持 AS 关键字
-                        "WHERE CT.SYS_CHANGE_VERSION > ? AND CT.SYS_CHANGE_VERSION <= ? " +
-                        "ORDER BY CT.SYS_CHANGE_VERSION ASC",
-                selectColumns,         // 显式的列列表
-                schemaTable,          // CHANGETABLE
-                schemaTable,          // JOIN table
-                joinCondition,        // JOIN condition（支持复合主键）
-                schemaInfoSubquery    // 表结构信息子查询（移到 CROSS APPLY）
-        );
+                "    RC.SYS_CHANGE_VERSION, " +
+                "    RC.SYS_CHANGE_OPERATION, " +
+                "    RC.SYS_CHANGE_COLUMNS, " +
+                "    " + selectPrimaryKeys + ", " +
+                "    T.*, " +
+                "    SI.schema_info AS " + CT_DDL_SCHEMA_INFO_COLUMN + " " +
+                "FROM RankedChanges RC " +
+                "LEFT JOIN " + schemaTable + " AS T WITH (NOLOCK) ON " + joinCondition + " " +
+                "CROSS APPLY " + schemaInfoSubquery + " SI " +
+                "WHERE RC.rn = 1 " +
+                "ORDER BY RC.SYS_CHANGE_VERSION ASC";
     }
-
 
     /**
      * 构建启用数据库 Change Tracking 的 SQL
