@@ -674,7 +674,7 @@ public class SqlServerTemplate extends AbstractSqlTemplate {
         // RC是RankedChanges的别名，__pk_xxx是CT返回的主键列别名
         // buildColumn已经包含了引号，所以不需要再手动添加
         String joinCondition = primaryKeys.stream()
-                .map(pk -> "RC." + CT_PK_COLUMN_PREFIX  + " = T." + buildColumn(pk))
+                .map(pk -> "RC." + CT_PK_COLUMN_PREFIX + pk + " = T." + buildColumn(pk))
                 .collect(java.util.stream.Collectors.joining(" AND "));
 
         // 2. 构建冗余主键列（用于DELETE场景和分组）
@@ -684,21 +684,21 @@ public class SqlServerTemplate extends AbstractSqlTemplate {
         // b) 使用双下划线前缀避免与用户列名冲突
         // c) 用于后续的PARTITION BY分组
         String redundantPrimaryKeys = primaryKeys.stream()
-                .map(pk -> "CT." + buildColumn(pk) + " AS " + CT_PK_COLUMN_PREFIX + pk.replaceAll("[^a-zA-Z0-9_]", "_"))
+                .map(pk -> "CT." + buildColumn(pk) + " AS " + CT_PK_COLUMN_PREFIX + pk)
                 .collect(java.util.stream.Collectors.joining(", "));
 
         // 3. 构建PARTITION BY子句（按主键分组）
         // 在RankedChanges CTE中使用，按主键分组后对每组内的记录按版本号排序
         // 这样可以识别出每个主键的最新变更记录
         String partitionByClause = primaryKeys.stream()
-                .map(pk -> CT_PK_COLUMN_PREFIX )
+                .map(pk -> CT_PK_COLUMN_PREFIX + pk)
                 .collect(java.util.stream.Collectors.joining(", "));
 
         // 4. 构建最终SELECT的主键列
         // 从RankedChanges中选择主键列，使用RC别名
         // 这些主键列已经在CTChanges中重命名为__pk_xxx格式
         String selectPrimaryKeys = primaryKeys.stream()
-                .map(pk -> "RC." + CT_PK_COLUMN_PREFIX )
+                .map(pk -> "RC." + CT_PK_COLUMN_PREFIX + pk)
                 .collect(java.util.stream.Collectors.joining(", "));
 
         // 构建带引号的表名（schema.table格式）
