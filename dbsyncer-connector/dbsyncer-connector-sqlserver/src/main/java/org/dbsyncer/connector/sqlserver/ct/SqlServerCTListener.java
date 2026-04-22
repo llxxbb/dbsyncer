@@ -76,7 +76,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
     private String schema;
     private String realDatabaseName;
     // 版本号轮询间隔（毫秒）
-    private static final long POLL_INTERVAL_MILLIS = 3000;
+    private static final long POLL_INTERVAL_MILLIS = 30000;
     // 主键信息缓存（表名 -> 主键列表）
     private final Map<String, List<String>> primaryKeysCache = new HashMap<>();
     // 表列数缓存（表名 -> 列数），避免重复查询 INFORMATION_SCHEMA
