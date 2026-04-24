@@ -9,7 +9,8 @@
 | [0001](0001-field-mapping-advanced-config.md) | 字段映射高级配置 | Accepted | 2026-03-20 |
 | [0002](0002-支持编辑表映射时修改主键配置.md) | 支持编辑表映射时修改主键配置 | Accepted | 2026-03-20 |
 | [0003](0003-tablegroup-primary-key-order-fix.md) | TableGroup 主键顺序修复 | Accepted | 2026-03-30 |
-| [0004](0004-sqlserver-ct-bigtx-optimization.md) | SQL Server CT 大事务同步优化 | Proposed | 2026-03-27 |
+| [0004](0004-sqlserver-ct-bigtx-optimization.md) | SQL Server CT 大事务同步优化 | Accepted | 2026-04-10 |
+| [0005](0005-sqlserver-ct-delete-race-condition.md) | SQL Server CT 数据删除竞态问题 | Accepted | 2026-04-24 |
 
 ## 状态说明
 
@@ -36,4 +37,4 @@ mkdir -p doc/adr doc/history/NNNN
 
 ---
 
-*最后更新：2026-03-30*
+*最后更新：2026-04-24*
