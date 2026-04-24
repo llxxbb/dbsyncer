@@ -12,14 +12,14 @@
 
 在 SQL Server CT（Change Tracking，变更追踪）数据库同步场景中，当前批次的 insert 或 update 可能会失效（抛异常：null 值），其原因是该记录在 sql server 端后续处理中删除了（会体现在后续批次中），导致 left join 源表数据为 null。
 
-## 核心方案：异常捕获 + 内存检测 + 批次过滤 + 重做
+## 核心方案：异常捕获 + 批次过滤 + 重做
 
 **流程**：
 ```
-1. 直接执行 UPSERT/MERGE（零检测）
+1. 执行 SQL（零检测）
    └─ 有失败 → 抛异常
    ↓
-2. 捕获异常 → 批次过滤
+2. 异常捕获 → 批次过滤
    ├─ CT 删除（整行 null）→ 批次重做
    └─ 其他异常（部分字段异常）→ 抛出异常
    ↓
@@ -47,48 +47,65 @@
 ### 核心代码
 
 ```java
-/**
- * 执行写入：零检测 + 异常捕获 + 批次过滤 + 重做
- */
-private WriterResponse writer(WriterRequest request) {
+private Result executeWriter(...) {
     try {
-        // 1. 直接执行 UPSERT/MERGE（零检测）
-        return executeBatch(request.getData());
+        // 1. 执行 SQL（零检测）
+        int[] execute = connectorInstance.execute(...);
+        
+        // 2. 处理执行结果
+        if (null != execute) {
+            for (...) {
+                if (execute[i] == 1 || execute[i] == -2) {
+                    result.getSuccessData().add(data.get(i));
+                }
+            }
+        }
         
     } catch (Exception e) {
-        // 2. 捕获异常 → 批次过滤
-        return handleCtDeleteScenario(request.getData(), e);
+        // 3. 异常捕获 → 批次过滤 + CT 删除场景处理
+        handleCtDeleteScenario(result, data, fields, connectorInstance, executeSql, context, e);
     }
+    
+    return result;
 }
 
 /**
  * 处理 CT 删除场景：批次过滤 + 重做
  */
-private WriterResponse handleCtDeleteScenario(List<Map> originalData, Exception e) {
-    // 3. 区分 CT 删除和其他异常
-    // 这里需要进一步判断失败数据中哪些是 CT 删除，哪些是其他异常
-    
-    // CT 删除数据：整行 null
+private void handleCtDeleteScenario(Result result, List<Map> data, List<Field> fields,
+                                    DatabaseConnectorInstance connectorInstance, String executeSql, 
+                                    PluginContext context, Exception e) {
+    // 区分 CT 删除和其他异常
     List<Map> ctDeleteData = new ArrayList<>();
-    
-    // 其他失败数据：部分字段异常
     List<Map> otherFailData = new ArrayList<>();
     
-    for (Map data : originalData) {
-        if (isDeletedFromCT(data)) {
-            ctDeleteData.add(data);
-            logger.warn("[CT 删除] 记录 {} 已被物理删除，需要批次重做", getPkValues(data));
+    for (Map dataItem : data) {
+        if (CtDeleteDetector.isDeletedFromCT(dataItem, fields)) {
+            ctDeleteData.add(dataItem);
+            logger.warn("[CT 删除] 记录 {} 已被物理删除，需要批次重做", getPkValues(dataItem));
         } else {
-            otherFailData.add(data);
+            otherFailData.add(dataItem);
         }
+    }
+    
+    // 全 CT 删除 → 返回成功
+    if (data.size() == ctDeleteData.size()) {
+        logger.info("[全 CT 删除] 表{}，全部数据已被物理删除", context.getTargetTableName());
+        return;
     }
     
     // CT 删除 → 批次重做
     if (!ctDeleteData.isEmpty()) {
+        int retryCount = context.getRetryCount();
+        if (retryCount >= 3) {
+            throw new RuntimeException("批次重做达到上限（3 次）");
+        }
+        
         try {
-            return executeBatch(ctDeleteData);
+            context.setRetryCount(retryCount + 1);
+            int[] reMake = connectorInstance.execute(...);
+            // 处理重做结果
         } catch (Exception reMakeE) {
-            // 重做失败 → 抛出异常
             throw new RuntimeException("批次重做失败：" + reMakeE.getMessage(), reMakeE);
         }
     }
@@ -97,29 +114,6 @@ private WriterResponse handleCtDeleteScenario(List<Map> originalData, Exception 
     if (!otherFailData.isEmpty()) {
         throw new RuntimeException("写入失败：部分数据异常 - " + otherFailData.size() + "条", e);
     }
-    
-    // 全 CT 删除 → 返回成功
-    return new WriterResponse(0, ctDeleteData.size());
-}
-
-/**
- * CT 删除判定：所有非主键字段都是 null
- */
-private boolean isDeletedFromCT(Map data) {
-    List<Field> fields = getTargetFields();
-    int nonPkCount = fields.stream().filter(f -> !f.isPk()).count();
-    int nullCount = countNullFields(data, fields);
-    return nullCount == nonPkCount;
-}
-
-private int countNullFields(Map data, List<Field> fields) {
-    int nullCount = 0;
-    for (Field field : fields) {
-        if (!field.isPk() && data.get(field.getName()) == null) {
-            nullCount++;
-        }
-    }
-    return nullCount;
 }
 ```
 
@@ -133,6 +127,8 @@ private int countNullFields(Map data, List<Field> fields) {
 3. ✅ 内存检测：`null 数量 == 非主键数量`
 4. ✅ 批次过滤：整行 null→重做，部分异常→抛出
 5. ✅ 批次重做：CT 删除数据重新执行
+6. ✅ 全 CT 删除：返回成功，不抛异常
+7. ✅ 重试次数限制：3 次
 
 **实现方式**：
 - 复用现有异常机制，无需特殊异常定义

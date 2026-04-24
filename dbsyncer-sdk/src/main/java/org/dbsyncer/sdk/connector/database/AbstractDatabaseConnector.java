@@ -319,9 +319,9 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         String event = context.getEvent();
         List<Map> data = context.getTargetList();
 
-        // 1、获取SQL
+        // 1、获取 SQL
         String executeSql = context.getCommand().get(event);
-        Assert.hasText(executeSql, "执行SQL语句不能为空.");
+        Assert.hasText(executeSql, "执行 SQL 语句不能为空.");
 
         if (CollectionUtils.isEmpty(fields)) {
             logger.error("writer fields can not be empty.");
@@ -334,12 +334,17 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
 
         Result result = new Result();
         int[] execute = null;
-        // 2、设置参数并执行SQL
+        
         try {
+            // 2、执行 SQL（零检测）
             execute = connectorInstance.execute(databaseTemplate -> databaseTemplate.batchUpdate(executeSql, batchRows(fields, data)));
+            
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            // 4、异常捕获 → 批次过滤 + CT 删除场景处理 + 重做
+            execute = handleCtDeleteScenario(result, data, fields, connectorInstance, executeSql, context, e);
         }
+        
+        // 5、统一计数（复用计数逻辑）
         if (null != execute) {
             int batchSize = execute.length;
             for (int i = 0; i < batchSize; i++) {
@@ -348,7 +353,91 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
                 }
             }
         }
+        
         return result;
+    }
+    
+    /**
+     * 处理 CT 删除场景：批次过滤 + 重做
+     * @param result 结果对象
+     * @param data 原始数据
+     * @param fields 字段定义
+     * @param connectorInstance 连接器实例
+     * @param executeSql SQL 语句
+     * @param context 上下文
+     * @param e 异常信息
+     * @return 重做结果的 execute[]，null 表示全 CT 删除（全部移除）
+     */
+    private int[] handleCtDeleteScenario(Result result, List<Map> data, List<Field> fields,
+                                         DatabaseConnectorInstance connectorInstance, String executeSql,
+                                         PluginContext context, Exception e) {
+        logger.warn("[异常捕获] 表{}，操作{}，发生异常：{}",
+                   context.getTargetTableName(), context.getEvent(), e.getMessage());
+        
+        // 区分 CT 删除和其他异常
+        List<Map> ctDeleteData = new ArrayList<>();
+        List<Map> otherFailData = new ArrayList<>();
+        
+        for (Map failDataItem : data) {
+            if (CtDeleteDetector.isDeletedFromCT(failDataItem, fields)) {
+                ctDeleteData.add(failDataItem);
+            } else {
+                otherFailData.add(failDataItem);
+            }
+        }
+        
+        // 全 CT 删除 → 返回 null（全部移除）
+        if (data.size() == ctDeleteData.size()) {
+            logger.info("[全 CT 删除] 表{}，操作{}，全部数据已被物理删除，从批次移除", 
+                       context.getTargetTableName(), context.getEvent());
+            return null;
+        }
+        
+        // CT 删除 → 批次重做
+        if (!ctDeleteData.isEmpty()) {
+            logger.warn("[CT 删除] 表{}，操作{}，CT 删除数据{}条，需要批次重做",
+                       context.getTargetTableName(), context.getEvent(), ctDeleteData.size());
+            
+            // 检查重试次数
+            int retryCount = context.getRetryCount();
+            if (retryCount >= 3) {
+                throw new RuntimeException("批次重做达到上限（3 次）");
+            }
+            
+            // 更新重试计数
+            context.setRetryCount(retryCount + 1);
+            
+            try {
+                return connectorInstance.execute(
+                    databaseTemplate -> databaseTemplate.batchUpdate(executeSql, batchRows(fields, ctDeleteData)));
+                
+            } catch (Exception reMakeE) {
+                throw new RuntimeException("批次重做失败：" + reMakeE.getMessage(), reMakeE);
+            }
+        }
+        
+        // 其他异常 → 抛出异常
+        if (!otherFailData.isEmpty()) {
+            logger.error("[写入失败] 表{}，操作{}，非 CT 删除失败数据{}条",
+                        context.getTargetTableName(), context.getEvent(), otherFailData.size());
+            throw new RuntimeException("写入失败：部分数据异常 - " + otherFailData.size() + "条", e);
+        }
+        
+        return null;
+    }
+    
+    /**
+     * 判断两条记录是否为同一记录（通过主键比较）
+     */
+    private boolean isSameRecord(Map record1, Map record2, List<String> primaryKeys) {
+        for (String pk : primaryKeys) {
+            Object val1 = record1.get(pk);
+            Object val2 = record2.get(pk);
+            if (!Objects.equals(val1, val2)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
