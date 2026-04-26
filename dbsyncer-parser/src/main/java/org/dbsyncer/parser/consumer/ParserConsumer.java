@@ -3,7 +3,6 @@
  */
 package org.dbsyncer.parser.consumer;
 
-import org.dbsyncer.parser.LogType;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.parser.enums.MetaEnum;

@@ -2,8 +2,8 @@ package org.dbsyncer.manager;
 
 import org.dbsyncer.manager.impl.FullIncrementPuller;
 import org.dbsyncer.manager.impl.FullPuller;
-import org.dbsyncer.parser.LogService;
-import org.dbsyncer.parser.LogType;
+import org.dbsyncer.sdk.spi.LogService;
+import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.enums.MetaEnum;
 import org.dbsyncer.parser.model.Mapping;

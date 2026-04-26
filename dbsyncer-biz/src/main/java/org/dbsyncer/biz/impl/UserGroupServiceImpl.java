@@ -10,7 +10,7 @@ import org.dbsyncer.biz.vo.UserGroupVo;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.ProfileComponent;
-import org.dbsyncer.parser.LogType;
+import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.parser.model.ConfigModel;
 import org.dbsyncer.parser.model.ProjectGroup;
 import org.dbsyncer.parser.model.UserConfig;

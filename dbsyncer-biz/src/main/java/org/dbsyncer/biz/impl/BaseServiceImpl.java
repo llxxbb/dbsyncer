@@ -3,8 +3,8 @@
  */
 package org.dbsyncer.biz.impl;
 
-import org.dbsyncer.parser.LogService;
-import org.dbsyncer.parser.LogType;
+import org.dbsyncer.sdk.spi.LogService;
+import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.parser.MessageService;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.model.ConfigModel;

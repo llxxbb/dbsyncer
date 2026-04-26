@@ -15,6 +15,8 @@ import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.manager.ManagerFactory;
 import org.dbsyncer.parser.*;
+import org.dbsyncer.sdk.spi.LogService;
+import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.parser.enums.MetaEnum;
 import org.dbsyncer.parser.model.*;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
