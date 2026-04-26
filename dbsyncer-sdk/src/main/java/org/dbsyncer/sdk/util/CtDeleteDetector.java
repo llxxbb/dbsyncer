@@ -47,26 +47,4 @@ public class CtDeleteDetector {
 
         return nullCount == nonPkCount;
     }
-
-    /**
-     * 统计 null 字段数量（仅统计非主键字段）
-     * 
-     * @param data 数据 Map
-     * @param fields 字段列表
-     * @return null 字段数量
-     */
-    public static int countNullFields(Map<String, Object> data, List<Field> fields) {
-        if (data == null || fields == null || fields.isEmpty()) {
-            return 0;
-        }
-
-        int nullCount = 0;
-        for (Field field : fields) {
-            if (!field.isPk() && data.get(field.getName()) == null) {
-                nullCount++;
-            }
-        }
-
-        return nullCount;
-    }
 }

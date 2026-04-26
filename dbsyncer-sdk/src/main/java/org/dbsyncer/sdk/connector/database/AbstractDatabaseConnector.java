@@ -50,7 +50,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
     public SqlTemplate sqlTemplate;
-    
+
     /**
      * 全局 LogService（单例，应用启动时设置一次）
      */
@@ -62,6 +62,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
 
     /**
      * 设置全局日志服务（应用启动时设置一次）
+     *
      * @param logService 日志服务
      */
     public static void setStaticLogService(org.dbsyncer.sdk.spi.LogService logService) {
@@ -216,7 +217,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
      * 处理自增字段属性（从 DatabaseMetaData 的 IS_AUTOINCREMENT 列）
      * 如果数据库驱动不支持该列，抛出 SQLException
      *
-     * @param field 字段对象
+     * @param field          字段对象
      * @param columnMetadata 列元数据 ResultSet
      * @throws SQLException 数据库访问异常
      */
@@ -234,8 +235,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
      * 默认实现直接返回原字段列表，不做任何修改
      *
      * @param connectorInstance 连接器实例
-     * @param fields 基础字段列表（已从 JDBC DatabaseMetaData 获取）
-     * @param tableName 表名
+     * @param fields            基础字段列表（已从 JDBC DatabaseMetaData 获取）
+     * @param tableName         表名
      * @return 增强后的字段列表
      * @throws Exception 增强过程中可能的异常
      */
@@ -348,16 +349,20 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
 
         Result result = new Result();
         int[] execute = null;
-        
+
         try {
             // 2、执行 SQL（零检测）
             execute = connectorInstance.execute(databaseTemplate -> databaseTemplate.batchUpdate(executeSql, batchRows(fields, data)));
-            
+
         } catch (Exception e) {
             // 4、异常捕获 → 批次过滤 + CT 删除场景处理 + 重做
-            execute = handleCtDeleteScenario(result, data, fields, connectorInstance, executeSql, context, e);
+            try {
+                execute = handleCtDeleteScenario(data, fields, connectorInstance, executeSql, context, e);
+            } catch (Exception ex) {
+                throw new RuntimeException(ex);
+            }
         }
-        
+
         // 5、统一计数（复用计数逻辑）
         if (null != execute) {
             int batchSize = execute.length;
@@ -366,37 +371,29 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
                     result.getSuccessData().add(data.get(i));
                 }
             }
-        } else {
-            // 6、全 CT 删除 → execute 为 null，成功数包含全部数据
-            // 需要特殊处理
-            logger.info("[全 CT 删除] 全部数据已被物理删除，成功数应包含被移除的数据");
-            // TODO: 后续修正，需要把全部数据加到成功数
         }
-        
+
         return result;
     }
-    
+
     /**
      * 处理 CT 删除场景：批次过滤 + 重做（其他异常）
-     * @param result 结果对象
-     * @param data 原始数据
-     * @param fields 字段定义
+     *
+     * @param data              原始数据
+     * @param fields            字段定义
      * @param connectorInstance 连接器实例
-     * @param executeSql SQL 语句
-     * @param context 上下文
-     * @param e 异常信息
+     * @param executeSql        SQL 语句
+     * @param context           上下文
+     * @param e                 异常信息
      * @return 重做结果的 execute[]，null 表示全 CT 删除（全部移除，但成功数应包含）
      */
-    private int[] handleCtDeleteScenario(Result result, List<Map> data, List<Field> fields,
+    private int[] handleCtDeleteScenario(List<Map> data, List<Field> fields,
                                          DatabaseConnectorInstance connectorInstance, String executeSql,
-                                         PluginContext context, Exception e) {
-        logger.warn("[异常捕获] 表{}，操作{}，发生异常：{}",
-                   context.getTargetTableName(), context.getEvent(), e.getMessage());
-        
+                                         PluginContext context, Exception e) throws Exception {
         // 区分 CT 删除和其他异常
         List<Map> ctDeleteData = new ArrayList<>();
         List<Map> otherFailData = new ArrayList<>();
-        
+
         for (Map failDataItem : data) {
             if (CtDeleteDetector.isDeletedFromCT(failDataItem, fields)) {
                 ctDeleteData.add(failDataItem);
@@ -404,66 +401,26 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
                 otherFailData.add(failDataItem);
             }
         }
-        
-        // 全 CT 删除 → 返回 null（全部移除，但成功数应包含）
-        if (data.size() == ctDeleteData.size()) {
-            logger.info("[全 CT 删除] 表{}，操作{}，全部数据已被物理删除，从批次移除", 
-                       context.getTargetTableName(), context.getEvent());
-            
-            // 持久化记录 CT 删除数据
-            if (null != staticLogService) {
-                for (Map ctData : ctDeleteData) {
-                    staticLogService.log(org.dbsyncer.sdk.spi.LogType.MappingLog.CONFIG,
-                        String.format("[CT 删除] 表{}，操作{}，数据：%s", 
-                                   context.getTargetTableName(), context.getEvent(),
-                                   JsonUtil.objToJson(ctData)));
-                }
-            }
-            
+
+        // 非提前删除的数据出现的问题。
+        if (ctDeleteData.isEmpty()) {
+            throw  e;
+        }
+
+        // 没有有可处理的数据
+        if (otherFailData.isEmpty()) {
             return null;
         }
-        
-        // CT 删除的数据 → 从批次移除
-        // 其他异常的数据 → 批次重做
-        if (!otherFailData.isEmpty()) {
-            logger.warn("[重试] 表{}，操作{}，其他失败数据{}条，需要重试",
-                       context.getTargetTableName(), context.getEvent(), otherFailData.size());
-            
-            // 持久化记录重试数据
-            if (null != staticLogService) {
-                for (Map otherData : otherFailData) {
-                    staticLogService.log(org.dbsyncer.sdk.spi.LogType.MappingLog.CONFIG,
-                        String.format("[重试] 表{}，操作{}，数据：%s", 
-                                   context.getTargetTableName(), context.getEvent(),
-                                   JsonUtil.objToJson(otherData)));
-                }
-            }
-            
-            try {
-                return connectorInstance.execute(
-                    databaseTemplate -> databaseTemplate.batchUpdate(executeSql, batchRows(fields, otherFailData)));
-                
-            } catch (Exception reMakeE) {
-                throw new RuntimeException("重试失败：" + reMakeE.getMessage(), reMakeE);
-            }
+
+        // 打印提前删除的数据
+        for (Map ctData : ctDeleteData) {
+            staticLogService.log(org.dbsyncer.sdk.spi.LogType.MappingLog.CONFIG,
+                    String.format("[提前删除的数据] 表{}，操作{}，数据：%s",
+                            context.getTargetTableName(), context.getEvent(),
+                            JsonUtil.objToJson(ctData)));
         }
-        
-        // 只有 CT 删除，无其他异常 → 全部移除
-        return null;
-    }
-    
-    /**
-     * 判断两条记录是否为同一记录（通过主键比较）
-     */
-    private boolean isSameRecord(Map record1, Map record2, List<String> primaryKeys) {
-        for (String pk : primaryKeys) {
-            Object val1 = record1.get(pk);
-            Object val2 = record2.get(pk);
-            if (!Objects.equals(val1, val2)) {
-                return false;
-            }
-        }
-        return true;
+        return connectorInstance.execute(
+                databaseTemplate -> databaseTemplate.batchUpdate(executeSql, batchRows(fields, otherFailData)));
     }
 
     @Override
@@ -551,7 +508,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
     public Map<String, String> getTargetCommand(CommandConfig commandConfig) throws Exception {
         Table table = commandConfig.getTable();
         List<String> primaryKeys = PrimaryKeyUtil.findTablePrimaryKeys(table);
-        assert  primaryKeys != null && !primaryKeys.isEmpty();
+        assert primaryKeys != null && !primaryKeys.isEmpty();
 
         String tableName = table.getName();
         assert tableName != null && !tableName.isEmpty();
@@ -726,9 +683,9 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
      * 解析有效的 catalog 和 schema
      * 子类必须实现此方法以提供特定数据库的实现
      *
-     * @param conn 数据库连接
+     * @param conn    数据库连接
      * @param catalog 传入的 catalog（可能为 null）
-     * @param schema 传入的 schema（可能为 null）
+     * @param schema  传入的 schema（可能为 null）
      * @return CatalogAndSchema 包含有效的 catalog 和 schema
      */
     protected abstract CatalogAndSchema resolveEffectiveCatalogAndSchema(Connection conn, String catalog, String schema) throws SQLException;
@@ -768,7 +725,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
             List<Table> tables = new ArrayList<>();
             SimpleConnection connection = databaseTemplate.getSimpleConnection();
             Connection conn = connection.getConnection();
-            
+
             // 使用子类可重写的方法解析有效的 catalog 和 schema
             CatalogAndSchema catalogAndSchema = resolveEffectiveCatalogAndSchema(conn, catalog, schema);
             String effectiveCatalog = catalogAndSchema.getCatalog();
