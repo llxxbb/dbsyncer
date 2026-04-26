@@ -10,14 +10,14 @@ import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
-import org.dbsyncer.parser.LogService;
-import org.dbsyncer.parser.LogType;
 import org.dbsyncer.parser.TableGroupContext;
 import org.dbsyncer.parser.ddl.DDLParser;
 import org.dbsyncer.parser.flush.AbstractBufferActuator;
 import org.dbsyncer.parser.flush.BufferRequest;
 import org.dbsyncer.parser.model.*;
 import org.dbsyncer.parser.strategy.FlushStrategy;
+import org.dbsyncer.sdk.spi.LogService;
+import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.parser.util.ConvertUtil;
 import org.dbsyncer.plugin.PluginFactory;
 import org.dbsyncer.plugin.enums.ProcessEnum;
@@ -36,6 +36,7 @@ import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.springframework.util.Assert;
 
+import javax.annotation.PostConstruct;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executor;
@@ -61,6 +62,16 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
     private DDLParser ddlParser;
     private TableGroupContext tableGroupContext;
     private LogService logService;
+
+    /**
+     * 初始化时设置全局 LogService（一次设置，长期使用）
+     */
+    @PostConstruct
+    public void init() {
+        if (null != logService) {
+            org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector.setStaticLogService(logService);
+        }
+    }
 
     /**
      * 是否有待处理的任务（事件进入队列时设置为 true，队列为空时设置为 false）
@@ -380,7 +391,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         try {
             pluginFactory.process(context, ProcessEnum.CONVERT);
 
-            // 4、批量执行同步
+            // 4、批量执行同步（LogService 已全局设置，直接使用）
             result = connectorFactory.writeBatch(context);
 
             // 5、持久化同步结果

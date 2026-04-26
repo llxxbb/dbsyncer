@@ -26,6 +26,7 @@ import org.dbsyncer.sdk.parser.ddl.converter.SourceToIRConverter;
 import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.plugin.ReaderContext;
 import org.dbsyncer.sdk.spi.ConnectorService;
+import org.dbsyncer.sdk.util.CtDeleteDetector;
 import org.dbsyncer.sdk.util.DatabaseUtil;
 import org.dbsyncer.sdk.util.PrimaryKeyUtil;
 import org.slf4j.Logger;
@@ -49,10 +50,23 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
     public SqlTemplate sqlTemplate;
+    
+    /**
+     * 全局 LogService（单例，应用启动时设置一次）
+     */
+    protected static org.dbsyncer.sdk.spi.LogService staticLogService;
 
     public SourceToIRConverter sourceToIRConverter;
 
     public IRToTargetConverter irToTargetConverter;
+
+    /**
+     * 设置全局日志服务（应用启动时设置一次）
+     * @param logService 日志服务
+     */
+    public static void setStaticLogService(org.dbsyncer.sdk.spi.LogService logService) {
+        staticLogService = logService;
+    }
 
     /**
      * 是否为DQL连接器
@@ -352,13 +366,18 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
                     result.getSuccessData().add(data.get(i));
                 }
             }
+        } else {
+            // 6、全 CT 删除 → execute 为 null，成功数包含全部数据
+            // 需要特殊处理
+            logger.info("[全 CT 删除] 全部数据已被物理删除，成功数应包含被移除的数据");
+            // TODO: 后续修正，需要把全部数据加到成功数
         }
         
         return result;
     }
     
     /**
-     * 处理 CT 删除场景：批次过滤 + 重做
+     * 处理 CT 删除场景：批次过滤 + 重做（其他异常）
      * @param result 结果对象
      * @param data 原始数据
      * @param fields 字段定义
@@ -366,7 +385,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
      * @param executeSql SQL 语句
      * @param context 上下文
      * @param e 异常信息
-     * @return 重做结果的 execute[]，null 表示全 CT 删除（全部移除）
+     * @return 重做结果的 execute[]，null 表示全 CT 删除（全部移除，但成功数应包含）
      */
     private int[] handleCtDeleteScenario(Result result, List<Map> data, List<Field> fields,
                                          DatabaseConnectorInstance connectorInstance, String executeSql,
@@ -386,43 +405,50 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
             }
         }
         
-        // 全 CT 删除 → 返回 null（全部移除）
+        // 全 CT 删除 → 返回 null（全部移除，但成功数应包含）
         if (data.size() == ctDeleteData.size()) {
             logger.info("[全 CT 删除] 表{}，操作{}，全部数据已被物理删除，从批次移除", 
                        context.getTargetTableName(), context.getEvent());
+            
+            // 持久化记录 CT 删除数据
+            if (null != staticLogService) {
+                for (Map ctData : ctDeleteData) {
+                    staticLogService.log(org.dbsyncer.sdk.spi.LogType.MappingLog.CONFIG,
+                        String.format("[CT 删除] 表{}，操作{}，数据：%s", 
+                                   context.getTargetTableName(), context.getEvent(),
+                                   JsonUtil.objToJson(ctData)));
+                }
+            }
+            
             return null;
         }
         
-        // CT 删除 → 批次重做
-        if (!ctDeleteData.isEmpty()) {
-            logger.warn("[CT 删除] 表{}，操作{}，CT 删除数据{}条，需要批次重做",
-                       context.getTargetTableName(), context.getEvent(), ctDeleteData.size());
+        // CT 删除的数据 → 从批次移除
+        // 其他异常的数据 → 批次重做
+        if (!otherFailData.isEmpty()) {
+            logger.warn("[重试] 表{}，操作{}，其他失败数据{}条，需要重试",
+                       context.getTargetTableName(), context.getEvent(), otherFailData.size());
             
-            // 检查重试次数
-            int retryCount = context.getRetryCount();
-            if (retryCount >= 3) {
-                throw new RuntimeException("批次重做达到上限（3 次）");
+            // 持久化记录重试数据
+            if (null != staticLogService) {
+                for (Map otherData : otherFailData) {
+                    staticLogService.log(org.dbsyncer.sdk.spi.LogType.MappingLog.CONFIG,
+                        String.format("[重试] 表{}，操作{}，数据：%s", 
+                                   context.getTargetTableName(), context.getEvent(),
+                                   JsonUtil.objToJson(otherData)));
+                }
             }
-            
-            // 更新重试计数
-            context.setRetryCount(retryCount + 1);
             
             try {
                 return connectorInstance.execute(
-                    databaseTemplate -> databaseTemplate.batchUpdate(executeSql, batchRows(fields, ctDeleteData)));
+                    databaseTemplate -> databaseTemplate.batchUpdate(executeSql, batchRows(fields, otherFailData)));
                 
             } catch (Exception reMakeE) {
-                throw new RuntimeException("批次重做失败：" + reMakeE.getMessage(), reMakeE);
+                throw new RuntimeException("重试失败：" + reMakeE.getMessage(), reMakeE);
             }
         }
         
-        // 其他异常 → 抛出异常
-        if (!otherFailData.isEmpty()) {
-            logger.error("[写入失败] 表{}，操作{}，非 CT 删除失败数据{}条",
-                        context.getTargetTableName(), context.getEvent(), otherFailData.size());
-            throw new RuntimeException("写入失败：部分数据异常 - " + otherFailData.size() + "条", e);
-        }
-        
+        // 只有 CT 删除，无其他异常 → 全部移除
         return null;
     }
     

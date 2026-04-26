@@ -3,9 +3,9 @@
  */
 package org.dbsyncer.parser.consumer;
 
-import org.dbsyncer.parser.LogService;
 import org.dbsyncer.parser.LogType;
 import org.dbsyncer.parser.ProfileComponent;
+import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.parser.enums.MetaEnum;
 import org.dbsyncer.parser.flush.impl.BufferActuatorRouter;
 import org.dbsyncer.parser.model.Meta;
@@ -95,7 +95,7 @@ public final class ParserConsumer implements Watcher {
     @Override
     public void errorEvent(Exception e) {
         // 记录错误到数据库
-        logService.log(LogType.TableGroupLog.INCREMENT_FAILED, e.getMessage());
+        logService.log(org.dbsyncer.sdk.spi.LogType.TableGroupLog.INCREMENT_FAILED, e.getMessage());
         
         // 更新 Meta 状态为 ERROR，确保任务状态正确显示为"异常"
         try {

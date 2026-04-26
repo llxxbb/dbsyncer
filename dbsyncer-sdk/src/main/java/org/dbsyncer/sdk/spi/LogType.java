@@ -1,15 +1,34 @@
-package org.dbsyncer.parser;
+package org.dbsyncer.sdk.spi;
 
 /**
- * 日志类型枚举（兼容层，指向 sdk.spi.LogType）
+ * 日志类型枚举
  *
  * @author AE86
  * @version 1.0.0
  * @date 2020/04/21 16:19
- * @deprecated 使用 {@link org.dbsyncer.sdk.spi.LogType}
  */
-@Deprecated
-public interface LogType extends org.dbsyncer.sdk.spi.LogType {
+public interface LogType {
+
+    /**
+     * 分类名称
+     *
+     * @return
+     */
+    String getName();
+
+    /**
+     * 类型
+     *
+     * @return
+     */
+    String getType();
+
+    /**
+     * 内容
+     *
+     * @return
+     */
+    String getMessage();
 
     /**
      * 系统日志 1
