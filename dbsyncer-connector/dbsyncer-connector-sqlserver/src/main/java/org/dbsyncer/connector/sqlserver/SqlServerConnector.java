@@ -240,8 +240,6 @@ public class SqlServerConnector extends AbstractDatabaseConnector {
         return result;
     }
 
-    }
-
     /**
      * 生成创建目标表的 DDL
      * 
