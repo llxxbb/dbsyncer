@@ -47,7 +47,8 @@ import java.util.stream.Collectors;
 /**
  * 关系型数据库连接器实现
  */
-public abstract class AbstractDatabaseConnector extends AbstractConnector implements ConnectorService<DatabaseConnectorInstance, DatabaseConfig>, Database {
+public abstract class AbstractDatabaseConnector extends AbstractConnector
+        implements ConnectorService<DatabaseConnectorInstance, DatabaseConfig>, Database {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
     public SqlTemplate sqlTemplate;
@@ -99,7 +100,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
 
     @Override
     public boolean isAlive(DatabaseConnectorInstance connectorInstance) throws Exception {
-        Integer count = connectorInstance.execute(databaseTemplate -> databaseTemplate.queryForObject(getValidationQuery(), Integer.class));
+        Integer count = connectorInstance
+                .execute(databaseTemplate -> databaseTemplate.queryForObject(getValidationQuery(), Integer.class));
         return null != count && count > 0;
     }
 
@@ -113,7 +115,6 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         return configValidator;
     }
 
-
     @Override
     public List<Table> getTable(DatabaseConnectorInstance connectorInstance) throws Exception {
         // DQL模式：从配置中获取用户定义的SQL表
@@ -122,9 +123,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
             List<SqlTable> sqlTables = cfg.getSqlTables();
             List<Table> tables = new ArrayList<>();
             if (!CollectionUtils.isEmpty(sqlTables)) {
-                sqlTables.forEach(s ->
-                        tables.add(new Table(s.getSqlName(), TableTypeEnum.TABLE.getCode(), Collections.EMPTY_LIST, s.getSql(), null))
-                );
+                sqlTables.forEach(s -> tables.add(new Table(s.getSqlName(), TableTypeEnum.TABLE.getCode(),
+                        Collections.EMPTY_LIST, s.getSql(), null)));
             }
             return tables;
         }
@@ -144,9 +144,11 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
                     sql = sql.replace("\t", " ");
                     sql = sql.replace("\r", " ");
                     sql = sql.replace("\n", " ");
-                    String queryMetaSql = StringUtil.contains(sql, " WHERE ") ? s.getSql() + " AND 1!=1 " : s.getSql() + " WHERE 1!=1 ";
+                    String queryMetaSql = StringUtil.contains(sql, " WHERE ") ? s.getSql() + " AND 1!=1 "
+                            : s.getSql() + " WHERE 1!=1 ";
                     try {
-                        return connectorInstance.execute(databaseTemplate -> getMetaInfo(databaseTemplate, queryMetaSql, getSchema(cfg), s.getTable()));
+                        return connectorInstance.execute(databaseTemplate -> getMetaInfo(databaseTemplate, queryMetaSql,
+                                getSchema(cfg), s.getTable()));
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
@@ -175,7 +177,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
 
                     typeName = resolveFieldType(typeName, conn, schemaNamePattern);
 
-                    Field field = new Field(columnName, typeName, columnType, primaryKeys.contains(columnName), columnSize, ratio);
+                    Field field = new Field(columnName, typeName, columnType, primaryKeys.contains(columnName),
+                            columnSize, ratio);
 
                     // 填充 nullable 属性
                     int nullable = columnMetadata.getInt("NULLABLE");
@@ -241,7 +244,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
      * @return 增强后的字段列表
      * @throws Exception 增强过程中可能的异常
      */
-    protected List<Field> enhanceFields(DatabaseConnectorInstance connectorInstance, List<Field> fields, String tableName) throws Exception {
+    protected List<Field> enhanceFields(DatabaseConnectorInstance connectorInstance, List<Field> fields,
+            String tableName) throws Exception {
         return fields;
     }
 
@@ -275,20 +279,23 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
     @Override
     public Result reader(DatabaseConnectorInstance connectorInstance, ReaderContext context) {
         throw new RuntimeException("AbstractDatabaseConnector.reader 需要重构.");
-//        // 1、获取select SQL
-//        boolean supportedCursor = null != context.getCursors();
-//        String queryKey = supportedCursor ? ConnectorConstant.OPERTION_QUERY_CURSOR : ConnectorConstant.OPERTION_QUERY_STREAM;
-//        final String querySql = context.getCommand().get(queryKey);
-//        Assert.hasText(querySql, "查询语句不能为空.");
-//
-//        // 2、设置参数
-//        Collections.addAll(context.getArgs(), supportedCursor ? getPageCursorArgs(context) : new Object[]{});
-//
-//        // 3、执行SQL
-//        List<Map<String, Object>> list = connectorInstance.execute(databaseTemplate -> databaseTemplate.queryForList(querySql, context.getArgs().toArray()));
-//
-//        // 4、返回结果集
-//        return new Result(list);
+        // // 1、获取select SQL
+        // boolean supportedCursor = null != context.getCursors();
+        // String queryKey = supportedCursor ? ConnectorConstant.OPERTION_QUERY_CURSOR :
+        // ConnectorConstant.OPERTION_QUERY_STREAM;
+        // final String querySql = context.getCommand().get(queryKey);
+        // Assert.hasText(querySql, "查询语句不能为空.");
+        //
+        // // 2、设置参数
+        // Collections.addAll(context.getArgs(), supportedCursor ?
+        // getPageCursorArgs(context) : new Object[]{});
+        //
+        // // 3、执行SQL
+        // List<Map<String, Object>> list = connectorInstance.execute(databaseTemplate
+        // -> databaseTemplate.queryForList(querySql, context.getArgs().toArray()));
+        //
+        // // 4、返回结果集
+        // return new Result(list);
     }
 
     @Override
@@ -333,7 +340,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
      * 
      * @param retryCount 当前重试次数（0=首次执行）
      */
-    protected Result executeWriter(DatabaseConnectorInstance connectorInstance, PluginContext context, List<Field> fields, int retryCount) {
+    protected Result executeWriter(DatabaseConnectorInstance connectorInstance, PluginContext context,
+            List<Field> fields, int retryCount) {
         List<Map> data = context.getTargetList();
 
         if (CollectionUtils.isEmpty(fields)) {
@@ -348,16 +356,10 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
 
             // 统计成功数据
             Result result = new Result();
-            List<Map> failData = new ArrayList<>();
             for (int i = 0; i < execute.length; i++) {
                 if (execute[i] == 1 || execute[i] == -2) {
                     result.getSuccessData().add(data.get(i));
-                } else {
-                    failData.add(data.get(i));
                 }
-            }
-            if (!failData.isEmpty()) {
-                result.addFailData(failData);
             }
             return result;
 
@@ -371,17 +373,18 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
      * 执行批次操作（子类可重写以使用自定义批量执行逻辑）
      * 
      * @param connectorInstance 连接器实例
-     * @param context 插件上下文
-     * @param fields 字段列表
-     * @param data 数据列表
+     * @param context           插件上下文
+     * @param fields            字段列表
+     * @param data              数据列表
      * @return execute[] 数组，表示每条记录的执行结果
      * @throws Exception 执行异常
      */
     protected int[] doExecuteBatch(DatabaseConnectorInstance connectorInstance, PluginContext context,
-                                   List<Field> fields, List<Map> data) throws Exception {
+            List<Field> fields, List<Map> data) throws Exception {
         String event = context.getEvent();
         String executeSql = context.getCommand().get(event);
-        return connectorInstance.execute(databaseTemplate -> databaseTemplate.batchUpdate(executeSql, batchRows(fields, data)));
+        return connectorInstance
+                .execute(databaseTemplate -> databaseTemplate.batchUpdate(executeSql, batchRows(fields, data)));
     }
 
     /**
@@ -389,12 +392,13 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
      * 
      * @param retryCount 当前重试次数（0=首次异常）
      * @return Result 包含成功和失败数据
+     * @throws Exception
      */
     protected Result handleCtDeleteScenario(List<Map> data, List<Field> fields,
-                                            DatabaseConnectorInstance connectorInstance, 
-                                            PluginContext context, 
-                                            Exception e,
-                                            int retryCount) {
+            DatabaseConnectorInstance connectorInstance,
+            PluginContext context,
+            Exception e,
+            int retryCount) throws Exception {
         // 区分 CT 删除和其他异常
         List<Map> ctDeleteData = new ArrayList<>();
         List<Map> otherFailData = new ArrayList<>();
@@ -407,55 +411,31 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
             }
         }
 
+        // 非提前删除的数据出现的问题。
+        if (ctDeleteData.isEmpty()) {
+            throw e;
+        }
+
         // CT 删除数据 → 直接返回成功（不塞回 context）
-        if (otherFailData.isEmpty()) {
-            logger.info("[CT 删除] 表{}，操作{}，{}条数据已被物理删除，视为成功",
-                    context.getTargetTableName(), context.getEvent(), ctDeleteData.size());
-
-            if (staticLogService != null) {
-                for (Map ctData : ctDeleteData) {
-                    staticLogService.log(LogType.MappingLog.CONFIG,
-                            String.format("[CT 删除] 表%s，操作%s，数据：%s",
-                                    context.getTargetTableName(), context.getEvent(),
-                                    JsonUtil.objToJson(ctData)));
-                }
-            }
-
-            Result result = new Result();
-            result.addSuccessData(ctDeleteData);
-            return result;
-        }
-
-        // 其他异常数据 → 塞回 context 并重试
-        if (retryCount < 3) {
-            logger.info("[重试 {}/3] 表{}，操作{}，{}条数据需要重试",
-                    retryCount + 1, context.getTargetTableName(), context.getEvent(), otherFailData.size());
-
-            // 塞回其他失败数据到 context
-            context.setTargetList(otherFailData);
-            
-            // 递归调用 executeWriter
-            return executeWriter(connectorInstance, context, fields, retryCount + 1);
-        }
-
-        // 重试次数用完，返回失败
-        logger.warn("[重试失败] 表{}，操作{}，{}条数据重试 3 次后失败：{}",
-                context.getTargetTableName(), context.getEvent(), otherFailData.size(), e.getMessage());
-
-        Result result = new Result();
-        result.addFailData(otherFailData);
-        result.error = e.getMessage();
-        
         if (staticLogService != null) {
-            for (Map otherData : otherFailData) {
+            for (Map ctData : ctDeleteData) {
                 staticLogService.log(LogType.MappingLog.CONFIG,
-                        String.format("[失败] 表%s，操作%s，数据：%s",
+                        String.format("[提前删除的数据] 表%s，操作%s，数据：%s",
                                 context.getTargetTableName(), context.getEvent(),
-                                JsonUtil.objToJson(otherData)));
+                                JsonUtil.objToJson(ctData)));
             }
         }
-        
-        return result;
+
+        // 没有有可处理的数据
+        if (otherFailData.isEmpty()) {
+            return new Result<>();
+        }
+
+        // 塞回其他失败数据到 context
+        context.setTargetList(otherFailData);
+
+        // 递归调用 executeWriter
+        return executeWriter(connectorInstance, context, fields, retryCount + 1);
     }
 
     @Override
@@ -519,7 +499,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         Map<String, String> map = new HashMap<>();
 
         // 创建构建上下文
-        SqlBuildContext buildContext = sqlTemplate.createBuildContext(commandConfig, this::buildTableName, this::getQueryFilterSql);
+        SqlBuildContext buildContext = sqlTemplate.createBuildContext(commandConfig, this::buildTableName,
+                this::getQueryFilterSql);
 
         // 构建流式查询SQL
         String streamingSql = sqlTemplate.buildQueryStreamSql(buildContext);
@@ -537,7 +518,6 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
 
         return map;
     }
-
 
     @Override
     public Map<String, String> getTargetCommand(CommandConfig commandConfig) throws Exception {
@@ -579,7 +559,6 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         return config.getSchema();
     }
 
-
     /**
      * 获取数据库表元数据信息
      *
@@ -589,7 +568,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
      * @param tableName        表名
      * @return
      */
-    protected MetaInfo getMetaInfo(DatabaseTemplate databaseTemplate, String metaSql, String schema, String tableName) throws SQLException {
+    protected MetaInfo getMetaInfo(DatabaseTemplate databaseTemplate, String metaSql, String schema, String tableName)
+            throws SQLException {
         SqlRowSet sqlRowSet = databaseTemplate.queryForRowSet(metaSql);
         ResultSetWrappingSqlRowSet rowSet = (ResultSetWrappingSqlRowSet) sqlRowSet;
         SqlRowSetMetaData metaData = rowSet.getMetaData();
@@ -686,7 +666,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         sql.append(orSql);
 
         // 自定义SQL
-        Optional<Filter> sqlFilter = filter.stream().filter(f -> StringUtil.equals(f.getOperation(), OperationEnum.SQL.getName())).findFirst();
+        Optional<Filter> sqlFilter = filter.stream()
+                .filter(f -> StringUtil.equals(f.getOperation(), OperationEnum.SQL.getName())).findFirst();
         sqlFilter.ifPresent(f -> sql.append(f.getValue()));
 
         return sql.toString();
@@ -723,7 +704,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
      * @param schema  传入的 schema（可能为 null）
      * @return CatalogAndSchema 包含有效的 catalog 和 schema
      */
-    protected abstract CatalogAndSchema resolveEffectiveCatalogAndSchema(Connection conn, String catalog, String schema) throws SQLException;
+    protected abstract CatalogAndSchema resolveEffectiveCatalogAndSchema(Connection conn, String catalog, String schema)
+            throws SQLException;
 
     /**
      * Catalog 和 Schema 的封装类
@@ -755,7 +737,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
      * @param tableNamePattern
      * @return
      */
-    private List<Table> getTable(DatabaseConnectorInstance connectorInstance, String catalog, String schema, String tableNamePattern) throws Exception {
+    private List<Table> getTable(DatabaseConnectorInstance connectorInstance, String catalog, String schema,
+            String tableNamePattern) throws Exception {
         return connectorInstance.execute(databaseTemplate -> {
             List<Table> tables = new ArrayList<>();
             SimpleConnection connection = databaseTemplate.getSimpleConnection();
@@ -766,8 +749,10 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
             String effectiveCatalog = catalogAndSchema.getCatalog();
             String effectiveSchema = catalogAndSchema.getSchema();
 
-            String[] types = {TableTypeEnum.TABLE.getCode(), TableTypeEnum.VIEW.getCode(), TableTypeEnum.MATERIALIZED_VIEW.getCode()};
-            final ResultSet rs = conn.getMetaData().getTables(effectiveCatalog, effectiveSchema, tableNamePattern, types);
+            String[] types = { TableTypeEnum.TABLE.getCode(), TableTypeEnum.VIEW.getCode(),
+                    TableTypeEnum.MATERIALIZED_VIEW.getCode() };
+            final ResultSet rs = conn.getMetaData().getTables(effectiveCatalog, effectiveSchema, tableNamePattern,
+                    types);
             while (rs.next()) {
                 final String tableName = rs.getString("TABLE_NAME");
                 final String tableType = rs.getString("TABLE_TYPE");
@@ -786,7 +771,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
      * @return
      */
     private String buildFilterSql(Map<String, Field> fieldMap, String operator, List<Filter> filter) {
-        List<Filter> list = filter.stream().filter(f -> StringUtil.equals(f.getOperation(), operator)).collect(Collectors.toList());
+        List<Filter> list = filter.stream().filter(f -> StringUtil.equals(f.getOperation(), operator))
+                .collect(Collectors.toList());
         if (CollectionUtils.isEmpty(list)) {
             return "";
         }
@@ -848,7 +834,6 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         return StringUtil.SINGLE_QUOTATION + value + StringUtil.SINGLE_QUOTATION;
     }
 
-
     /**
      * 返回表主键
      *
@@ -859,8 +844,9 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
      * @return
      * @throws SQLException
      */
-    private List<String> findTablePrimaryKeys(DatabaseMetaData md, String catalog, String schema, String tableName) throws SQLException {
-        //根据表名获得主键结果集
+    private List<String> findTablePrimaryKeys(DatabaseMetaData md, String catalog, String schema, String tableName)
+            throws SQLException {
+        // 根据表名获得主键结果集
         ResultSet rs = null;
         List<String> primaryKeys = new ArrayList<>();
         try {
@@ -914,7 +900,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
     }
 
     @Override
-    public Result writerDDL(DatabaseConnectorInstance connectorInstance, DDLConfig config, org.dbsyncer.sdk.plugin.PluginContext context) {
+    public Result writerDDL(DatabaseConnectorInstance connectorInstance, DDLConfig config,
+            org.dbsyncer.sdk.plugin.PluginContext context) {
         Result result = new Result<DDLConfig>();
         try {
             Assert.hasText(config.getSql(), "执行SQL语句不能为空.");
