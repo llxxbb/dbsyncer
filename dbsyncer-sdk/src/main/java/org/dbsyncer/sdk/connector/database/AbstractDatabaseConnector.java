@@ -26,6 +26,7 @@ import org.dbsyncer.sdk.parser.ddl.converter.SourceToIRConverter;
 import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.plugin.ReaderContext;
 import org.dbsyncer.sdk.spi.ConnectorService;
+import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.util.CtDeleteDetector;
 import org.dbsyncer.sdk.util.DatabaseUtil;
 import org.dbsyncer.sdk.util.PrimaryKeyUtil;
@@ -293,14 +294,14 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
     @Override
     public Result writer(DatabaseConnectorInstance connectorInstance, PluginContext context) {
         // writer 方法只负责执行 SQL，不处理业务逻辑
-        return executeWriter(connectorInstance, context, context.getTargetFields());
+        return executeWriter(connectorInstance, context, context.getTargetFields(), 0);
     }
 
     @Override
     public Result insert(DatabaseConnectorInstance connectorInstance, PluginContext context) {
         // INSERT 操作：使用所有字段
         List<Field> fields = new ArrayList<>(context.getTargetFields());
-        return executeWriter(connectorInstance, context, fields);
+        return executeWriter(connectorInstance, context, fields, 0);
     }
 
     @Override
@@ -310,70 +311,60 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         List<Field> pkFields = PrimaryKeyUtil.findExistPrimaryKeyFields(context.getTargetFields());
         removeFieldWithPk(fields, pkFields);
         fields.addAll(pkFields);
-        return executeWriter(connectorInstance, context, fields);
+        return executeWriter(connectorInstance, context, fields, 0);
     }
 
     @Override
     public Result delete(DatabaseConnectorInstance connectorInstance, PluginContext context) {
         // DELETE 操作：只使用主键字段
         List<Field> pkFields = PrimaryKeyUtil.findExistPrimaryKeyFields(context.getTargetFields());
-        return executeWriter(connectorInstance, context, pkFields);
+        return executeWriter(connectorInstance, context, pkFields, 0);
     }
 
     @Override
     public Result upsert(DatabaseConnectorInstance connectorInstance, PluginContext context) {
         // UPSERT 操作：同 UPDATE 逻辑
         List<Field> fields = new ArrayList<>(context.getTargetFields());
-        return executeWriter(connectorInstance, context, fields);
+        return executeWriter(connectorInstance, context, fields, 0);
     }
 
     /**
-     * 执行写入操作的通用方法（带 CT 删除异常处理）
+     * 执行写入操作（带 CT 删除异常处理，支持递归重试）
+     * 
+     * @param retryCount 当前重试次数（0=首次执行）
      */
-    protected Result executeWriter(DatabaseConnectorInstance connectorInstance, PluginContext context, List<Field> fields) {
-        String event = context.getEvent();
+    protected Result executeWriter(DatabaseConnectorInstance connectorInstance, PluginContext context, List<Field> fields, int retryCount) {
         List<Map> data = context.getTargetList();
 
-        // 1、获取 SQL
-        String executeSql = context.getCommand().get(event);
-        Assert.hasText(executeSql, "执行 SQL 语句不能为空.");
-
         if (CollectionUtils.isEmpty(fields)) {
-            logger.error("writer fields can not be empty.");
             throw new SdkException("writer fields can not be empty.");
         }
         if (CollectionUtils.isEmpty(data)) {
-            logger.error("writer data can not be empty.");
             throw new SdkException("writer data can not be empty.");
         }
 
-        Result result = new Result();
-        int[] execute = null;
-
         try {
-            // 2、执行 SQL（零检测）
-            execute = doExecuteBatch(connectorInstance, context, fields, data);
+            int[] execute = doExecuteBatch(connectorInstance, context, fields, data);
 
-        } catch (Exception e) {
-            // 4、异常捕获 → 批次过滤 + CT 删除场景处理 + 重做
-            try {
-                execute = handleCtDeleteScenario(data, fields, connectorInstance, executeSql, context, e);
-            } catch (Exception ex) {
-                throw new RuntimeException(ex);
-            }
-        }
-
-        // 5、统一计数（复用计数逻辑）
-        if (null != execute) {
-            int batchSize = execute.length;
-            for (int i = 0; i < batchSize; i++) {
+            // 统计成功数据
+            Result result = new Result();
+            List<Map> failData = new ArrayList<>();
+            for (int i = 0; i < execute.length; i++) {
                 if (execute[i] == 1 || execute[i] == -2) {
                     result.getSuccessData().add(data.get(i));
+                } else {
+                    failData.add(data.get(i));
                 }
             }
-        }
+            if (!failData.isEmpty()) {
+                result.addFailData(failData);
+            }
+            return result;
 
-        return result;
+        } catch (Exception e) {
+            // 直接返回 handleCtDeleteScenario 的结果（不处理）
+            return handleCtDeleteScenario(data, fields, connectorInstance, context, e, retryCount);
+        }
     }
 
     /**
@@ -395,18 +386,15 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
 
     /**
      * 处理 CT 删除场景：批次过滤 + 重做（其他异常）
-     *
-     * @param data              原始数据
-     * @param fields            字段定义
-     * @param connectorInstance 连接器实例
-     * @param executeSql        SQL 语句
-     * @param context           上下文
-     * @param e                 异常信息
-     * @return 重做结果的 execute[]，null 表示全 CT 删除（全部移除，但成功数应包含）
+     * 
+     * @param retryCount 当前重试次数（0=首次异常）
+     * @return Result 包含成功和失败数据
      */
-    private int[] handleCtDeleteScenario(List<Map> data, List<Field> fields,
-                                         DatabaseConnectorInstance connectorInstance, String executeSql,
-                                         PluginContext context, Exception e) throws Exception {
+    protected Result handleCtDeleteScenario(List<Map> data, List<Field> fields,
+                                            DatabaseConnectorInstance connectorInstance, 
+                                            PluginContext context, 
+                                            Exception e,
+                                            int retryCount) {
         // 区分 CT 删除和其他异常
         List<Map> ctDeleteData = new ArrayList<>();
         List<Map> otherFailData = new ArrayList<>();
@@ -419,26 +407,55 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
             }
         }
 
-        // 非提前删除的数据出现的问题。
-        if (ctDeleteData.isEmpty()) {
-            throw  e;
-        }
-
-        // 没有有可处理的数据
+        // CT 删除数据 → 直接返回成功（不塞回 context）
         if (otherFailData.isEmpty()) {
-            return null;
+            logger.info("[CT 删除] 表{}，操作{}，{}条数据已被物理删除，视为成功",
+                    context.getTargetTableName(), context.getEvent(), ctDeleteData.size());
+
+            if (staticLogService != null) {
+                for (Map ctData : ctDeleteData) {
+                    staticLogService.log(LogType.MappingLog.CONFIG,
+                            String.format("[CT 删除] 表%s，操作%s，数据：%s",
+                                    context.getTargetTableName(), context.getEvent(),
+                                    JsonUtil.objToJson(ctData)));
+                }
+            }
+
+            Result result = new Result();
+            result.addSuccessData(ctDeleteData);
+            return result;
         }
 
-        // 打印提前删除的数据
-        for (Map ctData : ctDeleteData) {
-            staticLogService.log(org.dbsyncer.sdk.spi.LogType.MappingLog.CONFIG,
-                    String.format("[提前删除的数据] 表{}，操作{}，数据：%s",
-                            context.getTargetTableName(), context.getEvent(),
-                            JsonUtil.objToJson(ctData)));
+        // 其他异常数据 → 塞回 context 并重试
+        if (retryCount < 3) {
+            logger.info("[重试 {}/3] 表{}，操作{}，{}条数据需要重试",
+                    retryCount + 1, context.getTargetTableName(), context.getEvent(), otherFailData.size());
+
+            // 塞回其他失败数据到 context
+            context.setTargetList(otherFailData);
+            
+            // 递归调用 executeWriter
+            return executeWriter(connectorInstance, context, fields, retryCount + 1);
+        }
+
+        // 重试次数用完，返回失败
+        logger.warn("[重试失败] 表{}，操作{}，{}条数据重试 3 次后失败：{}",
+                context.getTargetTableName(), context.getEvent(), otherFailData.size(), e.getMessage());
+
+        Result result = new Result();
+        result.addFailData(otherFailData);
+        result.error = e.getMessage();
+        
+        if (staticLogService != null) {
+            for (Map otherData : otherFailData) {
+                staticLogService.log(LogType.MappingLog.CONFIG,
+                        String.format("[失败] 表%s，操作%s，数据：%s",
+                                context.getTargetTableName(), context.getEvent(),
+                                JsonUtil.objToJson(otherData)));
+            }
         }
         
-        // 重试其他异常数据（使用 doExecuteBatch，允许子类重写）
-        return doExecuteBatch(connectorInstance, context, fields, otherFailData);
+        return result;
     }
 
     @Override
