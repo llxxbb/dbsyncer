@@ -364,8 +364,12 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
             return result;
 
         } catch (Exception e) {
-            // 直接返回 handleCtDeleteScenario 的结果（不处理）
-            return handleCtDeleteScenario(data, fields, connectorInstance, context, e, retryCount);
+            try {
+                // 直接返回 handleCtDeleteScenario 的结果（不处理）
+                return handleCtDeleteScenario(data, fields, connectorInstance, context, e, retryCount);
+            } catch (Exception ex) {
+                throw new RuntimeException(ex);
+            }
         }
     }
 
