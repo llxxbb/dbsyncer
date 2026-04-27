@@ -328,9 +328,9 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
     }
 
     /**
-     * 执行写入操作的通用方法
+     * 执行写入操作的通用方法（带 CT 删除异常处理）
      */
-    private Result executeWriter(DatabaseConnectorInstance connectorInstance, PluginContext context, List<Field> fields) {
+    protected Result executeWriter(DatabaseConnectorInstance connectorInstance, PluginContext context, List<Field> fields) {
         String event = context.getEvent();
         List<Map> data = context.getTargetList();
 
@@ -352,7 +352,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
 
         try {
             // 2、执行 SQL（零检测）
-            execute = connectorInstance.execute(databaseTemplate -> databaseTemplate.batchUpdate(executeSql, batchRows(fields, data)));
+            execute = doExecuteBatch(connectorInstance, context, fields, data);
 
         } catch (Exception e) {
             // 4、异常捕获 → 批次过滤 + CT 删除场景处理 + 重做
@@ -374,6 +374,23 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         }
 
         return result;
+    }
+
+    /**
+     * 执行批次操作（子类可重写以使用自定义批量执行逻辑）
+     * 
+     * @param connectorInstance 连接器实例
+     * @param context 插件上下文
+     * @param fields 字段列表
+     * @param data 数据列表
+     * @return execute[] 数组，表示每条记录的执行结果
+     * @throws Exception 执行异常
+     */
+    protected int[] doExecuteBatch(DatabaseConnectorInstance connectorInstance, PluginContext context,
+                                   List<Field> fields, List<Map> data) throws Exception {
+        String event = context.getEvent();
+        String executeSql = context.getCommand().get(event);
+        return connectorInstance.execute(databaseTemplate -> databaseTemplate.batchUpdate(executeSql, batchRows(fields, data)));
     }
 
     /**
@@ -419,8 +436,9 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
                             context.getTargetTableName(), context.getEvent(),
                             JsonUtil.objToJson(ctData)));
         }
-        return connectorInstance.execute(
-                databaseTemplate -> databaseTemplate.batchUpdate(executeSql, batchRows(fields, otherFailData)));
+        
+        // 重试其他异常数据（使用 doExecuteBatch，允许子类重写）
+        return doExecuteBatch(connectorInstance, context, fields, otherFailData);
     }
 
     @Override

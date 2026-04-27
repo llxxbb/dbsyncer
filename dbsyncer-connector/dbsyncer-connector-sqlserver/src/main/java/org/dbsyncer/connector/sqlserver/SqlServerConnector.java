@@ -37,6 +37,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -152,132 +153,93 @@ public class SqlServerConnector extends AbstractDatabaseConnector {
      */
     @Override
     public Result insert(DatabaseConnectorInstance connectorInstance, PluginContext context) {
-        return executeBulkOperation(connectorInstance, context,
-                (connection, schemaName, enableIdentityInsert) ->
-                        bulkInsert(connection, context, context.getTargetFields(), context.getTargetList(), schemaName, enableIdentityInsert));
+        // 调用父类 executeWriter()，使用统一的 CT 删除异常处理（ADR 05）
+        return executeWriter(connectorInstance, context, context.getTargetFields());
     }
 
     @Override
     public Result upsert(DatabaseConnectorInstance connectorInstance, PluginContext context) {
-        return executeBulkOperation(connectorInstance, context,
-                (connection, schemaName, enableIdentityInsert) ->
-                        bulkUpsert(connection, context, context.getTargetFields(), context.getTargetList(), schemaName, enableIdentityInsert));
+        // 调用父类 executeWriter()，使用统一的 CT 删除异常处理（ADR 05）
+        return executeWriter(connectorInstance, context, context.getTargetFields());
     }
 
     /**
-     * 执行批量操作的通用方法
+     * 重写批次执行方法，使用 SqlServerBulkCopyUtil 进行高效批量操作
+     * - INSERT/UPSERT：使用 SqlServerBulkCopyUtil
+     * - UPDATE/DELETE：回退父类默认实现（JdbcTemplate.batchUpdate）
      */
-    private Result executeBulkOperation(DatabaseConnectorInstance connectorInstance, PluginContext context,
-                                        BulkOperation bulkOperation) {
-        List<Map> data = context.getTargetList();
-
-        if (CollectionUtils.isEmpty(data)) {
-            return new Result();
-        }
-
-        try {
+    @Override
+    protected int[] doExecuteBatch(DatabaseConnectorInstance connectorInstance, PluginContext context,
+                                   List<Field> fields, List<Map> data) throws Exception {
+        String event = context.getEvent();
+        
+        // 只对 INSERT 和 UPSERT 使用 SqlServerBulkCopyUtil
+        if ("insert".equals(event) || "upsert".equals(event)) {
             return connectorInstance.execute(databaseTemplate -> {
                 SimpleConnection connection = databaseTemplate.getSimpleConnection();
-                // 获取 schema 名称
                 String schemaName = connectorInstance.getConfig().getSchema();
                 if (schemaName == null || schemaName.trim().isEmpty()) {
-                    schemaName = "dbo"; // 默认 schema
+                    schemaName = "dbo";
                 }
-
-                // 检查是否需要启用 IDENTITY_INSERT
                 boolean enableIdentityInsert = Boolean.parseBoolean(context.getCommand().get(MARK_HAS_IDENTITY));
-
-                // 执行具体的批量操作
-                return bulkOperation.execute(connection, schemaName, enableIdentityInsert);
+                String tableName = context.getTargetTableName();
+                
+                if ("insert".equals(event)) {
+                    // INSERT 操作
+                    List<Map<String, Object>> typedData = buildTypedData(data);
+                    sqlServerBulkCopyUtil.bulkInsert(connection, tableName, fields, typedData, schemaName, enableIdentityInsert);
+                } else {
+                    // UPSERT 操作
+                    List<String> primaryKeys = findPrimaryKeys(fields);
+                    if (primaryKeys.isEmpty()) {
+                        logger.warn("表 {} 没有主键，无法执行 UPSERT，回退到普通插入", tableName);
+                        List<Map<String, Object>> typedData = buildTypedData(data);
+                        sqlServerBulkCopyUtil.bulkInsert(connection, tableName, fields, typedData, schemaName, enableIdentityInsert);
+                    } else {
+                        List<Map<String, Object>> typedData = buildTypedData(data);
+                        sqlServerBulkCopyUtil.bulkUpsert(connection, tableName, fields, typedData, primaryKeys, schemaName, enableIdentityInsert);
+                    }
+                }
+                
+                // 返回 int[] 数组，每个元素为 1 表示成功
+                return buildSuccessArray(data.size());
             });
-        } catch (Exception e) {
-            return handleBulkOperationError(e, context);
+        } else {
+            // UPDATE 或 DELETE：回退到父类默认实现（JdbcTemplate.batchUpdate）
+            return super.doExecuteBatch(connectorInstance, context, fields, data);
         }
     }
-
+    
     /**
-     * 批量操作函数式接口
+     * 构建类型化数据列表
      */
-    @FunctionalInterface
-    private interface BulkOperation {
-        Result execute(Connection connection, String schemaName, boolean enableIdentityInsert) throws Exception;
-    }
-
-    /**
-     * 处理批量操作异常
-     */
-    private Result handleBulkOperationError(Exception e, PluginContext context) {
-        Result result = new Result();
-        result.error = e.getMessage();
-        result.addFailData(context.getSourceList());  // 存储源数据，便于重试时直接使用
-        if (context.isEnablePrintTraceInfo()) {
-            logger.error("traceId:{}, tableName:{}, event:{}, targetList:{}, result:{}", context.getTraceId(), context.getSourceTableName(),
-                    context.getEvent(), context.getTargetList(), JsonUtil.objToJson(result));
-        }
-        return result;
-    }
-
-
-    /**
-     * 执行批量插入
-     */
-    private Result bulkInsert(Connection connection, PluginContext context,
-                              List<Field> targetFields, List<Map> data, String schemaName, boolean enableIdentityInsert) throws Exception {
-        Result result = new Result();
-
-        // 获取表名
-        String tableName = context.getTargetTableName();
-
-        // 执行批量插入
+    private List<Map<String, Object>> buildTypedData(List<Map> data) {
         List<Map<String, Object>> typedData = new java.util.ArrayList<>();
         for (Map map : data) {
             typedData.add((Map<String, Object>) map);
         }
-
-        int insertedCount = sqlServerBulkCopyUtil.bulkInsert(connection, tableName, targetFields, typedData, schemaName, enableIdentityInsert);
-
-        // 设置成功数据
-        result.addSuccessData(data);
-
-        logger.info("SQL Server 批量插入完成，表: {}, 插入记录数: {}", tableName, insertedCount);
-
-        return result;
+        return typedData;
     }
-
+    
     /**
-     * 执行批量 UPSERT
+     * 查找主键字段列表
      */
-    private Result bulkUpsert(Connection connection, PluginContext context,
-                              List<Field> targetFields, List<Map> data, String schemaName, boolean enableIdentityInsert) throws Exception {
-        Result result = new Result();
-
-        // 获取表名
-        String tableName = context.getTargetTableName();
-        // 获取主键字段
-        List<String> primaryKeys = targetFields.stream()
+    private List<String> findPrimaryKeys(List<Field> fields) {
+        return fields.stream()
                 .filter(Field::isPk)
                 .map(Field::getName)
                 .collect(java.util.stream.Collectors.toList());
-
-        if (primaryKeys.isEmpty()) {
-            logger.warn("表 {} 没有主键，无法执行 UPSERT，回退到普通插入", tableName);
-            return bulkInsert(connection, context, targetFields, data, schemaName, enableIdentityInsert);
-        }
-
-        // 执行批量 UPSERT
-        List<Map<String, Object>> typedData = new java.util.ArrayList<>();
-        for (Map map : data) {
-            typedData.add((Map<String, Object>) map);
-        }
-
-        int processedCount = sqlServerBulkCopyUtil.bulkUpsert(connection, tableName, targetFields, typedData, primaryKeys, schemaName, enableIdentityInsert);
-
-        // 设置成功数据
-        result.addSuccessData(data);
-
-        logger.info("SQL Server 批量 UPSERT 完成，表: {}, 处理记录数: {}", tableName, processedCount);
-
+    }
+    
+    /**
+     * 构建成功结果数组
+     */
+    private int[] buildSuccessArray(int size) {
+        int[] result = new int[size];
+        Arrays.fill(result, 1);
         return result;
+    }
+
     }
 
     /**

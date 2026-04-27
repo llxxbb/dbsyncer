@@ -15,11 +15,16 @@
 3. **核心写入逻辑**：`AbstractDatabaseConnector.java`
    - ✅ executeWriter(): 零检测 + 异常捕获 + 批次过滤
    - ✅ handleCtDeleteScenario(): 执行结果检查中的 CT 删除处理
-   - ✅ handleCtDeleteScenarioByException(): 异常捕获中的 CT 删除处理
-   - ✅ isSameRecord(): 通过主键比较
+   - ✅ handleWriteException(): **通用异常处理方法（所有 Connector 复用）**
    - ✅ 全 CT 删除场景处理
    - ✅ 重试次数限制（3 次）
-4. **编译验证**：✅ 通过
+4. **Connector 集成**：
+   - ✅ SqlServerConnector: 复用 `handleWriteException()`
+   - ✅ MySQLConnector: 自动继承（无需修改）
+   - ✅ PostgreSQLConnector: 自动继承（无需修改）
+   - ✅ OracleConnector: 自动继承（无需修改）
+   - ✅ SQLiteConnector: 自动继承（无需修改）
+5. **编译验证**：✅ 通过
 
 ### 🔄 进行中
 

@@ -15,6 +15,11 @@
         <!-- sdk -->
         <dependency>
             <groupId>org.ghi</groupId>
+            <artifactId>dbsyncer-common</artifactId>
+            <version>${project.parent.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.ghi</groupId>
             <artifactId>dbsyncer-sdk</artifactId>
             <version>${project.parent.version}</version>
         </dependency>

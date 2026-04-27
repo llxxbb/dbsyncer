@@ -21,18 +21,23 @@
 1. 执行 SQL（零检测）
    └─ 有失败 → 抛异常
    ↓
-2. 异常捕获 → 批次过滤
-   ├─ CT 删除（整行 null）→ 从批次移除（成功数包含）
-   └─ 其他异常 → 重试
+2. 异常捕获 → CT 删除检测
+   ├─ CT 删除（非主键全 null）→ 视为成功，记录日志
+   └─ 其他异常 → 需要重试
    ↓
-3. 重试失败 → 抛出异常
+3. 重试其他异常数据（最多 3 次）
+   ├─ 成功 → 加入成功数据
+   └─ 再次失败 → 递归重试（直到 3 次）
+   ↓
+4. 返回结果（成功数据 + 失败数据）
 ```
 
 **优点**：
-- 零检测：正常流程不检测
-- 零查询：不需要额外数据库查询
-- 实时性高：批次内完成
-- 业务逻辑正确：CT 删除数据移除，其他异常重试
+- ✅ 零检测：正常流程不检测
+- ✅ 零查询：不需要额外数据库查询
+- ✅ 实时性高：批次内完成
+- ✅ 业务逻辑正确：CT 删除视为成功，其他异常重试
+- ✅ 确保重试：其他异常数据一定会被重试（最多 3 次）
 
 ---
 
@@ -46,91 +51,80 @@
 | DELETE | 全 null | 非主键数量 | 移除 + 成功数包含 |
 | 其他异常 | 部分 null | < 非主键数量 | 重试 |
 
-### 核心代码
+### 核心代码（通用架构）
+
+**父类 `AbstractDatabaseConnector` 提供通用异常处理**：
 
 ```java
-private Result executeWriter(...) {
-    try {
-        // 1. 执行 SQL（零检测）
-        int[] execute = connectorInstance.execute(...);
-        
-    } catch (Exception e) {
-        // 2. 异常捕获 → 批次过滤 + CT 删除场景处理 + 重做
-        execute = handleCtDeleteScenario(result, data, fields, connectorInstance, executeSql, context, logService, e);
-    }
-    
-    // 3. 统一计数（复用计数逻辑）
-    if (null != execute) {
-        for (...) {
-            if (execute[i] == 1 || execute[i] == -2) {
-                result.getSuccessData().add(data.get(i));
-            }
-        }
-    }
-    // 全 CT 删除 → execute 为 null，成功数应包含全部数据（待后续修正）
-    
-    return result;
-}
-
 /**
- * 处理 CT 删除场景：批次过滤 + 重做（其他异常）
- * @param logService 日志服务（持久化）
- * @return 重做结果的 execute[]，null 表示全 CT 删除（全部移除，成功数应包含）
+ * 通用写入异常处理方法（适用于所有 Connector：SQL Server、MySQL、PostgreSQL、Oracle 等）
  */
-private int[] handleCtDeleteScenario(Result result, List<Map> data, List<Field> fields,
-                                    DatabaseConnectorInstance connectorInstance, String executeSql, 
-                                    PluginContext context, LogService logService, Exception e) {
-    // 区分 CT 删除和其他异常
+protected Result handleWriteException(PluginContext context, List<Map> targetData, List<Field> fields, Exception e) {
+    Result result = new Result();
+    
+    // CT 删除检测：区分 CT 删除和其他异常
     List<Map> ctDeleteData = new ArrayList<>();
     List<Map> otherFailData = new ArrayList<>();
     
-    for (Map dataItem : data) {
+    for (Map dataItem : targetData) {
         if (CtDeleteDetector.isDeletedFromCT(dataItem, fields)) {
-            ctDeleteData.add(dataItem);
+            ctDeleteData.add(dataItem);  // 非主键字段全为 null → CT 删除
         } else {
-            otherFailData.add(dataItem);
+            otherFailData.add(dataItem);  // 其他异常
         }
     }
     
-    // 全 CT 删除 → 返回 null（全部移除，成功数应包含）
-    if (data.size() == ctDeleteData.size()) {
-        logger.info("[全 CT 删除] 表{}，全部数据已被物理删除，从批次移除", ...);
-        
-        // 持久化记录 CT 删除数据
-        if (null != logService) {
+    // CT 删除数据 → 视为成功
+    if (!ctDeleteData.isEmpty()) {
+        logger.info("[CT 删除] 表{}，操作{}，{}条数据已被物理删除，视为成功", ...);
+        if (staticLogService != null) {
             for (Map ctData : ctDeleteData) {
-                logService.log(LogType.MappingLog.CONFIG, 
-                    String.format("[CT 删除] 表{}，操作{}，数据：%s", ...));
+                staticLogService.log(LogType.MappingLog.CONFIG, ...);
             }
         }
-        
-        return null;
+        result.addSuccessData(ctDeleteData);
     }
     
-    // CT 删除的数据 → 从批次移除
-    // 其他异常的数据 → 批次重做
+    // 其他异常数据 → 视为失败，需要重试
     if (!otherFailData.isEmpty()) {
-        logger.warn("[重试] 表{}，操作{}，其他失败数据{}条，需要重试", ...);
-        
-        // 持久化记录重试数据
-        if (null != logService) {
+        logger.warn("[其他异常] 表{}，操作{}，{}条数据失败，需要重试", ...);
+        if (staticLogService != null) {
             for (Map otherData : otherFailData) {
-                logService.log(LogType.MappingLog.CONFIG,
-                    String.format("[重试] 表{}，操作{}，数据：%s", ...));
+                staticLogService.log(LogType.MappingLog.CONFIG, ...);
             }
         }
-        
-        try {
-            return connectorInstance.execute(...);
-        } catch (Exception reMakeE) {
-            throw new RuntimeException("重试失败：" + reMakeE.getMessage(), reMakeE);
-        }
+        result.error = e.getMessage();
+        result.addFailData(otherFailData);
     }
     
-    // 只有 CT 删除，无其他异常 → 全部移除
-    return null;
+    return result;
 }
 ```
+
+**子类 Connector 复用（以 SqlServerConnector 为例）**：
+
+```java
+@Override
+public Result upsert(DatabaseConnectorInstance connectorInstance, PluginContext context) {
+    return executeBulkOperation(connectorInstance, context,
+            (connection, schemaName, enableIdentityInsert) ->
+                    bulkUpsert(connection, context, ...));
+}
+
+private Result executeBulkOperation(...) {
+    try {
+        return bulkOperation.execute(...);
+    } catch (Exception e) {
+        // 复用父类通用异常处理方法
+        return handleWriteException(context, context.getTargetList(), context.getTargetFields(), e);
+    }
+}
+```
+
+**架构优势**：
+- ✅ **一次实现，所有 Connector 复用**：MySQL、PostgreSQL、Oracle、SQLite 自动继承
+- ✅ **符合开闭原则**：新增 Connector 无需修改 CT 删除逻辑
+- ✅ **符合依赖倒置**：CT 检测逻辑在 SDK 层，不依赖具体 Connector 实现
 
 ---
 
@@ -222,7 +216,9 @@ private int[] handleCtDeleteScenario(...) {
 | `a22b20ec` | refactor: LogService 全局单例，一次初始化长期使用 |
 | `d0566f9b` | refactor: 移动 LogService 和 LogType 到 dbsyncer-sdk 模块 |
 | `ad5f3b12` | docs: 更新 ADR 05 文档，记录 LogService 架构重构 |
+| `待提交 -1` | refactor: 提取通用 `handleWriteException` 方法，所有 Connector 复用 CT 删除处理逻辑 |
+| `待提交 -2` | fix: SqlServerConnector 确保其他异常数据重试（最多 3 次） |
 
 ---
 
-*最后更新：2026-04-26*
+*最后更新：2026-04-27*
