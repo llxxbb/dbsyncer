@@ -154,13 +154,13 @@ public class SqlServerConnector extends AbstractDatabaseConnector {
     @Override
     public Result insert(DatabaseConnectorInstance connectorInstance, PluginContext context) {
         // 调用父类 executeWriter()，使用统一的 CT 删除异常处理（ADR 05）
-        return executeWriter(connectorInstance, context, context.getTargetFields(), 0);
+        return executeWriter(connectorInstance, context, context.getTargetFields());
     }
 
     @Override
     public Result upsert(DatabaseConnectorInstance connectorInstance, PluginContext context) {
         // 调用父类 executeWriter()，使用统一的 CT 删除异常处理（ADR 05）
-        return executeWriter(connectorInstance, context, context.getTargetFields(), 0);
+        return executeWriter(connectorInstance, context, context.getTargetFields());
     }
 
     /**

@@ -301,14 +301,14 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
     @Override
     public Result writer(DatabaseConnectorInstance connectorInstance, PluginContext context) {
         // writer 方法只负责执行 SQL，不处理业务逻辑
-        return executeWriter(connectorInstance, context, context.getTargetFields(), 0);
+        return executeWriter(connectorInstance, context, context.getTargetFields());
     }
 
     @Override
     public Result insert(DatabaseConnectorInstance connectorInstance, PluginContext context) {
         // INSERT 操作：使用所有字段
         List<Field> fields = new ArrayList<>(context.getTargetFields());
-        return executeWriter(connectorInstance, context, fields, 0);
+        return executeWriter(connectorInstance, context, fields);
     }
 
     @Override
@@ -318,30 +318,28 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
         List<Field> pkFields = PrimaryKeyUtil.findExistPrimaryKeyFields(context.getTargetFields());
         removeFieldWithPk(fields, pkFields);
         fields.addAll(pkFields);
-        return executeWriter(connectorInstance, context, fields, 0);
+        return executeWriter(connectorInstance, context, fields);
     }
 
     @Override
     public Result delete(DatabaseConnectorInstance connectorInstance, PluginContext context) {
         // DELETE 操作：只使用主键字段
         List<Field> pkFields = PrimaryKeyUtil.findExistPrimaryKeyFields(context.getTargetFields());
-        return executeWriter(connectorInstance, context, pkFields, 0);
+        return executeWriter(connectorInstance, context, pkFields);
     }
 
     @Override
     public Result upsert(DatabaseConnectorInstance connectorInstance, PluginContext context) {
         // UPSERT 操作：同 UPDATE 逻辑
         List<Field> fields = new ArrayList<>(context.getTargetFields());
-        return executeWriter(connectorInstance, context, fields, 0);
+        return executeWriter(connectorInstance, context, fields);
     }
 
     /**
-     * 执行写入操作（带 CT 删除异常处理，支持递归重试）
-     * 
-     * @param retryCount 当前重试次数（0=首次执行）
+     * 执行写入操作（带 CT 删除异常处理）
      */
     protected Result executeWriter(DatabaseConnectorInstance connectorInstance, PluginContext context,
-            List<Field> fields, int retryCount) {
+            List<Field> fields) {
         List<Map> data = context.getTargetList();
 
         if (CollectionUtils.isEmpty(fields)) {
@@ -366,7 +364,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
         } catch (Exception e) {
             try {
                 // 直接返回 handleCtDeleteScenario 的结果（不处理）
-                return handleCtDeleteScenario(data, fields, connectorInstance, context, e, retryCount);
+                return handleCtDeleteScenario(data, fields, connectorInstance, context, e);
             } catch (Exception ex) {
                 throw new RuntimeException(ex);
             }
@@ -394,15 +392,13 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
     /**
      * 处理 CT 删除场景：批次过滤 + 重做（其他异常）
      * 
-     * @param retryCount 当前重试次数（0=首次异常）
      * @return Result 包含成功和失败数据
-     * @throws Exception
+     * @throws Exception 如果全部是其他异常（非 CT 删除）
      */
     protected Result handleCtDeleteScenario(List<Map> data, List<Field> fields,
             DatabaseConnectorInstance connectorInstance,
             PluginContext context,
-            Exception e,
-            int retryCount) throws Exception {
+            Exception e) throws Exception {
         // 区分 CT 删除和其他异常
         List<Map> ctDeleteData = new ArrayList<>();
         List<Map> otherFailData = new ArrayList<>();
@@ -438,8 +434,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
         // 塞回其他失败数据到 context
         context.setTargetList(otherFailData);
 
-        // 递归调用 executeWriter
-        return executeWriter(connectorInstance, context, fields, retryCount + 1);
+        // 递归调用 executeWriter（同一批次只会触发一个场景，不会无限递归）
+        return executeWriter(connectorInstance, context, fields);
     }
 
     @Override
