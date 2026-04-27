@@ -417,6 +417,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
         }
 
         // CT 删除数据 → 直接返回成功（不塞回 context）
+        // 修复：CT 删除数据应该计入成功列表，避免数据丢失
         if (staticLogService != null) {
             for (Map ctData : ctDeleteData) {
                 staticLogService.log(LogType.MappingLog.CONFIG,
@@ -426,9 +427,11 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
             }
         }
 
-        // 没有有可处理的数据
+        // 没有有可处理的数据（全部是 CT 删除）→ 返回包含 CT 删除数据的 Result
         if (otherFailData.isEmpty()) {
-            return new Result<>();
+            Result result = new Result<>();
+            result.addSuccessData(ctDeleteData);  // ✅ CT 删除数据加入成功列表
+            return result;
         }
 
         // 塞回其他失败数据到 context

@@ -174,7 +174,7 @@ public class SqlServerConnector extends AbstractDatabaseConnector {
         String event = context.getEvent();
         
         // 只对 INSERT 和 UPSERT 使用 SqlServerBulkCopyUtil
-        if ("insert".equals(event) || "upsert".equals(event)) {
+        if ("INSERT".equals(event) || "UPSERT".equals(event)) {
             return connectorInstance.execute(databaseTemplate -> {
                 SimpleConnection connection = databaseTemplate.getSimpleConnection();
                 String schemaName = connectorInstance.getConfig().getSchema();
