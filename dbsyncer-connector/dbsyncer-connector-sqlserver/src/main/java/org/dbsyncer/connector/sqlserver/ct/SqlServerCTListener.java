@@ -366,7 +366,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
 
                 rs = ps.executeQuery();
 
-                // 处理查询结果
+                // 处理查询结果（UNION ALL 已包含 D 操作）
                 return processDMLResultSet(rs, tableName, primaryKeys, eventVersion, startVersion, stopVersion, fallbackQuery);
             } catch (Exception e) {
                 logger.error("流式查询 DML 变更失败，表: {}, SQL: {}, 错误: {}", tableName, mainQuery, e.getMessage(), e);
@@ -415,7 +415,12 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
         if (schemaInfoColumnIndex > 0 && rs.next()) {
             hasData = true;
             String schemaInfoJson = rs.getString(schemaInfoColumnIndex);
-            detectDDLChangesFromSchemaInfoJsonAndSendImmediately(tableName, schemaInfoJson, String.valueOf(startVersion));
+            // 查询时对 D 操作的 schema_info 设置为 null了。
+            if (schemaInfoJson != null && !schemaInfoJson.trim().isEmpty()) {
+                detectDDLChangesFromSchemaInfoJsonAndSendImmediately(tableName, schemaInfoJson, String.valueOf(startVersion));
+            } else {
+                logger.warn("表 {} 的第一行 schema_info 为 null 或空，跳过 DDL 检测", tableName);
+            }
         }
 
         // 构建列映射
@@ -589,11 +594,12 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
         if ("I".equals(operation)) {
             return ConnectorConstant.OPERTION_INSERT;
         } else if ("U".equals(operation)) {
-            return ConnectorConstant.OPERTION_UPDATE;
+            // ADR 06: U 操作转换为 I 操作，配合覆盖写入模式
+            return ConnectorConstant.OPERTION_INSERT;
         } else if ("D".equals(operation)) {
             return ConnectorConstant.OPERTION_DELETE;
         }
-        throw new IllegalArgumentException("Unknown operation: " + operation);
+        throw new IllegalArgumentException("Unknown operation: " + operation + ", expected I/U/D");
     }
 
     private Long getCurrentVersion() throws Exception {

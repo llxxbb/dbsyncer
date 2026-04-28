@@ -673,34 +673,53 @@ public class SqlServerTemplate extends AbstractSqlTemplate {
                 .map(pk -> "CT." + buildColumn(pk) + " AS " + CT_PK_COLUMN_PREFIX + pk.replaceAll("[^a-zA-Z0-9_]", "_"))
                 .collect(java.util.stream.Collectors.joining(", "));
 
-        // 将 CT 主键列放在 T.* 前面
         String selectColumns = (redundantPrimaryKeys.isEmpty() ? "" : redundantPrimaryKeys + ", ") + "T.*";
 
         // 构建表名（带引号）
         String schemaTable = buildTable(schema, tableName);
 
-        // 优化：使用 CROSS APPLY 让表结构信息子查询只执行一次，而不是每行都执行
-        // CROSS APPLY 会将子查询结果与主查询结果集进行关联，SQL Server 优化器会识别出
-        // 子查询结果对所有行都相同，从而只执行一次
-        // 注意：CROSS APPLY 从 SQL Server 2005 开始支持，SQL Server 2008 R2 完全支持
-        // 注意：CROSS APPLY 的别名语法是 "CROSS APPLY (...) alias"，不使用 AS 关键字
+        // ADR 06: UNION ALL 补充 D 操作（RIGHT JOIN 过滤掉 SYS_CHANGE_OPERATION='D' 的行）
+        //
+        // 列结构（两分支必须一致）:
+        //   1-3: SYS_CHANGE_VERSION, SYS_CHANGE_OPERATION, SYS_CHANGE_COLUMNS
+        //   4..4+PK-1: 冗余主键列 (__CT_PK_*)
+        //   4+PK..N: T.*（所有表列）
+        //   N+1: __DDL_SCHEMA_INFO__
+        //
+        // D 分支用 LEFT JOIN T ON 1=0 — T.* 全为 NULL，列数和类型自动与 I/U 分支对齐，
+        // 优化器识别 ON 1=0 为常量 false，不会实际扫描 T 表。
+        // D 分支的 schema_info 为 NULL — 行已删除，DDL 检测不需要当前行数据。
         return String.format(
                 "SELECT " +
                         "    CT.SYS_CHANGE_VERSION, " +
                         "    CT.SYS_CHANGE_OPERATION, " +
                         "    CT.SYS_CHANGE_COLUMNS, " +
-                        "    %s, " +  // 显式的列列表
+                        "    %s, " +
                         "    SI.schema_info AS " + CT_DDL_SCHEMA_INFO_COLUMN + " " +
                         "FROM CHANGETABLE(CHANGES %s, ?) AS CT " +
-                        "LEFT JOIN %s AS T WITH (NOLOCK) ON %s " +
-                        "CROSS APPLY %s SI " +  // 使用 CROSS APPLY，注意：某些 SQL Server 版本不支持 AS 关键字
+                        "RIGHT JOIN %s AS T WITH (NOLOCK) ON %s " +
+                        "CROSS APPLY %s SI " +
                         "WHERE CT.SYS_CHANGE_VERSION > ? AND CT.SYS_CHANGE_VERSION <= ? " +
+                        "UNION ALL " +
+                        "SELECT " +
+                        "    CT.SYS_CHANGE_VERSION, " +
+                        "    CT.SYS_CHANGE_OPERATION, " +
+                        "    CT.SYS_CHANGE_COLUMNS, " +
+                        "    %s, " +
+                        "    NULL AS " + CT_DDL_SCHEMA_INFO_COLUMN + " " +
+                        "FROM CHANGETABLE(CHANGES %s, ?) AS CT " +
+                        "LEFT JOIN %s AS T ON 1=0 " +
+                        "WHERE CT.SYS_CHANGE_OPERATION = 'D' " +
+                        "AND CT.SYS_CHANGE_VERSION > ? AND CT.SYS_CHANGE_VERSION <= ? " +
                         "ORDER BY CT.SYS_CHANGE_VERSION ASC",
-                selectColumns,         // 显式的列列表
-                schemaTable,          // CHANGETABLE
-                schemaTable,          // JOIN table
-                joinCondition,        // JOIN condition（支持复合主键）
-                schemaInfoSubquery    // 表结构信息子查询（移到 CROSS APPLY）
+                selectColumns,        // 1: I/U 分支列列表
+                schemaTable,          // 2: CHANGETABLE (I/U 分支)
+                schemaTable,          // 3: RIGHT JOIN 表 (I/U 分支)
+                joinCondition,        // 4: RIGHT JOIN 条件
+                schemaInfoSubquery,   // 5: CROSS APPLY 子查询 (I/U 分支)
+                selectColumns,        // 6: D 分支列列表（冗余主键列用 CT 值）
+                schemaTable,          // 7: CHANGETABLE (D 分支)
+                schemaTable           // 8: LEFT JOIN 表 (D 分支, ON 1=0)
         );
     }
 

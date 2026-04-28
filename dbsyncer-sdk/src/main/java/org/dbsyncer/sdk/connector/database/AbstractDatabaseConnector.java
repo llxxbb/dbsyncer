@@ -27,7 +27,6 @@ import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.plugin.ReaderContext;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.sdk.spi.LogType;
-import org.dbsyncer.sdk.util.CtDeleteDetector;
 import org.dbsyncer.sdk.util.DatabaseUtil;
 import org.dbsyncer.sdk.util.PrimaryKeyUtil;
 import org.slf4j.Logger;
@@ -362,12 +361,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
             return result;
 
         } catch (Exception e) {
-            try {
-                // 直接返回 handleCtDeleteScenario 的结果（不处理）
-                return handleCtDeleteScenario(data, fields, connectorInstance, context, e);
-            } catch (Exception ex) {
-                throw new RuntimeException(ex);
-            }
+            throw new RuntimeException(e);
         }
     }
 
@@ -387,58 +381,6 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
         String executeSql = context.getCommand().get(event);
         return connectorInstance
                 .execute(databaseTemplate -> databaseTemplate.batchUpdate(executeSql, batchRows(fields, data)));
-    }
-
-    /**
-     * 处理 CT 删除场景：批次过滤 + 重做（其他异常）
-     * 
-     * @return Result 包含成功和失败数据
-     * @throws Exception 如果全部是其他异常（非 CT 删除）
-     */
-    protected Result handleCtDeleteScenario(List<Map> data, List<Field> fields,
-            DatabaseConnectorInstance connectorInstance,
-            PluginContext context,
-            Exception e) throws Exception {
-        // 区分 CT 删除和其他异常
-        List<Map> ctDeleteData = new ArrayList<>();
-        List<Map> otherFailData = new ArrayList<>();
-
-        for (Map failDataItem : data) {
-            if (CtDeleteDetector.isDeletedFromCT(failDataItem, fields)) {
-                ctDeleteData.add(failDataItem);
-            } else {
-                otherFailData.add(failDataItem);
-            }
-        }
-
-        // 非提前删除的数据出现的问题。
-        if (ctDeleteData.isEmpty()) {
-            throw e;
-        }
-
-        // CT 删除数据 → 直接返回成功（不塞回 context）
-        // 修复：CT 删除数据应该计入成功列表，避免数据丢失
-        if (staticLogService != null) {
-            for (Map ctData : ctDeleteData) {
-                staticLogService.log(LogType.MappingLog.CONFIG,
-                        String.format("[提前删除的数据] 表%s，操作%s，数据：%s",
-                                context.getTargetTableName(), context.getEvent(),
-                                JsonUtil.objToJson(ctData)));
-            }
-        }
-
-        // 没有有可处理的数据（全部是 CT 删除）→ 返回包含 CT 删除数据的 Result
-        if (otherFailData.isEmpty()) {
-            Result result = new Result<>();
-            result.addSuccessData(ctDeleteData);  // ✅ CT 删除数据加入成功列表
-            return result;
-        }
-
-        // 塞回其他失败数据到 context
-        context.setTargetList(otherFailData);
-
-        // 递归调用 executeWriter（同一批次只会触发一个场景，不会无限递归）
-        return executeWriter(connectorInstance, context, fields);
     }
 
     @Override

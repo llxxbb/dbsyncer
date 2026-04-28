@@ -39,3 +39,12 @@ sql 改造：
 删除 handleCtDeleteScenario
 删除 CtDeleteDetector
 
+---
+
+## 实施方案
+
+详细实施方案见：[../history/0006/ADR_06_IMPLEMENTATION_PLAN.md](../history/0006/ADR_06_IMPLEMENTATION_PLAN.md)
+
+---
+
+*最后更新：2026-04-28 07:04 UTC*
