@@ -51,8 +51,6 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
     private static final int STREAMING_FETCH_SIZE = 5000;
 
     // 增量持久化配置（可配置）
-    private static final int SNAPSHOT_RECORD_INTERVAL = Integer.parseInt(
-            System.getProperty("sqlserver.ct.snapshot.record.interval", "10000"));
     private static final long SNAPSHOT_TIME_INTERVAL_MS = Long.parseLong(
             System.getProperty("sqlserver.ct.snapshot.time.interval.ms", "30000"));
     private static final int MAX_RETRY_PER_VERSION = Integer.parseInt(
@@ -107,7 +105,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
             }
             connected = true;
             connect();
-            
+
             readTables();
             Assert.notEmpty(tables, "No tables available");
 
@@ -119,7 +117,8 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
             initializeSchemaCache();
 
             worker = new Worker();
-            worker.setName(new StringBuilder("ct-parser-").append(serverName).append("_").append(worker.hashCode()).toString());
+            worker.setName(new StringBuilder("ct-parser-").append(serverName).append("_").append(worker.hashCode())
+                    .toString());
             worker.setDaemon(false);
             worker.start();
         } catch (Exception e) {
@@ -145,13 +144,29 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
 
     /**
      * 持久化指定版本号的进度
+     * 只有当没有 pending 任务时才允许保存快照，确保数据一致性
      */
     private void snapshotProgress(Long version) {
+        // 核心检查：等待 pending 任务发送完成
+        if (hasPendingTaskData()) {
+            return;
+        }
+
+        Long currentVersion;
+        try {
+            currentVersion = getMaxVersion();
+        } catch (Exception e) {
+            return;
+        }
+        if (currentVersion != version) {
+            return;
+        }
+
         if (version != null) {
             ChangedOffset offset = new ChangedOffset();
             offset.setPosition(version);
             refreshEvent(offset);
-            logger.debug("已持久化进度: version={}", version);
+            logger.debug("已持久化进度：version={}", version);
         }
     }
 
@@ -203,7 +218,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
         if (service.isAlive(instance)) {
             DatabaseConfig cfg = instance.getConfig();
             serverName = cfg.getUrl();
-            
+
             // 动态添加 socketTimeout 参数（如果 URL 中还没有显式指定）
             if (!serverName.contains("socketTimeout")) {
                 String newUrl = serverName + ";socketTimeout=300000";
@@ -214,7 +229,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
                 logger.info("已添加 socketTimeout=300000 到连接 URL: {}", newUrl);
                 serverName = newUrl;
             }
-            
+
             schema = cfg.getSchema();
             if (schema == null || schema.isEmpty()) {
                 schema = "dbo";
@@ -253,7 +268,8 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
 
     private void enableDBChangeTracking() throws Exception {
         realDatabaseName = queryUtil.queryAndMap(sqlTemplate.buildGetDatabaseNameSql(), rs -> rs.getString(1));
-        Integer count = queryUtil.queryAndMap(sqlTemplate.buildIsDatabaseChangeTrackingEnabledSql(realDatabaseName), rs -> rs.getInt(1));
+        Integer count = queryUtil.queryAndMap(sqlTemplate.buildIsDatabaseChangeTrackingEnabledSql(realDatabaseName),
+                rs -> rs.getInt(1));
         if (count == null || count == 0) {
             execute(sqlTemplate.buildEnableDatabaseChangeTrackingSql(realDatabaseName));
             logger.info("已启用数据库 [{}] 的 Change Tracking", realDatabaseName);
@@ -333,8 +349,8 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
      * @return 处理的记录数
      */
     private int queryDMLChangesWithStreamingAndSend(String tableName, Long startVersion, Long stopVersion,
-                                                    List<String> primaryKeys,
-                                                    Long eventVersion) throws Exception {
+            List<String> primaryKeys,
+            Long eventVersion) throws Exception {
         // 验证主键
         if (primaryKeys == null || primaryKeys.isEmpty()) {
             throw new SqlServerException("表 " + tableName + " 没有主键，无法使用 Change Tracking");
@@ -343,7 +359,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
         // 构建查询 SQL
         String schemaInfoSubquery = sqlTemplate.buildGetTableSchemaInfoSubquery(schema, tableName);
         String mainQuery = sqlTemplate.buildChangeTrackingDMLMainQuery(
-            schema, tableName, primaryKeys, schemaInfoSubquery);
+                schema, tableName, primaryKeys, schemaInfoSubquery);
         String fallbackQuery = sqlTemplate.buildSchemeOnly(schema, tableName);
 
         logger.debug("执行CT查询SQL: table={}", tableName);
@@ -357,8 +373,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
                 ps = databaseTemplate.getSimpleConnection().prepareStatement(
                         mainQuery,
                         ResultSet.TYPE_FORWARD_ONLY,
-                        ResultSet.CONCUR_READ_ONLY
-                );
+                        ResultSet.CONCUR_READ_ONLY);
                 ps.setFetchSize(STREAMING_FETCH_SIZE);
                 ps.setLong(1, startVersion);
                 ps.setLong(2, startVersion);
@@ -367,7 +382,8 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
                 rs = ps.executeQuery();
 
                 // 处理查询结果（UNION ALL 已包含 D 操作）
-                return processDMLResultSet(rs, tableName, primaryKeys, eventVersion, startVersion, stopVersion, fallbackQuery);
+                return processDMLResultSet(rs, tableName, primaryKeys, eventVersion, startVersion, stopVersion,
+                        fallbackQuery);
             } catch (Exception e) {
                 logger.error("流式查询 DML 变更失败，表: {}, SQL: {}, 错误: {}", tableName, mainQuery, e.getMessage(), e);
                 throw e;
@@ -396,8 +412,8 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
      * @throws Exception 处理异常
      */
     private int processDMLResultSet(ResultSet rs, String tableName, List<String> primaryKeys,
-                                    Long eventVersion, Long startVersion, Long stopVersion,
-                                    String fallbackQuery) throws Exception {
+            Long eventVersion, Long startVersion, Long stopVersion,
+            String fallbackQuery) throws Exception {
         ResultSetMetaData metaData = rs.getMetaData();
 
         // 查找表结构信息列的位置
@@ -417,7 +433,8 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
             String schemaInfoJson = rs.getString(schemaInfoColumnIndex);
             // 查询时对 D 操作的 schema_info 设置为 null了。
             if (schemaInfoJson != null && !schemaInfoJson.trim().isEmpty()) {
-                detectDDLChangesFromSchemaInfoJsonAndSendImmediately(tableName, schemaInfoJson, String.valueOf(startVersion));
+                detectDDLChangesFromSchemaInfoJsonAndSendImmediately(tableName, schemaInfoJson,
+                        String.valueOf(startVersion));
             } else {
                 logger.warn("表 {} 的第一行 schema_info 为 null 或空，跳过 DDL 检测", tableName);
             }
@@ -451,8 +468,6 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
         }
 
         int processedCount = 0;
-        long recordCount = 0;
-        long lastSnapshotTime = System.currentTimeMillis();
 
         // 处理第一行（如果已读取）
         if (hasData) {
@@ -461,7 +476,6 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
             if (event != null) {
                 sendDMLEvent(event, eventVersion);
                 processedCount++;
-                recordCount++;
             }
         }
 
@@ -469,7 +483,6 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
         while (rs.next()) {
             if (stopRequested.get()) {
                 logger.info("检测到停止信号，停止处理表 {} 的 DML 变更", tableName);
-                snapshotProgress(lastSuccessfulVersion);
                 break;
             }
 
@@ -478,18 +491,6 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
             if (event != null) {
                 sendDMLEvent(event, eventVersion);
                 processedCount++;
-                recordCount++;
-
-                // 增量持久化：按记录数
-                if (recordCount % SNAPSHOT_RECORD_INTERVAL == 0) {
-                    snapshotProgress(lastSuccessfulVersion);
-                }
-                // 增量持久化：按时间间隔
-                long now = System.currentTimeMillis();
-                if (now - lastSnapshotTime >= SNAPSHOT_TIME_INTERVAL_MS) {
-                    snapshotProgress(lastSuccessfulVersion);
-                    lastSnapshotTime = now;
-                }
             }
         }
 
@@ -499,7 +500,8 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
                 if (rs2.next()) {
                     String schemaInfoJson = rs2.getString("schema_info");
                     try {
-                        detectDDLChangesFromSchemaInfoJsonAndSendImmediately(tableName, schemaInfoJson, String.valueOf(startVersion));
+                        detectDDLChangesFromSchemaInfoJsonAndSendImmediately(tableName, schemaInfoJson,
+                                String.valueOf(startVersion));
                     } catch (Exception e) {
                         logger.error("检测 DDL 变更失败: {}", e.getMessage(), e);
                     }
@@ -524,15 +526,12 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
                 event.getCode(),
                 event.getRow(),
                 null,
-                eventVersion,  // 所有事件都使用 startVersion
-                event.getColumnNames()
-        );
+                eventVersion, // 所有事件都使用 startVersion
+                event.getColumnNames());
         trySendEvent(rowEvent);
     }
 
-
     // ==================== 辅助方法 ====================
-
 
     /**
      * 处理单行数据，构建 CTEvent
@@ -550,11 +549,11 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
      * @return CTEvent 对象，如果处理失败返回 null
      */
     private CTEvent processRow(ResultSet rs, String tableName, int tStarStartIndex, int tStarEndIndex,
-                               Set<Integer> columnsToSkip, Map<Integer, String> columnIndexToName,
-                               List<String> columnNames, Set<String> primaryKeySet, Map<String, Integer> primaryKeyToCTIndex) {
+            Set<Integer> columnsToSkip, Map<Integer, String> columnIndexToName,
+            List<String> columnNames, Set<String> primaryKeySet, Map<String, Integer> primaryKeyToCTIndex) {
         try {
             Long version = rs.getLong(1);
-            String operation = rs.getString(2);  // 'I', 'U', 'D'
+            String operation = rs.getString(2); // 'I', 'U', 'D'
             // 跳过 SYS_CHANGE_COLUMNS（第 3 列），不使用
 
             // 构建行数据（列名列表已预构建，直接使用）
@@ -631,8 +630,8 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
         // 注意：优化后的 SQL 使用 CROSS APPLY，只有 2 个参数占位符（在 CROSS APPLY 子查询中）
         // 主查询的 WHERE 条件已通过字符串格式化处理，不再需要参数
         return queryUtil.queryWithReadUncommitted(sql, statement -> {
-            statement.setString(1, schema);  // CROSS APPLY 子查询的 TABLE_SCHEMA
-            statement.setString(2, tableName);  // CROSS APPLY 子查询的 TABLE_NAME
+            statement.setString(1, schema); // CROSS APPLY 子查询的 TABLE_SCHEMA
+            statement.setString(2, tableName); // CROSS APPLY 子查询的 TABLE_NAME
         }, rs -> {
             List<String> pks = new ArrayList<>();
             int columnCount = 0;
@@ -652,15 +651,15 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
             if (!columnCountSet) {
                 try {
                     columnCount = queryUtil.queryAndMapList(
-                            String.format("SELECT COUNT(*) AS col_count FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'",
+                            String.format(
+                                    "SELECT COUNT(*) AS col_count FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'",
                                     schema, tableName),
                             rs2 -> {
                                 if (rs2.next()) {
                                     return rs2.getInt("col_count");
                                 }
                                 return 0;
-                            }
-                    );
+                            });
                 } catch (Exception e) {
                     logger.warn("获取表 {} 的列数失败，使用默认值 0: {}", tableName, e.getMessage());
                     columnCount = 0;
@@ -691,7 +690,8 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
      * @param tableName      表名
      * @param schemaInfoJson 表结构信息的 JSON 字符串（来自 INFORMATION_SCHEMA.COLUMNS）
      */
-    private void detectDDLChangesFromSchemaInfoJsonAndSendImmediately(String tableName, String schemaInfoJson, String version) throws Exception {
+    private void detectDDLChangesFromSchemaInfoJsonAndSendImmediately(String tableName, String schemaInfoJson,
+            String version) throws Exception {
         if (schemaInfoJson == null || schemaInfoJson.trim().isEmpty()) {
             logger.warn("表 {} 的表结构信息 JSON 为空，跳过 DDL 检测", tableName);
             return;
@@ -771,7 +771,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
                     ConnectorConstant.OPERTION_ALTER,
                     change.getDdlCommand(),
                     version,
-                    null  // DDL 事件不使用版本号，因为 DDL 是检测生成的，没有实际版本号意义
+                    null // DDL 事件不使用版本号，因为 DDL 是检测生成的，没有实际版本号意义
             );
             trySendEvent(ddlEvent);
             logger.info("检测到表 {} 的 DDL 变更并立即发送: {}", tableName, change.getDdlCommand());
@@ -799,7 +799,8 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
      */
     private MetaInfo parseSchemaInfoJson(String tableName, String schemaInfoJson) throws Exception {
         @SuppressWarnings("unchecked")
-        List<Map<String, Object>> columnsJson = (List<Map<String, Object>>) JsonUtil.jsonToObj(schemaInfoJson, List.class);
+        List<Map<String, Object>> columnsJson = (List<Map<String, Object>>) JsonUtil.jsonToObj(schemaInfoJson,
+                List.class);
         if (columnsJson == null || columnsJson.isEmpty()) {
             throw new IllegalArgumentException("表 " + tableName + " 的表结构信息 JSON 为空");
         }
@@ -862,7 +863,8 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
      */
     private Map<String, Integer> extractOrdinalPositions(String schemaInfoJson) {
         @SuppressWarnings("unchecked")
-        List<Map<String, Object>> columnsJson = (List<Map<String, Object>>) JsonUtil.jsonToObj(schemaInfoJson, List.class);
+        List<Map<String, Object>> columnsJson = (List<Map<String, Object>>) JsonUtil.jsonToObj(schemaInfoJson,
+                List.class);
         Map<String, Integer> ordinalPositions = new HashMap<>();
         if (columnsJson != null) {
             for (Map<String, Object> colJson : columnsJson) {
@@ -875,8 +877,8 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
     }
 
     private List<DDLChange> compareTableSchema(String tableName, MetaInfo oldMetaInfo, MetaInfo newMetaInfo,
-                                               List<String> oldPrimaryKeys, List<String> newPrimaryKeys,
-                                               Map<String, Integer> oldOrdinalPositions, Map<String, Integer> newOrdinalPositions) {
+            List<String> oldPrimaryKeys, List<String> newPrimaryKeys,
+            Map<String, Integer> oldOrdinalPositions, Map<String, Integer> newOrdinalPositions) {
         List<DDLChange> changes = new ArrayList<>();
 
         // 构建列映射
@@ -1018,7 +1020,8 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
         // 处理长度/精度
         String typeName = column.getTypeName().toLowerCase();
         if (column.getColumnSize() > 0) {
-            if (typeName.contains("varchar") || typeName.contains("char") || typeName.contains("varbinary") || typeName.contains("binary")) {
+            if (typeName.contains("varchar") || typeName.contains("char") || typeName.contains("varbinary")
+                    || typeName.contains("binary")) {
                 ddl.append("(").append(column.getColumnSize()).append(")");
             }
         } else if (column.getColumnSize() == -1) {
@@ -1092,7 +1095,8 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
         // 处理长度/精度
         if (newColumn.getColumnSize() > 0) {
             String typeName = newColumn.getTypeName().toLowerCase();
-            if (typeName.contains("varchar") || typeName.contains("char") || typeName.contains("nvarchar") || typeName.contains("nchar")) {
+            if (typeName.contains("varchar") || typeName.contains("char") || typeName.contains("nvarchar")
+                    || typeName.contains("nchar")) {
                 ddl.append("(").append(newColumn.getColumnSize()).append(")");
             }
         }
@@ -1128,7 +1132,8 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
         // 处理长度/精度
         String typeName = newCol.getTypeName().toLowerCase();
         if (newCol.getColumnSize() > 0) {
-            if (typeName.contains("varchar") || typeName.contains("char") || typeName.contains("varbinary") || typeName.contains("binary")) {
+            if (typeName.contains("varchar") || typeName.contains("char") || typeName.contains("varbinary")
+                    || typeName.contains("binary")) {
                 ddl.append("(").append(newCol.getColumnSize()).append(")");
             }
         } else if (newCol.getColumnSize() == -1) {
@@ -1156,7 +1161,8 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
         return ddl.toString();
     }
 
-    private String generateAlterPrimaryKeyDDL(String tableName, List<String> oldPrimaryKeys, List<String> newPrimaryKeys) {
+    private String generateAlterPrimaryKeyDDL(String tableName, List<String> oldPrimaryKeys,
+            List<String> newPrimaryKeys) {
         // 主键变更需要先删除旧主键，再添加新主键
         // 这是一个复杂操作，暂时返回警告信息
         logger.warn("主键变更暂不支持: table={}, oldPK={}, newPK={}",
@@ -1174,7 +1180,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
      * @param ordinalPositions 列位置信息
      */
     private void saveTableSchemaSnapshotFromJson(String tableName, String schemaInfoJson, Long version,
-                                                 String hash, Map<String, Integer> ordinalPositions) throws Exception {
+            String hash, Map<String, Integer> ordinalPositions) throws Exception {
         // 完全不持久化任何 schema 相关信息到 snapshot，只更新内存缓存
         MetaInfo metaInfo = parseSchemaInfoJson(tableName, schemaInfoJson);
         schemaCache.put(tableName, metaInfo);
@@ -1247,18 +1253,22 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
     // ==================== Worker 线程 ====================
 
     final class Worker extends Thread {
+        private long lastSnapshotTime = System.currentTimeMillis();
+        
         @Override
         public void run() {
             while (!isInterrupted() && !stopRequested.get()) {
                 try {
                     Long maxVersion = getMaxVersion();
                     if (maxVersion != null && maxVersion > lastSuccessfulVersion) {
-                        currentVersion = maxVersion;
                         pull(lastSuccessfulVersion, maxVersion);
                         currentVersionRetryCount = 0;
                     } else {
-                        if (!hasPendingTaskData()) {
+                        // 统一的时间间隔检查
+                        long now = System.currentTimeMillis();
+                        if (now - lastSnapshotTime >= SNAPSHOT_TIME_INTERVAL_MS) {
                             snapshotProgress(lastSuccessfulVersion);
+                            lastSnapshotTime = now;
                         }
                         sleepInMills(POLL_INTERVAL_MILLIS);
                     }
@@ -1270,12 +1280,12 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
                     }
                     if (connected && isRetryableError(e)) {
                         currentVersionRetryCount++;
-                        logger.warn("处理版本 {} 失败，重试次数: {}/{}", lastSuccessfulVersion, currentVersionRetryCount, MAX_RETRY_PER_VERSION);
+                        logger.warn("处理版本 {} 失败，重试次数: {}/{}", lastSuccessfulVersion, currentVersionRetryCount,
+                                MAX_RETRY_PER_VERSION);
                         if (currentVersionRetryCount >= MAX_RETRY_PER_VERSION) {
                             logger.error("版本 {} 达到最大重试次数 {}，停止同步", lastSuccessfulVersion, MAX_RETRY_PER_VERSION);
                             // 记录错误到数据库
                             errorEvent(e);
-                            snapshotProgress(lastSuccessfulVersion);
                             break;
                         }
                         sleepInMills(1000L);
@@ -1283,16 +1293,11 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
                         logger.error("轮询版本号失败: {}", e.getMessage(), e);
                         // 记录错误到数据库
                         errorEvent(e);
-                        snapshotProgress(lastSuccessfulVersion);
                         break;
                     }
                 }
             }
-            snapshotProgress(lastSuccessfulVersion);
         }
 
-        private Long currentVersion;
     }
 }
-
-
