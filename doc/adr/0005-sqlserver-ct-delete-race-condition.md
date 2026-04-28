@@ -2,11 +2,11 @@
 
 ## 状态
 
-**已接受** (Accepted)
+**已废弃** (Deprecated) — 核心方案已被 [ADR 06](0006-sqlserver-ct-query-refactor.md) 替代
 
 **日期**: 2026-04-24
 
-**最后更新**: 2026-04-26
+**最后更新**: 2026-04-28
 
 ---
 
@@ -221,4 +221,16 @@ private int[] handleCtDeleteScenario(...) {
 
 ---
 
-*最后更新：2026-04-27*
+## 替代说明
+
+本 ADR 的核心方案（LEFT JOIN + 异常捕获 + CtDeleteDetector + 重试）已被 [ADR 06](0006-sqlserver-ct-query-refactor.md) 替代。
+
+ADR 06 采用更简洁的方案：
+- RIGHT JOIN 替代 LEFT JOIN，SQL 层自动过滤删除数据
+- U 操作转换为 I 操作，配合覆盖写入消除竞态
+- UNION ALL 显式包含 D 操作
+- 移除 CtDeleteDetector 和异常处理逻辑
+
+---
+
+*最后更新：2026-04-28*

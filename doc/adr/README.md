@@ -10,7 +10,8 @@
 | [0002](0002-支持编辑表映射时修改主键配置.md) | 支持编辑表映射时修改主键配置 | Accepted | 2026-03-20 |
 | [0003](0003-tablegroup-primary-key-order-fix.md) | TableGroup 主键顺序修复 | Accepted | 2026-03-30 |
 | [0004](0004-sqlserver-ct-bigtx-optimization.md) | SQL Server CT 大事务同步优化 | Accepted | 2026-04-10 |
-| [0005](0005-sqlserver-ct-delete-race-condition.md) | SQL Server CT 数据删除竞态问题 | Accepted | 2026-04-24 |
+| [0005](0005-sqlserver-ct-delete-race-condition.md) | SQL Server CT 数据删除竞态问题 | Accepted（核心方案被 ADR 06 替代） | 2026-04-24 |
+| [0006](0006-sqlserver-ct-query-refactor.md) | SQL Server CT 查询重构 — RIGHT JOIN + U→I 转换 + 强制覆盖写入 | Proposed | 2026-04-28 |
 
 ## 状态说明
 
@@ -37,4 +38,4 @@ mkdir -p doc/adr doc/history/NNNN
 
 ---
 
-*最后更新：2026-04-24*
+*最后更新：2026-04-28*
