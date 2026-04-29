@@ -84,6 +84,7 @@ function bindMappingTableGroupCheckBoxClick() {
     var $checkbox = $('.tableGroupCheckbox');
     var $delBtn = $("#tableGroupDelBtn");
     var $resyncBtn = $("#tableGroupResyncBtn");
+    var $batchConvertBtn = $("#batchConvertConfigBtn");
     var $checkCount = $("#tableGroupCheckCount");
     var totalCount = $checkbox.length;
 
@@ -110,6 +111,7 @@ function bindMappingTableGroupCheckBoxClick() {
     }).on('ifChanged', function (event) {
         var hasChecked = getCheckedBoxSize($checkbox).length > 0;
         $delBtn.prop('disabled', !hasChecked);
+        $batchConvertBtn.prop('disabled', !hasChecked);
         updateResyncButtonState($resyncBtn, hasChecked);
         updateCheckCount();
     });
@@ -121,6 +123,7 @@ function bindMappingTableGroupCheckBoxClick() {
     }).on('ifChanged', function (event) {
         var hasChecked = getCheckedBoxSize($checkbox).length > 0;
         $delBtn.prop('disabled', !hasChecked);
+        $batchConvertBtn.prop('disabled', !hasChecked);
         updateResyncButtonState($resyncBtn, hasChecked);
         updateCheckCount();
     });
@@ -1380,6 +1383,9 @@ $(function () {
     // 绑定数据源详情按钮点击事件
     bindConnectorDetailBtnClick();
 
+    // 初始化批量转换配置功能
+    initBatchConvertConfig();
+
     // 页面加载完成后自动触发字段差异检查（延迟执行确保DOM已渲染）
     // 传入true表示先刷新字段元数据，再检测差异，确保结果准确
     setTimeout(function() {
@@ -1908,6 +1914,392 @@ $(function() {
         }
     });
 });
+// 批量转换配置功能
+function initBatchConvertConfig() {
+    $('#batchConvertType').on('change', function() {
+        var type = $(this).val();
+        if (type === 'UUID') {
+            $('#batchConvertArgsGroup').hide();
+            $('#batchConvertArgs').val('');
+        } else {
+            $('#batchConvertArgsGroup').show();
+        }
+    });
+    
+    $('input[name="applyScope"]').on('change', function() {
+        updateBatchConvertCounts();
+    });
+    
+    $('#batchConvertConfigBtn').on('click', function() {
+        var selectedIds = getCheckedBoxSize($('.tableGroupCheckbox'));
+        if (selectedIds.length === 0) {
+            bootGrowl("请至少选中一个表组", "warning");
+            return;
+        }
+        updateBatchConvertCounts();
+        loadBatchFieldTypes();
+        $('#batchConvertConfigModal').modal('show');
+    });
+    
+    $('#batchConvertSubmitBtn').on('click', function() {
+        submitBatchConvertConfig();
+    });
+}
+
+function updateBatchConvertCounts() {
+    var selectedCount = getCheckedBoxSize($('.tableGroupCheckbox')).length;
+    var totalCount = $('.tableGroupCheckbox').length;
+    $('#selectedCount').text(selectedCount);
+    $('#allTableGroupCount').text(totalCount);
+}
+
+function loadBatchFieldTypes() {
+    var $fieldType = $('#batchConvertFieldType');
+    $fieldType.selectpicker('destroy');
+    $fieldType.empty().append('<option value="">请选择</option>');
+    
+    var connectorType = $('#batchConvertConfigBtn').data('connectorType');
+    if (!connectorType) {
+        var $targetImg = $('.panel-body img[src*="/img/"]').last();
+        if ($targetImg.length > 0) {
+            var targetSrc = $targetImg.attr('src');
+            var match = targetSrc.match(/\/img\/([^.]+)\.png/);
+            if (match && match[1]) {
+                connectorType = match[1].toLowerCase();
+            }
+        }
+    }
+    
+    if (!connectorType) {
+        connectorType = 'mysql';
+    }
+    
+    var allTypes = getDatabaseFieldTypes(connectorType);
+    allTypes.forEach(function(type) {
+        $fieldType.append('<option value="' + type + '">' + type + '</option>');
+    });
+    
+    $fieldType.selectpicker({
+        "title": "请选择",
+        "liveSearch": true,
+        "noneResultsText": "没有找到 {0}"
+    });
+}
+
+function getDatabaseFieldTypes(connectorType) {
+    var databaseTypes = {
+        'mysql': [
+            'TINYINT', 'SMALLINT', 'MEDIUMINT', 'INT', 'INTEGER', 'BIGINT',
+            'FLOAT', 'DOUBLE', 'DECIMAL', 'NUMERIC', 'REAL',
+            'BIT', 'BOOLEAN',
+            'CHAR', 'VARCHAR', 'TINYTEXT', 'TEXT', 'MEDIUMTEXT', 'LONGTEXT',
+            'BINARY', 'VARBINARY', 'TINYBLOB', 'BLOB', 'MEDIUMBLOB', 'LONGBLOB',
+            'ENUM', 'SET',
+            'DATE', 'TIME', 'DATETIME', 'TIMESTAMP', 'YEAR',
+            'JSON'
+        ],
+        'sqlserver': [
+            'BIGINT', 'BIT', 'DECIMAL', 'INT', 'MONEY', 'NUMERIC', 'SMALLINT', 'SMALLMONEY', 'TINYINT',
+            'FLOAT', 'REAL',
+            'DATE', 'DATETIME', 'DATETIME2', 'DATETIMEOFFSET', 'SMALLDATETIME', 'TIME',
+            'CHAR', 'VARCHAR', 'TEXT',
+            'NCHAR', 'NVARCHAR', 'NTEXT',
+            'BINARY', 'VARBINARY', 'IMAGE',
+            'UNIQUEIDENTIFIER', 'XML'
+        ],
+        'oracle': [
+            'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE',
+            'CHAR', 'VARCHAR2', 'NCHAR', 'NVARCHAR2', 'CLOB', 'NCLOB', 'LONG',
+            'DATE', 'TIMESTAMP', 'TIMESTAMP WITH TIME ZONE', 'TIMESTAMP WITH LOCAL TIME ZONE',
+            'RAW', 'LONG RAW', 'BLOB', 'BFILE',
+            'ROWID', 'UROWID', 'XMLTYPE'
+        ],
+        'postgresql': [
+            'SMALLINT', 'INTEGER', 'BIGINT', 'DECIMAL', 'NUMERIC', 'REAL', 'DOUBLE PRECISION',
+            'CHARACTER', 'CHAR', 'CHARACTER VARYING', 'VARCHAR', 'TEXT',
+            'BYTEA',
+            'TIMESTAMP', 'TIMESTAMP WITH TIME ZONE', 'TIMESTAMP WITHOUT TIME ZONE',
+            'DATE', 'TIME', 'TIME WITH TIME ZONE', 'TIME WITHOUT TIME ZONE', 'INTERVAL',
+            'BOOLEAN', 'UUID', 'XML', 'JSON', 'JSONB'
+        ],
+        'sqlite': [
+            'INTEGER', 'REAL', 'TEXT', 'BLOB', 'NUMERIC'
+        ]
+    };
+    return databaseTypes[connectorType] || databaseTypes['mysql'];
+}
+
+function findJDBCTypeCodeByName(typeName) {
+    var typeMap = {
+        'VARCHAR': 12, 'NVARCHAR': -9, 'CHAR': 1, 'NCHAR': -15,
+        'TEXT': -1, 'CLOB': 2005, 'NCLOB': 2011,
+        'INT': 4, 'INTEGER': 4, 'BIGINT': -5, 'SMALLINT': 5, 'TINYINT': -6,
+        'FLOAT': 6, 'DOUBLE': 8, 'REAL': 7, 'DECIMAL': 3, 'NUMERIC': 2,
+        'BIT': -7, 'BOOLEAN': 16,
+        'DATE': 91, 'TIME': 92, 'TIMESTAMP': 93, 'DATETIME': 93,
+        'BLOB': 2004, 'BINARY': -2, 'VARBINARY': -3,
+        'XML': 2009, 'JSON': 2005, 'UUID': 1,
+        'NUMBER': 2, 'VARCHAR2': 12, 'NVARCHAR2': -9,
+        'SERIAL': 4, 'BIGSERIAL': -5,
+        'MONEY': 2, 'IMAGE': -4, 'UNIQUEIDENTIFIER': 1
+    };
+    return typeMap[typeName.toUpperCase()] || 12;
+}
+
+function submitBatchConvertConfig() {
+    var targetFieldName = $('#batchConvertTargetField').val().trim();
+    if (!targetFieldName) {
+        bootGrowl("请输入目标字段名称", "danger");
+        $('#batchConvertTargetField').focus();
+        return;
+    }
+    
+    var fieldType = $('#batchConvertFieldType').val();
+    if (!fieldType) {
+        bootGrowl("请选择字段类型", "danger");
+        return;
+    }
+    
+    var fieldSize = $('#batchConvertFieldSize').val().trim();
+    var fieldScale = $('#batchConvertFieldScale').val().trim();
+    var fieldNullable = $('#batchConvertFieldNullable').is(':checked');
+    var fieldComment = $('#batchConvertFieldComment').val().trim();
+    
+    var convertConfig = {
+        convertType: $('#batchConvertType').val(),
+        args: $('#batchConvertArgs').val()
+    };
+    
+    if (convertConfig.convertType !== 'UUID' && !convertConfig.args) {
+        bootGrowl("请输入参数值", "danger");
+        return;
+    }
+    
+    var mappingId = $('#batchConvertConfigBtn').attr('mappingId');
+    var applyScope = $('input[name="applyScope"]:checked').val();
+    
+    var selectedTableGroups = [];
+    if (applyScope === 'SELECTED') {
+        $('.tableGroupCheckbox:checked').each(function() {
+            selectedTableGroups.push($(this).val());
+        });
+    } else {
+        $('.tableGroupCheckbox').each(function() {
+            selectedTableGroups.push($(this).val());
+        });
+    }
+    
+    if (selectedTableGroups.length === 0) {
+        bootGrowl("没有找到表组", "danger");
+        return;
+    }
+    
+    var fieldMetadata = {
+        name: targetFieldName,
+        typeName: fieldType,
+        type: findJDBCTypeCodeByName(fieldType),
+        columnSize: fieldSize ? parseInt(fieldSize) : 0,
+        ratio: fieldScale ? parseInt(fieldScale) : 0,
+        nullable: fieldNullable,
+        comment: fieldComment,
+        pk: false,
+        autoincrement: false,
+        isCustom: true
+    };
+    
+    bootGrowl("正在批量添加转换配置，请稍候...", "info");
+    $('#batchConvertSubmitBtn').prop('disabled', true);
+    
+    var mappingId = $('#batchConvertConfigBtn').attr('mappingId');
+    
+    $.ajax({
+        url: '/mapping/getTableGroups?id=' + mappingId,
+        type: 'GET',
+        success: function(data) {
+            if (data.success && data.resultValue) {
+                batchAddConvertToTableGroups(data.resultValue, selectedTableGroups, convertConfig, targetFieldName, fieldMetadata, 0, 0, [], 0, 0);
+            } else {
+                bootGrowl("获取表组列表失败", "danger");
+                $('#batchConvertSubmitBtn').prop('disabled', false);
+            }
+        },
+        error: function() {
+            bootGrowl("获取表组列表失败", "danger");
+            $('#batchConvertSubmitBtn').prop('disabled', false);
+        }
+    });
+}
+
+function batchAddConvertToTableGroups(allTableGroups, tableGroupIds, convertConfig, targetFieldName, fieldMetadata, currentIndex, successCount, failMessages, useExistingCount, createNewCount) {
+    if (currentIndex >= tableGroupIds.length) {
+        var totalCount = tableGroupIds.length;
+        var failCount = failMessages.length;
+        
+        if (failCount === 0) {
+            var message = "批量转换配置添加成功！共处理 " + totalCount + " 个表组";
+            if (useExistingCount > 0 || createNewCount > 0) {
+                message += "（复用已有字段：" + useExistingCount + " 个，创建新字段：" + createNewCount + " 个）";
+            }
+            bootGrowl(message, "success");
+            $('#batchConvertConfigModal').modal('hide');
+            setTimeout(function() {
+                location.reload();
+            }, 1000);
+        } else {
+            var message = "批量处理完成：成功 " + successCount + " 个，失败 " + failCount + " 个";
+            if (useExistingCount > 0 || createNewCount > 0) {
+                message += "（复用已有字段：" + useExistingCount + " 个，创建新字段：" + createNewCount + " 个）";
+            }
+            if (failMessages.length > 0) {
+                var showMessages = failMessages.length <= 5 ? failMessages : failMessages.slice(0, 5);
+                message += "\n失败详情：" + showMessages.join(", ");
+                if (failMessages.length > 5) {
+                    message += " ...等" + failMessages.length + "个";
+                }
+            }
+            bootGrowl(message, failCount === totalCount ? "danger" : "warning");
+            $('#batchConvertSubmitBtn').prop('disabled', false);
+            setTimeout(function() {
+                location.reload();
+            }, 2000);
+        }
+        return;
+    }
+    
+    var tableGroupId = tableGroupIds[currentIndex];
+    var tableGroup = null;
+    
+    for (var i = 0; i < allTableGroups.length; i++) {
+        if (allTableGroups[i].id === tableGroupId) {
+            tableGroup = allTableGroups[i];
+            break;
+        }
+    }
+    
+    if (tableGroup) {
+        addConvertToSingleTableGroup(tableGroup, convertConfig, targetFieldName, fieldMetadata, function(success, errorMsg, actionType) {
+            if (success) {
+                successCount++;
+                if (actionType === 'use_existing') {
+                    useExistingCount++;
+                } else if (actionType === 'create_new') {
+                    createNewCount++;
+                }
+            } else {
+                failMessages.push((tableGroup.targetTable ? tableGroup.targetTable.name : tableGroupId) + ": " + (errorMsg || "未知错误"));
+            }
+            batchAddConvertToTableGroups(allTableGroups, tableGroupIds, convertConfig, targetFieldName, fieldMetadata, currentIndex + 1, successCount, failMessages, useExistingCount, createNewCount);
+        });
+    } else {
+        failMessages.push(tableGroupId + ": 获取表组失败");
+        batchAddConvertToTableGroups(allTableGroups, tableGroupIds, convertConfig, targetFieldName, fieldMetadata, currentIndex + 1, successCount, failMessages, useExistingCount, createNewCount);
+    }
+}
+
+function addConvertToSingleTableGroup(tableGroup, convertConfig, targetFieldName, userFieldMetadata, callback) {
+    var converts = tableGroup.convert || [];
+    var targetTable = tableGroup.targetTable;
+    var existingField = null;
+    
+    // 前端检查：目标表是否已有该字段（仅基于名称精确匹配）
+    if (targetTable && targetTable.column) {
+        for (var i = 0; i < targetTable.column.length; i++) {
+            if (targetTable.column[i].name === targetFieldName) {
+                existingField = targetTable.column[i];
+                break;
+            }
+        }
+    }
+    
+    // 前端决定：使用哪个字段元数据
+    var finalFieldMetadata;
+    if (existingField) {
+        // 字段已存在 → 使用目标表的实际字段信息
+        // 但仍然标记为 isCustom: true，因为这是用户手动添加的转换配置
+        finalFieldMetadata = {
+            name: existingField.name,
+            typeName: existingField.typeName,
+            type: existingField.type,
+            columnSize: existingField.columnSize,
+            ratio: existingField.ratio,
+            nullable: existingField.nullable,
+            comment: existingField.comment,
+            pk: existingField.pk,
+            autoincrement: existingField.autoincrement,
+            isCustom: true
+        };
+    } else {
+        // 字段不存在 → 使用用户输入的信息（用于创建新字段）
+        finalFieldMetadata = userFieldMetadata;
+        finalFieldMetadata.isCustom = true;
+    }
+    
+    // 前端检查：转换配置是否重复（基于字段名 + 转换类型）
+    var exists = false;
+    for (var i = 0; i < converts.length; i++) {
+        if (converts[i].name === targetFieldName && converts[i].convertCode === convertConfig.convertType) {
+            exists = true;
+            break;
+        }
+    }
+    
+    // 前端构造：新的转换配置
+    if (!exists) {
+        var newConvert = {
+            id: String(converts.length),
+            name: targetFieldName,
+            convertName: getConvertTypeName(convertConfig.convertType),
+            convertCode: convertConfig.convertType,
+            args: convertConfig.args || "",
+            isRoot: true,
+            fieldMetadata: finalFieldMetadata
+        };
+        
+        converts.push(newConvert);
+    }
+    
+    // 前端构造：字段映射数据
+    var fieldMappingData = [];
+    if (tableGroup.fieldMapping) {
+        tableGroup.fieldMapping.forEach(function(fm) {
+            fieldMappingData.push({
+                source: fm.source ? fm.source.name : "",
+                target: fm.target ? fm.target.name : "",
+                pk: fm.target ? fm.target.pk : false
+            });
+        });
+    }
+    
+    // 前端构造：提交参数
+    var params = {
+        'id': tableGroup.id,
+        'fieldMapping': JSON.stringify(fieldMappingData),
+        'convert': JSON.stringify(converts),
+        'targetTablePK': tableGroup.targetTablePK || ""
+    };
+    
+    // 调用现有后端接口保存
+    doPoster("/tableGroup/edit", params, function(response) {
+        if (response.success) {
+            callback(true, null, existingField ? 'use_existing' : 'create_new');
+        } else {
+            callback(false, response.resultValue || "添加转换配置失败", null);
+        }
+    });
+}
+
+function getConvertTypeName(convertCode) {
+    var typeMap = {
+        'DEFAULT': '默认值',
+        'FIXED': '固定值',
+        'UUID': 'UUID',
+        'TEMPLATE': '表达式',
+        'SHA1': 'SHA1加密',
+        'DATE': '日期格式化'
+    };
+    return typeMap[convertCode] || convertCode;
+}
+
 //*********************************** 错误队列 结束位置***********************************//
 
 //*********************************** 数据源详情 开始位置***********************************//

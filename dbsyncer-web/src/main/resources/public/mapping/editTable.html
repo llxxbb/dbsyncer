@@ -78,6 +78,9 @@
             </div>
             <div class="col-md-6"></div>
             <div class="col-md-4 text-right">
+                <button id="batchConvertConfigBtn" th:mappingId="${mapping?.id}" th:data-connector-type="${mapping?.targetConnector?.config?.connectorType}" type="button" class="btn btn-info" disabled="disabled">
+                    <span class="fa fa-magic"></span>批量转换配置
+                </button>
                 <button id="tableGroupResyncBtn" th:mappingId="${mapping?.id}" type="button" class="btn btn-warning" disabled="disabled">
                     <span class="fa fa-refresh"></span>重新同步
                 </button>
@@ -142,6 +145,119 @@
             </div>
         </div>
     </div>
+
+    <!-- 批量转换配置弹窗 -->
+    <div class="modal fade" id="batchConvertConfigModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    <h4 class="modal-title">批量添加转换配置</h4>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fa fa-info-circle"></i> 为选中的表组批量添加转换配置。系统将自动检查目标表中的字段：
+                        <ul style="margin-top: 5px; margin-bottom: 0;">
+                            <li>若字段已存在 → 直接使用该字段（忽略您输入的字段类型）</li>
+                            <li>若字段不存在 → 按您输入的类型创建新字段</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- 转换配置表单 - 简化版 -->
+                    <div class="form-horizontal">
+                        <div class="form-group">
+                            <label class="col-sm-3 control-label">目标字段名称</label>
+                            <div class="col-sm-9">
+                                <input id="batchConvertTargetField" type="text" class="form-control" 
+                                       placeholder="请输入字段名称（如：sync_flag、status）">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="col-sm-3 control-label">字段类型</label>
+                            <div class="col-sm-9">
+                                <select id="batchConvertFieldType" class="form-control select-control" data-live-search="true">
+                                    <!-- 字段类型由JavaScript动态填充 -->
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="col-sm-3 control-label">长度</label>
+                            <div class="col-sm-9">
+                                <input id="batchConvertFieldSize" type="text" class="form-control" 
+                                       placeholder="请输入字段长度（如：255）">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="col-sm-3 control-label">精度</label>
+                            <div class="col-sm-9">
+                                <input id="batchConvertFieldScale" type="text" class="form-control" 
+                                       placeholder="请输入精度（如：2）">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="col-sm-3 control-label"></label>
+                            <div class="col-sm-9">
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" id="batchConvertFieldNullable" checked>
+                                        允许空值
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="col-sm-3 control-label">备注</label>
+                            <div class="col-sm-9">
+                                <textarea id="batchConvertFieldComment" class="form-control" rows="2" 
+                                          placeholder="请输入字段备注"></textarea>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="form-group">
+                            <label class="col-sm-3 control-label">转换类型</label>
+                            <div class="col-sm-9">
+                                <select id="batchConvertType" class="form-control select-control">
+                                    <option th:value="${c?.code}" 
+                                            th:text="${c?.name}" 
+                                            th:argNum="${c?.argNum}"
+                                            th:title="${c?.name + '：' + c?.description}"
+                                            th:each="c,state : ${convert}"/>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group" id="batchConvertArgsGroup">
+                            <label class="col-sm-3 control-label">参数值</label>
+                            <div class="col-sm-9">
+                                <input id="batchConvertArgs" type="text" class="form-control" 
+                                       placeholder="请输入参数值（如：0、BATCH_001、${field1}等）">
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-success">
+                            <i class="fa fa-check-circle"></i> 将应用到已选中的 <strong><span id="selectedCount">0</span></strong> 个映射关系
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="batchConvertSubmitBtn">
+                        <span class="fa fa-check"></span>确认应用
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 字段编辑对话框 -->
+    <div th:replace="field-edit-dialog :: fieldEditDialog"></div>
 </div>
 
 </html>
