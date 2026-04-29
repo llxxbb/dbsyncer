@@ -184,7 +184,7 @@ public class SqlServerConnector extends AbstractDatabaseConnector {
                 boolean enableIdentityInsert = Boolean.parseBoolean(context.getCommand().get(MARK_HAS_IDENTITY));
                 String tableName = context.getTargetTableName();
                 
-                if ("insert".equals(event)) {
+                if ("INSERT".equals(event)) {
                     // INSERT 操作
                     List<Map<String, Object>> typedData = buildTypedData(data);
                     sqlServerBulkCopyUtil.bulkInsert(connection, tableName, fields, typedData, schemaName, enableIdentityInsert);

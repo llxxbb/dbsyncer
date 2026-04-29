@@ -378,6 +378,9 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
                 ps.setLong(1, startVersion);
                 ps.setLong(2, startVersion);
                 ps.setLong(3, stopVersion);
+                ps.setLong(4, startVersion);
+                ps.setLong(5, startVersion);
+                ps.setLong(6, stopVersion);
 
                 rs = ps.executeQuery();
 

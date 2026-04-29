@@ -15,6 +15,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -324,14 +326,39 @@ public class SqlServerBulkCopyUtil {
     public int bulkUpsert(Connection connection, String tableName,
                                  List<Field> fields, List<Map<String, Object>> dataList,
                                  List<String> primaryKeys, String schemaName, boolean enableIdentityInsert) throws SQLException {
-        return executeBatchOperation(connection, tableName, fields, dataList, schemaName, enableIdentityInsert, 
+        // MERGE USING source 要求主键唯一——同一批次中同 PK 多行会导致 MERGE 报错。
+        // 去重保留最后一行（最新数据），用 LinkedHashMap 维持原顺序。
+        List<Map<String, Object>> deduped = deduplicateByPk(dataList, primaryKeys);
+        if (deduped.size() < dataList.size()) {
+            logger.warn("MERGE UPSERT 去重：表 {} 输入 {} 行，去重后 {} 行（移除 {} 个重复主键）",
+                    tableName, dataList.size(), deduped.size(), dataList.size() - deduped.size());
+        }
+        return executeBatchOperation(connection, tableName, fields, deduped, schemaName, enableIdentityInsert, 
                 "UPSERT", (conn, schemaTable, flds, batchData) -> 
                     executeUpsertBatch(conn, schemaTable, flds, batchData, primaryKeys));
     }
     
     /**
-     * 执行UPSERT批次（简化版，不处理IDENTITY_INSERT）
+     * 按 PK 去重，保留最后一行（最新数据）。
+     * SQL Server MERGE 要求 USING source 在 ON 条件列上唯一，
+     * 同批次中同一 PK 的多行会导致 MERGE 报主键冲突。
      */
+    private List<Map<String, Object>> deduplicateByPk(List<Map<String, Object>> dataList, List<String> primaryKeys) {
+        if (dataList == null || dataList.isEmpty() || primaryKeys == null || primaryKeys.isEmpty()) {
+            return dataList;
+        }
+        LinkedHashMap<String, Map<String, Object>> dedupMap = new LinkedHashMap<>();
+        for (Map<String, Object> row : dataList) {
+            String pkKey = primaryKeys.stream()
+                    .map(pk -> {
+                        Object val = row.get(pk);
+                        return val == null ? "\0" : val.toString();
+                    })
+                    .collect(java.util.stream.Collectors.joining("|"));
+            dedupMap.put(pkKey, row);
+        }
+        return new ArrayList<>(dedupMap.values());
+    }
     private int executeUpsertBatch(Connection connection, String schemaTable,
                                          List<Field> fields, List<Map<String, Object>> batchData,
                                          List<String> primaryKeys) throws SQLException {
