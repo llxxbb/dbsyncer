@@ -244,13 +244,15 @@ public class SqlServerBulkCopyUtil {
             } else if (typeName.contains("DECIMAL") || typeName.contains("NUMERIC")) {
                 // 对于Decimal类型字段，确保使用正确的设置方法保持精度
                 if (convertedValue instanceof BigDecimal) {
-                    ps.setBigDecimal(paramIndex, (BigDecimal) convertedValue);
+                    BigDecimal bd = applyFieldScale((BigDecimal) convertedValue, field);
+                    ps.setBigDecimal(paramIndex, bd);
                 } else if (convertedValue == null) {
-                    ps.setNull(paramIndex, Types.DECIMAL);
+                    setNullWithScale(ps, paramIndex, field);
                 } else {
                     // 尝试转换为BigDecimal
                     try {
                         BigDecimal bd = new BigDecimal(convertedValue.toString());
+                        bd = applyFieldScale(bd, field);
                         ps.setBigDecimal(paramIndex, bd);
                     } catch (NumberFormatException ex) {
                         logger.warn("字段 {} 无法转换为BigDecimal，使用默认设置", field.getName());
@@ -282,10 +284,12 @@ public class SqlServerBulkCopyUtil {
             } else if (typeName.contains("DECIMAL") || typeName.contains("NUMERIC")) {
                 // 对于Decimal类型字段，确保使用正确的设置方法保持精度
                 if (value instanceof BigDecimal) {
-                    ps.setBigDecimal(paramIndex, (BigDecimal) value);
+                    BigDecimal bd = applyFieldScale((BigDecimal) value, field);
+                    ps.setBigDecimal(paramIndex, bd);
                 } else if (value instanceof String) {
                     try {
                         BigDecimal bd = new BigDecimal((String) value);
+                        bd = applyFieldScale(bd, field);
                         ps.setBigDecimal(paramIndex, bd);
                     } catch (NumberFormatException ex2) {
                         logger.warn("字段 {} 无法转换为BigDecimal，使用默认设置", field.getName());
@@ -293,9 +297,10 @@ public class SqlServerBulkCopyUtil {
                     }
                 } else if (value instanceof Number) {
                     BigDecimal bd = new BigDecimal(value.toString());
+                    bd = applyFieldScale(bd, field);
                     ps.setBigDecimal(paramIndex, bd);
                 } else if (value == null) {
-                    ps.setNull(paramIndex, Types.DECIMAL);
+                    setNullWithScale(ps, paramIndex, field);
                 } else {
                     // 其他类型直接设置
                     ps.setObject(paramIndex, value);
@@ -308,7 +313,22 @@ public class SqlServerBulkCopyUtil {
     }
     
     
-    
+    private BigDecimal applyFieldScale(BigDecimal bd, Field field) {
+        int targetScale = field.getRatio();
+        if (targetScale >= 0 && bd.scale() != targetScale) {
+            bd = bd.setScale(targetScale, java.math.RoundingMode.HALF_UP);
+        }
+        return bd;
+    }
+
+    private void setNullWithScale(PreparedStatement ps, int paramIndex, Field field) throws SQLException {
+        int targetScale = field.getRatio();
+        if (targetScale >= 0) {
+            ps.setObject(paramIndex, null, Types.DECIMAL, targetScale);
+        } else {
+            ps.setNull(paramIndex, Types.DECIMAL);
+        }
+    }
 
     /**
      * 使用 MERGE 语句实现批量 UPSERT
