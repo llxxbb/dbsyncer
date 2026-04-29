@@ -78,7 +78,7 @@
             </div>
             <div class="col-md-6"></div>
             <div class="col-md-4 text-right">
-                <button id="batchConvertConfigBtn" th:mappingId="${mapping?.id}" th:data-connector-type="${mapping?.targetConnector?.config?.connectorType}" type="button" class="btn btn-info" disabled="disabled">
+                <button id="batchConvertConfigBtn" th:if="${currentUser?.roleCode eq 'admin'}" th:mappingId="${mapping?.id}" th:data-connector-type="${mapping?.targetConnector?.config?.connectorType}" type="button" class="btn btn-info" disabled="disabled">
                     <span class="fa fa-magic"></span>批量转换配置
                 </button>
                 <button id="tableGroupResyncBtn" th:mappingId="${mapping?.id}" type="button" class="btn btn-warning" disabled="disabled">
