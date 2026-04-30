@@ -5,6 +5,7 @@
 - sql server ct
   - 修正：IntID numeric(18,0) IDENTITY(1,1) NOT NULL, 类型解析异常
   - 修正：decimal 类型 转换问题。
+- 批量添加配置功能增加给配置字段设置成临时主键功能
 
 ## 2.19.7
 
