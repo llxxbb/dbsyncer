@@ -308,9 +308,14 @@ public class SqlServerConnector extends AbstractDatabaseConnector {
         }
 
         String upperTypeName = typeName.toUpperCase();
+
+        // 清理 SQL Server 特定属性：IDENTITY、ROWVERSION、TIMESTAMP 等
+        // JDBC 驱动返回的 TYPE_NAME 可能包含这些属性，需要提取基础类型名
+        String cleanTypeName = cleanSqlServerTypeName(upperTypeName);
+        
         
         if (schemaResolver.getSupportedTypeNames().contains(upperTypeName)) {
-            return typeName;
+            return cleanTypeName;
         }
 
         String baseType = queryUserDefinedTypeBase(upperTypeName, connection, schemaName);
@@ -319,7 +324,36 @@ public class SqlServerConnector extends AbstractDatabaseConnector {
             return baseType;
         }
 
-        return typeName;
+        return cleanTypeName;
+    }
+
+    /**
+     * 清理 SQL Server 类型名称，移除 IDENTITY、ROWVERSION 等属性后缀和空括号
+     * 
+     * @param typeName 原始类型名称（可能包含空括号和属性）
+     * @return 清理后的基础类型名
+     */
+    private String cleanSqlServerTypeName(String upperTypeName) {
+        if (upperTypeName == null) {
+            return null;
+        }
+        
+        String result = upperTypeName;
+        
+        // 1. 移除 IDENTITY 属性（带参数或不带参数）："INT IDENTITY" -> "INT"，"INT IDENTITY(1,1)" -> "INT"
+        result = result.replaceAll("\\s+IDENTITY\\(\\s*\\d+\\s*,\\s*\\d+\\s*\\)\\s*", "");
+        result = result.replaceAll("\\s+IDENTITY\\s*$", "");
+        
+        // 2. 移除 ROWVERSION 属性
+        result = result.replaceAll("\\s+ROWVERSION\\s*$", "");
+        
+        // 3. 移除 TIMESTAMP 属性（行尾）
+        result = result.replaceAll("\\s+TIMESTAMP\\s*$", "");
+        
+        // 4. 移除空括号："NUMERIC()" -> "NUMERIC"，"INT()" -> "INT"
+        result = result.replaceAll("\\(\\s*\\)", "");
+        
+        return result.trim();
     }
 
 
