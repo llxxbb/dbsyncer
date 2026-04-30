@@ -3,8 +3,8 @@
 ## 2.19.8
 
 - sql server ct
-  - with(nolock) 能满足同步数据不能满足最终一致性要求？
   - sql server ct 多表轮询，造成版本号周期性变化！有遗失风险，需修正快照保存机制。
+  - IntID numeric(18,0) IDENTITY(1,1) NOT NULL, 类型解析异常
 
 ## 2.19.7
 
