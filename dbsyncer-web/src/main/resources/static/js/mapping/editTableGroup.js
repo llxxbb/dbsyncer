@@ -1,3 +1,80 @@
+function getCurrentTableGroupId() {
+    return $('input[name="id"]').val();
+}
+
+function getBackendPKs() {
+    var pkStr = $('#targetTablePK').attr('data-backend-pk') || '';
+    return pkStr ? pkStr.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s; }) : [];
+}
+
+function renderPKStatus() {
+    var backendPKs = getBackendPKs();
+    var tableGroupId = getCurrentTableGroupId();
+    var tempData = TempPKManager.load(tableGroupId);
+    var tempPKs = tempData ? tempData.tempPKs : backendPKs;
+
+    $('#fieldMappingList .backend-pk-icon').removeClass('backend-pk-cancelled');
+
+    $('#fieldMappingList tr').each(function() {
+        var $tr = $(this);
+        var targetField = $tr.find('td:eq(1)').text().trim();
+        var $pkCell = $tr.find('td:eq(2)');
+
+        $pkCell.find('.temp-pk-container').empty();
+
+        var isBackendPK = backendPKs.indexOf(targetField) >= 0;
+        var isTempPK = tempPKs.indexOf(targetField) >= 0;
+
+        if (isBackendPK && isTempPK) {
+        } else if (isBackendPK && !isTempPK) {
+            $pkCell.find('.backend-pk-icon').addClass('backend-pk-cancelled');
+            $pkCell.find('.temp-pk-container').append(
+                '<i title="临时取消主键（未保存）" class="fa fa-times-circle text-info temp-pk-remove"></i>'
+            );
+        } else if (!isBackendPK && isTempPK) {
+            $pkCell.find('.temp-pk-container').append(
+                '<i title="临时主键（未保存）" class="fa fa-key fa-fw fa-rotate-90 text-info temp-pk-icon"></i>'
+            );
+        }
+    });
+
+    var hasDiff = !TempPKManager.arraysEqual(backendPKs, tempPKs);
+    $('#pkLegend').show();
+}
+
+function restoreTempPKs() {
+    var backendPKs = getBackendPKs();
+
+    reconcileBackendPKIcons(backendPKs);
+
+    var tableGroupId = getCurrentTableGroupId();
+    var tempData = TempPKManager.load(tableGroupId);
+    if (tempData) {
+        $('#targetTablePK').val(tempData.tempPKs.join(','));
+        renderPKStatus();
+    }
+    initFieldMappingParams();
+}
+
+function reconcileBackendPKIcons(backendPKs) {
+    if (!backendPKs) backendPKs = getBackendPKs();
+
+    $('#fieldMappingList tr').each(function() {
+        var targetField = $(this).find('td:eq(1)').text().trim();
+        var $backendIcon = $(this).find('.backend-pk-icon');
+
+        if (backendPKs.indexOf(targetField) >= 0) {
+            if ($backendIcon.length === 0) {
+                $(this).find('.temp-pk-container').before(
+                    '<i title="后端主键（已保存）" class="fa fa-key fa-fw fa-rotate-90 text-warning backend-pk-icon"></i>'
+                );
+            }
+        } else {
+            $backendIcon.remove();
+        }
+    });
+}
+
 function submit(formData) {
     //保存驱动配置
     doPoster("/tableGroup/edit", formData, function (data) {
@@ -8,7 +85,7 @@ function submit(formData) {
                 // 传递原始表单数据和差异信息
                 showPrimaryKeyDifferenceModal(data.resultValue.difference, formData);
             } else {
-                // 无差异，正常保存成功
+                TempPKManager.clear(getCurrentTableGroupId());
                 bootGrowl("保存表映射关系成功!", "success");
                 backMappingPage($("#tableGroupSubmitBtn"));
             }
@@ -20,15 +97,16 @@ function submit(formData) {
 
 // 初始化映射关系参数
 function initFieldMappingParams(){
-    // 生成JSON参数
+    let targetTablePKVal = $('#targetTablePK').val() || '';
+    let pkArray = targetTablePKVal ? targetTablePKVal.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s; }) : [];
     let row = [];
     let $fieldMappingList = $("#fieldMappingList");
     $fieldMappingList.find("tr").each(function(k,v){
-        let $pk = $(this).find("td:eq(2)").html();
+        let targetField = $(this).find("td:eq(1)").text().trim();
         row.push({
             "source":$(this).find("td:eq(0)").text(),
-            "target":$(this).find("td:eq(1)").text(),
-            "pk":($pk != "" || $.trim($pk).length > 0)
+            "target":targetField,
+            "pk": pkArray.indexOf(targetField) >= 0
         });
     });
     let $fieldMappingTable = $("#fieldMappingTable");
@@ -108,14 +186,27 @@ function bindFieldMappingListClick(){
     let $tr = $("#fieldMappingList tr");
     $tr.unbind("dblclick");
     $tr.bind('dblclick', function () {
-        let $pk = $(this).find("td:eq(2)");
-        let $text = $pk.html();
-        let isPk = $text == "" || $.trim($text).length == 0;
-        $pk.html(isPk ? '<i title="主键" class="fa fa-key fa-fw fa-rotate-90 text-warning"></i>' : '');
-        
-        // 同步更新 targetTablePK
-        updateTargetTablePKFromFieldMapping();
-        
+        const targetField = $(this).find('td:eq(1)').text().trim();
+        if (!targetField) return;
+
+        const tableGroupId = getCurrentTableGroupId();
+        const tempData = TempPKManager.load(tableGroupId);
+        const backendPKs = getBackendPKs();
+        let tempPKs = tempData ? tempData.tempPKs.slice() : backendPKs.slice();
+
+        const idx = tempPKs.indexOf(targetField);
+        if (idx >= 0) {
+            tempPKs.splice(idx, 1);
+        } else {
+            tempPKs.push(targetField);
+        }
+
+        TempPKManager.save(tableGroupId, tempPKs);
+
+        renderPKStatus();
+
+        $('#targetTablePK').val(tempPKs.join(','));
+
         initFieldMappingParams();
     });
 }
@@ -417,11 +508,27 @@ function bindFieldMappingAddClick(){
                 
                 // 检查源字段是否为主键，如果是则自动标记为主键
                 let isPrimaryKey = isSourceFieldPrimaryKey(sField);
-                let pkIcon = isPrimaryKey ? '<i title="主键" class="fa fa-key fa-fw fa-rotate-90 text-warning"></i>' : '';
+                let pkCellHtml = '<td class="pk-status-cell">';
+                if (isPrimaryKey) {
+                    pkCellHtml += '<i title="后端主键（已保存）" class="fa fa-key fa-fw fa-rotate-90 text-warning backend-pk-icon"></i>';
+                }
+                pkCellHtml += '<span class="temp-pk-container"></span></td>';
                 
-                let trHtml = "<tr id='fieldMapping_"+ index +"' title='双击设置/取消主键'><td>" + sField + "</td><td>" + tField + "</td><td>" + pkIcon + "</td><td><input type='checkbox' class='fieldMappingDeleteCheckbox' /></td></tr>";
+                let trHtml = "<tr id='fieldMapping_"+ index +"' title='双击设置/取消主键'><td>" + sField + "</td><td>" + tField + "</td>" + pkCellHtml + "<td><input type='checkbox' class='fieldMappingDeleteCheckbox' /></td></tr>";
                 $fieldMappingList.append(trHtml);
                 addedCount++;
+                
+                if (isPrimaryKey) {
+                    let tgId = getCurrentTableGroupId();
+                    let tempData = TempPKManager.load(tgId);
+                    let backendPKs = getBackendPKs();
+                    let tempPKs = tempData ? tempData.tempPKs.slice() : backendPKs.slice();
+                    if (tempPKs.indexOf(tField) < 0) {
+                        tempPKs.push(tField);
+                        TempPKManager.save(tgId, tempPKs);
+                        $('#targetTablePK').val(tempPKs.join(','));
+                    }
+                }
             }
         }
         
@@ -626,20 +733,37 @@ function collectPrimaryKeyOrder() {
 
 // 更新字段映射表格中的主键标记
 function updatePrimaryKeyMarkers(pkString) {
-    let pkArray = pkString ? pkString.split(',').map(s => s.trim()) : [];
+    let pkArray = pkString ? pkString.split(',').map(function(s) { return s.trim(); }) : [];
+    
+    var backendPKs = getBackendPKs();
+    TempPKManager.save(getCurrentTableGroupId(), pkArray);
     
     $('#fieldMappingList tr').each(function() {
         let targetField = $(this).find('td:eq(1)').text().trim();
         let $pkCell = $(this).find('td:eq(2)');
         
-        if (pkArray.includes(targetField)) {
-            if ($pkCell.find('i').length === 0) {
-                $pkCell.html('<i title="主键" class="fa fa-key fa-fw text-warning"></i>');
-            }
-        } else {
-            $pkCell.html('');
+        var isBackendPK = backendPKs.indexOf(targetField) >= 0;
+        var isTempPK = pkArray.indexOf(targetField) >= 0;
+        
+        $pkCell.find('.temp-pk-container').empty();
+        $pkCell.find('.backend-pk-icon').removeClass('backend-pk-cancelled');
+        
+        if (isBackendPK && isTempPK) {
+            // 一致
+        } else if (isBackendPK && !isTempPK) {
+            $pkCell.find('.backend-pk-icon').addClass('backend-pk-cancelled');
+            $pkCell.find('.temp-pk-container').append(
+                '<i title="临时取消主键（未保存）" class="fa fa-times-circle text-info temp-pk-remove"></i>'
+            );
+        } else if (!isBackendPK && isTempPK) {
+            $pkCell.find('.temp-pk-container').append(
+                '<i title="临时主键（未保存）" class="fa fa-key fa-fw fa-rotate-90 text-info temp-pk-icon"></i>'
+            );
         }
     });
+    
+    var hasDiff = !TempPKManager.arraysEqual(backendPKs, pkArray);
+    $('#pkLegend').show();
 }
 
 function checkFieldMappingDifferences() {
@@ -736,6 +860,8 @@ $(function() {
     bindFieldDiffFixClick();
     
     checkFieldMappingDifferences();
+    
+    restoreTempPKs();
 });
 
 let fieldDifferenceData = null;
@@ -962,18 +1088,18 @@ function renderPkDifferenceHtml(diffResult) {
         '<p><strong>目标表：</strong>' + diffResult.tableName + '</p>';
     
     if (diffResult.addedPKs && diffResult.addedPKs.length > 0) {
-        html += '<p class="text-success"><i class="fa fa-plus"></i> <strong>新增主键：</strong>' + 
+        html += '<p class="text-info"><i class="fa fa-key fa-fw fa-rotate-90 text-info"></i> <strong>临时新增主键（未保存）：</strong>' + 
             diffResult.addedPKs.join(', ') + '</p>';
     }
     
     if (diffResult.removedPKs && diffResult.removedPKs.length > 0) {
-        html += '<p class="text-danger"><i class="fa fa-minus"></i> <strong>移除主键：</strong>' + 
+        html += '<p class="text-warning"><i class="fa fa-key fa-fw fa-rotate-90 text-warning" style="text-decoration: line-through; opacity: 0.5;"></i> <strong>临时取消主键（未保存）：</strong>' + 
             diffResult.removedPKs.join(', ') + '</p>';
     }
     
     html += '<hr/>' +
-        '<p><strong>当前配置主键：</strong>' + (diffResult.configuredPKs || []).join(', ') + '</p>' +
-        '<p><strong>目标表实际主键：</strong>' + (diffResult.actualPKs || []).join(', ') + '</p>' +
+        '<p><i class="fa fa-key fa-fw fa-rotate-90 text-info"></i> <strong>临时主键配置：</strong>' + (diffResult.configuredPKs || []).join(', ') + '</p>' +
+        '<p><i class="fa fa-key fa-fw fa-rotate-90 text-warning"></i> <strong>后端实际主键：</strong>' + (diffResult.actualPKs || []).join(', ') + '</p>' +
         '</div></div>';
     
     return html;
@@ -990,6 +1116,7 @@ function saveWithPrimaryKeyDDL(originalData) {
     // 注意：originalData 现在包含完整的表单数据（包括 id）
     doPoster("/tableGroup/edit", originalData, function(data) {
         if (data.success == true) {
+            TempPKManager.clear(getCurrentTableGroupId());
             $('#primaryKeyDifferenceModal').modal('hide');
             
             // 清理 modal backdrop，防止页面变暗

@@ -119,6 +119,12 @@
 }
 
 /* 响应式调整 */
+.pk-legend{padding:8px 12px;margin-bottom:10px;background-color:#f9f9f9;border:1px solid #e0e0e0;border-radius:4px;font-size:12px}
+.pk-legend-item{margin-right:20px;display:inline-block;vertical-align:middle}
+.temp-pk-icon{margin-left:4px;opacity:0.85}
+.temp-pk-remove{margin-left:4px;font-size:12px;opacity:0.75}
+.backend-pk-cancelled{opacity:0.35;text-decoration:line-through}
+.pk-status-cell{white-space:nowrap;min-width:80px}
 @media (max-width: 991px) {
     .dual-list {
         max-height: 200px !important;

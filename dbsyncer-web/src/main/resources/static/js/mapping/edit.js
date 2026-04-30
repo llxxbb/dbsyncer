@@ -2064,6 +2064,7 @@ function submitBatchConvertConfig() {
     var fieldScale = $('#batchConvertFieldScale').val().trim();
     var fieldNullable = $('#batchConvertFieldNullable').is(':checked');
     var fieldComment = $('#batchConvertFieldComment').val().trim();
+    var setTempPK = $('#batchConvertSetTempPK').is(':checked');
     
     var convertConfig = {
         convertType: $('#batchConvertType').val(),
@@ -2110,14 +2111,13 @@ function submitBatchConvertConfig() {
     bootGrowl("正在批量添加转换配置，请稍候...", "info");
     $('#batchConvertSubmitBtn').prop('disabled', true);
     
-    var mappingId = $('#batchConvertConfigBtn').attr('mappingId');
     
     $.ajax({
         url: '/mapping/getTableGroups?id=' + mappingId,
         type: 'GET',
         success: function(data) {
             if (data.success && data.resultValue) {
-                batchAddConvertToTableGroups(data.resultValue, selectedTableGroups, convertConfig, targetFieldName, fieldMetadata, 0, 0, [], 0, 0);
+                batchAddConvertToTableGroups(data.resultValue, selectedTableGroups, convertConfig, targetFieldName, fieldMetadata, 0, 0, [], 0, 0, setTempPK);
             } else {
                 bootGrowl("获取表组列表失败", "danger");
                 $('#batchConvertSubmitBtn').prop('disabled', false);
@@ -2130,7 +2130,7 @@ function submitBatchConvertConfig() {
     });
 }
 
-function batchAddConvertToTableGroups(allTableGroups, tableGroupIds, convertConfig, targetFieldName, fieldMetadata, currentIndex, successCount, failMessages, useExistingCount, createNewCount) {
+function batchAddConvertToTableGroups(allTableGroups, tableGroupIds, convertConfig, targetFieldName, fieldMetadata, currentIndex, successCount, failMessages, useExistingCount, createNewCount, setTempPK) {
     if (currentIndex >= tableGroupIds.length) {
         var totalCount = tableGroupIds.length;
         var failCount = failMessages.length;
@@ -2177,7 +2177,7 @@ function batchAddConvertToTableGroups(allTableGroups, tableGroupIds, convertConf
     }
     
     if (tableGroup) {
-        addConvertToSingleTableGroup(tableGroup, convertConfig, targetFieldName, fieldMetadata, function(success, errorMsg, actionType) {
+        addConvertToSingleTableGroup(tableGroup, convertConfig, targetFieldName, fieldMetadata, setTempPK, function(success, errorMsg, actionType) {
             if (success) {
                 successCount++;
                 if (actionType === 'use_existing') {
@@ -2188,15 +2188,15 @@ function batchAddConvertToTableGroups(allTableGroups, tableGroupIds, convertConf
             } else {
                 failMessages.push((tableGroup.targetTable ? tableGroup.targetTable.name : tableGroupId) + ": " + (errorMsg || "未知错误"));
             }
-            batchAddConvertToTableGroups(allTableGroups, tableGroupIds, convertConfig, targetFieldName, fieldMetadata, currentIndex + 1, successCount, failMessages, useExistingCount, createNewCount);
+            batchAddConvertToTableGroups(allTableGroups, tableGroupIds, convertConfig, targetFieldName, fieldMetadata, currentIndex + 1, successCount, failMessages, useExistingCount, createNewCount, setTempPK);
         });
     } else {
         failMessages.push(tableGroupId + ": 获取表组失败");
-        batchAddConvertToTableGroups(allTableGroups, tableGroupIds, convertConfig, targetFieldName, fieldMetadata, currentIndex + 1, successCount, failMessages, useExistingCount, createNewCount);
+        batchAddConvertToTableGroups(allTableGroups, tableGroupIds, convertConfig, targetFieldName, fieldMetadata, currentIndex + 1, successCount, failMessages, useExistingCount, createNewCount, setTempPK);
     }
 }
 
-function addConvertToSingleTableGroup(tableGroup, convertConfig, targetFieldName, userFieldMetadata, callback) {
+function addConvertToSingleTableGroup(tableGroup, convertConfig, targetFieldName, userFieldMetadata, setTempPK, callback) {
     var converts = tableGroup.convert || [];
     var targetTable = tableGroup.targetTable;
     var existingField = null;
@@ -2281,6 +2281,10 @@ function addConvertToSingleTableGroup(tableGroup, convertConfig, targetFieldName
     // 调用现有后端接口保存
     doPoster("/tableGroup/edit", params, function(response) {
         if (response.success) {
+            if (setTempPK) {
+                var backendPKs = tableGroup.targetTablePK ? tableGroup.targetTablePK.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s; }) : [];
+                TempPKManager.addTempPK(tableGroup.id, targetFieldName, backendPKs);
+            }
             callback(true, null, existingField ? 'use_existing' : 'create_new');
         } else {
             callback(false, response.resultValue || "添加转换配置失败", null);

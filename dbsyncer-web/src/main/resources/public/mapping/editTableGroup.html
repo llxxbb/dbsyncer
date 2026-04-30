@@ -167,6 +167,17 @@
                                     </div>
 
                                     <div class="form-group">
+                                        <div id="pkLegend" class="pk-legend">
+                                            <span class="pk-legend-item">
+                                                <i class="fa fa-key fa-fw fa-rotate-90 text-warning"></i> 后端主键（已保存）
+                                            </span>
+                                            <span class="pk-legend-item">
+                                                <i class="fa fa-key fa-fw fa-rotate-90 text-info"></i> 临时主键（未保存）
+                                            </span>
+                                            <span class="pk-legend-item">
+                                                <i class="fa fa-times-circle text-info"></i> 临时取消主键（未保存）
+                                            </span>
+                                        </div>
                                         <table id="fieldMappingTable" class="table table-hover hidden">
                                             <thead>
                                             <tr>
@@ -180,7 +191,10 @@
                                             <tr th:id="'fieldMapping_'+${s.index + 1}" title='双击设置/取消主键' th:each="f,s:${tableGroup?.fieldMapping}">
                                                 <td>[[${f?.source?.name}]]</td>
                                                 <td>[[${f?.target?.name}]]</td>
-                                                <td><i th:if="${f?.target?.pk}" title="主键" class="fa fa-key fa-fw fa-rotate-90 text-warning"></i></td>
+                                                <td class="pk-status-cell">
+                                                    <i th:if="${f?.target?.pk}" title="后端主键（已保存）" class="fa fa-key fa-fw fa-rotate-90 text-warning backend-pk-icon"></i>
+                                                    <span class="temp-pk-container"></span>
+                                                </td>
                                                 <td><input type="checkbox" class="fieldMappingDeleteCheckbox" /></td>
                                             </tr>
                                             </tbody>
@@ -198,7 +212,8 @@
                                         <input name="id" class="form-control" type="text" th:value="${tableGroup?.id}"/>
                                         <input id="fieldMapping" name="fieldMapping" class="form-control" type="text"/>
                                         <input id="targetTablePK" name="targetTablePK" class="form-control" type="text" 
-                                               th:value="${tableGroup?.targetTablePK}"/>
+                                               th:value="${tableGroup?.targetTablePK}"
+                                               th:attr="data-backend-pk=${tableGroup?.targetTablePK}"/>
                                     </div>
                                 </div>
                             </div>
@@ -349,6 +364,7 @@
                         </div>
                     </div>
 
+<script th:src="@{/js/mapping/tempPKManager.js}"></script>
 <script th:src="@{/js/mapping/fieldDifferenceComponent.js}"></script>
 <script th:src="@{/js/components/dualListSelector.js}"></script>
 <script th:src="@{/js/mapping/editTableGroup.js}"></script>
