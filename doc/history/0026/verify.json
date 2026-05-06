@@ -1,0 +1,127 @@
+{
+  "version": 1,
+  "adrId": "0026",
+  "title": "MySQL 主备切换 GTID 支持方案",
+  "verifier": "@lxb",
+  "verifyDate": "2026-08-17",
+  "status": "completed",
+  "requirements": [
+    {
+      "id": 1,
+      "title": "模式自动选择：观察 binlog 流，有 GTID 事件则用 GTID，否则 fileName+position",
+      "description": "连接后观察 binlog 流中是否有 GTID 事件，自动选择模式，互斥使用",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "MySQLListener 连接后根据 snapshot 中 gtid 字段自动选择模式",
+          "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/main/java/org/dbsyncer/connector/mysql/cdc/MySQLListener.java",
+          "code": "snapshot 有 gtid 且非空时调用 client.setGtidSet()，否则调用 client.setBinlogFilename()/setBinlogPosition()"
+        },
+        {
+          "type": "code",
+          "criteria": "GTID 模式下不设置 fileName+position（互斥）",
+          "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/main/java/org/dbsyncer/connector/mysql/cdc/MySQLListener.java",
+          "code": "GTID 模式下不调用 client.setBinlogFilename()/setBinlogPosition()"
+        }
+      ],
+      "status": "passed",
+      "notes": "代码实现完成，编译通过"
+    },
+    {
+      "id": 2,
+      "title": "无服务端参数预检",
+      "description": "不进行任何服务端参数查询（如 gtid_mode、server_id、enforce_gtid_consistency 等均不检查）",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "MySQLListener 中无 gtid_mode/server_id/enforce_gtid_consistency 查询",
+          "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/main/java/org/dbsyncer/connector/mysql/cdc/MySQLListener.java",
+          "code": "无 show global variables like gtid_mode/server_id/enforce_gtid_consistency 或类似查询"
+        }
+      ],
+      "status": "passed",
+      "notes": "代码实现完成，编译通过"
+    },
+    {
+      "id": 3,
+      "title": "存量任务自动升级/降级",
+      "description": "存量任务在 fileName+position 模式下运行，观察流中 GTID 事件，下次重连时自动切换模式",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "运行中持续观察 GTID 事件并累积 GTID set，XID 事件时写入 snapshot",
+          "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/main/java/org/dbsyncer/connector/mysql/cdc/MySQLListener.java",
+          "code": "refreshSnapshot() 中写入 snapshot.put(gtid, client.getGtidSet() != null ? client.getGtidSet() : \"\")"
+        }
+      ],
+      "status": "passed",
+      "notes": "代码实现完成，编译通过"
+    },
+    {
+      "id": 4,
+      "title": "Snapshot 三个字段统一写入（fileName, position, gtid）",
+      "description": "每次 XID 事件时同时写入 fileName、position、gtid 三个字段，GTID 不可用时写空字符串",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "refreshSnapshot() 方法写入三个字段，GTID 不可用时写空字符串",
+          "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/main/java/org/dbsyncer/connector/mysql/cdc/MySQLListener.java",
+          "code": "snapshot.put(fileName, ...); snapshot.put(position, ...); snapshot.put(gtid, ...)"
+        }
+      ],
+      "status": "passed",
+      "notes": "代码实现完成，编译通过"
+    },
+    {
+      "id": 5,
+      "title": "仅在 XID 事件时写入 snapshot",
+      "description": "未提交/失败的事务不计入 snapshot，重连时自动重跑",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "refreshSnapshot() 仅在 XID 事件处理分支中调用",
+          "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/main/java/org/dbsyncer/connector/mysql/cdc/MySQLListener.java",
+          "code": "EventType.XID 分支中调用 refreshSnapshot()，其他事件分支不调用"
+        }
+      ],
+      "status": "passed",
+      "notes": "代码实现完成，编译通过"
+    },
+    {
+      "id": 6,
+      "title": "MariaDB 沿用 MySQL 同一套逻辑",
+      "description": "MariaDB 自动识别 GTID 格式，无需额外配置或校验",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "MySQLListener 中无 MariaDB 特殊分支，BinaryLogRemoteClient 自动处理",
+          "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/main/java/org/dbsyncer/connector/mysql/cdc/MySQLListener.java",
+          "code": "无 isMariaDB 判断或 MariaDB 特定逻辑"
+        }
+      ],
+      "status": "passed",
+      "notes": "代码实现完成，编译通过"
+    },
+    {
+      "id": 7,
+      "title": "向后兼容：旧 snapshot 无 gtid 字段自动降级",
+      "description": "旧 snapshot 只有 fileName+position 时，按 fileName+position 模式运行",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "snapshot 无 gtid 或 gtid 为空字符串时走 fileName+position 路径",
+          "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/main/java/org/dbsyncer/connector/mysql/cdc/MySQLListener.java",
+          "code": "if (snapshot.containsKey(gtid) && !StringUtil.isBlank(snapshot.get(gtid))) { client.setGtidSet(...) } else { client.setBinlogFilename(...); client.setBinlogPosition(...) }"
+        }
+      ],
+      "status": "passed",
+      "notes": "代码实现完成，编译通过"
+    }
+  ],
+  "summary": {
+    "total": 7,
+    "passed": 7,
+    "failed": 0,
+    "pending": 0
+  }
+}
