@@ -109,6 +109,15 @@ function initFieldMappingParams(){
             "pk": pkArray.indexOf(targetField) >= 0
         });
     });
+    // 更新 targetTablePK：根据当前字段映射中的主键标记同步更新
+    let updatedPKArray = [];
+    row.forEach(function(item) {
+        if (item.pk) {
+            updatedPKArray.push(item.target);
+        }
+    });
+    $('#targetTablePK').val(updatedPKArray.join(','));
+    
     let $fieldMappingTable = $("#fieldMappingTable");
     if (0 >= row.length) {
         $fieldMappingTable.addClass("hidden");
