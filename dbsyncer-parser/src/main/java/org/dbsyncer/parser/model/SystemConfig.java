@@ -50,12 +50,7 @@ public class SystemConfig extends ConfigModel {
     private int maxStorageErrorLength = 2048;
 
     /**
-     * 是否记录全量数据（false-关闭; true-开启）
-     */
-    private boolean enableStorageWriteFull;
-
-    /**
-     * 是否启用CDN加速访问静态资源(false-关闭; true-开启）
+     * 是否启用 CDN 加速访问静态资源 (false-关闭; true-开启）
      */
     private boolean enableCDN;
 
@@ -76,7 +71,7 @@ public class SystemConfig extends ConfigModel {
 
 
     /**
-     * 是否打印trace信息（false-关闭; true-开启）
+     * 是否打印 trace 信息（false-关闭; true-开启）
      */
     private boolean enablePrintTraceInfo;
 
@@ -126,14 +121,6 @@ public class SystemConfig extends ConfigModel {
 
     public void setMaxStorageErrorLength(int maxStorageErrorLength) {
         this.maxStorageErrorLength = maxStorageErrorLength;
-    }
-
-    public boolean isEnableStorageWriteFull() {
-        return enableStorageWriteFull;
-    }
-
-    public void setEnableStorageWriteFull(boolean enableStorageWriteFull) {
-        this.enableStorageWriteFull = enableStorageWriteFull;
     }
 
     public boolean isEnableCDN() {

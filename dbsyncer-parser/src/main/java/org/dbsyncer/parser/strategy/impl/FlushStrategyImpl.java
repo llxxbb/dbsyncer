@@ -58,19 +58,7 @@ public final class FlushStrategyImpl implements FlushStrategy {
 
     @Override
     public void flushFullData(String metaId, Result result, String event) {
-        // 不记录全量数据, 只记录增量同步数据, 将异常记录到系统日志中
-        if (!profileComponent.getSystemConfig().isEnableStorageWriteFull()) {
-            // 不记录全量数据，只统计成功失败总数
-            refreshTotal(metaId, result);
-
-            if (!CollectionUtils.isEmpty(result.getFailData())) {
-                logger.error(result.error);
-                LogType logType = LogType.TableGroupLog.FULL_FAILED;
-                logService.log(logType, "%s:%s:failed num:%d:last error:%s", result.getTargetTableGroupName(), logType.getMessage(), result.getFailData().size(), result.error);
-            }
-            return;
-        }
-
+        refreshTotal(metaId, result);
         flush(metaId, result, event);
     }
 
@@ -91,16 +79,7 @@ public final class FlushStrategyImpl implements FlushStrategy {
         }
 
         // 直接调用asyncWrite方法，不调用flush方法，避免更新fullSuccess和fullFail字段
-        SystemConfig systemConfig = profileComponent.getSystemConfig();
-        // 是否写失败数据
-        if (systemConfig.isEnableStorageWriteFail() && !CollectionUtils.isEmpty(result.getFailData())) {
-            asyncWrite(metaId, result.getTableGroupId(), result.getTargetTableGroupName(), event, false, result.getFailData(), result.error);
-        }
-
-        // 是否写成功数据
-        if (systemConfig.isEnableStorageWriteSuccess() && !CollectionUtils.isEmpty(result.getSuccessData())) {
-            asyncWrite(metaId, result.getTableGroupId(), result.getTargetTableGroupName(), event, true, result.getSuccessData(), "");
-        }
+        flush(metaId, result, event);
     }
 
     /**
@@ -326,8 +305,6 @@ public final class FlushStrategyImpl implements FlushStrategy {
     }
 
     private void flush(String metaId, Result result, String event) {
-        refreshTotal(metaId, result);
-
         SystemConfig systemConfig = profileComponent.getSystemConfig();
         // 是否写失败数据
         if (systemConfig.isEnableStorageWriteFail() && !CollectionUtils.isEmpty(result.getFailData())) {
@@ -339,5 +316,4 @@ public final class FlushStrategyImpl implements FlushStrategy {
             asyncWrite(metaId, result.getTableGroupId(), result.getTargetTableGroupName(), event, true, result.getSuccessData(), "");
         }
     }
-
 }
