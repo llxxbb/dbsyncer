@@ -7,6 +7,7 @@ import org.dbsyncer.biz.BizException;
 import org.dbsyncer.biz.PrimaryKeyDifferenceException;
 import org.dbsyncer.biz.PrimaryKeyRequiredException;
 import org.dbsyncer.biz.TableGroupService;
+import org.dbsyncer.biz.TargetTableNotExistsException;
 import org.dbsyncer.biz.checker.impl.tablegroup.TableGroupChecker;
 import org.dbsyncer.biz.task.TableGroupCountTask;
 import org.dbsyncer.biz.util.FieldComparisonUtil;
@@ -159,6 +160,23 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         // 检查是否禁止编辑
         mapping.assertDisableEdit();
 
+        // 【新增】先检查目标表是否存在（复用已有的 TargetTableNotExistsException 逻辑）
+        String targetTableName = tableGroup.getTargetTable().getName();
+        MetaInfo targetTableMetaInfo = parserComponent.getMetaInfo(mapping.getTargetConnectorId(), targetTableName);
+        boolean targetTableExists = targetTableMetaInfo != null && !CollectionUtils.isEmpty(targetTableMetaInfo.getColumn());
+        
+        if (!targetTableExists) {
+            // 复用 MappingServiceImpl 中的目标表不存在异常
+            List<Map<String, String>> missingTables = new ArrayList<>();
+            Map<String, String> tableMapping = new HashMap<>();
+            tableMapping.put("sourceTable", tableGroup.getSourceTable().getName());
+            tableMapping.put("targetTable", targetTableName);
+            tableMapping.put("targetTablePK", tableGroup.getTargetTablePK() != null ? tableGroup.getTargetTablePK() : "");
+            tableMapping.put("mappingId", mapping.getId());
+            missingTables.add(tableMapping);
+            throw new TargetTableNotExistsException("目标表不存在，请先创建目标表后再保存！", missingTables);
+        }
+
         // 【新增】保存原主键信息（在 checkEditConfigModel 修改之前）
         List<String> oldPrimaryKeys = PrimaryKeyUtil.findTablePrimaryKeys(tableGroup.getTargetTable());
 
@@ -194,7 +212,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         // 应用主键参数（内存修改）
         TableGroup model = (TableGroup) tableGroupChecker.checkEditConfigModel(params);
 
-        // 【修正】先执行 DDL，成功后再保存配置（不区分大小写比较）
+        // 主键变更 DDL
         if (!comparePrimaryKeyListIgnoreCase(oldPrimaryKeys, newPrimaryKeys)) {
             Connector targetConnector = profileComponent.getConnector(mapping.getTargetConnectorId());
             if (targetConnector != null) {

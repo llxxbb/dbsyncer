@@ -5,8 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.dbsyncer.biz.MappingService;
 import org.dbsyncer.biz.PrimaryKeyDifferenceException;
 import org.dbsyncer.biz.TableGroupService;
+import org.dbsyncer.biz.TargetTableNotExistsException;
 import org.dbsyncer.biz.vo.FieldDifferenceVO;
-import org.dbsyncer.biz.vo.PrimaryKeyDifferenceVO;
 import org.dbsyncer.biz.vo.RestResult;
 import org.dbsyncer.common.model.Result;
 import org.dbsyncer.common.util.StringUtil;
@@ -19,7 +19,6 @@ import org.dbsyncer.parser.model.TableGroup;
 import org.dbsyncer.sdk.SdkException;
 import org.dbsyncer.sdk.config.DDLConfig;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
-import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
 import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
 import org.dbsyncer.sdk.connector.database.sql.SqlTemplate;
 import org.dbsyncer.sdk.model.Field;
@@ -36,7 +35,6 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import org.dbsyncer.sdk.util.PrimaryKeyUtil;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -97,12 +95,16 @@ public class TableGroupController extends BaseController {
             Map<String, String> params = getParams(request);
             return RestResult.restSuccess(tableGroupService.edit(params));
         } catch (PrimaryKeyDifferenceException e) {
-            // 特殊处理：返回差异信息，让前端显示弹窗
+            // 特殊处理：返回差异信息，让前端显示主键变更确认弹窗
             logger.info("检测到主键差异：{}", e.getMessage());
             Map<String, Object> result = new HashMap<>();
             result.put("needConfirm", true);
             result.put("difference", e.getDifference());
             return RestResult.restSuccess(result);
+        } catch (TargetTableNotExistsException e) {
+            // 特殊处理：返回表不存在信息，让前端提示用户创建表（复用 MappingController 的逻辑）
+            logger.info("目标表不存在：{}", e.getMessage());
+            return e.toRestResult();
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage(), e);
             return RestResult.restFail(e.getMessage());

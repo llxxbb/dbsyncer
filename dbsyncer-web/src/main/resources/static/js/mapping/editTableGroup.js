@@ -90,7 +90,15 @@ function submit(formData) {
                 backMappingPage($("#tableGroupSubmitBtn"));
             }
         } else {
-            bootGrowl(data.resultValue, "danger");
+            // 检查是否是目标表不存在的异常
+            if (data.status == 400 && data.resultValue &&
+                typeof data.resultValue === 'object' &&
+                data.resultValue.errorCode === 'TARGET_TABLE_NOT_EXISTS') {
+                // 显示缺表确认对话框
+                showCreateTableConfirmDialog(data.resultValue);
+            } else {
+                bootGrowl(data.resultValue, "danger");
+            }
         }
     });
 }
@@ -1148,3 +1156,114 @@ function showPkDiffError(errorMessage) {
     $('#pkDifferenceError').removeClass('hidden');
     $('#pkDifferenceError').html('<strong>操作失败：</strong>' + errorMessage);
 }
+//*********************************** 目标表缺表重建 - TableGroup 专用 START ***********************************//
+
+/**
+ * 显示创建表确认对话框
+ * @param errorInfo 错误信息对象
+ */
+function showCreateTableConfirmDialog(errorInfo) {
+    let messageHtml = '<div style="padding: 10px;">';
+    let missingTables = errorInfo.missingTables || [];
+    
+    if (missingTables.length > 0) {
+        let mapping = missingTables[0];
+        messageHtml += '<p><strong>目标表不存在：</strong>' + mapping.targetTable + '</p>';
+        messageHtml += '<p style="color: #999; font-size: 12px;">源表：' + mapping.sourceTable + '</p>';
+        messageHtml += '<p>是否基于源表结构自动创建目标表？</p>';
+    }
+    
+    messageHtml += '</div>';
+    
+    BootstrapDialog.show({
+        title: "目标表不存在",
+        type: BootstrapDialog.TYPE_WARNING,
+        message: messageHtml,
+        size: BootstrapDialog.SIZE_NORMAL,
+        buttons: [{
+            label: "取消",
+            cssClass: "btn-default",
+            action: function (dialog) {
+                dialog.close();
+            }
+        }, {
+            label: "创建表",
+            cssClass: "btn-primary",
+            action: function (dialog) {
+                dialog.close();
+                createTargetTablesAndRetry(errorInfo);
+            }
+        }]
+    });
+}
+
+/**
+ * 创建目标表并重试保存
+ * @param errorInfo 错误信息对象
+ */
+function createTargetTablesAndRetry(errorInfo) {
+    let missingTables = errorInfo.missingTables || [];
+    if (missingTables.length === 0) {
+        bootGrowl("没有需要创建的表", "warning");
+        return;
+    }
+    
+    bootGrowl("正在创建目标表...", "info");
+    
+    let mapping = missingTables[0];
+    let tableGroupId = getCurrentTableGroupId();
+    
+    if (!tableGroupId) {
+        bootGrowl("无法获取表映射 ID", "danger");
+        return;
+    }
+    
+    let createParams = {
+        mappingId: mapping.mappingId || "",
+        sourceTable: mapping.sourceTable,
+        targetTable: mapping.targetTable,
+        targetTablePK: mapping.targetTablePK || ""
+    };
+    
+    doPoster("/tableGroup/createTargetTable", createParams, function (data) {
+        if (data.success == true) {
+            bootGrowl("目标表创建成功！", "success");
+            // 重新触发保存
+            retrySubmit(tableGroupId, mapping);
+        } else {
+            let errorMsg = typeof data.resultValue === 'string' 
+                ? data.resultValue 
+                : (data.resultValue && data.resultValue.message ? data.resultValue.message : '创建表失败');
+            bootGrowl("创建表失败：" + errorMsg, "danger");
+        }
+    });
+}
+
+/**
+ * 重试保存
+ */
+function retrySubmit(tableGroupId, mapping) {
+    let params = {
+        id: tableGroupId,
+        targetTable: mapping.targetTable,
+        targetTablePK: mapping.targetTablePK || ""
+    };
+    
+    doPoster("/tableGroup/edit", params, function (response) {
+        if (response.success == true) {
+            bootGrowl("目标表编辑成功！", "success");
+            TempPKManager.clear(tableGroupId);
+            backMappingPage($("#tableGroupSubmitBtn"));
+        } else {
+            if (response.status == 400 && response.resultValue &&
+                typeof response.resultValue === 'object' &&
+                response.resultValue.errorCode === 'TARGET_TABLE_NOT_EXISTS') {
+                showCreateTableConfirmDialog(response.resultValue);
+            } else {
+                bootGrowl(response.resultValue || "编辑失败", "danger");
+            }
+        }
+    });
+}
+
+//*********************************** 目标表缺表重建 - TableGroup 专用 END ***********************************//
