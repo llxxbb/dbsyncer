@@ -22,6 +22,7 @@ import org.dbsyncer.parser.model.*;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.enums.ModelEnum;
+import org.dbsyncer.sdk.enums.StorageEnum;
 import org.dbsyncer.sdk.enums.TableTypeEnum;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.model.Table;
@@ -82,6 +83,9 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
 
     @Resource
     private LogService logService;
+
+    @Resource
+    private org.dbsyncer.sdk.storage.StorageService storageService;
 
     @Override
     public String add(Map<String, String> params) throws Exception {
@@ -577,7 +581,13 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         synchronized (LOCK) {
             logger.info("重置驱动：{}", mapping.getName());
             Meta meta = profileComponent.getMeta(mapping.getMetaId());
+            
+            // 重置元数据
             meta.clear(mapping.getModel());
+            
+            // 清理错误队列（dbsyncer_data 表中的失败数据）
+            storageService.clear(StorageEnum.DATA, meta.getId());
+            
             managerFactory.close(mapping);
             List<TableGroup> tableGroupAll = profileComponent.getTableGroupAll(mapping.getId());
             for (TableGroup tableGroup : tableGroupAll) {
