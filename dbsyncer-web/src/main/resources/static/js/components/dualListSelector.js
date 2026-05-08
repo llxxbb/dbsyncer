@@ -31,6 +31,7 @@ class DualListSelector {
     }
 
     init() {
+        this._idPrefix = this.options.modalId.replace(/[^a-zA-Z0-9]/g, '_');
         this.createModal();
         this.bindEvents();
         this.render();
@@ -38,16 +39,17 @@ class DualListSelector {
 
     unbindEvents($modal) {
         if (!$modal || !$modal.length) return;
-        $modal.find('#availableList').off();
-        $modal.find('#selectedList').off();
-        $modal.find('#moveRight').off();
-        $modal.find('#moveLeft').off();
-        $modal.find('#selectAllAvailable').off();
-        $modal.find('#removeAllSelected').off();
-        $modal.find('#confirmSelection').off();
-        $modal.find('#availableSearch').off();
-        $modal.find('#selectedSearch').off();
-        $modal.find('#availableMatchMode').off();
+        const p = this._idPrefix;
+        $modal.find(`#${p}-availableList`).off();
+        $modal.find(`#${p}-selectedList`).off();
+        $modal.find(`#${p}-moveRight`).off();
+        $modal.find(`#${p}-moveLeft`).off();
+        $modal.find(`#${p}-selectAllAvailable`).off();
+        $modal.find(`#${p}-removeAllSelected`).off();
+        $modal.find(`#${p}-confirmSelection`).off();
+        $modal.find(`#${p}-availableSearch`).off();
+        $modal.find(`#${p}-selectedSearch`).off();
+        $modal.find(`#${p}-availableMatchMode`).off();
         $modal.off('hidden.bs.modal');
     }
 
@@ -61,10 +63,10 @@ class DualListSelector {
         
         if (existingModal.length > 0) {
             this.unbindEvents(existingModal);
-            existingModal.find('#availableList').empty();
-            existingModal.find('#selectedList').empty();
-            existingModal.find('#availableSearch').val('');
-            existingModal.find('#selectedSearch').val('');
+            existingModal.find(`#${this._idPrefix}-availableList`).empty();
+            existingModal.find(`#${this._idPrefix}-selectedList`).empty();
+            existingModal.find(`#${this._idPrefix}-availableSearch`).val('');
+            existingModal.find(`#${this._idPrefix}-selectedSearch`).val('');
         }
 
         const html = `
@@ -81,18 +83,18 @@ class DualListSelector {
                                     <div class="panel panel-default">
                                         <div class="panel-heading">
                                             ${this.options.leftTitle}
-                                            <span class="badge pull-right" id="availableCount">0</span>
+                                            <span class="badge pull-right" id="${this._idPrefix}-availableCount">0</span>
                                         </div>
                                         <div class="panel-body">
                                             <div style="display: flex; gap: 5px;">
                                                 <input type="text" class="form-control input-sm"
-                                                       id="availableSearch" placeholder="搜索..." style="flex: 1;">
-                                                <select class="form-control input-sm" id="availableMatchMode" style="width: 70px; padding: 2px;">
+                                                       id="${this._idPrefix}-availableSearch" placeholder="搜索..." style="flex: 1;">
+                                                <select class="form-control input-sm" id="${this._idPrefix}-availableMatchMode" style="width: 70px; padding: 2px;">
                                                     <option value="keyword">关键字</option>
                                                     <option value="exact">全词</option>
                                                 </select>
                                             </div>
-                                            <ul class="list-group dual-list" id="availableList"
+                                            <ul class="list-group dual-list" id="${this._idPrefix}-availableList"
                                                 style="max-height: 240px; overflow-y: auto; margin-top: 8px;">
                                             </ul>
                                         </div>
@@ -100,19 +102,19 @@ class DualListSelector {
                                 </div>
                                 <div class="col-md-2 text-center" style="padding-top: 60px;">
                                     <button type="button" class="btn btn-default btn-block btn-sm"
-                                            id="selectAllAvailable" title="全选">
+                                            id="${this._idPrefix}-selectAllAvailable" title="全选">
                                         <i class="fa fa-angle-double-right"></i>
                                     </button>
                                     <button type="button" class="btn btn-default btn-block btn-sm"
-                                            id="moveRight" title="添加选中" style="margin-top: 10px;">
+                                            id="${this._idPrefix}-moveRight" title="添加选中" style="margin-top: 10px;">
                                         <i class="fa fa-chevron-right"></i>
                                     </button>
                                     <button type="button" class="btn btn-default btn-block btn-sm"
-                                            id="moveLeft" title="移除选中" style="margin-top: 10px;">
+                                            id="${this._idPrefix}-moveLeft" title="移除选中" style="margin-top: 10px;">
                                         <i class="fa fa-chevron-left"></i>
                                     </button>
                                     <button type="button" class="btn btn-default btn-block btn-sm"
-                                            id="removeAllSelected" title="全部移除" style="margin-top: 10px;">
+                                            id="${this._idPrefix}-removeAllSelected" title="全部移除" style="margin-top: 10px;">
                                         <i class="fa fa-angle-double-left"></i>
                                     </button>
                                 </div>
@@ -120,12 +122,12 @@ class DualListSelector {
                                     <div class="panel panel-success">
                                         <div class="panel-heading">
                                             ${this.options.rightTitle}
-                                            <span class="badge pull-right" id="selectedCount">0</span>
+                                            <span class="badge pull-right" id="${this._idPrefix}-selectedCount">0</span>
                                         </div>
                                         <div class="panel-body">
                                             <input type="text" class="form-control input-sm"
-                                                   id="selectedSearch" placeholder="搜索...">
-                                            <ul class="list-group dual-list" id="selectedList"
+                                                   id="${this._idPrefix}-selectedSearch" placeholder="搜索...">
+                                            <ul class="list-group dual-list" id="${this._idPrefix}-selectedList"
                                                 style="max-height: 270px; overflow-y: auto; margin-top: 8px;">
                                             </ul>
                                         </div>
@@ -135,7 +137,7 @@ class DualListSelector {
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
-                            <button type="button" class="btn btn-primary" id="confirmSelection">确定</button>
+                            <button type="button" class="btn btn-primary" id="${this._idPrefix}-confirmSelection">确定</button>
                         </div>
                     </div>
                 </div>
@@ -147,11 +149,11 @@ class DualListSelector {
         }
 
         this.$modal = $(`#${modalId}`);
-        this.$availableList = this.$modal.find('#availableList');
-        this.$selectedList = this.$modal.find('#selectedList');
-        this.$availableSearch = this.$modal.find('#availableSearch');
-        this.$selectedSearch = this.$modal.find('#selectedSearch');
-        this.$availableMatchMode = this.$modal.find('#availableMatchMode');
+        this.$availableList = this.$modal.find(`#${this._idPrefix}-availableList`);
+        this.$selectedList = this.$modal.find(`#${this._idPrefix}-selectedList`);
+        this.$availableSearch = this.$modal.find(`#${this._idPrefix}-availableSearch`);
+        this.$selectedSearch = this.$modal.find(`#${this._idPrefix}-selectedSearch`);
+        this.$availableMatchMode = this.$modal.find(`#${this._idPrefix}-availableMatchMode`);
     }
 
     bindEvents() {
@@ -169,12 +171,12 @@ class DualListSelector {
             self.filterList($(this).val(), self.$selectedList);
         });
 
-        this.$modal.find('#moveRight').click(() => this.moveRight());
-        this.$modal.find('#moveLeft').click(() => this.moveLeft());
-        this.$modal.find('#selectAllAvailable').click(() => this.selectAllAvailable());
-        this.$modal.find('#removeAllSelected').click(() => this.removeAllSelected());
+        this.$modal.find(`#${this._idPrefix}-moveRight`).click(() => this.moveRight());
+        this.$modal.find(`#${this._idPrefix}-moveLeft`).click(() => this.moveLeft());
+        this.$modal.find(`#${this._idPrefix}-selectAllAvailable`).click(() => this.selectAllAvailable());
+        this.$modal.find(`#${this._idPrefix}-removeAllSelected`).click(() => this.removeAllSelected());
 
-        this.$modal.find('#confirmSelection').click(() => {
+        this.$modal.find(`#${this._idPrefix}-confirmSelection`).click(() => {
             if (this.options.onConfirm) {
                 this.options.onConfirm(this.selectedItems);
             }
@@ -225,8 +227,8 @@ class DualListSelector {
         this.renderList(this.$availableList, availableItems);
         this.renderList(this.$selectedList, selectedItems);
 
-        this.$modal.find('#availableCount').text(availableItems.length);
-        this.$modal.find('#selectedCount').text(selectedItems.length);
+        this.$modal.find(`#${this._idPrefix}-availableCount`).text(availableItems.length);
+        this.$modal.find(`#${this._idPrefix}-selectedCount`).text(selectedItems.length);
     }
 
     renderList($container, items) {
