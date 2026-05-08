@@ -177,8 +177,8 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
             throw new TargetTableNotExistsException("目标表不存在，请先创建目标表后再保存！", missingTables);
         }
 
-        // 【新增】保存原主键信息（在 checkEditConfigModel 修改之前）
-        List<String> oldPrimaryKeys = PrimaryKeyUtil.findTablePrimaryKeys(tableGroup.getTargetTable());
+        // 【新增】保存原主键信息（优先使用 targetTablePK，保证顺序）
+        List<String> oldPrimaryKeys = tableGroup.getTargetTablePrimaryKeys();
 
         // 解析新主键参数
         String targetTablePK = params.get("targetTablePK");
@@ -191,9 +191,9 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         }
 
         // 检查主键差异（不区分大小写）
-        boolean hasPkDifference = !comparePrimaryKeyListIgnoreCase(oldPrimaryKeys, newPrimaryKeys);
+        boolean hasPkDifference = !oldPrimaryKeys.equals(newPrimaryKeys);
 
-        // 【新增】获取确认参数
+            // 【新增】获取确认参数
         String confirmParam = params.get("confirmPrimaryKeyChange");
         boolean skipPrimaryKeyDDL = "true".equals(params.get("skipPrimaryKeyDDL"));
 
@@ -212,23 +212,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         // 应用主键参数（内存修改）
         TableGroup model = (TableGroup) tableGroupChecker.checkEditConfigModel(params);
 
-        // 主键变更 DDL
-        if (!comparePrimaryKeyListIgnoreCase(oldPrimaryKeys, newPrimaryKeys)) {
-            Connector targetConnector = profileComponent.getConnector(mapping.getTargetConnectorId());
-            if (targetConnector != null) {
-                try {
-                    alterPrimaryKey(model, targetConnector, oldPrimaryKeys, newPrimaryKeys);
-                } catch (Exception e) {
-                    throw new RuntimeException("请确认表已经创建！修改主键约束失败：" + e.getMessage(), e);
-                }
-            }
-        }
-
-        // DDL 成功后保存配置
-        log(LogType.TableGroupLog.UPDATE, model);
-        profileComponent.editTableGroup(model);
-
-        // 执行自定义字段 DDL
+        // 执行自定义字段 DDL（先执行，因为主键可能引用自定义字段）
         List<Convert> customConverts = model.getConvert();
         if (customConverts != null && !customConverts.isEmpty()) {
             List<Field> customFields = new ArrayList<>();
@@ -249,6 +233,23 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
                 }
             }
         }
+
+        // 主键变更 DDL（在自定义字段DDL之后，确保自定义主键字段已存在）
+        // 必须在保存配置之前执行，否则失败后 hasPkDifference=0 导致死锁
+        if (hasPkDifference) {
+            Connector targetConnector = profileComponent.getConnector(mapping.getTargetConnectorId());
+            if (targetConnector != null) {
+                try {
+                    alterPrimaryKey(model, targetConnector, oldPrimaryKeys, newPrimaryKeys);
+                } catch (Exception e) {
+                    throw new RuntimeException("请确认表已经创建！修改主键约束失败：" + e.getMessage(), e);
+                }
+            }
+        }
+
+        // 所有 DDL 成功后保存配置
+        log(LogType.TableGroupLog.UPDATE, model);
+        profileComponent.editTableGroup(model);
         // 初始化 TableGroup（设置运行时组件并初始化 command）
         model.isInit = false;
         model.initTableGroup(parserComponent, profileComponent, connectorFactory);
@@ -260,20 +261,6 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         mergeMappingColumn(mapping);
         
         return id;
-    }
-
-    private boolean comparePrimaryKeyListIgnoreCase(List<String> list1, List<String> list2) {
-        if (list1 == null && list2 == null) {
-            return true;
-        }
-        if (list1 == null || list2 == null) {
-            return false;
-        }
-        if (list1.size() != list2.size()) {
-            return false;
-        }
-        return list1.stream()
-                .allMatch(s -> list2.stream().anyMatch(s::equalsIgnoreCase));
     }
 
     private List<String> findPrimaryKeyDiff(List<String> sourceList, List<String> targetList) {

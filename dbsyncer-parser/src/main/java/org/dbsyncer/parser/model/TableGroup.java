@@ -21,6 +21,7 @@ import org.dbsyncer.sdk.util.PrimaryKeyUtil;
 import org.dbsyncer.storage.impl.SnowflakeIdWorker;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -132,6 +133,22 @@ public class TableGroup extends AbstractConfigModel {
     public TableGroup setTargetTablePK(String targetTablePK) {
         this.targetTablePK = targetTablePK;
         return this;
+    }
+
+    /**
+     * 获取目标表主键列表（按 targetTablePK 定义的顺序）
+     * 返回不可变列表，保证主键顺序不被意外修改
+     */
+    @JsonIgnore
+    public List<String> getTargetTablePrimaryKeys() {
+        if (StringUtil.isBlank(this.targetTablePK)) {
+            return Collections.emptyList();
+        }
+        List<String> pks = new ArrayList<>();
+        for (String pk : StringUtil.split(this.targetTablePK, StringUtil.COMMA)) {
+            pks.add(pk.trim());
+        }
+        return Collections.unmodifiableList(pks);
     }
 
     /**

@@ -210,6 +210,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
                 tableMapping.put("sourceTable", tableGroup.getSourceTable().getName());
                 tableMapping.put("targetTable", targetTableName);
                 tableMapping.put("targetTablePK", tableGroup.getTargetTablePK());
+                tableMapping.put("mappingId", mapping.getId());
                 missingTables.add(tableMapping);
             }
         }

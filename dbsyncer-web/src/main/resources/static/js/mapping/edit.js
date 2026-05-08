@@ -774,7 +774,8 @@ function createTargetTablesAndRetry(errorInfo) {
             mappingId: mappingId,
             sourceTable: mapping.sourceTable,
             targetTable: mapping.targetTable,
-            targetTablePK: mapping.targetTablePK
+            targetTablePK: mapping.targetTablePK,
+            fieldMapping: mapping.fieldMapping || ""
         };
         
         doPoster("/tableGroup/createTargetTable", createParams, function (data) {
