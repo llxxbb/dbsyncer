@@ -1239,8 +1239,9 @@ function createTargetTablesAndRetry(errorInfo) {
     doPoster("/tableGroup/createTargetTable", createParams, function (data) {
         if (data.success == true) {
             bootGrowl("目标表创建成功！", "success");
-            // 重新触发保存
-            retrySubmit(tableGroupId, mapping);
+            // 更新表单中的 targetTable 为新表名，然后重新提交完整表单
+            $('#targetTable').val(mapping.targetTable);
+            doTableGroupSubmit();
         } else {
             let errorMsg = typeof data.resultValue === 'string' 
                 ? data.resultValue 
@@ -1249,32 +1250,3 @@ function createTargetTablesAndRetry(errorInfo) {
         }
     });
 }
-
-/**
- * 重试保存
- */
-function retrySubmit(tableGroupId, mapping) {
-    let params = {
-        id: tableGroupId,
-        targetTable: mapping.targetTable,
-        targetTablePK: mapping.targetTablePK || ""
-    };
-    
-    doPoster("/tableGroup/edit", params, function (response) {
-        if (response.success == true) {
-            bootGrowl("目标表编辑成功！", "success");
-            TempPKManager.clear(tableGroupId);
-            backMappingPage($("#tableGroupSubmitBtn"));
-        } else {
-            if (response.status == 400 && response.resultValue &&
-                typeof response.resultValue === 'object' &&
-                response.resultValue.errorCode === 'TARGET_TABLE_NOT_EXISTS') {
-                showCreateTableConfirmDialog(response.resultValue);
-            } else {
-                bootGrowl(response.resultValue || "编辑失败", "danger");
-            }
-        }
-    });
-}
-
-//*********************************** 目标表缺表重建 - TableGroup 专用 END ***********************************//
