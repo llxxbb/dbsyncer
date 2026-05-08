@@ -117,17 +117,6 @@ function initFieldMappingParams(){
             "pk": pkArray.indexOf(targetField) >= 0
         });
     });
-    // targetTablePK 为空时，根据字段映射中的主键标记初始化（页面加载场景）
-    // 有值时不覆盖，避免用户主键排序被字段映射行顺序覆盖
-    if (!targetTablePKVal || targetTablePKVal.trim() === '') {
-        let updatedPKArray = [];
-        row.forEach(function(item) {
-            if (item.pk) {
-                updatedPKArray.push(item.target);
-            }
-        });
-        $('#targetTablePK').val(updatedPKArray.join(','));
-    }
     
     let $fieldMappingTable = $("#fieldMappingTable");
     if (0 >= row.length) {

@@ -163,15 +163,21 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         // 【新增】先检查目标表是否存在（复用已有的 TargetTableNotExistsException 逻辑）
         String targetTableName = tableGroup.getTargetTable().getName();
         MetaInfo targetTableMetaInfo = parserComponent.getMetaInfo(mapping.getTargetConnectorId(), targetTableName);
-        boolean targetTableExists = targetTableMetaInfo != null && !CollectionUtils.isEmpty(targetTableMetaInfo.getColumn());
-        
+        boolean targetTableExists = targetTableMetaInfo != null
+                && !CollectionUtils.isEmpty(targetTableMetaInfo.getColumn());
+
         if (!targetTableExists) {
             // 复用 MappingServiceImpl 中的目标表不存在异常
             List<Map<String, String>> missingTables = new ArrayList<>();
             Map<String, String> tableMapping = new HashMap<>();
             tableMapping.put("sourceTable", tableGroup.getSourceTable().getName());
             tableMapping.put("targetTable", targetTableName);
-            tableMapping.put("targetTablePK", tableGroup.getTargetTablePK() != null ? tableGroup.getTargetTablePK() : "");
+            // 优先使用 params 中的新值（用户刚提交的）
+            String targetTablePK = params.get("targetTablePK");
+            if (StringUtil.isBlank(targetTablePK)) {
+                targetTablePK = tableGroup.getTargetTablePK();
+            }
+            tableMapping.put("targetTablePK", targetTablePK != null ? targetTablePK : "");
             tableMapping.put("mappingId", mapping.getId());
             missingTables.add(tableMapping);
             throw new TargetTableNotExistsException("目标表不存在，请先创建目标表后再保存！", missingTables);
@@ -193,7 +199,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         // 检查主键差异（不区分大小写）
         boolean hasPkDifference = !oldPrimaryKeys.equals(newPrimaryKeys);
 
-            // 【新增】获取确认参数
+        // 【新增】获取确认参数
         String confirmParam = params.get("confirmPrimaryKeyChange");
         boolean skipPrimaryKeyDDL = "true".equals(params.get("skipPrimaryKeyDDL"));
 
@@ -256,10 +262,10 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         List<String> list = new ArrayList<>();
         list.add(model.getId());
         submitTableGroupCountTask(mapping, list);
-        
+
         // 合并驱动公共字段（更新 mapping.targetColumn）
         mergeMappingColumn(mapping);
-        
+
         return id;
     }
 
@@ -380,7 +386,6 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         dispatchTaskService.execute(task);
     }
 
-
     // ========== 自定义字段 DDL 相关方法 ==========
 
     /**
@@ -422,20 +427,22 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
      */
     private void executeCustomFieldDDL(TableGroup tableGroup, List<Field> customFields) throws Exception {
         Mapping mapping = profileComponent.getMapping(tableGroup.getMappingId());
-        org.dbsyncer.parser.model.Connector targetConnector = profileComponent.getConnector(mapping.getTargetConnectorId());
+        org.dbsyncer.parser.model.Connector targetConnector = profileComponent
+                .getConnector(mapping.getTargetConnectorId());
 
-        SqlTemplate sqlTemplate = ((org.dbsyncer.sdk.connector.database.Database) connectorFactory.getConnectorService(targetConnector.getConfig())).getSqlTemplate();
+        SqlTemplate sqlTemplate = ((org.dbsyncer.sdk.connector.database.Database) connectorFactory
+                .getConnectorService(targetConnector.getConfig())).getSqlTemplate();
 
         // 获取目标表现有字段名称集合，用于判断自定义字段是否已存在
         List<Field> existingColumns = tableGroup.getTargetTable().getColumn();
-        Set<String> existingColumnNames = existingColumns != null 
-                ? existingColumns.stream().map(Field::getName).collect(Collectors.toSet()) 
+        Set<String> existingColumnNames = existingColumns != null
+                ? existingColumns.stream().map(Field::getName).collect(Collectors.toSet())
                 : Collections.emptySet();
 
         for (Field field : customFields) {
             // 字段已存在则跳过 DDL 执行，避免重复添加报错
             if (existingColumnNames.contains(field.getName())) {
-                logger.info("字段已存在，跳过 DDL：{}.{}", 
+                logger.info("字段已存在，跳过 DDL：{}.{}",
                         tableGroup.getTargetTable().getName(), field.getName());
                 continue;
             }
@@ -504,7 +511,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
      * @throws Exception 执行异常
      */
     public void alterPrimaryKey(TableGroup tableGroup, Connector targetConnector,
-                                List<String> oldPrimaryKeys, List<String> newPrimaryKeys) throws Exception {
+            List<String> oldPrimaryKeys, List<String> newPrimaryKeys) throws Exception {
         if (CollectionUtils.isEmpty(newPrimaryKeys)) {
             throw new RuntimeException("新主键列表不能为空");
         }
@@ -516,8 +523,8 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         }
 
         // 使用 SqlTemplate 构建 DDL（由各数据库连接器提供实现）
-        AbstractDatabaseConnector dbConnector =
-                (AbstractDatabaseConnector) connectorFactory.getConnectorService(targetConnector.getConfig().getConnectorType());
+        AbstractDatabaseConnector dbConnector = (AbstractDatabaseConnector) connectorFactory
+                .getConnectorService(targetConnector.getConfig().getConnectorType());
         SqlTemplate sqlTemplate = dbConnector.getSqlTemplate();
 
         String tableName = tableGroup.getTargetTable().getName();
@@ -532,10 +539,10 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
             if (trimmedSql.isEmpty()) {
                 continue;
             }
-            
+
             // 使用项目的 DDL 框架执行
             DDLConfig ddlConfig = new DDLConfig();
-            ddlConfig.setSql("/*dbs*/" + trimmedSql);  // 添加前缀防止双向同步循环
+            ddlConfig.setSql("/*dbs*/" + trimmedSql); // 添加前缀防止双向同步循环
 
             org.dbsyncer.common.model.Result result = connectorFactory.writerDDL(
                     connectorFactory.connect(targetConnector.getConfig()),
@@ -543,12 +550,12 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
                     null);
 
             if (StringUtil.isNotBlank(result.error)) {
-                    // 持久化异常到数据库，带上 mappingId 便于定位
-                    String mappingId = tableGroup.getMappingId();
-                    logService.log(LogType.SystemLog.ERROR, 
-                            String.format("[mappingId=%s] 修改主键约束失败：表=%s, SQL=%s, 错误=%s",
-                                    mappingId, tableGroup.getTargetTable().getName(), 
-                                    trimmedSql, result.error));
+                // 持久化异常到数据库，带上 mappingId 便于定位
+                String mappingId = tableGroup.getMappingId();
+                logService.log(LogType.SystemLog.ERROR,
+                        String.format("[mappingId=%s] 修改主键约束失败：表=%s, SQL=%s, 错误=%s",
+                                mappingId, tableGroup.getTargetTable().getName(),
+                                trimmedSql, result.error));
                 throw new RuntimeException("执行 DDL 失败：" + result.error + ", SQL: " + trimmedSql);
             }
         }
@@ -642,7 +649,8 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
             return;
         }
 
-        ConnectorService targetConnectorService = connectorFactory.getConnectorService(targetConnector.getConfig().getConnectorType());
+        ConnectorService targetConnectorService = connectorFactory
+                .getConnectorService(targetConnector.getConfig().getConnectorType());
 
         if (!(targetConnectorService instanceof AbstractDatabaseConnector)) {
             logger.info("目标连接器类型 {} 不支持 TRUNCATE 操作，跳过清空目标表", targetConnector.getConfig().getConnectorType());
@@ -696,7 +704,8 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
 
         FieldDifferenceVO result = new FieldDifferenceVO();
 
-        ConnectorService connectorService = connectorFactory.getConnectorService(targetConnector.getConfig().getConnectorType());
+        ConnectorService connectorService = connectorFactory
+                .getConnectorService(targetConnector.getConfig().getConnectorType());
         if (!supportsFieldDifference(connectorService)) {
             String targetConnectorType = targetConnector.getConfig().getConnectorType();
             logger.info("目标源类型 {} 不支持字段差异检测，跳过检测", targetConnectorType);
@@ -710,8 +719,8 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
 
         Set<String> customFieldNames = extractCustomFieldNames(tableGroup);
 
-        FieldComparisonUtil.FieldComparisonResult comparison = 
-            FieldComparisonUtil.compareFields(sourceFields, targetFields, customFieldNames);
+        FieldComparisonUtil.FieldComparisonResult comparison = FieldComparisonUtil.compareFields(sourceFields,
+                targetFields, customFieldNames);
 
         result.setAddedFields(comparison.getAddedFields());
         result.setMissingFields(comparison.getMissingFields());
@@ -762,8 +771,10 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         Connector sourceConnector = profileComponent.getConnector(mapping.getSourceConnectorId());
         Connector targetConnector = profileComponent.getConnector(mapping.getTargetConnectorId());
 
-        ConnectorService sourceConnectorService = connectorFactory.getConnectorService(sourceConnector.getConfig().getConnectorType());
-        ConnectorService targetConnectorService = connectorFactory.getConnectorService(targetConnector.getConfig().getConnectorType());
+        ConnectorService sourceConnectorService = connectorFactory
+                .getConnectorService(sourceConnector.getConfig().getConnectorType());
+        ConnectorService targetConnectorService = connectorFactory
+                .getConnectorService(targetConnector.getConfig().getConnectorType());
 
         if (!isDatabaseConnector(sourceConnectorService) || !isDatabaseConnector(targetConnectorService)) {
             fixVO.setHasSql(false);
@@ -781,10 +792,14 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         Map<String, Field> sourceFieldMap = FieldComparisonUtil.buildFieldMap(tableGroup.getSourceTable().getColumn());
         Map<String, Field> targetFieldMap = FieldComparisonUtil.buildFieldMap(tableGroup.getTargetTable().getColumn());
 
-        hasDropOperation = processTargetAddedFields(diffVO.getAddedFields(), targetFieldMap, tableGroup, targetDbConnector, items, sqlStatements);
-        processTargetMissingFields(diffVO.getMissingFields(), sourceFieldMap, tableGroup, sourceDbConnector, targetDbConnector, items, sqlStatements);
-        processTargetTypeMismatched(diffVO.getTypeMismatched(), sourceFieldMap, tableGroup, sourceDbConnector, targetDbConnector, items, sqlStatements);
-        processTargetLengthMismatched(diffVO.getLengthMismatched(), sourceFieldMap, tableGroup, sourceDbConnector, targetDbConnector, items, sqlStatements);
+        hasDropOperation = processTargetAddedFields(diffVO.getAddedFields(), targetFieldMap, tableGroup,
+                targetDbConnector, items, sqlStatements);
+        processTargetMissingFields(diffVO.getMissingFields(), sourceFieldMap, tableGroup, sourceDbConnector,
+                targetDbConnector, items, sqlStatements);
+        processTargetTypeMismatched(diffVO.getTypeMismatched(), sourceFieldMap, tableGroup, sourceDbConnector,
+                targetDbConnector, items, sqlStatements);
+        processTargetLengthMismatched(diffVO.getLengthMismatched(), sourceFieldMap, tableGroup, sourceDbConnector,
+                targetDbConnector, items, sqlStatements);
 
         fixVO.setItems(items);
         fixVO.setSqlStatements(sqlStatements);
@@ -874,7 +889,8 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
                         DDLConfig ddlConfig = new DDLConfig();
                         ddlConfig.setSql(sql);
 
-                        org.dbsyncer.common.model.Result result = connectorFactory.writerDDL(connectorInstance, ddlConfig, null);
+                        org.dbsyncer.common.model.Result result = connectorFactory.writerDDL(connectorInstance,
+                                ddlConfig, null);
 
                         if (result.error != null && !result.error.isEmpty()) {
                             logger.error("DDL 执行失败 [tableGroupId={}]: {}, 错误: {}", id, sql, result.error);
@@ -933,16 +949,17 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
 
     /**
      * 【TARGET-1】处理目标表多出字段 -> 执行 DROP COLUMN
+     * 
      * @return 是否包含DROP操作
      */
     private boolean processTargetAddedFields(List<FieldDiffItem> addedFields, Map<String, Field> targetFieldMap,
-                                          TableGroup tableGroup, AbstractDatabaseConnector targetDbConnector,
-                                          List<FieldDiffFixItem> items, List<String> sqlStatements) {
+            TableGroup tableGroup, AbstractDatabaseConnector targetDbConnector,
+            List<FieldDiffFixItem> items, List<String> sqlStatements) {
         if (CollectionUtils.isEmpty(addedFields)) {
             return false;
         }
         String tableName = tableGroup.getTargetTable().getName();
-        final boolean[] hasDrop = {false};
+        final boolean[] hasDrop = { false };
         addedFields.forEach(diffItem -> {
             Field targetField = targetFieldMap.get(diffItem.getFieldName().toLowerCase());
             if (targetField == null) {
@@ -963,9 +980,9 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
      * 【TARGET-2】处理目标表缺少字段 -> 执行 ADD COLUMN
      */
     private void processTargetMissingFields(List<FieldDiffItem> missingFields, Map<String, Field> sourceFieldMap,
-                                            TableGroup tableGroup, AbstractDatabaseConnector sourceDbConnector,
-                                            AbstractDatabaseConnector targetDbConnector,
-                                            List<FieldDiffFixItem> items, List<String> sqlStatements) {
+            TableGroup tableGroup, AbstractDatabaseConnector sourceDbConnector,
+            AbstractDatabaseConnector targetDbConnector,
+            List<FieldDiffFixItem> items, List<String> sqlStatements) {
         if (CollectionUtils.isEmpty(missingFields)) {
             return;
         }
@@ -989,9 +1006,9 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
      * 【TARGET-3】处理类型不匹配字段 -> 执行 MODIFY COLUMN
      */
     private void processTargetTypeMismatched(List<FieldDiffItem> typeMismatched, Map<String, Field> sourceFieldMap,
-                                             TableGroup tableGroup, AbstractDatabaseConnector sourceDbConnector,
-                                             AbstractDatabaseConnector targetDbConnector,
-                                             List<FieldDiffFixItem> items, List<String> sqlStatements) {
+            TableGroup tableGroup, AbstractDatabaseConnector sourceDbConnector,
+            AbstractDatabaseConnector targetDbConnector,
+            List<FieldDiffFixItem> items, List<String> sqlStatements) {
         if (CollectionUtils.isEmpty(typeMismatched)) {
             return;
         }
@@ -1015,9 +1032,9 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
      * 【TARGET-4】处理长度不匹配字段 -> 执行 MODIFY COLUMN
      */
     private void processTargetLengthMismatched(List<FieldDiffItem> lengthMismatched, Map<String, Field> sourceFieldMap,
-                                               TableGroup tableGroup, AbstractDatabaseConnector sourceDbConnector,
-                                               AbstractDatabaseConnector targetDbConnector,
-                                               List<FieldDiffFixItem> items, List<String> sqlStatements) {
+            TableGroup tableGroup, AbstractDatabaseConnector sourceDbConnector,
+            AbstractDatabaseConnector targetDbConnector,
+            List<FieldDiffFixItem> items, List<String> sqlStatements) {
         if (CollectionUtils.isEmpty(lengthMismatched)) {
             return;
         }
@@ -1030,7 +1047,8 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
             String description = String.format("源长度(%s) ≠ 目标长度(%s)，将修改为目标长度",
                     diffItem.getSourceLength(), diffItem.getTargetLength());
             FieldDiffFixItem fixItem = createFixItem(diffItem, "LENGTH_MISMATCH", "MODIFY", description,
-                    diffItem.getTargetType(), diffItem.getTargetLength(), diffItem.getSourceType(), diffItem.getSourceLength());
+                    diffItem.getTargetType(), diffItem.getTargetLength(), diffItem.getSourceType(),
+                    diffItem.getSourceLength());
             Field fieldToModify = convertFieldForTarget(sourceField, sourceDbConnector, targetDbConnector);
             String sql = targetDbConnector.getSqlTemplate().buildModifyColumnSql(tableName, fieldToModify);
             fixItem.setSql(sql);
@@ -1043,8 +1061,8 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
      * 创建FieldDiffFixItem的工厂方法
      */
     private FieldDiffFixItem createFixItem(FieldDiffItem diffItem, String diffType, String operation,
-                                           String description, String targetType, Long targetLength,
-                                           String sourceType, Long sourceLength) {
+            String description, String targetType, Long targetLength,
+            String sourceType, Long sourceLength) {
         FieldDiffFixItem fixItem = new FieldDiffFixItem();
         fixItem.setFieldName(diffItem.getFieldName());
         fixItem.setDiffType(diffType);
@@ -1059,7 +1077,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
     }
 
     private Field convertFieldForTarget(Field sourceField, AbstractDatabaseConnector sourceDbConnector,
-                                         AbstractDatabaseConnector targetDbConnector) {
+            AbstractDatabaseConnector targetDbConnector) {
         org.dbsyncer.sdk.schema.SchemaResolver sourceSchemaResolver = sourceDbConnector.getSchemaResolver();
         org.dbsyncer.sdk.schema.SchemaResolver targetSchemaResolver = targetDbConnector.getSchemaResolver();
 
