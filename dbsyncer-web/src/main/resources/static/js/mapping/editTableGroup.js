@@ -631,6 +631,13 @@ function bindPrimaryKeyOrderBtn() {
     $('#savePrimaryKeyOrderBtn').on('click', function() {
         // 收集新的主键顺序
         let newPKs = collectPrimaryKeyOrder();
+        
+        // 至少保留一个主键
+        if (!newPKs) {
+            bootGrowl("至少需要保留一个主键", "warning");
+            return;
+        }
+        
         $('#targetTablePK').val(newPKs);
         
         // 更新字段映射表格中的主键标记
@@ -651,13 +658,25 @@ function showPrimaryKeyOrderModal(currentPKs) {
     // 生成可拖拽的主键列表
     let html = '<div class="list-group" id="primaryKeyDragList">';
     pkArray.forEach((pk, index) => {
-        html += '<div class="list-group-item" style="cursor: move;" draggable="true" data-pk="' + pk + '">' +
+        html += '<div class="list-group-item" style="cursor: move; position: relative;" draggable="true" data-pk="' + pk + '">' +
                 '<i class="fa fa-arrows"></i> ' + (index + 1) + '. ' + pk +
+                '<button type="button" class="btn btn-xs btn-danger pull-right delete-pk-btn" data-pk="' + pk + '" title="移除此主键">' +
+                '<i class="fa fa-times"></i>' +
+                '</button>' +
                 '</div>';
     });
     html += '</div>';
     
     $('#primaryKeyList').html(html);
+    
+    // 绑定删除按钮
+    $('#primaryKeyDragList .delete-pk-btn').on('click', function(e) {
+        e.stopPropagation();
+        let pk = $(this).data('pk');
+        $(this).closest('.list-group-item').remove();
+        updatePrimaryKeyOrderDisplay();
+        bootGrowl("已移除主键: " + pk, "info");
+    });
     
     // 绑定拖拽事件
     bindPrimaryKeyDragDrop();
