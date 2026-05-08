@@ -189,6 +189,63 @@ public class TableGroupController extends BaseController {
             Assert.notNull(sourceMetaInfo, "无法获取源表结构: " + sourceTable);
             Assert.notEmpty(sourceMetaInfo.getColumn(), "源表没有字段: " + sourceTable);
 
+            // 【新增】优先使用用户配置的字段映射，如果没有则使用源表全部字段
+            List<Field> mappedFields = null;
+            String fieldMappingJson = params.get("fieldMapping");
+            if (StringUtil.isNotBlank(fieldMappingJson)) {
+                try {
+                    // 解析字段映射
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    List<Map<String, String>> fieldMappings = objectMapper.readValue(
+                        fieldMappingJson, 
+                        objectMapper.getTypeFactory().constructCollectionType(List.class, Map.class)
+                    );
+                    
+                    // 根据字段映射筛选源表字段
+                    Map<String, String> sourceToTargetMap = new HashMap<>();
+                    for (Map<String, String> fm : fieldMappings) {
+                        sourceToTargetMap.put(fm.get("source"), fm.get("target"));
+                    }
+                    
+                    // 过滤源表字段，只保留用户映射的字段
+                    List<Field> filteredFields = new ArrayList<>();
+                    for (Field sourceField : sourceMetaInfo.getColumn()) {
+                        String sourceName = sourceField.getName();
+                        if (sourceToTargetMap.containsKey(sourceName)) {
+                            // 复制字段并修改目标名称
+                            Field targetField = new Field();
+                            targetField.setName(sourceToTargetMap.get(sourceName));
+                            targetField.setTypeName(sourceField.getTypeName());
+                            targetField.setType(sourceField.getType());
+                            targetField.setColumnSize(sourceField.getColumnSize());
+                            targetField.setRatio(sourceField.getRatio());
+                            targetField.setNullable(sourceField.getNullable());
+                            targetField.setPk(false); // 先重置，后面再设置
+                            filteredFields.add(targetField);
+                        }
+                    }
+                    
+                    // 根据用户指定的主键配置设置主键标记
+                    String targetTablePK = params.get("targetTablePK");
+                    if (StringUtil.isNotBlank(targetTablePK)) {
+                        List<String> pkList = new ArrayList<>();
+                        for (String pk : StringUtil.split(targetTablePK, StringUtil.COMMA)) {
+                            pkList.add(pk.trim());
+                        }
+                        for (Field field : filteredFields) {
+                            if (pkList.contains(field.getName())) {
+                                field.setPk(true);
+                            }
+                        }
+                    }
+                    
+                    mappedFields = filteredFields;
+                    logger.debug("使用用户配置的字段映射，筛选后字段数: {}", mappedFields.size());
+                } catch (Exception e) {
+                    logger.warn("解析字段映射失败，使用源表全部字段: {}", e.getMessage());
+                }
+            }
+
             // 判断是否为同类型数据库
             String sourceType = sourceConnector.getConfig().getConnectorType();
             String targetType = targetConnector.getConfig().getConnectorType();
@@ -201,7 +258,7 @@ public class TableGroupController extends BaseController {
                 logger.debug("检测到同类型数据库（{}），使用优化路径", sourceType);
                 
                 // 提取字段和主键
-                List<Field> fields = sourceMetaInfo.getColumn();
+                List<Field> fields = (mappedFields != null) ? mappedFields : sourceMetaInfo.getColumn();
                 List<String> primaryKeys;
                 
                 // 优先使用用户指定的主键配置，否则从字段中提取

@@ -1225,6 +1225,17 @@ function createTargetTablesAndRetry(errorInfo) {
         targetTablePK: mapping.targetTablePK || ""
     };
     
+    // 【新增】获取页面配置的字段映射
+    let fieldMapping = [];
+    $('#fieldMappingList tr').each(function() {
+        let sourceField = $(this).find('td:eq(0)').text().trim();
+        let targetField = $(this).find('td:eq(1)').text().trim();
+        if (sourceField && targetField) {
+            fieldMapping.push({ source: sourceField, target: targetField });
+        }
+    });
+    createParams.fieldMapping = JSON.stringify(fieldMapping);
+    
     doPoster("/tableGroup/createTargetTable", createParams, function (data) {
         if (data.success == true) {
             bootGrowl("目标表创建成功！", "success");
