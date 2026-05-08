@@ -334,7 +334,7 @@ public class SqlServerTemplate extends AbstractSqlTemplate {
             String pkColumns = primaryKeys.stream()
                     .map(this::buildColumn)
                     .collect(java.util.stream.Collectors.joining(", "));
-            pkClause = String.format(",\n  PRIMARY KEY (%s)", pkColumns);
+            pkClause = String.format(",\n  CONSTRAINT [PK_%s] PRIMARY KEY (%s)", tableName, pkColumns);
         }
         
         // 组装完整的 CREATE TABLE 语句
@@ -785,28 +785,26 @@ public class SqlServerTemplate extends AbstractSqlTemplate {
         List<String> sqlList = new ArrayList<>();
         
         if (oldPrimaryKeys != null && !oldPrimaryKeys.isEmpty()) {
-            // SQL Server 需要查询主键约束名
-            String pkConstraintName = getPrimaryKeyConstraintName(tableName);
-            if (pkConstraintName != null && !pkConstraintName.isEmpty()) {
-                // SQL Server 不支持在一条 ALTER TABLE 语句中同时 DROP CONSTRAINT 和 ADD PRIMARY KEY
-                // 需要分两条语句执行
-                sqlList.add("ALTER TABLE " + quotedTableName + " DROP CONSTRAINT " + pkConstraintName);
-                sqlList.add("ALTER TABLE " + quotedTableName + " ADD CONSTRAINT " + pkConstraintName + " PRIMARY KEY (" + quotedKeys + ")");
-            } else {
-                sqlList.add("ALTER TABLE " + quotedTableName + " ADD PRIMARY KEY (" + quotedKeys + ")");
-            }
+            // 方案A：通过 sp_executesql 动态 SQL 查询真实主键约束名并删除，再添加新主键
+            String objectIdTable = schema != null && !schema.isEmpty()
+                    ? schema + "." + tableName
+                    : tableName;
+            
+            String sql = "DECLARE @pkName NVARCHAR(128); " +
+                    "DECLARE @sql NVARCHAR(MAX); " +
+                    "SELECT @pkName = k.name FROM sys.key_constraints k " +
+                    "WHERE k.type = 'PK' AND k.parent_object_id = OBJECT_ID(N'" + objectIdTable + "'); " +
+                    "IF @pkName IS NOT NULL " +
+                    "BEGIN " +
+                    "    SET @sql = N'ALTER TABLE " + quotedTableName + " DROP CONSTRAINT ' + QUOTENAME(@pkName); " +
+                    "    EXEC sp_executesql @sql; " +
+                    "END; " +
+                    "ALTER TABLE " + quotedTableName + " ADD CONSTRAINT [PK_" + tableName + "] PRIMARY KEY (" + quotedKeys + ")";
+            
+            sqlList.add(sql);
         } else {
-            sqlList.add("ALTER TABLE " + quotedTableName + " ADD PRIMARY KEY (" + quotedKeys + ")");
+            sqlList.add("ALTER TABLE " + quotedTableName + " ADD CONSTRAINT [PK_" + tableName + "] PRIMARY KEY (" + quotedKeys + ")");
         }
         
         return sqlList;
-    }
-
-    /**
-     * 获取主键约束名（简化实现，返回默认约束名）
-     * 后续可优化为查询系统视图 sys.key_constraints
-     */
-    private String getPrimaryKeyConstraintName(String tableName) {
-        return "PK_" + tableName;
-    }
-}
+    }}
