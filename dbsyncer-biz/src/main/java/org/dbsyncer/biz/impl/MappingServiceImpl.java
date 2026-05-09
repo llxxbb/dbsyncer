@@ -110,8 +110,11 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
                         mappingIds = new ArrayList<>();
                     }
                     if (!mappingIds.contains(id)) {
-                        mappingIds.add(id);
-                        projectGroup.setMappingIds(mappingIds);
+                        // Always create a new ArrayList to avoid UnsupportedOperationException
+                        // when the original list is immutable (e.g., from JSON deserialization)
+                        List<String> newMappingIds = new ArrayList<>(mappingIds);
+                        newMappingIds.add(id);
+                        projectGroup.setMappingIds(newMappingIds);
                         profileComponent.editConfigModel(projectGroup);
                     }
                 }

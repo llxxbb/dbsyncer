@@ -14,8 +14,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 
 import javax.annotation.Resource;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Map;
 
 /**
@@ -74,8 +74,8 @@ public class ProjectGroupChecker extends AbstractChecker {
         boolean exist = (connectorIds != null && connectorIds.length > 0) | (mappingIds != null && mappingIds.length > 0);
         Assert.isTrue(exist, "连接或驱动不能同时为空！");
 
-        projectGroup.setConnectorIds(CollectionUtils.isEmpty(connectorIds) ? Collections.EMPTY_LIST : Arrays.asList(connectorIds));
-        projectGroup.setMappingIds(CollectionUtils.isEmpty(mappingIds) ? Collections.EMPTY_LIST : Arrays.asList(mappingIds));
+        projectGroup.setConnectorIds(CollectionUtils.isEmpty(connectorIds) ? new ArrayList<>() : new ArrayList<>(Arrays.asList(connectorIds)));
+        projectGroup.setMappingIds(CollectionUtils.isEmpty(mappingIds) ? new ArrayList<>() : new ArrayList<>(Arrays.asList(mappingIds)));
     }
 
 }
