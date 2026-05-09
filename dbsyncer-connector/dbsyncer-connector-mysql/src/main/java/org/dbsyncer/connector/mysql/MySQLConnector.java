@@ -6,7 +6,6 @@ package org.dbsyncer.connector.mysql;
 import org.dbsyncer.connector.mysql.cdc.MySQLListener;
 import org.dbsyncer.connector.mysql.converter.IRToMySQLConverter;
 import org.dbsyncer.connector.mysql.converter.MySQLToIRConverter;
-import org.dbsyncer.connector.mysql.schema.MySQLDateValueMapper;
 import org.dbsyncer.connector.mysql.schema.MySQLSchemaResolver;
 import org.dbsyncer.connector.mysql.storage.MySQLStorageService;
 import org.dbsyncer.connector.mysql.validator.MySQLConfigValidator;
@@ -29,7 +28,6 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -48,7 +46,6 @@ public class MySQLConnector extends AbstractDatabaseConnector {
 
     public MySQLConnector() {
         sqlTemplate = new MySQLTemplate(schemaResolver);
-        VALUE_MAPPERS.put(Types.DATE, new MySQLDateValueMapper());
         configValidator = new MySQLConfigValidator();
         sourceToIRConverter = new MySQLToIRConverter();
         irToTargetConverter = new IRToMySQLConverter(sqlTemplate);

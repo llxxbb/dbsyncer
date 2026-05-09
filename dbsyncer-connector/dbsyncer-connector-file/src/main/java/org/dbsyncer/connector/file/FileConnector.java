@@ -32,7 +32,6 @@ import org.springframework.util.Assert;
 import java.io.*;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -55,10 +54,6 @@ public final class FileConnector extends AbstractConnector implements ConnectorS
     private final String FILE_PATH = "filePath";
     private final FileResolver fileResolver = new FileResolver();
     private final FileConfigValidator configValidator = new FileConfigValidator();
-
-    public FileConnector() {
-        VALUE_MAPPERS.put(Types.BIT, new FileBitValueMapper());
-    }
 
     @Override
     public String getConnectorType() {

@@ -238,8 +238,6 @@ public class ConnectorFactory implements DisposableBean {
                 // 支持标准解析器
                 if (context.isEnableSchemaResolver() && targetConnector.getSchemaResolver() != null) {
                     conn.convertProcessBeforeWriter(context, targetConnector.getSchemaResolver());
-                } else {
-                    conn.convertProcessBeforeWriter(context, targetInstance);
                 }
             } catch (Exception e) {
                 Result result = new Result();

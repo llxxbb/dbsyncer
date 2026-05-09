@@ -4,8 +4,6 @@
 package org.dbsyncer.connector.oracle;
 
 import org.dbsyncer.connector.oracle.cdc.OracleListener;
-import org.dbsyncer.connector.oracle.schema.OracleClobValueMapper;
-import org.dbsyncer.connector.oracle.schema.OracleOtherValueMapper;
 import org.dbsyncer.connector.oracle.schema.OracleSchemaResolver;
 import org.dbsyncer.connector.oracle.validator.OracleConfigValidator;
 import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
@@ -24,7 +22,6 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -45,8 +42,6 @@ public class OracleConnector extends AbstractDatabaseConnector {
 
 
     public OracleConnector() {
-        VALUE_MAPPERS.put(Types.OTHER, new OracleOtherValueMapper());
-        VALUE_MAPPERS.put(Types.CLOB, new OracleClobValueMapper());
         sqlTemplate = new OracleTemplate(schemaResolver);
         configValidator = new OracleConfigValidator();
     }
