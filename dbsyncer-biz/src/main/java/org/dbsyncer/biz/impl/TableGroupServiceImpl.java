@@ -161,26 +161,37 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         mapping.assertDisableEdit();
 
         // 【新增】先检查目标表是否存在（复用已有的 TargetTableNotExistsException 逻辑）
-        String targetTableName = tableGroup.getTargetTable().getName();
-        MetaInfo targetTableMetaInfo = parserComponent.getMetaInfo(mapping.getTargetConnectorId(), targetTableName);
-        boolean targetTableExists = targetTableMetaInfo != null
-                && !CollectionUtils.isEmpty(targetTableMetaInfo.getColumn());
+        // 如果目标连接器不支持创建表（如 Kafka），则跳过检查
+        Connector targetConnectorForCheck = profileComponent.getConnector(mapping.getTargetConnectorId());
+        org.dbsyncer.sdk.spi.ConnectorService<?, ?> targetConnectorService =
+                connectorFactory.getConnectorService(targetConnectorForCheck.getConfig().getConnectorType());
 
-        if (!targetTableExists) {
-            // 复用 MappingServiceImpl 中的目标表不存在异常
-            List<Map<String, String>> missingTables = new ArrayList<>();
-            Map<String, String> tableMapping = new HashMap<>();
-            tableMapping.put("sourceTable", tableGroup.getSourceTable().getName());
-            tableMapping.put("targetTable", targetTableName);
-            // 优先使用 params 中的新值（用户刚提交的）
-            String targetTablePK = params.get("targetTablePK");
-            if (StringUtil.isBlank(targetTablePK)) {
-                targetTablePK = tableGroup.getTargetTablePK();
+        if (targetConnectorService != null && targetConnectorService.supportsCreateTable()) {
+            // 优先使用 params 中的新表名（用户可能刚修改了目标表名）
+            String newTargetTableName = params.get("targetTable");
+            if (StringUtil.isBlank(newTargetTableName)) {
+                newTargetTableName = tableGroup.getTargetTable().getName();
             }
-            tableMapping.put("targetTablePK", targetTablePK != null ? targetTablePK : "");
-            tableMapping.put("mappingId", mapping.getId());
-            missingTables.add(tableMapping);
-            throw new TargetTableNotExistsException("目标表不存在，请先创建目标表后再保存！", missingTables);
+            MetaInfo targetTableMetaInfo = parserComponent.getMetaInfo(mapping.getTargetConnectorId(), newTargetTableName);
+            boolean targetTableExists = targetTableMetaInfo != null
+                    && !CollectionUtils.isEmpty(targetTableMetaInfo.getColumn());
+
+            if (!targetTableExists) {
+                // 复用 MappingServiceImpl 中的目标表不存在异常
+                List<Map<String, String>> missingTables = new ArrayList<>();
+                Map<String, String> tableMapping = new HashMap<>();
+                tableMapping.put("sourceTable", tableGroup.getSourceTable().getName());
+                tableMapping.put("targetTable", newTargetTableName);
+                // 优先使用 params 中的新值（用户刚提交的）
+                String targetTablePK = params.get("targetTablePK");
+                if (StringUtil.isBlank(targetTablePK)) {
+                    targetTablePK = tableGroup.getTargetTablePK();
+                }
+                tableMapping.put("targetTablePK", targetTablePK != null ? targetTablePK : "");
+                tableMapping.put("mappingId", mapping.getId());
+                missingTables.add(tableMapping);
+                throw new TargetTableNotExistsException("目标表不存在，请先创建目标表后再保存！", missingTables);
+            }
         }
 
         // 【新增】保存原主键信息（优先使用 targetTablePK，保证顺序）
