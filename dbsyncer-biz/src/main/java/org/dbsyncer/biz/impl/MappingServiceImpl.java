@@ -186,35 +186,13 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
             return;
         }
 
-        // 检查目标连接器是否支持创建表
-        Connector targetConnector = profileComponent.getConnector(mapping.getTargetConnectorId());
-        org.dbsyncer.sdk.spi.ConnectorService<?, ?> targetConnectorService =
-                connectorFactory.getConnectorService(targetConnector.getConfig().getConnectorType());
-
-        // 如果目标连接器不支持创建表操作（如 Kafka），则跳过表存在性检查
-        // 注意：这里使用 supportsCreateTable() 而不是 supportsDDLWrite()
-        // - supportsCreateTable(): 判断是否支持"创建表"操作（如生成 CREATE TABLE DDL）
-        // - supportsDDLWrite(): 判断是否支持"写入/执行"DDL 操作（如传递 DDL 消息）
-        // 例如：Kafka 支持 writerDDL（传递 DDL 消息），但不支持 createTable（创建表）
-        if (targetConnectorService != null && !targetConnectorService.supportsCreateTable()) {
-            logger.debug("目标连接器 {} 不支持创建表操作，跳过表存在性检查", targetConnector.getConfig().getConnectorType());
-            return;
-        }
-
-        // 收集所有缺失的表
+        // 委托给 TableGroupService 统一检查
         List<Map<String, String>> missingTables = new ArrayList<>();
         for (TableGroup tableGroup : tableGroups) {
-            String targetTableName = tableGroup.getTargetTable().getName();
-            // 获取目标表信息，如果表不存在，getMetaInfo 会返回空的 MetaInfo（字段列表为空）
-            MetaInfo metaInfo = parserComponent.getMetaInfo(mapping.getTargetConnectorId(), targetTableName);
-            // 判断表是否存在：MetaInfo 为空或字段列表为空表示表不存在
-            if (metaInfo == null || CollectionUtils.isEmpty(metaInfo.getColumn())) {
-                Map<String, String> tableMapping = new HashMap<>();
-                tableMapping.put("sourceTable", tableGroup.getSourceTable().getName());
-                tableMapping.put("targetTable", targetTableName);
-                tableMapping.put("targetTablePK", tableGroup.getTargetTablePK());
-                tableMapping.put("mappingId", mapping.getId());
-                missingTables.add(tableMapping);
+            Map<String, String> missing = tableGroupService.checkTargetTableExists(
+                    mapping.getId(), tableGroup, null, null);
+            if (missing != null) {
+                missingTables.add(missing);
             }
         }
 

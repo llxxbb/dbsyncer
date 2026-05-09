@@ -96,4 +96,17 @@ public interface TableGroupService {
      * @return 执行结果消息
      */
     String executeFieldDiffFix(String id, List<String> selectedIds) throws Exception;
+
+    /**
+     * 检查单个目标表是否存在。如果目标连接器不支持创建表（如 Kafka），则跳过检查。
+     * 内部封装了：supportsCreateTable 判断 + getMetaInfo + 构建 missingTables Map。
+     *
+     * @param mappingId        Mapping ID
+     * @param tableGroup       表映射
+     * @param targetTableName  目标表名（可覆盖 tableGroup 中的值）
+     * @param targetTablePK    主键配置（可覆盖）
+     * @return null 表示表存在或跳过检查；非 null 表示表不存在的详细信息（Map）
+     */
+    Map<String, String> checkTargetTableExists(String mappingId, TableGroup tableGroup,
+                                                String targetTableName, String targetTablePK) throws Exception;
 }

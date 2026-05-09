@@ -161,37 +161,13 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         mapping.assertDisableEdit();
 
         // 【新增】先检查目标表是否存在（复用已有的 TargetTableNotExistsException 逻辑）
-        // 如果目标连接器不支持创建表（如 Kafka），则跳过检查
-        Connector targetConnectorForCheck = profileComponent.getConnector(mapping.getTargetConnectorId());
-        org.dbsyncer.sdk.spi.ConnectorService<?, ?> targetConnectorService =
-                connectorFactory.getConnectorService(targetConnectorForCheck.getConfig().getConnectorType());
-
-        if (targetConnectorService != null && targetConnectorService.supportsCreateTable()) {
-            // 优先使用 params 中的新表名（用户可能刚修改了目标表名）
-            String newTargetTableName = params.get("targetTable");
-            if (StringUtil.isBlank(newTargetTableName)) {
-                newTargetTableName = tableGroup.getTargetTable().getName();
-            }
-            MetaInfo targetTableMetaInfo = parserComponent.getMetaInfo(mapping.getTargetConnectorId(), newTargetTableName);
-            boolean targetTableExists = targetTableMetaInfo != null
-                    && !CollectionUtils.isEmpty(targetTableMetaInfo.getColumn());
-
-            if (!targetTableExists) {
-                // 复用 MappingServiceImpl 中的目标表不存在异常
-                List<Map<String, String>> missingTables = new ArrayList<>();
-                Map<String, String> tableMapping = new HashMap<>();
-                tableMapping.put("sourceTable", tableGroup.getSourceTable().getName());
-                tableMapping.put("targetTable", newTargetTableName);
-                // 优先使用 params 中的新值（用户刚提交的）
-                String targetTablePK = params.get("targetTablePK");
-                if (StringUtil.isBlank(targetTablePK)) {
-                    targetTablePK = tableGroup.getTargetTablePK();
-                }
-                tableMapping.put("targetTablePK", targetTablePK != null ? targetTablePK : "");
-                tableMapping.put("mappingId", mapping.getId());
-                missingTables.add(tableMapping);
-                throw new TargetTableNotExistsException("目标表不存在，请先创建目标表后再保存！", missingTables);
-            }
+        Map<String, String> missing = this.checkTargetTableExists(
+                mapping.getId(), tableGroup,
+                params.get("targetTable"), params.get("targetTablePK"));
+        if (missing != null) {
+            List<Map<String, String>> missingTables = new ArrayList<>();
+            missingTables.add(missing);
+            throw new TargetTableNotExistsException("目标表不存在，请先创建目标表后再保存！", missingTables);
         }
 
         // 【新增】保存原主键信息（优先使用 targetTablePK，保证顺序）
@@ -367,6 +343,50 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         mapping.setSourceColumn(sourceColumn);
         mapping.setTargetColumn(targetColumn);
         profileComponent.editConfigModel(mapping);
+    }
+
+    @Override
+    public Map<String, String> checkTargetTableExists(String mappingId, TableGroup tableGroup,
+                                                       String targetTableName, String targetTablePK) throws Exception {
+        Mapping mapping = profileComponent.getMapping(mappingId);
+        if (mapping == null) {
+            return null;
+        }
+
+        // 检查目标连接器是否支持创建表操作（如 Kafka 不支持建表）
+        Connector targetConnector = profileComponent.getConnector(mapping.getTargetConnectorId());
+        if (targetConnector == null) {
+            return null;
+        }
+        ConnectorService<?, ?> targetConnectorService =
+                connectorFactory.getConnectorService(targetConnector.getConfig().getConnectorType());
+        if (targetConnectorService != null && !targetConnectorService.supportsCreateTable()) {
+            logger.debug("目标连接器 {} 不支持创建表操作，跳过表存在性检查",
+                    targetConnector.getConfig().getConnectorType());
+            return null;
+        }
+
+        // 确定目标表名和主键（优先使用传入值）
+        if (StringUtil.isBlank(targetTableName)) {
+            targetTableName = tableGroup.getTargetTable().getName();
+        }
+        if (StringUtil.isBlank(targetTablePK)) {
+            targetTablePK = tableGroup.getTargetTablePK();
+        }
+
+        // 检查表是否存在
+        MetaInfo metaInfo = parserComponent.getMetaInfo(mapping.getTargetConnectorId(), targetTableName);
+        if (metaInfo != null && !CollectionUtils.isEmpty(metaInfo.getColumn())) {
+            return null; // 表存在
+        }
+
+        // 表不存在，返回详细信息
+        Map<String, String> missing = new HashMap<>();
+        missing.put("sourceTable", tableGroup.getSourceTable().getName());
+        missing.put("targetTable", targetTableName);
+        missing.put("targetTablePK", targetTablePK != null ? targetTablePK : "");
+        missing.put("mappingId", mapping.getId());
+        return missing;
     }
 
     private List<Field> pickCommonFields(List<Field> column, List<Field> target) {
