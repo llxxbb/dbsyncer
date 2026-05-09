@@ -1,7 +1,7 @@
 @echo off
 
 set CURRENT_DATE=%date:~5,2%%date:~8,2%
-set VERSION=2.29.1_%CURRENT_DATE%
+set VERSION=2.20.2_%CURRENT_DATE%
 set /p APP_VERSION=Please enter a new version number(%VERSION%): || set APP_VERSION=%VERSION%
 echo %APP_VERSION%
 
