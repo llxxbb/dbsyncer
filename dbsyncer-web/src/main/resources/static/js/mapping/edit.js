@@ -379,6 +379,9 @@ function updateTargetTableName(tableGroupId, newTableName, targetTablePK, $icon)
         'targetTablePK': targetTablePK
     };
     
+    // 缓存重命名参数，供 createTargetTable 后 retrySubmitMapping 重试使用
+    window._pendingRenameParams = { params: params, $icon: $icon, newTableName: newTableName };
+
     // 调用编辑API更新目标表名称
     doPoster("/tableGroup/edit", params, function (response) {
         if (response.success == true) {
@@ -386,8 +389,23 @@ function updateTargetTableName(tableGroupId, newTableName, targetTablePK, $icon)
             // 只更新显示的名称，不刷新页面
             $icon.siblings('.target-table-name').text(newTableName);
             $icon.data('current-name', newTableName);
+            window._pendingRenameParams = null;
         } else {
-            bootGrowl(response.resultValue || "更新失败", "danger");
+            // 检查是否是目标表不存在的异常
+            if (response.status == 400 && response.resultValue &&
+                typeof response.resultValue === 'object' &&
+                response.resultValue.errorCode === 'TARGET_TABLE_NOT_EXISTS') {
+                // 补充 fieldMapping 字段（重命名场景没有字段映射配置，创建时从源表自动映射）
+                if (response.resultValue.missingTables) {
+                    response.resultValue.missingTables.forEach(function(mt) {
+                        if (!mt.fieldMapping) mt.fieldMapping = "";
+                    });
+                }
+                showCreateTableConfirmDialogForMapping(response.resultValue);
+            } else {
+                bootGrowl(response.resultValue || "更新失败", "danger");
+                window._pendingRenameParams = null;
+            }
         }
     });
 }
@@ -827,6 +845,29 @@ function createTargetTablesAndRetry(errorInfo) {
  * 重试提交保存 mapping
  */
 function retrySubmitMapping() {
+    // 如果有待重试的重命名操作，先重试重命名
+    if (window._pendingRenameParams) {
+        var renameParams = window._pendingRenameParams;
+        window._pendingRenameParams = null;
+        doPoster("/tableGroup/edit", renameParams.params, function (response) {
+            if (response.success == true) {
+                bootGrowl("目标表名称更新成功!", "success");
+                if (renameParams.$icon) {
+                    renameParams.$icon.siblings('.target-table-name').text(renameParams.newTableName);
+                    renameParams.$icon.data('current-name', renameParams.newTableName);
+                }
+            } else {
+                // 如果仍然失败，回退到表单提交
+                window._pendingRenameParams = renameParams;
+                doFallbackRetrySubmit();
+            }
+        });
+        return;
+    }
+    doFallbackRetrySubmit();
+}
+
+function doFallbackRetrySubmit() {
     let $form = $("#mappingModifyForm");
     if ($form.length === 0) {
         bootGrowl("无法找到表单", "danger");
