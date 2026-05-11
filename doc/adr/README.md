@@ -6,12 +6,13 @@
 
 | 编号 | 标题 | 状态 | 日期 |
 |------|------|------|------|
-| [0001](0001-field-mapping-advanced-config.md) | 字段映射高级配置 | Accepted | 2026-03-20 |
-| [0002](0002-支持编辑表映射时修改主键配置.md) | 支持编辑表映射时修改主键配置 | Accepted | 2026-03-20 |
-| [0003](0003-tablegroup-primary-key-order-fix.md) | TableGroup 主键顺序修复 | Accepted | 2026-03-30 |
-| [0004](0004-sqlserver-ct-bigtx-optimization.md) | SQL Server CT 大事务同步优化 | Accepted | 2026-04-10 |
-| [0005](0005-sqlserver-ct-delete-race-condition.md) | SQL Server CT 数据删除竞态问题 | Accepted（核心方案被 ADR 06 替代） | 2026-04-24 |
+| [0007](0007-batch-convert-temp-to-formal-pk.md) | 批量添加转换配置 — 临时主键变更为正式主键 | Proposed | 2026-05-11 |
 | [0006](0006-sqlserver-ct-query-refactor.md) | SQL Server CT 查询重构 — RIGHT JOIN + U→I 转换 + 强制覆盖写入 | Proposed | 2026-04-28 |
+| [0005](0005-sqlserver-ct-delete-race-condition.md) | SQL Server CT 数据删除竞态问题 | Accepted（核心方案被 ADR 06 替代） | 2026-04-24 |
+| [0004](0004-sqlserver-ct-bigtx-optimization.md) | SQL Server CT 大事务同步优化 | Accepted | 2026-04-10 |
+| [0003](0003-tablegroup-primary-key-order-fix.md) | TableGroup 主键顺序修复 | Accepted | 2026-03-30 |
+| [0002](0002-支持编辑表映射时修改主键配置.md) | 支持编辑表映射时修改主键配置 | Accepted | 2026-03-20 |
+| [0001](0001-field-mapping-advanced-config.md) | 字段映射高级配置 | Accepted | 2026-03-20 |
 
 ## 状态说明
 
