@@ -2159,7 +2159,47 @@ function submitBatchConvertConfig() {
         type: 'GET',
         success: function(data) {
             if (data.success && data.resultValue) {
-                batchAddConvertToTableGroups(data.resultValue, selectedTableGroups, convertConfig, targetFieldName, fieldMetadata, 0, 0, [], 0, 0, setTempPK);
+                // 设置为主键时，先预确认
+                if (setTempPK) {
+                    var pkChanges = [];
+                    selectedTableGroups.forEach(function(tgId) {
+                        var tableGroup = data.resultValue.find(function(tg) { return tg.id === tgId; });
+                        if (tableGroup) {
+                            var oldPK = tableGroup.targetTablePK || "(无)";
+                            var newPK = oldPK === "(无)" ? targetFieldName : (oldPK + ',' + targetFieldName);
+                            var sourceName = tableGroup.sourceTable ? tableGroup.sourceTable.name : '';
+                            var targetName = tableGroup.targetTable ? tableGroup.targetTable.name : '';
+                            pkChanges.push(sourceName + ' → ' + targetName + '：' + oldPK + ' → ' + newPK);
+                        }
+                    });
+                    
+                    if (pkChanges.length === 0) {
+                        bootGrowl("无法获取表组主键信息", "danger");
+                        $('#batchConvertSubmitBtn').prop('disabled', false);
+                        return;
+                    }
+                    
+                    var message = '<strong>以下表组的主键将被修改：</strong><br><br>' + pkChanges.join('<br>');
+                    
+                    BootstrapDialog.confirm({
+                        title: "确认修改主键",
+                        message: message,
+                        type: BootstrapDialog.TYPE_WARNING,
+                        btnOKLabel: "确认",
+                        btnCancelLabel: "取消",
+                        callback: function(result) {
+                            if (result) {
+                                // 确认后执行批量添加
+                                batchAddConvertToTableGroups(data.resultValue, selectedTableGroups, convertConfig, targetFieldName, fieldMetadata, 0, 0, [], 0, 0, setTempPK);
+                            } else {
+                                $('#batchConvertSubmitBtn').prop('disabled', false);
+                            }
+                        }
+                    });
+                } else {
+                    // 不设置主键，直接执行
+                    batchAddConvertToTableGroups(data.resultValue, selectedTableGroups, convertConfig, targetFieldName, fieldMetadata, 0, 0, [], 0, 0, setTempPK);
+                }
             } else {
                 bootGrowl("获取表组列表失败", "danger");
                 $('#batchConvertSubmitBtn').prop('disabled', false);
@@ -2316,17 +2356,22 @@ function addConvertToSingleTableGroup(tableGroup, convertConfig, targetFieldName
     var params = {
         'id': tableGroup.id,
         'fieldMapping': JSON.stringify(fieldMappingData),
-        'convert': JSON.stringify(converts),
-        'targetTablePK': tableGroup.targetTablePK || ""
+        'convert': JSON.stringify(converts)
     };
+    
+    // 设置为主键：将新字段追加到 targetTablePK
+    if (setTempPK) {
+        var targetTablePK = tableGroup.targetTablePK || "";
+        targetTablePK = targetTablePK ? (targetTablePK + ',' + targetFieldName) : targetFieldName;
+        params['targetTablePK'] = targetTablePK;
+        params['confirmPrimaryKeyChange'] = 'true';
+    } else {
+        params['targetTablePK'] = tableGroup.targetTablePK || "";
+    }
     
     // 调用现有后端接口保存
     doPoster("/tableGroup/edit", params, function(response) {
         if (response.success) {
-            if (setTempPK) {
-                var backendPKs = tableGroup.targetTablePK ? tableGroup.targetTablePK.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s; }) : [];
-                TempPKManager.addTempPK(tableGroup.id, targetFieldName, backendPKs);
-            }
             callback(true, null, existingField ? 'use_existing' : 'create_new');
         } else {
             callback(false, response.resultValue || "添加转换配置失败", null);
