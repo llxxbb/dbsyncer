@@ -2350,6 +2350,15 @@ function addConvertToSingleTableGroup(tableGroup, convertConfig, targetFieldName
         });
     }
     
+    // 新增自定义字段时，同时添加到字段映射列表（source 为空表示纯目标字段）
+    if (!exists) {
+        fieldMappingData.push({
+            source: "",
+            target: targetFieldName,
+            pk: setTempPK
+        });
+    }
+    
     // 前端构造：提交参数
     var params = {
         'id': tableGroup.id,
