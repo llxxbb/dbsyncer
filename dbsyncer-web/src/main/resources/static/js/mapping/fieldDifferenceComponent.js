@@ -7,6 +7,8 @@
 var FieldDifferenceComponent = {
     // 当前显示的字段差异数据
     currentData: null,
+    // 缓存数据（页面预加载时写入，避免弹窗时重复请求 API）
+    _cachedData: null,
 
     /**
      * 显示字段差异弹窗
@@ -17,32 +19,59 @@ var FieldDifferenceComponent = {
      */
     show: function(tableGroupId, options) {
         options = options || {};
-        var showFixButton = options.showFixButton !== false;
 
         // 显示弹窗
         $('#fieldDifferenceModal').modal('show');
         $('#fieldDifferenceContent').html('<div class="text-center"><span class="fa fa-spinner fa-spin fa-2x"></span> 加载中...</div>');
 
-        // 控制修复按钮显示/隐藏
-        if (showFixButton) {
-            $('#fixTargetTableBtn').show();
-        } else {
-            $('#fixTargetTableBtn').hide();
-        }
-
         // 保存回调
         this.onFixCallback = options.onFix;
 
-        // 调用接口获取字段差异详情
         var self = this;
-        doPoster("/tableGroup/fieldDifference", {'id': tableGroupId}, function(data) {
-            if (data.success == true) {
-                self.currentData = data.resultValue;
-                self.render(data.resultValue);
-            } else {
-                $('#fieldDifferenceContent').html('<div class="alert alert-danger">' + data.resultValue + '</div>');
+        // 优先使用缓存数据，避免重复请求 API
+        if (this._cachedData) {
+            self.currentData = this._cachedData;
+            self.render(this._cachedData);
+        } else {
+            doPoster("/tableGroup/fieldDifference", {'id': tableGroupId}, function(data) {
+                if (data.success == true) {
+                    self.currentData = data.resultValue;
+                    self._cachedData = data.resultValue;
+                    self.render(data.resultValue);
+                } else {
+                    $('#fieldDifferenceContent').html('<div class="alert alert-danger">' + data.resultValue + '</div>');
+                }
+            });
+        }
+    },
+
+    /**
+     * 设置缓存数据（页面预加载差异数据时调用）
+     */
+    setCachedData: function(data) {
+        this._cachedData = data;
+    },
+
+    /**
+     * 提取所有差异字段名（供高亮和弹窗共用）
+     */
+    getDiffFieldNames: function(result) {
+        var diffFieldNames = new Set();
+        var fieldArrays = [
+            result.addedFields,
+            result.missingFields,
+            result.typeMismatched,
+            result.lengthMismatched
+        ];
+
+        fieldArrays.forEach(function(fields) {
+            if (fields && fields.length > 0) {
+                fields.forEach(function(item) {
+                    diffFieldNames.add(item.fieldName);
+                });
             }
         });
+        return diffFieldNames;
     },
 
     /**
@@ -175,6 +204,7 @@ var FieldDifferenceComponent = {
     clear: function() {
         this.currentData = null;
         this.onFixCallback = null;
+        this._cachedData = null;
     }
 };
 

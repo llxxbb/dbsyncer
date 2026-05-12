@@ -101,11 +101,15 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
                 try {
                     params.put("sourceTable", sourceTableArray[i]);
                     params.put("targetTable", targetTableArray[i]);
+                    // 【修改】保存原始 fieldMapping（JSON格式），用于 DDL 后重新应用
+                    String fieldMapping = params.get("fieldMapping");
                     TableGroup model = (TableGroup) tableGroupChecker.checkAddConfigModel(params);
                     log(LogType.TableGroupLog.INSERT, model);
                     int tableGroupCount = profileComponent.getTableGroupCount(mappingId);
                     model.setIndex(tableGroupCount + 1);
                     id = profileComponent.addTableGroup(model);
+                    // 【修改】DDL 前设置字段映射（initCommand 依赖 fieldMapping 非空）
+                    tableGroupChecker.applyFieldMapping(model, fieldMapping);
                     // 【新增】执行自定义字段 DDL
                     List<Convert> customConverts = model.getConvert();
                     if (customConverts != null && !customConverts.isEmpty()) {
@@ -120,14 +124,20 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
                             try {
                                 executeCustomFieldDDL(model, customFields);
                                 refreshTableFieldsAfterDDL(model);
-                                profileComponent.editTableGroup(model);
                             } catch (Exception e) {
                                 // DDL 失败，回滚配置
                                 profileComponent.removeTableGroup(id);
                                 throw new RuntimeException("执行自定义字段 DDL 失败：" + e.getMessage(), e);
                             }
                         }
+                    } // end if customFields
+                    // 【新增】目标表主键检查（DDL 之后，自定义主键字段已存在）
+                    List<String> targetTablePrimaryKeys = PrimaryKeyUtil.findTablePrimaryKeys(model.getTargetTable());
+                    if (CollectionUtils.isEmpty(targetTablePrimaryKeys)) {
+                        throw new PrimaryKeyRequiredException(String.format("目标表 %s 缺少主键，无法进行数据同步。", model.getTargetTable().getName()));
                     }
+                    // 【新增】持久化（包含完整的字段映射）
+                    profileComponent.editTableGroup(model);
                     // 初始化 TableGroup（设置运行时组件并初始化 command）
                     model.isInit = false;
                     model.initTableGroup(parserComponent, profileComponent, connectorFactory);
@@ -203,7 +213,12 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         }
 
         // 应用主键参数（内存修改）
+        // 【新增】保存原始 fieldMapping JSON，用于 DDL 后重新应用
+        String fieldMappingJson = params.get("fieldMapping");
         TableGroup model = (TableGroup) tableGroupChecker.checkEditConfigModel(params);
+
+        // 【修改】DDL 前设置字段映射（initCommand 依赖 fieldMapping 非空）
+        tableGroupChecker.applyFieldMapping(model, fieldMappingJson);
 
         // 执行自定义字段 DDL（先执行，因为主键可能引用自定义字段）
         List<Convert> customConverts = model.getConvert();
@@ -219,7 +234,6 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
                 try {
                     executeCustomFieldDDL(model, customFields);
                     refreshTableFieldsAfterDDL(model);
-                    profileComponent.editTableGroup(model);
                 } catch (Exception e) {
                     logger.error("执行自定义字段 DDL 失败，回滚配置", e);
                     throw new RuntimeException("执行自定义字段 DDL 失败：" + e.getMessage(), e);
@@ -235,7 +249,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
                 try {
                     alterPrimaryKey(model, targetConnector, oldPrimaryKeys, newPrimaryKeys);
                 } catch (Exception e) {
-                    throw new RuntimeException("请确认表已经创建！修改主键约束失败：" + e.getMessage(), e);
+                    throw new RuntimeException("修改主键约束失败：" + e.getMessage(), e);
                 }
             }
         }
@@ -494,7 +508,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
 
                 // 检查执行结果
                 if (result != null && result.error != null) {
-                    String errorMsg = "请确认表已经创建！执行自定义字段 DDL 失败：" + result.error;
+                    String errorMsg = "执行自定义字段 DDL 失败：" + result.error;
                     throw new Exception(errorMsg);
                 }
 

@@ -285,27 +285,7 @@
 
 
                     <!-- 字段差异对话框 -->
-                    <div class="modal fade" id="fieldDifferenceModal" tabindex="-1" role="dialog">
-                        <div class="modal-dialog modal-lg" role="document">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <button type="button" class="close" data-dismiss="modal">&times;</button>
-                                    <h4 class="modal-title">字段差异分析</h4>
-                                </div>
-                                <div class="modal-body">
-                                    <div id="fieldDifferenceContent">
-                                        <!-- 动态生成 -->
-                                    </div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-default" data-dismiss="modal">关闭</button>
-                                    <button type="button" class="btn btn-primary" id="fixTargetTableBtn">
-                                        <span class="fa fa-arrow-right"></span> 修复目标表
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <div th:replace="mapping/fieldDifferenceModal :: fieldDifferenceModal"></div>
 
                     <!-- 字段差异修复预览对话框 -->
                     <div class="modal fade" id="fieldDiffFixModal" tabindex="-1" role="dialog">

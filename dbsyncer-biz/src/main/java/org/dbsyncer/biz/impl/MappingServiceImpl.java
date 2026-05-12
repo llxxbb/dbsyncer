@@ -11,6 +11,7 @@ import org.dbsyncer.biz.vo.MappingVo;
 import org.dbsyncer.biz.vo.MetaVo;
 import org.dbsyncer.common.dispatch.DispatchTaskService;
 import org.dbsyncer.common.util.CollectionUtils;
+import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.manager.ManagerFactory;
@@ -510,30 +511,39 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
             params.put("mappingId", id);
             params.put("sourceTable", sourceTableName);
             params.put("targetTable", targetTableName);
-            // A1*|A2*,B1|B2,|C3
+            // 旧格式 A1*|A2*,B1|B2,|C3 → 新格式 JSON [{"source":"a","target":"b"}]
             if (StringUtil.isNotBlank(fieldMappings)) {
                 String[] mappings = StringUtil.split(fieldMappings, StringUtil.COMMA);
-                StringJoiner fms = new StringJoiner(StringUtil.COMMA);
+                List<Map<String, Object>> jsonMappings = new ArrayList<>();
                 StringJoiner sPk = new StringJoiner(StringUtil.COMMA);
                 StringJoiner tPk = new StringJoiner(StringUtil.COMMA);
                 for (String mapping : mappings) {
                     String[] m = StringUtil.split(mapping, "\\" + StringUtil.VERTICAL_LINE);
                     if (m.length == 2) {
-                        fms.add(replaceStar(m[0], sPk) + StringUtil.VERTICAL_LINE + replaceStar(m[1], tPk));
+                        Map<String, Object> entry = new HashMap<>();
+                        entry.put("source", replaceStar(m[0], sPk));
+                        entry.put("target", replaceStar(m[1], tPk));
+                        jsonMappings.add(entry);
                         continue;
                     }
-                    // |C2,C3|
                     if (m.length == 1) {
                         String name = replaceStar(m[0], tPk);
-                        ;
                         if (StringUtil.startsWith(mapping, StringUtil.VERTICAL_LINE)) {
-                            fms.add(StringUtil.VERTICAL_LINE + name);
-                            continue;
+                            Map<String, Object> entry = new HashMap<>();
+                            entry.put("source", null);
+                            entry.put("target", name);
+                            jsonMappings.add(entry);
+                        } else {
+                            Map<String, Object> entry = new HashMap<>();
+                            entry.put("source", name);
+                            entry.put("target", null);
+                            jsonMappings.add(entry);
                         }
-                        fms.add(name + StringUtil.VERTICAL_LINE);
                     }
                 }
-                params.put("fieldMappings", fms.toString());
+                if (!jsonMappings.isEmpty()) {
+                    params.put("fieldMapping", JsonUtil.objToJson(jsonMappings));
+                }
                 if (StringUtil.isNotBlank(sPk.toString())) {
                     params.put("sourceTablePK", sPk.toString());
                 }

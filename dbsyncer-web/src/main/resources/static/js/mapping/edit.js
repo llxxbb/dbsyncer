@@ -216,9 +216,7 @@ function bindFieldDiffStatusClick() {
         var tableGroupId = $(this).data('id');
         if (tableGroupId) {
             // 使用公共组件显示字段差异弹窗，不显示修复按钮
-            FieldDifferenceComponent.show(tableGroupId, {
-                showFixButton: false
-            });
+            FieldDifferenceComponent.show(tableGroupId);
         }
     });
 }

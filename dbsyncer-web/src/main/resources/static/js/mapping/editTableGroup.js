@@ -802,42 +802,25 @@ function checkFieldMappingDifferences() {
 
     doPoster("/tableGroup/fieldDifference", {'id': tableGroupId}, function (data) {
         if (data.success == true && data.resultValue) {
+            // 缓存到共享组件，弹窗时复用避免重复请求
+            FieldDifferenceComponent.setCachedData(data.resultValue);
             highlightFieldMappingDifferences(data.resultValue);
         }
     });
 }
 
 function highlightFieldMappingDifferences(result) {
-    if (!result.hasDifference) {
-        return;
-    }
-    
-    let diffFieldNames = new Set();
-    let fieldArrays = [
-        result.addedFields,
-        result.missingFields,
-        result.typeMismatched,
-        result.lengthMismatched
-    ];
-    
-    fieldArrays.forEach(function(fields) {
-        if (fields && fields.length > 0) {
-            fields.forEach(function(item) {
-                diffFieldNames.add(item.fieldName);
-            });
-        }
-    });
-    
+    var diffFieldNames = FieldDifferenceComponent.getDiffFieldNames(result);
     if (diffFieldNames.size === 0) {
         return;
     }
-    
-    let $fieldMappingList = $("#fieldMappingList");
+
+    var $fieldMappingList = $("#fieldMappingList");
     $fieldMappingList.find("tr").each(function() {
-        let $tr = $(this);
-        let sourceField = $tr.find("td:eq(0)").text().trim();
-        let targetField = $tr.find("td:eq(1)").text().trim();
-        
+        var $tr = $(this);
+        var sourceField = $tr.find("td:eq(0)").text().trim();
+        var targetField = $tr.find("td:eq(1)").text().trim();
+
         if (diffFieldNames.has(sourceField) || diffFieldNames.has(targetField)) {
             $tr.addClass("field-diff-warning");
         }
@@ -899,12 +882,7 @@ function bindFieldDifferenceClick() {
     $diffBtn.bind('click', function(){
         let id = $(this).attr("tableGroupId");
         // 使用公共组件显示字段差异弹窗
-        FieldDifferenceComponent.show(id, {
-            showFixButton: true,
-            onFix: function(data) {
-                showFieldDiffFixPreview(id);
-            }
-        });
+        FieldDifferenceComponent.show(id);
     });
 }
 

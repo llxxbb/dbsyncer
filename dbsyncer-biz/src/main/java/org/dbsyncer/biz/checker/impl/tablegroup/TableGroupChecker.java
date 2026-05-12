@@ -63,7 +63,6 @@ public class TableGroupChecker extends AbstractChecker {
         String targetTable = params.get("targetTable");
         String sourceTablePK = params.get("sourceTablePK");
         String targetTablePK = params.get("targetTablePK");
-        String fieldMappings = params.get("fieldMappings");
         Assert.hasText(mappingId, "tableGroup mappingId is empty.");
         Assert.hasText(sourceTable, "tableGroup sourceTable is empty.");
         Assert.hasText(targetTable, "tableGroup targetTable is empty.");
@@ -95,24 +94,12 @@ public class TableGroupChecker extends AbstractChecker {
         // 修改基本配置
         this.modifyConfigModel(tableGroup, params);
 
-        // 字段映射关系：如果 fieldMappings 为空，基于源表字段构建 fieldMapping（target 为 null）
-        // 同步字段主要参考源库，target 字段是可选的
-        if (StringUtil.isNotBlank(fieldMappings)) {
-            matchFieldMapping(tableGroup, fieldMappings);
-        } else {
-            // 如果 fieldMappings 为空，基于源表所有字段构建 fieldMapping（target 为 null）
-            buildFieldMappingFromSourceTable(tableGroup);
-        }
-
-        // 检查主键：源表和目标表都必须有主键
+        // 检查源表主键（源表字段不会变化，可以提前检查）
         List<String> sourceTablePrimaryKeys = PrimaryKeyUtil.findTablePrimaryKeys(tableGroup.getSourceTable());
         if (CollectionUtils.isEmpty(sourceTablePrimaryKeys)) {
             throw new PrimaryKeyRequiredException(String.format("数据源表 %s 缺少主键，无法进行数据同步。", sourceTable));
         }
-        List<String> targetTablePrimaryKeys = PrimaryKeyUtil.findTablePrimaryKeys(tableGroup.getTargetTable());
-        if (CollectionUtils.isEmpty(targetTablePrimaryKeys)) {
-            throw new PrimaryKeyRequiredException(String.format("目标表 %s 缺少主键，无法进行数据同步。", targetTable));
-        }
+        // 目标表主键检查移到 add()/edit() 的 DDL 之后执行（自定义字段可能在 DDL 中创建）
 
         // 验证转换器规则：每个字段必须有且仅有一个根转换器
         ConvertUtil.validateFieldConverterRule(tableGroup.getConvert());
@@ -162,20 +149,29 @@ public class TableGroupChecker extends AbstractChecker {
         // 修改高级配置：过滤条件/转换配置/插件配置
         this.modifySuperConfigModel(tableGroup, params);
 
-        // 字段映射关系：如果 fieldMappingJson 为空，基于源表重新构建 fieldMapping（与添加时逻辑一致）
-        // 这样可以确保字段映射与源表结构一致，如果源表结构发生变化，字段映射会自动更新
-        if (StringUtil.isNotBlank(fieldMappingJson)) {
-            setFieldMapping(tableGroup, fieldMappingJson);
-        } else {
-            // 如果 fieldMappingJson 为空，基于源表重新构建 fieldMapping（target 为 null）
-            // 与添加时的逻辑保持一致，确保字段映射与源表结构一致
-            buildFieldMappingFromSourceTable(tableGroup);
-        }
+        // 【修改】setFieldMapping 移到 edit()/add() 的 DDL 之后调用
+        // 原因：自定义字段在 DDL 执行前不存在于数据库元数据中，
+        // 在 DDL 之后调用可以自然获取到所有字段（含自定义字段）
 
         // 验证转换器规则：每个字段必须有且仅有一个根转换器
         ConvertUtil.validateFieldConverterRule(tableGroup.getConvert());
 
         return tableGroup;
+    }
+
+    /**
+     * 应用字段映射关系（JSON 格式：[{"source":"a","target":"b"}]）
+     * 无映射参数时自动从源表构建
+     *
+     * @param tableGroup   表组
+     * @param fieldMapping JSON 格式字段映射
+     */
+    public void applyFieldMapping(TableGroup tableGroup, String fieldMapping) {
+        if (StringUtil.isNotBlank(fieldMapping)) {
+            setFieldMapping(tableGroup, fieldMapping);
+        } else {
+            buildFieldMappingFromSourceTable(tableGroup);
+        }
     }
 
     /**
@@ -258,56 +254,6 @@ public class TableGroupChecker extends AbstractChecker {
         }
     }
 
-    private void matchFieldMapping(TableGroup tableGroup, String fieldMappings) {
-        // A1|A2,B1|B2,|C2
-        List<Field> sCol = tableGroup.getSourceTable().getColumn();
-        List<Field> tCol = tableGroup.getTargetTable().getColumn();
-        if (CollectionUtils.isEmpty(sCol) || CollectionUtils.isEmpty(tCol) || StringUtil.isBlank(fieldMappings)) {
-            return;
-        }
-
-        Map<String, Field> sMap = sCol.stream().collect(Collectors.toMap(Field::getName, filed -> filed));
-        Map<String, Field> tMap = tCol.stream().collect(Collectors.toMap(Field::getName, filed -> filed));
-        List<FieldMapping> fieldMappingList = tableGroup.getFieldMapping();
-        Set<String> exist = new HashSet<>();
-        String[] fieldMapping = StringUtil.split(fieldMappings, StringUtil.COMMA);
-        for (String mapping : fieldMapping) {
-            String[] m = StringUtil.split(mapping, StringUtil.VERTICAL_LINE);
-            if (m.length == 2) {
-                String sName = m[0];
-                String tName = m[1];
-                if (!exist.contains(mapping) && sMap.containsKey(sName) && tMap.containsKey(tName)) {
-                    fieldMappingList.add(new FieldMapping(sMap.get(sName), tMap.get(tName)));
-                    exist.add(mapping);
-                }
-                continue;
-            }
-
-            // |C2,C3|
-            if (m.length == 1) {
-                String name = m[0];
-                if (StringUtil.startsWith(mapping, StringUtil.VERTICAL_LINE)) {
-                    if (!exist.contains(mapping)) {
-                        tMap.computeIfPresent(name, (k, field) -> {
-                            fieldMappingList.add(new FieldMapping(null, field));
-                            exist.add(mapping);
-                            return field;
-                        });
-                    }
-                    continue;
-                }
-                if (!exist.contains(mapping)) {
-                    sMap.computeIfPresent(name, (k, field) -> {
-                        fieldMappingList.add(new FieldMapping(field, null));
-                        exist.add(mapping);
-                        return field;
-                    });
-                }
-            }
-        }
-        exist.clear();
-    }
-
     /**
      * 解析映射关系
      *
@@ -315,7 +261,7 @@ public class TableGroupChecker extends AbstractChecker {
      * @param json       [{"source":"id","target":"id"}]
      * @return
      */
-    private void setFieldMapping(TableGroup tableGroup, String json) {
+    public void setFieldMapping(TableGroup tableGroup, String json) {
         List<Map<String, Object>> mappings = JsonUtil.parseList(json);
         if (null == mappings) {
             throw new BizException("映射关系不能为空");
@@ -371,7 +317,7 @@ public class TableGroupChecker extends AbstractChecker {
      *
      * @param tableGroup 表映射组
      */
-    private void buildFieldMappingFromSourceTable(TableGroup tableGroup) {
+    public void buildFieldMappingFromSourceTable(TableGroup tableGroup) {
         List<Field> sCol = tableGroup.getSourceTable().getColumn();
 
         if (CollectionUtils.isEmpty(sCol)) {
