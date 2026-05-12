@@ -9,6 +9,7 @@ var FieldDifferenceComponent = {
     currentData: null,
     // 缓存数据（页面预加载时写入，避免弹窗时重复请求 API）
     _cachedData: null,
+    _cachedTableGroupId: null,
 
     /**
      * 显示字段差异弹窗
@@ -28,8 +29,8 @@ var FieldDifferenceComponent = {
         this.onFixCallback = options.onFix;
 
         var self = this;
-        // 优先使用缓存数据，避免重复请求 API
-        if (this._cachedData) {
+        // 缓存仅对同一个 tableGroupId 有效，切换表组时清空
+        if (this._cachedData && this._cachedTableGroupId === tableGroupId) {
             self.currentData = this._cachedData;
             self.render(this._cachedData);
         } else {
@@ -37,6 +38,7 @@ var FieldDifferenceComponent = {
                 if (data.success == true) {
                     self.currentData = data.resultValue;
                     self._cachedData = data.resultValue;
+                    self._cachedTableGroupId = tableGroupId;
                     self.render(data.resultValue);
                 } else {
                     $('#fieldDifferenceContent').html('<div class="alert alert-danger">' + data.resultValue + '</div>');
@@ -48,8 +50,9 @@ var FieldDifferenceComponent = {
     /**
      * 设置缓存数据（页面预加载差异数据时调用）
      */
-    setCachedData: function(data) {
+    setCachedData: function(tableGroupId, data) {
         this._cachedData = data;
+        this._cachedTableGroupId = tableGroupId;
     },
 
     /**

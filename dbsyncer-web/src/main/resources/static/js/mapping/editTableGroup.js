@@ -803,7 +803,7 @@ function checkFieldMappingDifferences() {
     doPoster("/tableGroup/fieldDifference", {'id': tableGroupId}, function (data) {
         if (data.success == true && data.resultValue) {
             // 缓存到共享组件，弹窗时复用避免重复请求
-            FieldDifferenceComponent.setCachedData(data.resultValue);
+            FieldDifferenceComponent.setCachedData(tableGroupId, data.resultValue);
             highlightFieldMappingDifferences(data.resultValue);
         }
     });
