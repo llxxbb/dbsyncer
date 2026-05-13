@@ -2164,7 +2164,12 @@ function submitBatchConvertConfig() {
                         var tableGroup = data.resultValue.find(function(tg) { return tg.id === tgId; });
                         if (tableGroup) {
                             var oldPK = tableGroup.targetTablePK || "(无)";
-                            var newPK = oldPK === "(无)" ? targetFieldName : (oldPK + ',' + targetFieldName);
+                            // 去重：只显示实际新增的字段
+                            var pkArray = (oldPK === "(无)") ? [] : oldPK.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s; });
+                            if (pkArray.indexOf(targetFieldName) === -1) {
+                                pkArray.push(targetFieldName);
+                            }
+                            var newPK = pkArray.length > 0 ? pkArray.join(',') : "(无)";
                             var sourceName = tableGroup.sourceTable ? tableGroup.sourceTable.name : '';
                             var targetName = tableGroup.targetTable ? tableGroup.targetTable.name : '';
                             pkChanges.push(sourceName + ' → ' + targetName + '：' + oldPK + ' → ' + newPK);
