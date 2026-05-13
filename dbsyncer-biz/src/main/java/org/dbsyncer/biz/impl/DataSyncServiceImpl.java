@@ -85,7 +85,7 @@ public class DataSyncServiceImpl implements DataSyncService {
         if (!CollectionUtils.isEmpty(binlogData)) {
             Map<String, String> columnMap = tableGroup.getTargetTable().getColumn().stream().collect(Collectors.toMap(Field::nameIgnoreCase, Field::getTypeName));
             List<BinlogColumnVo> columns = new ArrayList<>();
-            binlogData.forEach((k, v) -> columns.add(new BinlogColumnVo((String) k, v, columnMap.get(k == null ? null : k.toLowerCase()))));
+            binlogData.forEach((k, v) -> columns.add(new BinlogColumnVo((String) k, v, columnMap.get(k == null ? null : k.toString().toLowerCase()))));
             messageVo.setColumns(columns);
         }
         return messageVo;

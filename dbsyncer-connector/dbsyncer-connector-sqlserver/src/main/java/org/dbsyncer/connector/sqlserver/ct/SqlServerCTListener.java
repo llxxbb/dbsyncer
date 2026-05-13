@@ -3,6 +3,7 @@ package org.dbsyncer.connector.sqlserver.ct;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
+import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.sqlserver.SqlServerCTConnector;
 import org.dbsyncer.connector.sqlserver.SqlServerException;
 import org.dbsyncer.connector.sqlserver.ct.model.CTEvent;
