@@ -6,6 +6,7 @@
 
 | 编号 | 标题 | 状态 | 日期 |
 |------|------|------|------|
+| [0008](0008-field-table-case-insensitive.md) | 字段名/表名大小写不敏感的业务对象封装 | Proposed | 2026-05-13 |
 | [0007](0007-batch-convert-temp-to-formal-pk.md) | 批量添加转换配置 — 临时主键变更为正式主键 | Proposed | 2026-05-11 |
 | [0006](0006-sqlserver-ct-query-refactor.md) | SQL Server CT 查询重构 — RIGHT JOIN + U→I 转换 + 强制覆盖写入 | Proposed | 2026-04-28 |
 | [0005](0005-sqlserver-ct-delete-race-condition.md) | SQL Server CT 数据删除竞态问题 | Accepted（核心方案被 ADR 06 替代） | 2026-04-24 |
