@@ -316,7 +316,7 @@ public class TableGroup extends AbstractConfigModel {
                 Field fieldMetadata = c.getFieldMetadata();
                 if (fieldMetadata != null) {
                     boolean exists = tTable.getColumn().stream()
-                            .anyMatch(f -> f.getName().equals(fieldMetadata.getName()));
+                            .anyMatch(f -> StringUtil.equalsIgnoreCase(f.getName(), fieldMetadata.getName()));
                     if (!exists) {
                         tTable.getColumn().add(fieldMetadata);
                     }

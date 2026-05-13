@@ -176,7 +176,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
 
                     typeName = resolveFieldType(typeName, conn, schemaNamePattern);
 
-                    Field field = new Field(columnName, typeName, columnType, primaryKeys.contains(columnName),
+                    Field field = new Field(columnName, typeName, columnType,
+                            primaryKeys.stream().anyMatch(pk -> StringUtil.equalsIgnoreCase(pk, columnName)),
                             columnSize, ratio);
 
                     // 填充 nullable 属性
@@ -836,7 +837,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
             Iterator<Field> iterator = fields.iterator();
             while (iterator.hasNext()) {
                 Field next = iterator.next();
-                if (next != null && StringUtil.equals(next.getName(), pkField.getName())) {
+                if (next != null && StringUtil.equalsIgnoreCase(next.getName(), pkField.getName())) {
                     iterator.remove();
                     break;
                 }

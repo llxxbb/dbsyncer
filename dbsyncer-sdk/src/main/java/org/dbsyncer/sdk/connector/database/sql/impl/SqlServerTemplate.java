@@ -137,7 +137,7 @@ public class SqlServerTemplate extends AbstractSqlTemplate {
         // 注意：即使开启了 IDENTITY_INSERT，MERGE 语句的 UPDATE 部分仍然不能更新标识列
         // 这是 SQL Server 的限制，因此需要在 UPDATE 子句中排除所有标识列
         String updateClause = fields.stream()
-                .filter(field -> !primaryKeys.contains(field.getName()) && !field.isAutoincrement())
+                .filter(field -> !primaryKeys.stream().anyMatch(pk -> StringUtil.equalsIgnoreCase(pk, field.getName())) && !field.isAutoincrement())
                 .map(field -> "target." + buildColumn(field.getName()) + " = source." + buildColumn(field.getName()))
                 .collect(java.util.stream.Collectors.joining(", "));
         

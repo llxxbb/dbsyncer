@@ -66,7 +66,8 @@ public abstract class PickerUtil {
         if (CollectionUtils.isEmpty(col)) {
             return new HashMap<>();
         }
-        return col.stream().collect(Collectors.toMap(Field::getName, f -> f, (k1, k2) -> k1));
+        // 不区分大小写构建字段 Map
+        return col.stream().collect(Collectors.toMap(Field::nameIgnoreCase, f -> f, (k1, k2) -> k1));
     }
 
     private static void appendFieldMapping(Mapping mapping, TableGroup group) {
@@ -114,13 +115,13 @@ public abstract class PickerUtil {
                 if (null == f) {
                     continue;
                 }
-                if (StringUtil.equals(f.getName(), name)) {
+                if (StringUtil.equalsIgnoreCase(f.getName(), name)) {
                     exist = true;
                     break;
                 }
             }
-            if (!exist && null != fields.get(name)) {
-                FieldMapping fm = checkSource ? new FieldMapping(fields.get(name), null) : new FieldMapping(null, fields.get(name));
+            if (!exist && null != fields.get(name.toLowerCase())) {
+                FieldMapping fm = checkSource ? new FieldMapping(fields.get(name.toLowerCase()), null) : new FieldMapping(null, fields.get(name.toLowerCase()));
                 fieldMapping.add(fm);
             }
         }

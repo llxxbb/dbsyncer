@@ -848,7 +848,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
             col.setColumnSize(maxLength != null ? maxLength : (precision != null ? precision : 0));
             col.setRatio(scale != null ? scale : 0);
             col.setNullable(nullable);
-            col.setPk(primaryKeys.contains(columnName));
+            col.setPk(primaryKeys.stream().anyMatch(pk -> StringUtil.equalsIgnoreCase(pk, columnName)));
 
             columns.add(col);
         }
