@@ -187,12 +187,15 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         // 保存旧主键信息
         List<String> oldPrimaryKeys = tableGroup.getTargetTablePrimaryKeys();
 
+        // 校验配置（内部会自动去重主键）
+        TableGroup model = (TableGroup) tableGroupChecker.checkEditConfigModel(params);
+
         // 比较主键是否变化（旧模型 vs 新参数）
         boolean hasPkDifference = tableGroup.primaryKeyChanged(params.get("targetTablePK"));
 
         // 如果有差异且未确认，返回差异信息（不执行保存）
         if (hasPkDifference && !"true".equals(confirmParam) && !skipPrimaryKeyDDL) {
-            List<String> newPrimaryKeys = parsePrimaryKeyList(params.get("targetTablePK"));
+            List<String> newPrimaryKeys = model.getTargetTablePrimaryKeys();
             PrimaryKeyDifferenceVO diff = new PrimaryKeyDifferenceVO();
             diff.setHasDifference(true);
             diff.setConfiguredPKs(newPrimaryKeys);
@@ -202,9 +205,6 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
             diff.setTableName(tableGroup.getTargetTable().getName());
             throw new PrimaryKeyDifferenceException(diff);
         }
-
-        // 校验配置（内部会自动去重主键）
-        TableGroup model = (TableGroup) tableGroupChecker.checkEditConfigModel(params);
 
         // 保存原始 fieldMapping JSON，用于 DDL 后重新应用
         String fieldMappingJson = params.get("fieldMapping");
@@ -236,11 +236,10 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         // 主键变更 DDL（在自定义字段DDL之后，确保自定义主键字段已存在）
         // 必须在保存配置之前执行，否则失败后 hasPkDifference=0 导致死锁
         if (hasPkDifference) {
-            List<String> newPrimaryKeys = model.getTargetTablePrimaryKeys();
             Connector targetConnector = profileComponent.getConnector(mapping.getTargetConnectorId());
             if (targetConnector != null) {
                 try {
-                    alterPrimaryKey(model, targetConnector, oldPrimaryKeys, newPrimaryKeys);
+                    alterPrimaryKey(model, targetConnector, oldPrimaryKeys, model.getTargetTablePrimaryKeys());
                 } catch (Exception e) {
                     throw new RuntimeException("修改主键约束失败：" + e.getMessage(), e);
                 }
@@ -269,25 +268,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
                 .collect(Collectors.toList());
     }
 
-    /**
-     * 解析主键字符串为列表（逗号分隔，自动去重，大小写不敏感）
-     */
-    private static List<String> parsePrimaryKeyList(String targetTablePK) {
-        if (StringUtil.isBlank(targetTablePK)) {
-            return Collections.emptyList();
-        }
-        Set<String> seen = new HashSet<>();
-        List<String> result = new ArrayList<>();
-        for (String pk : StringUtil.split(targetTablePK, StringUtil.COMMA)) {
-            String trimmed = pk.trim();
-            if (!trimmed.isEmpty() && seen.add(trimmed.toLowerCase())) {
-                result.add(trimmed);
-            }
-        }
-        return result;
-    }
-
-    @Override
+        @Override
     public String refreshFields(String id) throws Exception {
         TableGroup tableGroup = profileComponent.getTableGroup(id);
         Assert.notNull(tableGroup, "Can not find tableGroup.");
