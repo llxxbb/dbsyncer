@@ -1,5 +1,6 @@
 package org.dbsyncer.sdk.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.dbsyncer.common.util.JsonUtil;
 
 /**
@@ -278,6 +279,7 @@ public class Field {
      * 获取不区分大小写的字段名（用于匹配/查找）
      * @return 小写字段名，null 时返回 null
      */
+    @JsonIgnore
     public String nameIgnoreCase() {
         return name == null ? null : name.toLowerCase();
     }

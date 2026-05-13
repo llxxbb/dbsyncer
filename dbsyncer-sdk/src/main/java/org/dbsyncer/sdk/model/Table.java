@@ -1,5 +1,6 @@
 package org.dbsyncer.sdk.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.dbsyncer.sdk.enums.TableTypeEnum;
 
 import java.util.ArrayList;
@@ -114,6 +115,7 @@ public class Table {
      * 获取不区分大小写的表名（用于匹配/查找）
      * @return 小写表名，null 时返回 null
      */
+    @JsonIgnore
     public String nameIgnoreCase() {
         return name == null ? null : name.toLowerCase();
     }
