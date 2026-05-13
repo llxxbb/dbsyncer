@@ -2164,9 +2164,10 @@ function submitBatchConvertConfig() {
                         var tableGroup = data.resultValue.find(function(tg) { return tg.id === tgId; });
                         if (tableGroup) {
                             var oldPK = tableGroup.targetTablePK || "(无)";
-                            // 去重：只显示实际新增的字段
+                            // 去重：只显示实际新增的字段（不区分大小写）
                             var pkArray = (oldPK === "(无)") ? [] : oldPK.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s; });
-                            if (pkArray.indexOf(targetFieldName) === -1) {
+                            var exists = pkArray.some(function(pk) { return pk.toLowerCase() === targetFieldName.toLowerCase(); });
+                            if (!exists) {
                                 pkArray.push(targetFieldName);
                             }
                             var newPK = pkArray.length > 0 ? pkArray.join(',') : "(无)";
