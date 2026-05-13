@@ -152,6 +152,63 @@ public class TableGroup extends AbstractConfigModel {
     }
 
     /**
+     * 判断主键是否已包含指定字段（不区分大小写）
+     * @param name 字段名
+     * @return 是否已包含
+     */
+    @JsonIgnore
+    public boolean containsPrimaryKey(String name) {
+        if (StringUtil.isBlank(this.targetTablePK) || name == null) {
+            return false;
+        }
+        for (String pk : StringUtil.split(this.targetTablePK, StringUtil.COMMA)) {
+            if (StringUtil.equalsIgnoreCase(pk.trim(), name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 添加主键（内部去重，不区分大小写）
+     * @param name 字段名
+     */
+    @JsonIgnore
+    public void addPrimaryKeyIfAbsent(String name) {
+        if (name == null) {
+            return;
+        }
+        if (containsPrimaryKey(name)) {
+            return;
+        }
+        String currentPK = StringUtil.isBlank(this.targetTablePK) ? name : (this.targetTablePK + "," + name);
+        this.targetTablePK = currentPK;
+    }
+
+    /**
+     * 比较主键是否发生变化（不区分大小写）
+     * @param oldPKs 旧主键列表
+     * @return 是否发生变化
+     */
+    @JsonIgnore
+    public boolean primaryKeyChangedSince(List<String> oldPKs) {
+        List<String> currentPKs = getTargetTablePrimaryKeys();
+        if (oldPKs == null) {
+            return !currentPKs.isEmpty();
+        }
+        if (currentPKs.size() != oldPKs.size()) {
+            return true;
+        }
+        // 不区分大小写逐个比较
+        for (int i = 0; i < currentPKs.size(); i++) {
+            if (!StringUtil.equalsIgnoreCase(currentPKs.get(i), oldPKs.get(i))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * 从源表元数据初始化目标表主键配置
      * 原则：主键顺序应该从数据库元数据查询获取，而不是从 Field.isPk 标记推断
      * 

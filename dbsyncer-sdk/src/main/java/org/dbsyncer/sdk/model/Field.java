@@ -274,6 +274,14 @@ public class Field {
         this.enumValues = enumValues;
     }
 
+    /**
+     * 获取不区分大小写的字段名（用于匹配/查找）
+     * @return 小写字段名，null 时返回 null
+     */
+    public String nameIgnoreCase() {
+        return name == null ? null : name.toLowerCase();
+    }
+
     @Override
     public String toString() {
         return JsonUtil.objToJson(this);

@@ -110,6 +110,14 @@ public class Table {
         this.indexType = indexType;
     }
 
+    /**
+     * 获取不区分大小写的表名（用于匹配/查找）
+     * @return 小写表名，null 时返回 null
+     */
+    public String nameIgnoreCase() {
+        return name == null ? null : name.toLowerCase();
+    }
+
     @Override
     public Table clone() {
         // 深拷贝column列表，避免多线程环境下共享引用
