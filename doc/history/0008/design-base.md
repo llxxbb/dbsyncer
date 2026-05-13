@@ -18,7 +18,7 @@
 
 ### 关键结论
 
-1. **Field 和 Table** 增加 `nameKey()` 方法，用于大小写不敏感的匹配/查找
+1. **Field 和 Table** 增加 `nameIgnoreCase()` 方法，用于大小写不敏感的匹配/查找
 2. **TableGroup** 封装主键操作方法，形成闭环
 3. **DDL 生成**保持原始大小写（由数据库 collation 决定）
 4. **Schema 名**暂不动（各数据库策略差异大）
@@ -28,13 +28,13 @@
 
 | 对象 | 方法 | 用途 |
 |------|------|------|
-| `Field` | `nameKey()` | 字段匹配/查找（小写） |
-| `Table` | `nameKey()` | 表名匹配/查找（小写） |
+| `Field` | `nameIgnoreCase()` | 字段匹配/查找（小写） |
+| `Table` | `nameIgnoreCase()` | 表名匹配/查找（小写） |
 | `TableGroup` | `addPrimaryKeyIfAbsent()` | 主键添加（内部去重+大小写不敏感） |
 | `TableGroup` | `containsPrimaryKey()` | 主键判断（大小写不敏感） |
 | `TableGroup` | `primaryKeyChangedSince()` | 主键变化检测（大小写不敏感） |
 
 ## 使用原则
 
-- **匹配/查找**：用 `nameKey()` 或业务方法
+- **匹配/查找**：用 `nameIgnoreCase()` 或业务方法
 - **展示/DDL 生成**：用 `getName()`（保持原始大小写）

@@ -25,7 +25,7 @@
 
 ```java
 // Field.java - 增加方法
-public String nameKey() {
+public String nameIgnoreCase() {
     return getName() == null ? null : getName().toLowerCase();
 }
 ```
@@ -34,7 +34,7 @@ public String nameKey() {
 
 ```java
 // Table.java - 增加方法
-public String nameKey() {
+public String nameIgnoreCase() {
     return getName() == null ? null : getName().toLowerCase();
 }
 ```
@@ -58,7 +58,7 @@ public boolean primaryKeyChangedSince(List<String> oldPKs) {
 
 | 场景 | 使用 |
 |------|------|
-| 匹配/查找 | `nameKey()` 或业务方法 |
+| 匹配/查找 | `nameIgnoreCase()` 或业务方法 |
 | 展示/DDL 生成 | `getName()`（保持原始大小写） |
 
 ## 影响
