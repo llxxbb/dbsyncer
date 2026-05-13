@@ -1,5 +1,6 @@
 package org.dbsyncer.sdk.connector.database.sql.impl;
 
+import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.schema.SchemaResolver;
 
