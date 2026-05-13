@@ -203,25 +203,14 @@ public class TableGroup extends AbstractConfigModel {
 
     /**
      * 比较主键是否发生变化（不区分大小写）
-     * @param oldPKs 旧主键列表
+     * @param newTargetTablePK 新的主键字符串（逗号分隔）
      * @return 是否发生变化
      */
     @JsonIgnore
-    public boolean primaryKeyChangedSince(List<String> oldPKs) {
-        List<String> currentPKs = getTargetTablePrimaryKeys();
-        if (oldPKs == null) {
-            return !currentPKs.isEmpty();
-        }
-        if (currentPKs.size() != oldPKs.size()) {
-            return true;
-        }
-        // 不区分大小写逐个比较
-        for (int i = 0; i < currentPKs.size(); i++) {
-            if (!StringUtil.equalsIgnoreCase(currentPKs.get(i), oldPKs.get(i))) {
-                return true;
-            }
-        }
-        return false;
+    public boolean primaryKeyChanged(String newTargetTablePK) {
+        String oldPK = this.targetTablePK;
+        String newPK = StringUtil.isBlank(newTargetTablePK) ? null : newTargetTablePK.trim();
+        return StringUtil.equalsIgnoreCase(oldPK, newPK) == false;
     }
 
     /**

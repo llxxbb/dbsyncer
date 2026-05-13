@@ -180,25 +180,19 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
             throw new TargetTableNotExistsException("目标表不存在，请先创建目标表后再保存！", missingTables);
         }
 
-        // 【新增】保存原主键信息（优先使用 targetTablePK，保证顺序）
-        List<String> oldPrimaryKeys = tableGroup.getTargetTablePrimaryKeys();
-
-        // 【新增】获取确认参数
+        // 获取确认参数
         String confirmParam = params.get("confirmPrimaryKeyChange");
         boolean skipPrimaryKeyDDL = "true".equals(params.get("skipPrimaryKeyDDL"));
 
-        // 校验配置（checkEditConfigModel 内部会调用 setTargetTablePK，自动去重）
-        TableGroup model = (TableGroup) tableGroupChecker.checkEditConfigModel(params);
+        // 保存旧主键信息
+        List<String> oldPrimaryKeys = tableGroup.getTargetTablePrimaryKeys();
 
-        // 【修改】DDL 前设置字段映射（initCommand 依赖 fieldMapping 非空）
-        tableGroupChecker.applyFieldMapping(model, fieldMappingJson);
+        // 比较主键是否变化（旧模型 vs 新参数）
+        boolean hasPkDifference = tableGroup.primaryKeyChanged(params.get("targetTablePK"));
 
-        // 去重后获取新主键列表，比较是否变化（不区分大小写）
-        List<String> newPrimaryKeys = model.getTargetTablePrimaryKeys();
-        boolean hasPkDifference = model.primaryKeyChangedSince(oldPrimaryKeys);
-
-        // 【新增】如果有差异且未确认，返回差异信息（不执行保存）
+        // 如果有差异且未确认，返回差异信息（不执行保存）
         if (hasPkDifference && !"true".equals(confirmParam) && !skipPrimaryKeyDDL) {
+            List<String> newPrimaryKeys = parsePrimaryKeyList(params.get("targetTablePK"));
             PrimaryKeyDifferenceVO diff = new PrimaryKeyDifferenceVO();
             diff.setHasDifference(true);
             diff.setConfiguredPKs(newPrimaryKeys);
@@ -209,12 +203,13 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
             throw new PrimaryKeyDifferenceException(diff);
         }
 
-        // 应用主键参数（内存修改）
-        // 【新增】保存原始 fieldMapping JSON，用于 DDL 后重新应用
-        String fieldMappingJson = params.get("fieldMapping");
+        // 校验配置（内部会自动去重主键）
         TableGroup model = (TableGroup) tableGroupChecker.checkEditConfigModel(params);
 
-        // 【修改】DDL 前设置字段映射（initCommand 依赖 fieldMapping 非空）
+        // 保存原始 fieldMapping JSON，用于 DDL 后重新应用
+        String fieldMappingJson = params.get("fieldMapping");
+
+        // DDL 前设置字段映射（initCommand 依赖 fieldMapping 非空）
         tableGroupChecker.applyFieldMapping(model, fieldMappingJson);
 
         // 执行自定义字段 DDL（先执行，因为主键可能引用自定义字段）
@@ -241,6 +236,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         // 主键变更 DDL（在自定义字段DDL之后，确保自定义主键字段已存在）
         // 必须在保存配置之前执行，否则失败后 hasPkDifference=0 导致死锁
         if (hasPkDifference) {
+            List<String> newPrimaryKeys = model.getTargetTablePrimaryKeys();
             Connector targetConnector = profileComponent.getConnector(mapping.getTargetConnectorId());
             if (targetConnector != null) {
                 try {
@@ -271,6 +267,24 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         return sourceList.stream()
                 .filter(pk -> targetList.stream().noneMatch(pk::equalsIgnoreCase))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 解析主键字符串为列表（逗号分隔，自动去重，大小写不敏感）
+     */
+    private static List<String> parsePrimaryKeyList(String targetTablePK) {
+        if (StringUtil.isBlank(targetTablePK)) {
+            return Collections.emptyList();
+        }
+        Set<String> seen = new HashSet<>();
+        List<String> result = new ArrayList<>();
+        for (String pk : StringUtil.split(targetTablePK, StringUtil.COMMA)) {
+            String trimmed = pk.trim();
+            if (!trimmed.isEmpty() && seen.add(trimmed.toLowerCase())) {
+                result.add(trimmed);
+            }
+        }
+        return result;
     }
 
     @Override
