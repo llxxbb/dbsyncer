@@ -2371,10 +2371,12 @@ function addConvertToSingleTableGroup(tableGroup, convertConfig, targetFieldName
         'convert': JSON.stringify(converts)
     };
     
-    // 设置为主键：将新字段追加到 targetTablePK（去重）
+    // 设置为主键：将新字段追加到 targetTablePK（去重，不区分大小写）
     if (setTempPK) {
         var pkArray = (tableGroup.targetTablePK || "").split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s; });
-        if (pkArray.indexOf(targetFieldName) === -1) {
+        // 不区分大小写检查是否已存在
+        var exists = pkArray.some(function(pk) { return pk.toLowerCase() === targetFieldName.toLowerCase(); });
+        if (!exists) {
             pkArray.push(targetFieldName);
         }
         params['targetTablePK'] = pkArray.join(',');

@@ -183,15 +183,24 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         // 【新增】保存原主键信息（优先使用 targetTablePK，保证顺序）
         List<String> oldPrimaryKeys = tableGroup.getTargetTablePrimaryKeys();
 
-        // 解析新主键参数（去重，保留首次出现顺序）
+        // 解析新主键参数（去重，保留首次出现顺序，不区分大小写）
         String targetTablePK = params.get("targetTablePK");
         List<String> newPrimaryKeys = new ArrayList<>();
         if (StringUtil.isNotBlank(targetTablePK)) {
             String[] pks = StringUtil.split(targetTablePK, StringUtil.COMMA);
             for (String pk : pks) {
                 String trimmed = pk.trim();
-                if (!trimmed.isEmpty() && !newPrimaryKeys.contains(trimmed)) {
-                    newPrimaryKeys.add(trimmed);
+                if (!trimmed.isEmpty()) {
+                    boolean found = false;
+                    for (String existing : newPrimaryKeys) {
+                        if (existing.equalsIgnoreCase(trimmed)) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        newPrimaryKeys.add(trimmed);
+                    }
                 }
             }
         }
