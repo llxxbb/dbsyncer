@@ -55,8 +55,10 @@ public boolean primaryKeyChangedSince(List<String> oldPKs);
 
 | 阶段 | 范围 | 交付物 |
 |------|------|--------|
-| P0 | `Field.nameIgnoreCase()` + `Table.nameIgnoreCase()` + 6 处高风险修复 | 代码 + 测试验证 |
-| P1 | `TableGroup` 主键封装 + 5 处中风险修复 | 代码 + 测试验证 |
+| 一阶段 | `Field.nameIgnoreCase()` + `Table.nameIgnoreCase()` + `TableGroup` 主键封装 | 代码 + 测试验证 |
+| 二阶段 | 全部已识别风险点（6 P0 + 5 P1）统一替换为新机制 | 代码 + 测试验证 |
+
+**原则**：新机制覆盖范围内全面替换，不留散落的 `equalsIgnoreCase` / `toLowerCase` / `indexOf`。
 
 **不选方案**：工具类（增加技术复杂度）、逐点修改（无法闭环）。
 
