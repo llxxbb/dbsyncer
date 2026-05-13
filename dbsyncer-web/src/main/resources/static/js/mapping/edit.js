@@ -2173,13 +2173,16 @@ function submitBatchConvertConfig() {
                             var newPK = pkArray.length > 0 ? pkArray.join(',') : "(无)";
                             var sourceName = tableGroup.sourceTable ? tableGroup.sourceTable.name : '';
                             var targetName = tableGroup.targetTable ? tableGroup.targetTable.name : '';
-                            pkChanges.push(sourceName + ' → ' + targetName + '：' + oldPK + ' → ' + newPK);
+                            // 仅当主键实际发生变化时才加入提示列表
+                            if (oldPK !== newPK) {
+                                pkChanges.push(sourceName + ' → ' + targetName + '：' + oldPK + ' → ' + newPK);
+                            }
                         }
                     });
                     
                     if (pkChanges.length === 0) {
-                        bootGrowl("无法获取表组主键信息", "danger");
-                        $('#batchConvertSubmitBtn').prop('disabled', false);
+                        // 主键均已存在，无需修改，直接执行批量添加
+                        batchAddConvertToTableGroups(data.resultValue, selectedTableGroups, convertConfig, targetFieldName, fieldMetadata, 0, 0, [], 0, 0, setTempPK);
                         return;
                     }
                     
