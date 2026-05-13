@@ -2357,11 +2357,13 @@ function addConvertToSingleTableGroup(tableGroup, convertConfig, targetFieldName
         'convert': JSON.stringify(converts)
     };
     
-    // 设置为主键：将新字段追加到 targetTablePK
+    // 设置为主键：将新字段追加到 targetTablePK（去重）
     if (setTempPK) {
-        var targetTablePK = tableGroup.targetTablePK || "";
-        targetTablePK = targetTablePK ? (targetTablePK + ',' + targetFieldName) : targetFieldName;
-        params['targetTablePK'] = targetTablePK;
+        var pkArray = (tableGroup.targetTablePK || "").split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s; });
+        if (pkArray.indexOf(targetFieldName) === -1) {
+            pkArray.push(targetFieldName);
+        }
+        params['targetTablePK'] = pkArray.join(',');
         params['confirmPrimaryKeyChange'] = 'true';
     } else {
         params['targetTablePK'] = tableGroup.targetTablePK || "";
