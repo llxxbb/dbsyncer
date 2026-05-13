@@ -2323,10 +2323,10 @@ function addConvertToSingleTableGroup(tableGroup, convertConfig, targetFieldName
         finalFieldMetadata.isCustom = true;
     }
     
-    // 前端检查：转换配置是否重复（基于字段名 + 转换类型）
+    // 前端检查：转换配置是否重复（基于字段名 + 转换类型，不区分大小写）
     var exists = false;
     for (var i = 0; i < converts.length; i++) {
-        if (converts[i].name === targetFieldName && converts[i].convertCode === convertConfig.convertType) {
+        if (converts[i].name.toLowerCase() === targetFieldName.toLowerCase() && converts[i].convertCode === convertConfig.convertType) {
             exists = true;
             break;
         }
