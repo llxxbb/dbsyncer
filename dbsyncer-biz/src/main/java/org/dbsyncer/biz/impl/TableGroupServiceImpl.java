@@ -490,15 +490,20 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         SqlTemplate sqlTemplate = ((org.dbsyncer.sdk.connector.database.Database) connectorFactory
                 .getConnectorService(targetConnector.getConfig())).getSqlTemplate();
 
-        // 获取目标表现有字段名称集合，用于判断自定义字段是否已存在
+        // 获取目标表现有字段名称集合（不区分大小写，避免 siteId/siteID 误判）
         List<Field> existingColumns = tableGroup.getTargetTable().getColumn();
-        Set<String> existingColumnNames = existingColumns != null
-                ? existingColumns.stream().map(Field::getName).collect(Collectors.toSet())
+        Set<String> existingColumnNamesLower = existingColumns != null
+                ? existingColumns.stream()
+                        .map(Field::getName)
+                        .filter(Objects::nonNull)
+                        .map(String::toLowerCase)
+                        .collect(Collectors.toSet())
                 : Collections.emptySet();
 
         for (Field field : customFields) {
-            // 字段已存在则跳过 DDL 执行，避免重复添加报错
-            if (existingColumnNames.contains(field.getName())) {
+            // 字段已存在（不区分大小写）则跳过 DDL 执行，避免重复添加报错
+            String fieldName = field.getName();
+            if (fieldName != null && existingColumnNamesLower.contains(fieldName.toLowerCase())) {
                 logger.info("字段已存在，跳过 DDL：{}.{}",
                         tableGroup.getTargetTable().getName(), field.getName());
                 continue;
