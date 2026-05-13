@@ -88,7 +88,7 @@ public class Picker {
             source = new HashMap<>();
             // 使用索引映射获取正确的值，解决字段删除后的数据错位问题
             for (Field field : sourceOriginalFields) {
-                Integer index = fieldIndexMap.get(field.getName());
+                Integer index = fieldIndexMap.get(field.nameIgnoreCase());
                 if (index != null && index < row.size()) {
                     source.put(field.getName(), row.get(index));
                 }
@@ -117,7 +117,7 @@ public class Picker {
     }
 
     public Map<String, Field> getTargetFieldMap() {
-        return targetFields.stream().filter(Objects::nonNull).collect(Collectors.toMap(Field::getName, f -> f, (k1, k2) -> k1));
+        return targetFields.stream().filter(Objects::nonNull).collect(Collectors.toMap(Field::nameIgnoreCase, f -> f, (k1, k2) -> k1));
     }
 
     private boolean filter(Map<String, Object> row) {
@@ -218,9 +218,9 @@ public class Picker {
         List<Field> fields = new ArrayList<>();
         Set<String> keys = new HashSet<>();
         list.forEach(f -> {
-            if (f != null && !keys.contains(f.getName())) {
+            if (f != null && !keys.contains(f.nameIgnoreCase())) {
                 fields.add(f);
-                keys.add(f.getName());
+                keys.add(f.nameIgnoreCase());
             }
         });
         keys.clear();

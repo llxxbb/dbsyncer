@@ -421,9 +421,9 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         }
         List<Field> list = new ArrayList<>();
         Set<String> keys = new HashSet<>();
-        column.forEach(f -> keys.add(f.getName()));
+        column.forEach(f -> keys.add(f.nameIgnoreCase()));
         target.forEach(f -> {
-            if (keys.contains(f.getName())) {
+            if (keys.contains(f.nameIgnoreCase())) {
                 list.add(f);
             }
         });

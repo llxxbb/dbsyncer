@@ -83,9 +83,9 @@ public class DataSyncServiceImpl implements DataSyncService {
         messageVo.setId(messageId);
 
         if (!CollectionUtils.isEmpty(binlogData)) {
-            Map<String, String> columnMap = tableGroup.getTargetTable().getColumn().stream().collect(Collectors.toMap(Field::getName, Field::getTypeName));
+            Map<String, String> columnMap = tableGroup.getTargetTable().getColumn().stream().collect(Collectors.toMap(Field::nameIgnoreCase, Field::getTypeName));
             List<BinlogColumnVo> columns = new ArrayList<>();
-            binlogData.forEach((k, v) -> columns.add(new BinlogColumnVo((String) k, v, columnMap.get(k))));
+            binlogData.forEach((k, v) -> columns.add(new BinlogColumnVo((String) k, v, columnMap.get(k == null ? null : k.toLowerCase()))));
             messageVo.setColumns(columns);
         }
         return messageVo;
@@ -132,10 +132,10 @@ public class DataSyncServiceImpl implements DataSyncService {
         // 所以需要使用源表字段类型来反序列化，直接使用源数据
         final Map<String, Field> sourceFieldMap = tableGroup.getSourceTable().getColumn().stream()
                 .filter(java.util.Objects::nonNull)
-                .collect(Collectors.toMap(Field::getName, f -> f, (k1, k2) -> k1));
+                .collect(Collectors.toMap(Field::nameIgnoreCase, f -> f, (k1, k2) -> k1));
         message.getRowMap().forEach((k, v) -> {
-            if (sourceFieldMap.containsKey(k)) {
-                Object val = BinlogMessageUtil.deserializeValue(sourceFieldMap.get(k).getType(), v);
+            if (sourceFieldMap.containsKey(k == null ? null : k.toLowerCase())) {
+                Object val = BinlogMessageUtil.deserializeValue(sourceFieldMap.get(k.toLowerCase()).getType(), v);
                 // 处理二进制对象显示
                 if (prettyBytes) {
                     if (val instanceof byte[]) {

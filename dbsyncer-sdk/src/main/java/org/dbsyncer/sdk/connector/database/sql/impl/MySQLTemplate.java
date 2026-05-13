@@ -149,7 +149,7 @@ public class MySQLTemplate extends AbstractSqlTemplate {
         for (Field field : fields) {
             if (field.isAutoincrement()) {
                 String fieldName = field.getName();
-                if (!effectivePrimaryKeys.contains(fieldName)) {
+                if (!effectivePrimaryKeys.stream().anyMatch(pk -> StringUtil.equalsIgnoreCase(pk, fieldName))) {
                     // AUTO_INCREMENT 字段不在主键列表中，添加到主键列表（放在最前面）
                     effectivePrimaryKeys.add(0, fieldName);
                 }

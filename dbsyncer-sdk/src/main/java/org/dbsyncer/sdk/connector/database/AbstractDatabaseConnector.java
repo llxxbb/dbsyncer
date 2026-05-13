@@ -591,7 +591,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
         }
         Table table = commandConfig.getTable();
         Map<String, Field> fieldMap = new HashMap<>();
-        table.getColumn().forEach(field -> fieldMap.put(field.getName(), field));
+        table.getColumn().forEach(field -> fieldMap.put(field.nameIgnoreCase(), field));
 
         // 过滤条件SQL
         StringBuilder sql = new StringBuilder();
@@ -730,7 +730,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
         Filter c = null;
         for (int i = 0; i < size; i++) {
             c = list.get(i);
-            Field field = fieldMap.get(c.getName());
+            Field field = fieldMap.get(c.getName() == null ? null : c.getName().toLowerCase());
             Assert.notNull(field, "条件字段无效.");
             // 使用模板系统的统一方法构建带引号的字段名
             sql.append(sqlTemplate.buildColumn(buildFieldName(field)));

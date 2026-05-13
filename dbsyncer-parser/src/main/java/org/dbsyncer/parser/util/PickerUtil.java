@@ -94,13 +94,13 @@ public abstract class PickerUtil {
             Set<String> targetFieldNames = fieldMapping.stream()
                     .map(FieldMapping::getTarget)
                     .filter(f -> f != null)
-                    .map(Field::getName)
+                    .map(Field::nameIgnoreCase)
                     .filter(StringUtil::isNotBlank)
                     .collect(Collectors.toSet());
             convert.forEach(c -> {
                 String fieldName = c.getName();
-                Field targetField = targetFields.get(fieldName);
-                if (targetField != null && !targetFieldNames.contains(fieldName)) {
+                Field targetField = targetFields.get(fieldName.toLowerCase());
+                if (targetField != null && !targetFieldNames.contains(fieldName.toLowerCase())) {
                     fieldMapping.add(new FieldMapping(null, targetField));
                 }
             });

@@ -233,7 +233,7 @@ public class TableGroupController extends BaseController {
                             pkList.add(pk.trim());
                         }
                         for (Field field : filteredFields) {
-                            if (pkList.contains(field.getName())) {
+                            if (pkList.stream().anyMatch(pk -> StringUtil.equalsIgnoreCase(pk, field.getName()))) {
                                 field.setPk(true);
                             }
                         }

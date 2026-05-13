@@ -245,7 +245,7 @@ public class TableGroupChecker extends AbstractChecker {
                     continue;
                 }
                 // 数据源表和目标表都存在
-                if (StringUtil.equals(sourceTable, g.getSourceTable().getName()) && StringUtil.equals(targetTable, g.getTargetTable().getName())) {
+                if (StringUtil.equalsIgnoreCase(sourceTable, g.getSourceTable().getName()) && StringUtil.equalsIgnoreCase(targetTable, g.getTargetTable().getName())) {
                     final String error = String.format("映射关系已存在.%s > %s", sourceTable, targetTable);
                     logger.error(error);
                     throw new RepeatedTableGroupException(error);

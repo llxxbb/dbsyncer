@@ -267,13 +267,15 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
             final Set<String> sTables = new HashSet<>();
             final Set<String> tTables = new HashSet<>();
             tableGroupAll.forEach(tableGroup -> {
-                sTables.add(tableGroup.getSourceTable().getName());
-                tTables.add(tableGroup.getTargetTable().getName());
+                String sName = tableGroup.getSourceTable().getName();
+                String tName = tableGroup.getTargetTable().getName();
+                sTables.add(sName == null ? null : sName.toLowerCase());
+                tTables.add(tName == null ? null : tName.toLowerCase());
             });
             vo.getSourceConnector().setTable(vo.getSourceConnector().getTable().stream()
-                    .filter(t -> !sTables.contains(t.getName())).collect(Collectors.toList()));
+                    .filter(t -> !sTables.contains(t.getName() == null ? null : t.getName().toLowerCase())).collect(Collectors.toList()));
             vo.getTargetConnector().setTable(vo.getTargetConnector().getTable().stream()
-                    .filter(t -> !tTables.contains(t.getName())).collect(Collectors.toList()));
+                    .filter(t -> !tTables.contains(t.getName() == null ? null : t.getName().toLowerCase())).collect(Collectors.toList()));
             sTables.clear();
             tTables.clear();
         }

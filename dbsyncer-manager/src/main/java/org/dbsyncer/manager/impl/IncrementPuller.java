@@ -209,10 +209,12 @@ public final class IncrementPuller implements Puller {
             List<Table> sourceTable = new ArrayList<>();
             list.forEach(t -> {
                 Table table = t.getSourceTable();
-                if (!filterTable.contains(t.getName())) {
+                String tName = table.getName();
+                String tNameKey = tName == null ? null : tName.toLowerCase();
+                if (!filterTable.contains(tNameKey)) {
                     sourceTable.add(table);
                 }
-                filterTable.add(table.getName());
+                filterTable.add(tNameKey);
             });
 
             abstractListener.setConnectorService(connectorFactory.getConnectorService(connectorConfig.getConnectorType()));

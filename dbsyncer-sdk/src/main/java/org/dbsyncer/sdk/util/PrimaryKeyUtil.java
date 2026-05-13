@@ -67,9 +67,9 @@ public abstract class PrimaryKeyUtil {
         if (!CollectionUtils.isEmpty(fields)) {
             Set<String> mark = new HashSet<>();
             fields.forEach(f -> {
-                if (f.isPk() && !mark.contains(f.getName())) {
+                if (f.isPk() && !mark.contains(f.nameIgnoreCase())) {
                     list.add(f);
-                    mark.add(f.getName());
+                    mark.add(f.nameIgnoreCase());
                 }
             });
         }

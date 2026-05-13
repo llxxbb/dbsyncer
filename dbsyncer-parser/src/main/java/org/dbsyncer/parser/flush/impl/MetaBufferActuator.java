@@ -331,7 +331,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
 
         // 从索引映射中获取实际匹配到的字段列表
         List<Field> actualSourceFields = sourceFields.stream()
-                .filter(f -> fieldIndexMap.containsKey(f.getName()))
+                .filter(f -> fieldIndexMap.containsKey(f.nameIgnoreCase()))
                 .collect(Collectors.toList());
 
         boolean enableSchemaResolver = profileComponent.getSystemConfig().isEnableSchemaResolver();
@@ -549,17 +549,19 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             return new LinkedHashMap<>();
         }
 
+        // 不区分大小写构建字段 Map
         Map<String, Field> fieldMap = tableColumns.stream()
-                .collect(Collectors.toMap(Field::getName, field -> field, (k1, k2) -> k1));
+                .collect(Collectors.toMap(Field::nameIgnoreCase, field -> field, (k1, k2) -> k1));
 
         Map<String, Integer> fieldIndexMap = new LinkedHashMap<>();
         Set<String> addedFieldNames = new LinkedHashSet<>();
 
         int rowIndex = 0;
         for (String columnName : columnNames) {
-            Field field = fieldMap.get(columnName);
-            if (field != null && addedFieldNames.add(columnName)) {
-                fieldIndexMap.put(columnName, rowIndex);
+            String columnNameKey = columnName.toLowerCase();
+            Field field = fieldMap.get(columnNameKey);
+            if (field != null && addedFieldNames.add(columnNameKey)) {
+                fieldIndexMap.put(columnNameKey, rowIndex);
             }
 /*            else if (field == null) {
                 logger.warn("事件中的列名 '{}' 在 TableGroup 中未找到对应的字段信息", columnName);
