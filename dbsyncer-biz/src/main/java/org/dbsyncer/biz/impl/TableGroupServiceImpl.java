@@ -183,34 +183,19 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         // 【新增】保存原主键信息（优先使用 targetTablePK，保证顺序）
         List<String> oldPrimaryKeys = tableGroup.getTargetTablePrimaryKeys();
 
-        // 解析新主键参数（去重，保留首次出现顺序，不区分大小写）
-        String targetTablePK = params.get("targetTablePK");
-        List<String> newPrimaryKeys = new ArrayList<>();
-        if (StringUtil.isNotBlank(targetTablePK)) {
-            String[] pks = StringUtil.split(targetTablePK, StringUtil.COMMA);
-            for (String pk : pks) {
-                String trimmed = pk.trim();
-                if (!trimmed.isEmpty()) {
-                    boolean found = false;
-                    for (String existing : newPrimaryKeys) {
-                        if (existing.equalsIgnoreCase(trimmed)) {
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (!found) {
-                        newPrimaryKeys.add(trimmed);
-                    }
-                }
-            }
-        }
-
-        // 检查主键差异（不区分大小写）
-        boolean hasPkDifference = !oldPrimaryKeys.equals(newPrimaryKeys);
-
         // 【新增】获取确认参数
         String confirmParam = params.get("confirmPrimaryKeyChange");
         boolean skipPrimaryKeyDDL = "true".equals(params.get("skipPrimaryKeyDDL"));
+
+        // 校验配置（checkEditConfigModel 内部会调用 setTargetTablePK，自动去重）
+        TableGroup model = (TableGroup) tableGroupChecker.checkEditConfigModel(params);
+
+        // 【修改】DDL 前设置字段映射（initCommand 依赖 fieldMapping 非空）
+        tableGroupChecker.applyFieldMapping(model, fieldMappingJson);
+
+        // 去重后获取新主键列表，比较是否变化（不区分大小写）
+        List<String> newPrimaryKeys = model.getTargetTablePrimaryKeys();
+        boolean hasPkDifference = model.primaryKeyChangedSince(oldPrimaryKeys);
 
         // 【新增】如果有差异且未确认，返回差异信息（不执行保存）
         if (hasPkDifference && !"true".equals(confirmParam) && !skipPrimaryKeyDDL) {
@@ -579,9 +564,18 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         }
 
         // 如果主键没有变化，跳过
-        if (oldPrimaryKeys.equals(newPrimaryKeys)) {
-            logger.info("主键未变化，跳过 DDL 执行");
-            return;
+        if (!oldPrimaryKeys.isEmpty() && !newPrimaryKeys.isEmpty() && oldPrimaryKeys.size() == newPrimaryKeys.size()) {
+            boolean allSame = true;
+            for (int i = 0; i < oldPrimaryKeys.size(); i++) {
+                if (!StringUtil.equalsIgnoreCase(oldPrimaryKeys.get(i), newPrimaryKeys.get(i))) {
+                    allSame = false;
+                    break;
+                }
+            }
+            if (allSame) {
+                logger.info("主键未变化，跳过 DDL 执行");
+                return;
+            }
         }
 
         // 使用 SqlTemplate 构建 DDL（由各数据库连接器提供实现）

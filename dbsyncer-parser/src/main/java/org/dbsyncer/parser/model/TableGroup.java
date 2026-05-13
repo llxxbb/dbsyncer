@@ -131,7 +131,23 @@ public class TableGroup extends AbstractConfigModel {
     }
 
     public TableGroup setTargetTablePK(String targetTablePK) {
-        this.targetTablePK = targetTablePK;
+        // 内部自动去重（大小写不敏感），保留首次出现顺序
+        if (StringUtil.isBlank(targetTablePK)) {
+            this.targetTablePK = null;
+            return this;
+        }
+        String[] pks = StringUtil.split(targetTablePK, StringUtil.COMMA);
+        Set<String> seen = new java.util.HashSet<>();
+        StringBuilder sb = new StringBuilder();
+        for (String pk : pks) {
+            String trimmed = pk.trim();
+            if (trimmed.isEmpty()) continue;
+            if (seen.add(trimmed.toLowerCase())) {
+                if (sb.length() > 0) sb.append(',');
+                sb.append(trimmed);
+            }
+        }
+        this.targetTablePK = sb.length() > 0 ? sb.toString() : null;
         return this;
     }
 
