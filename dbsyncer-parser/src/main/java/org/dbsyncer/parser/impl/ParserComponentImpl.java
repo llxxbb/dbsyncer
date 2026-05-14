@@ -77,7 +77,7 @@ public class ParserComponentImpl implements ParserComponent {
         MetaInfo metaInfo = connectorFactory.getMetaInfo(connectorInstance, tableName);
         if (!CollectionUtils.isEmpty(connector.getTable())) {
             for (Table t : connector.getTable()) {
-                if (StringUtil.equalsIgnoreCase(t.getName(), tableName)) {
+                if (t.matchesName(tableName)) {
                     metaInfo.setTableType(t.getType());
                     metaInfo.setSql(t.getSql());
                     break;

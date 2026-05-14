@@ -180,7 +180,7 @@ public class PostgreSQLTemplate extends AbstractSqlTemplate {
             // 检查是否所有主键都是自增的
             boolean allPkAutoIncrement = primaryKeys.stream()
                     .allMatch(pk -> fields.stream()
-                            .anyMatch(f -> StringUtil.equalsIgnoreCase(f.getName(), pk) && f.isAutoincrement()));
+                            .anyMatch(f -> f.matchesName(pk) && f.isAutoincrement()));
             
             // 如果主键不是自增的，需要显式定义 PRIMARY KEY
             if (!allPkAutoIncrement) {

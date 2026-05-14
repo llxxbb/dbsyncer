@@ -837,7 +837,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
             Iterator<Field> iterator = fields.iterator();
             while (iterator.hasNext()) {
                 Field next = iterator.next();
-                if (next != null && StringUtil.equalsIgnoreCase(next.getName(), pkField.getName())) {
+                if (next != null && next.matchesName(pkField.getName())) {
                     iterator.remove();
                     break;
                 }

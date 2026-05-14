@@ -330,7 +330,7 @@ public class DDLParserImpl implements DDLParser {
                 String newName = entry.getValue();
 
                 // 只处理源字段名匹配的情况（changedFieldNames 中的键是源数据库的字段名）
-                if (source != null && StringUtil.equalsIgnoreCase(oldName, source.getName())) {
+                if (source != null && source.matchesName(oldName)) {
                     Field newSourceField = sourceFiledMap.get(newName.toLowerCase());
                     if (newSourceField == null) {
                         logger.warn("源表中未找到新字段 {}，移除字段映射", newName);
@@ -343,7 +343,7 @@ public class DDLParserImpl implements DDLParser {
 
                     // 如果源字段名和目标字段名相同，则同时更新目标字段
                     // 这符合常见场景：同名字段应该同步更新
-                    if (target != null && StringUtil.equalsIgnoreCase(oldName, target.getName())) {
+                    if (target != null && target.matchesName(oldName)) {
                         Field newTargetField = targetFiledMap.get(newName.toLowerCase());
                         if (newTargetField != null) {
                             fieldMapping.setTarget(newTargetField);
@@ -371,8 +371,8 @@ public class DDLParserImpl implements DDLParser {
             Field source = fieldMapping.getSource();
             Field target = fieldMapping.getTarget();
             for (String droppedFieldName : droppedFieldNames) {
-                if ((source != null && StringUtil.equalsIgnoreCase(droppedFieldName, source.getName()))
-                        || (target != null && StringUtil.equalsIgnoreCase(droppedFieldName, target.getName()))) {
+                if ((source != null && source.matchesName(droppedFieldName))
+                        || (target != null && target.matchesName(droppedFieldName))) {
                     iterator.remove();
                     break;
                 }

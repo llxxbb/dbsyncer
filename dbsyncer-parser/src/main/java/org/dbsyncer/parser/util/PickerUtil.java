@@ -115,7 +115,7 @@ public abstract class PickerUtil {
                 if (null == f) {
                     continue;
                 }
-                if (StringUtil.equalsIgnoreCase(f.getName(), name)) {
+                if (f.matchesName(name)) {
                     exist = true;
                     break;
                 }

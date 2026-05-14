@@ -217,7 +217,7 @@ public class TableGroupChecker extends AbstractChecker {
             // 2. 按用户指定的主键配置标记主键字段
             for (String pk : pks) {
                 for (Field field : fields) {
-                    if (StringUtil.equalsIgnoreCase(field.getName(), pk.trim())) {
+                    if (field.matchesName(pk.trim())) {
                         field.setPk(true);
                         break;
                     }

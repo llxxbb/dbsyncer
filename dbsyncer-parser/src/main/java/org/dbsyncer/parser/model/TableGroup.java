@@ -216,6 +216,27 @@ public class TableGroup extends AbstractConfigModel {
     }
 
     /**
+     * 判断字段映射中是否包含某字段（不区分大小写，检查源和目标）
+     * @param name 字段名
+     * @return 是否包含
+     */
+    @JsonIgnore
+    public boolean containsField(String name) {
+        if (fieldMapping == null || fieldMapping.isEmpty()) {
+            return false;
+        }
+        for (FieldMapping fm : fieldMapping) {
+            if (fm.getSource() != null && fm.getSource().matchesName(name)) {
+                return true;
+            }
+            if (fm.getTarget() != null && fm.getTarget().matchesName(name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * 从源表元数据初始化目标表主键配置
      * 原则：主键顺序应该从数据库元数据查询获取，而不是从 Field.isPk 标记推断
      * 
@@ -323,7 +344,7 @@ public class TableGroup extends AbstractConfigModel {
                 Field fieldMetadata = c.getFieldMetadata();
                 if (fieldMetadata != null) {
                     boolean exists = tTable.getColumn().stream()
-                            .anyMatch(f -> StringUtil.equalsIgnoreCase(f.getName(), fieldMetadata.getName()));
+                            .anyMatch(f -> f.matchesName(fieldMetadata.getName()));
                     if (!exists) {
                         tTable.getColumn().add(fieldMetadata);
                     }

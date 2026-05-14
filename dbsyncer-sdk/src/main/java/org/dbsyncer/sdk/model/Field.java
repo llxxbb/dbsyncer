@@ -2,6 +2,7 @@ package org.dbsyncer.sdk.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.dbsyncer.common.util.JsonUtil;
+import org.dbsyncer.common.util.StringUtil;
 
 /**
  * 字段属性
@@ -282,6 +283,16 @@ public class Field {
     @JsonIgnore
     public String nameIgnoreCase() {
         return name == null ? null : name.toLowerCase();
+    }
+
+    /**
+     * 判断字段名是否匹配（不区分大小写）
+     * @param other 目标字段名
+     * @return 是否匹配
+     */
+    @JsonIgnore
+    public boolean matchesName(String other) {
+        return StringUtil.equalsIgnoreCase(this.name, other);
     }
 
     @Override
