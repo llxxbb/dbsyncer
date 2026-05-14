@@ -2117,21 +2117,12 @@ function submitBatchConvertConfig() {
     }
     
     var mappingId = $('#batchConvertConfigBtn').attr('mappingId');
-    var applyScope = $('input[name="applyScope"]:checked').val();
     
-    var selectedTableGroups = [];
-    if (applyScope === 'SELECTED') {
-        $('.tableGroupCheckbox:checked').each(function() {
-            selectedTableGroups.push($(this).val());
-        });
-    } else {
-        $('.tableGroupCheckbox').each(function() {
-            selectedTableGroups.push($(this).val());
-        });
-    }
+    // 按选中处理，与删除/重新同步保持一致
+    var selectedTableGroups = getCheckedBoxSize($('.tableGroupCheckbox'));
     
     if (selectedTableGroups.length === 0) {
-        bootGrowl("没有找到表组", "danger");
+        bootGrowl("请选择要操作的表组", "warning");
         return;
     }
     
