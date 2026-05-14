@@ -145,7 +145,7 @@
                                                 <button id="fieldDifferenceBtn" type="button" class="btn btn-info" th:title="查看字段差异" th:tableGroupId="${tableGroup?.id}" style="margin-left: 5px;">
                                                     <span class="fa fa-exchange"></span>字段差异
                                                     <span th:if="${fieldDifference?.hasDifference}" class="badge badge-danger" style="margin-left: 5px;">
-                                                        <span th:text="${#lists.size(fieldDifference?.addedFields) + #lists.size(fieldDifference?.missingFields) + #lists.size(fieldDifference?.typeMismatched) + #lists.size(fieldDifference?.lengthMismatched)}">0</span>
+                                                        <span th:text="${#lists.size(fieldDifference?.addedFields) + #lists.size(fieldDifference?.missingFields) + #lists.size(fieldDifference?.typeMismatched) + #lists.size(fieldDifference?.lengthMismatched) + #lists.size(fieldDifference?.mappingOnlyFields)}">0</span>
                                                     </span>
                                                 </button>
                                             </div>

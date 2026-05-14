@@ -25,6 +25,7 @@ public final class FieldComparisonUtil {
         private List<FieldDiffItem> missingFields = new ArrayList<>();
         private List<FieldDiffItem> typeMismatched = new ArrayList<>();
         private List<FieldDiffItem> lengthMismatched = new ArrayList<>();
+        private List<FieldDiffItem> mappingOnlyFields = new ArrayList<>();
 
         public List<FieldDiffItem> getAddedFields() {
             return addedFields;
@@ -42,6 +43,10 @@ public final class FieldComparisonUtil {
             return lengthMismatched;
         }
 
+        public List<FieldDiffItem> getMappingOnlyFields() {
+            return mappingOnlyFields;
+        }
+
         /**
          * 判断是否存在字段差异
          * @return true-存在差异，false-无差异
@@ -50,7 +55,8 @@ public final class FieldComparisonUtil {
             return !addedFields.isEmpty()
                     || !missingFields.isEmpty()
                     || !typeMismatched.isEmpty()
-                    || !lengthMismatched.isEmpty();
+                    || !lengthMismatched.isEmpty()
+                    || !mappingOnlyFields.isEmpty();
         }
     }
 
@@ -212,5 +218,45 @@ public final class FieldComparisonUtil {
             fields.forEach(f -> fieldMap.put(f.getName().toLowerCase(), f));
         }
         return fieldMap;
+    }
+
+    /**
+     * 比较 Mapping 配置的目标字段与目标表实际字段的差异
+     * 用于检测 Mapping 配置了 target 字段，但目标表实际不存在该字段的情况（MAPPING_ONLY）
+     *
+     * @param fieldMappings Mapping 配置中的字段映射列表
+     * @param targetFields 目标表实际字段列表
+     * @return MAPPING_ONLY 差异列表
+     */
+    public static List<FieldDiffItem> compareMappingWithTarget(List<org.dbsyncer.parser.model.FieldMapping> fieldMappings, List<Field> targetFields) {
+        List<FieldDiffItem> mappingOnlyFields = new ArrayList<>();
+
+        if (CollectionUtils.isEmpty(fieldMappings) || CollectionUtils.isEmpty(targetFields)) {
+            return mappingOnlyFields;
+        }
+
+        for (org.dbsyncer.parser.model.FieldMapping fieldMapping : fieldMappings) {
+            if (fieldMapping == null || fieldMapping.getTarget() == null || fieldMapping.getTarget().getName() == null) {
+                continue;
+            }
+
+            String targetFieldName = fieldMapping.getTarget().getName();
+
+            // 使用 Field.matchesName 进行不区分大小写的比较（ADR-0008 规范）
+            boolean existsInTarget = targetFields.stream()
+                    .anyMatch(targetField -> targetField != null && targetField.matchesName(targetFieldName));
+
+            if (!existsInTarget) {
+                FieldDiffItem item = new FieldDiffItem();
+                item.setFieldName(targetFieldName);
+                item.setTargetType(fieldMapping.getTarget().getTypeName());
+                item.setTargetLength(fieldMapping.getTarget().getColumnSize());
+                item.setDiffType("MAPPING_ONLY");
+                item.setDescription("mapping 已配置但目标表不存在");
+                mappingOnlyFields.add(item);
+            }
+        }
+
+        return mappingOnlyFields;
     }
 }

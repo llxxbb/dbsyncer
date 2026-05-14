@@ -61,6 +61,7 @@ var FieldDifferenceComponent = {
     getDiffFieldNames: function(result) {
         var diffFieldNames = new Set();
         var fieldArrays = [
+            result.mappingOnlyFields,
             result.addedFields,
             result.missingFields,
             result.typeMismatched,
@@ -95,9 +96,20 @@ var FieldDifferenceComponent = {
 
         var html = '<div class="field-difference-container">';
 
+        if (result.mappingOnlyFields && result.mappingOnlyFields.length > 0) {
+            html += this.buildSection(
+                'Mapping 配置多余字段',
+                'fa-exclamation-triangle',
+                'warning',
+                result.mappingOnlyFields.length,
+                result.mappingOnlyFields,
+                'mappingOnly'
+            );
+        }
+
         if (result.addedFields && result.addedFields.length > 0) {
             html += this.buildSection(
-                '目标表多出的字段',
+                '目标比源表多出的字段',
                 'fa-plus-circle',
                 'info',
                 result.addedFields.length,
@@ -108,7 +120,7 @@ var FieldDifferenceComponent = {
 
         if (result.missingFields && result.missingFields.length > 0) {
             html += this.buildSection(
-                '目标表缺少的字段',
+                '目标比源表表缺少的字段',
                 'fa-minus-circle',
                 'warning',
                 result.missingFields.length,
@@ -164,6 +176,8 @@ var FieldDifferenceComponent = {
             html += '<th>源类型</th><th>目标类型</th>';
         } else if (type === 'length') {
             html += '<th>源长度</th><th>目标长度</th>';
+        } else if (type === 'mappingOnly') {
+            html += '<th>Target 类型</th><th>Target 长度</th>';
         }
 
         html += '<th>说明</th></tr></thead><tbody>';
@@ -183,6 +197,9 @@ var FieldDifferenceComponent = {
                 html += '<td>' + (item.targetType || '-') + '</td>';
             } else if (type === 'length') {
                 html += '<td>' + (item.sourceLength || '-') + '</td>';
+                html += '<td>' + (item.targetLength || '-') + '</td>';
+            } else if (type === 'mappingOnly') {
+                html += '<td>' + (item.targetType || '-') + '</td>';
                 html += '<td>' + (item.targetLength || '-') + '</td>';
             }
 

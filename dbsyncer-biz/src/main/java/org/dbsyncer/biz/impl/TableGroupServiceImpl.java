@@ -778,6 +778,11 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         result.setTypeMismatched(comparison.getTypeMismatched());
         result.setLengthMismatched(comparison.getLengthMismatched());
 
+        // 检测 MAPPING_ONLY：mapping 配置了 target 字段但目标表实际不存在
+        List<org.dbsyncer.parser.model.FieldMapping> fieldMappings = tableGroup.getFieldMapping();
+        List<FieldDiffItem> mappingOnlyFields = FieldComparisonUtil.compareMappingWithTarget(fieldMappings, targetFields);
+        result.setMappingOnlyFields(mappingOnlyFields);
+
         return result;
     }
 
@@ -843,6 +848,9 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         Map<String, Field> sourceFieldMap = FieldComparisonUtil.buildFieldMap(tableGroup.getSourceTable().getColumn());
         Map<String, Field> targetFieldMap = FieldComparisonUtil.buildFieldMap(tableGroup.getTargetTable().getColumn());
 
+        // MAPPING_ONLY 优先处理
+        processMappingOnlyFields(diffVO.getMappingOnlyFields(), tableGroup, items);
+
         hasDropOperation = processTargetAddedFields(diffVO.getAddedFields(), targetFieldMap, tableGroup,
                 targetDbConnector, items, sqlStatements);
         processTargetMissingFields(diffVO.getMissingFields(), sourceFieldMap, tableGroup, sourceDbConnector,
@@ -885,10 +893,6 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         synchronized (getLock(id)) {
             FieldDiffFixVO fixVO = getFieldDiffFixPreview(id);
 
-            if (!fixVO.isHasSql()) {
-                return "没有需要执行的 DDL 语句";
-            }
-
             List<FieldDiffFixItem> itemsToFix;
             if (CollectionUtils.isEmpty(selectedIds)) {
                 itemsToFix = fixVO.getItems();
@@ -905,17 +909,34 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
                 return "没有选中的修复项需要执行";
             }
 
+            // 分离 REMOVE_MAPPING 操作和 DDL 操作
+            List<FieldDiffFixItem> removeMappingItems = new ArrayList<>();
             List<String> sqlStatements = new ArrayList<>();
             for (FieldDiffFixItem item : itemsToFix) {
-                if (StringUtil.isNotBlank(item.getSql())) {
+                if ("REMOVE_MAPPING".equals(item.getOperation())) {
+                    removeMappingItems.add(item);
+                } else if (StringUtil.isNotBlank(item.getSql())) {
                     sqlStatements.add(item.getSql());
                 }
             }
 
-            if (CollectionUtils.isEmpty(sqlStatements)) {
-                return "没有需要执行的 DDL 语句";
+            if (CollectionUtils.isEmpty(removeMappingItems) && CollectionUtils.isEmpty(sqlStatements)) {
+                return "没有需要执行的修复操作";
             }
 
+            // 执行 REMOVE_MAPPING 操作（移除 Mapping 配置）
+            int mappingRemovedCount = 0;
+            for (FieldDiffFixItem item : removeMappingItems) {
+                try {
+                    removeFieldMappingByTargetName(tableGroup, item.getFieldName());
+                    mappingRemovedCount++;
+                    logger.info("移除 Mapping 配置 [tableGroupId={}]: {}", id, item.getFieldName());
+                } catch (Exception e) {
+                    logger.error("移除 Mapping 配置失败 [tableGroupId={}]: {}", id, item.getFieldName(), e);
+                }
+            }
+
+            // 执行 DDL 操作
             Connector connector = profileComponent.getConnector(mapping.getTargetConnectorId());
             String tableName = tableGroup.getTargetTable().getName();
 
@@ -956,7 +977,8 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
                     }
                 }
 
-                if (successCount > 0) {
+                // 保存配置（REMOVE_MAPPING 或 DDL 成功都需要保存）
+                if (mappingRemovedCount > 0 || successCount > 0) {
                     try {
                         tableGroupChecker.refreshTableFields(tableGroup);
                         profileComponent.editTableGroup(tableGroup);
@@ -978,7 +1000,14 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
 
             int totalSelected = itemsToFix.size();
             if (failedSqls.isEmpty()) {
-                String message = String.format("成功修复目标表字段差异，共执行 %d/%d 条 DDL 语句", successCount, totalSelected);
+                String message;
+                if (!sqlStatements.isEmpty()) {
+                    message = String.format("成功修复目标表字段差异，移除 %d 个 Mapping 配置，执行 %d/%d 条 DDL 语句",
+                            mappingRemovedCount, successCount, totalSelected);
+                } else {
+                    message = String.format("成功清理 Mapping 配置，共移除 %d/%d 个无效映射",
+                            mappingRemovedCount, totalSelected);
+                }
                 logService.log(LogType.SystemLog.INFO, message);
                 return message;
             } else {
@@ -1155,6 +1184,61 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
 
     private Object getLock(String id) {
         return locks.computeIfAbsent(id, k -> new Object());
+    }
+
+    /**
+     * 处理 MAPPING_ONLY 差异（mapping 配置了 target 字段但目标表实际不存在）
+     * 提供移除 Mapping 配置的修复能力
+     *
+     * @param mappingOnlyFields MAPPING_ONLY 差异列表
+     * @param tableGroup 表映射关系
+     * @param items 修复项列表
+     */
+    private void processMappingOnlyFields(List<FieldDiffItem> mappingOnlyFields, TableGroup tableGroup,
+            List<FieldDiffFixItem> items) {
+        if (CollectionUtils.isEmpty(mappingOnlyFields)) {
+            return;
+        }
+
+        mappingOnlyFields.forEach(diffItem -> {
+            FieldDiffFixItem fixItem = new FieldDiffFixItem();
+            fixItem.setFieldName(diffItem.getFieldName());
+            fixItem.setDiffType("MAPPING_ONLY");
+            fixItem.setOperation("REMOVE_MAPPING");
+            fixItem.setDescription("mapping 已配置但目标表不存在");
+            fixItem.setId(diffItem.getFieldName() + "_MAPPING_ONLY");
+            fixItem.setTargetType(diffItem.getTargetType());
+            fixItem.setTargetLength(diffItem.getTargetLength());
+            fixItem.setSourceType(null);
+            fixItem.setSourceLength(null);
+            fixItem.setSql(null);
+            fixItem.setSelected(true);
+            items.add(fixItem);
+        });
+    }
+
+    /**
+     * 根据 Target 字段名称移除 FieldMapping 配置
+     *
+     * @param tableGroup 表映射关系
+     * @param targetFieldName Target 字段名称
+     */
+    private void removeFieldMappingByTargetName(TableGroup tableGroup, String targetFieldName) {
+        List<org.dbsyncer.parser.model.FieldMapping> fieldMappings = tableGroup.getFieldMapping();
+        if (CollectionUtils.isEmpty(fieldMappings)) {
+            return;
+        }
+
+        // 使用 Iterator 安全移除
+        java.util.Iterator<org.dbsyncer.parser.model.FieldMapping> iterator = fieldMappings.iterator();
+        while (iterator.hasNext()) {
+            org.dbsyncer.parser.model.FieldMapping fieldMapping = iterator.next();
+            if (fieldMapping != null && fieldMapping.getTarget() != null
+                    && fieldMapping.getTarget().getName() != null
+                    && fieldMapping.getTarget().getName().equalsIgnoreCase(targetFieldName)) {
+                iterator.remove();
+            }
+        }
     }
 
 }

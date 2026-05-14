@@ -16,6 +16,8 @@ public class FieldDifferenceVO implements Serializable {
 
     private List<FieldDiffItem> lengthMismatched = new ArrayList<>();
 
+    private List<FieldDiffItem> mappingOnlyFields = new ArrayList<>();
+
     private boolean supported = true;
 
     private String message;
@@ -52,6 +54,14 @@ public class FieldDifferenceVO implements Serializable {
         this.lengthMismatched = lengthMismatched;
     }
 
+    public List<FieldDiffItem> getMappingOnlyFields() {
+        return mappingOnlyFields;
+    }
+
+    public void setMappingOnlyFields(List<FieldDiffItem> mappingOnlyFields) {
+        this.mappingOnlyFields = mappingOnlyFields;
+    }
+
     public boolean isSupported() {
         return supported;
     }
@@ -72,7 +82,8 @@ public class FieldDifferenceVO implements Serializable {
         return !addedFields.isEmpty()
                 || !missingFields.isEmpty()
                 || !typeMismatched.isEmpty()
-                || !lengthMismatched.isEmpty();
+                || !lengthMismatched.isEmpty()
+                || !mappingOnlyFields.isEmpty();
     }
 
     @Override
@@ -82,6 +93,7 @@ public class FieldDifferenceVO implements Serializable {
                 ", missingFields=" + missingFields.size() +
                 ", typeMismatched=" + typeMismatched.size() +
                 ", lengthMismatched=" + lengthMismatched.size() +
+                ", mappingOnlyFields=" + mappingOnlyFields.size() +
                 ", hasDifference=" + isHasDifference() +
                 '}';
     }
