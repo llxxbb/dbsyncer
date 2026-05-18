@@ -100,7 +100,7 @@ var FieldDifferenceComponent = {
             html += this.buildSection(
                 'Mapping 配置多余字段',
                 'fa-exclamation-triangle',
-                'warning',
+                'danger',
                 result.mappingOnlyFields.length,
                 result.mappingOnlyFields,
                 'mappingOnly'
@@ -159,11 +159,21 @@ var FieldDifferenceComponent = {
      * 构建差异区块HTML
      */
     buildSection: function(title, icon, alertClass, count, items, type) {
-        var html = '<div class="panel panel-' + alertClass + '">' +
+        var self = this;
+        // 类型不匹配使用自定义样式替代 panel-danger
+        var panelClass = type === 'type' ? 'panel-default type-mismatch-panel' : 'panel-' + alertClass;
+        var html = '<div class="' + panelClass + '">' +
             '<div class="panel-heading">' +
             '<span class="fa ' + icon + '"></span> ' + title +
-            ' <span class="badge">' + count + '</span>' +
-            '</div>' +
+            ' <span class="badge">' + count + '</span>';
+
+        // Mapping Only 区块：添加一键移除按钮
+        if (type === 'mappingOnly') {
+            html += ' <button type="button" class="btn btn-xs btn-danger pull-right" onclick="FieldDifferenceComponent.removeAllMappingOnly()">' +
+                '<span class="fa fa-trash"></span> 一键移除全部</button>';
+        }
+
+        html += '</div>' +
             '<div class="panel-body">' +
             '<table class="table table-condensed table-hover">' +
             '<thead><tr><th>字段名</th>';
@@ -178,12 +188,13 @@ var FieldDifferenceComponent = {
             html += '<th>源长度</th><th>目标长度</th>';
         } else if (type === 'mappingOnly') {
             html += '<th>Target 类型</th><th>Target 长度</th>';
+            html += '<th style="width:100px;">操作</th>';
         }
 
         html += '<th>说明</th></tr></thead><tbody>';
 
         items.forEach(function(item) {
-            html += '<tr>';
+            html += '<tr data-field-name="' + item.fieldName + '">';
             html += '<td><strong>' + item.fieldName + '</strong></td>';
 
             if (type === 'added') {
@@ -201,6 +212,11 @@ var FieldDifferenceComponent = {
             } else if (type === 'mappingOnly') {
                 html += '<td>' + (item.targetType || '-') + '</td>';
                 html += '<td>' + (item.targetLength || '-') + '</td>';
+                html += '<td>' +
+                    '<button type="button" class="btn btn-xs btn-danger" ' +
+                    'onclick="FieldDifferenceComponent.removeMappingOnly(\'' + item.fieldName + '\', this)">' +
+                    '<span class="fa fa-trash"></span> 移除</button>' +
+                    '</td>';
             }
 
             html += '<td>' + (item.description || '') + '</td>';
@@ -235,4 +251,94 @@ $(function() {
             FieldDifferenceComponent.onFixCallback(FieldDifferenceComponent.currentData);
         }
     });
+
+    // 弹窗关闭时，如果发生过配置变更则通知上游刷新
+    $('#fieldDifferenceModal').on('hidden.bs.modal', function() {
+        if (FieldDifferenceComponent._configChanged) {
+            FieldDifferenceComponent._configChanged = false;
+            $(document).trigger('fieldDiffConfigChanged');
+        }
+    });
 });
+
+/**
+ * 移除 Mapping 多余字段（由按钮 onclick 直接调用）
+ * @param {string} fieldName - 字段名
+ * @param {HTMLElement} btnEl - 按钮元素
+ */
+FieldDifferenceComponent.removeMappingOnly = function(fieldName, btnEl) {
+    if (!fieldName) return;
+    if (!confirm('确认移除多余字段 [ ' + fieldName + ' ] 的映射配置？')) return;
+
+    var $btn = $(btnEl);
+    $btn.prop('disabled', true).html('<span class="fa fa-spinner fa-spin"></span>');
+
+    var fixItemId = fieldName + '_MAPPING_ONLY';
+    var self = this;
+    doPoster('/tableGroup/executeFieldDiffFixSelective', {
+        'id': FieldDifferenceComponent._cachedTableGroupId,
+        'selectedIds': JSON.stringify([fixItemId])
+    }, function(data) {
+        if (data.success == true) {
+            // 标记已变更，本地更新缓存，不关闭弹窗
+            FieldDifferenceComponent._configChanged = true;
+
+            var cachedData = FieldDifferenceComponent._cachedData;
+            if (cachedData && cachedData.mappingOnlyFields) {
+                cachedData.mappingOnlyFields = cachedData.mappingOnlyFields.filter(function(item) {
+                    return item.fieldName !== fieldName;
+                });
+            }
+            if (FieldDifferenceComponent.currentData && FieldDifferenceComponent.currentData.mappingOnlyFields) {
+                FieldDifferenceComponent.currentData.mappingOnlyFields = FieldDifferenceComponent.currentData.mappingOnlyFields.filter(function(item) {
+                    return item.fieldName !== fieldName;
+                });
+            }
+
+            // 移除对应行，如果该区块已无字段则整个移除
+            var $row = $btn.closest('tr');
+            $row.fadeOut(300, function() {
+                $row.remove();
+                var $tbody = $row.closest('tbody');
+                if ($tbody.find('tr').length === 0) {
+                    var $panel = $row.closest('.panel');
+                    $panel.fadeOut(300, function() { $panel.remove(); });
+                }
+            });
+        } else {
+            $btn.prop('disabled', false).html('<span class="fa fa-trash"></span> 移除');
+            alert(data.resultValue || '移除失败');
+        }
+    });
+};
+
+/**
+ * 移除全部 Mapping 多余字段（由按钮 onclick 直接调用）
+ */
+FieldDifferenceComponent.removeAllMappingOnly = function() {
+    var cachedData = FieldDifferenceComponent._cachedData;
+    if (!cachedData || !cachedData.mappingOnlyFields || cachedData.mappingOnlyFields.length === 0) return;
+
+    var count = cachedData.mappingOnlyFields.length;
+    if (!confirm('确认移除全部 ' + count + ' 个多余字段的映射配置？')) return;
+
+    var $btn = $('#removeAllMappingOnlyBtn');
+    $btn.prop('disabled', true).html('<span class="fa fa-spinner fa-spin"></span> 移除中...');
+
+    var fixItemIds = cachedData.mappingOnlyFields.map(function(item) {
+        return item.fieldName + '_MAPPING_ONLY';
+    });
+    doPoster('/tableGroup/executeFieldDiffFixSelective', {
+        'id': FieldDifferenceComponent._cachedTableGroupId,
+        'selectedIds': JSON.stringify(fixItemIds)
+    }, function(data) {
+        if (data.success == true) {
+            // 标记已变更，关闭弹窗
+            FieldDifferenceComponent._configChanged = true;
+            $('#fieldDifferenceModal').modal('hide');
+        } else {
+            $btn.prop('disabled', false).html('<span class="fa fa-trash"></span> 一键移除全部');
+            alert(data.resultValue || '移除失败');
+        }
+    });
+};

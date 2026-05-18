@@ -877,6 +877,21 @@ $(function() {
 
 let fieldDifferenceData = null;
 
+// 监听字段差异弹窗的配置变更（移除 Mapping 多余字段后刷新）
+$(document).on('fieldDiffConfigChanged', function() {
+    // 通过页面特有元素判断当前是否在 editTableGroup 页面，避免 SPA 导航后旧监听器仍响应
+    if ($('#fieldMappingTable').length === 0) return;
+
+    // 清理残留的 modal backdrop，防止页面被灰色蒙版罩住
+    $('.modal-backdrop').remove();
+    $('body').removeClass('modal-open').css({ 'padding-right': '', 'overflow': '' });
+
+    var tableGroupId = FieldDifferenceComponent._cachedTableGroupId;
+    if (tableGroupId) {
+        doLoader('/tableGroup/page/editTableGroup?id=' + tableGroupId);
+    }
+});
+
 function bindFieldDifferenceClick() {
     let $diffBtn = $("#fieldDifferenceBtn");
     $diffBtn.bind('click', function(){
