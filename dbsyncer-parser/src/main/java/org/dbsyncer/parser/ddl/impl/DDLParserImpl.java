@@ -292,15 +292,9 @@ public class DDLParserImpl implements DDLParser {
             return;
         }
 
-        // 不区分大小写构建字段 Map
-        Map<String, Field> sourceFiledMap = tableGroup.getSourceTable().getColumn().stream()
-                .collect(Collectors.toMap(Field::nameIgnoreCase, filed -> filed));
-        Map<String, Field> targetFiledMap = tableGroup.getTargetTable().getColumn().stream()
-                .collect(Collectors.toMap(Field::nameIgnoreCase, filed -> filed));
-
         for (String addedFieldName : addedFieldNames) {
-            Field source = sourceFiledMap.get(addedFieldName.toLowerCase());
-            Field target = targetFiledMap.get(addedFieldName.toLowerCase());
+            Field source = tableGroup.getSourceTable().findColumnByName(addedFieldName);
+            Field target = tableGroup.getTargetTable().findColumnByName(addedFieldName);
             if (source != null && target != null) {
                 tableGroup.getFieldMapping().add(new FieldMapping(source, target));
             }
@@ -311,12 +305,6 @@ public class DDLParserImpl implements DDLParser {
         if (changedFieldNames.isEmpty()) {
             return;
         }
-
-        // 不区分大小写构建字段 Map
-        Map<String, Field> sourceFiledMap = tableGroup.getSourceTable().getColumn().stream()
-                .collect(Collectors.toMap(Field::nameIgnoreCase, filed -> filed));
-        Map<String, Field> targetFiledMap = tableGroup.getTargetTable().getColumn().stream()
-                .collect(Collectors.toMap(Field::nameIgnoreCase, filed -> filed));
 
         Set<Map.Entry<String, String>> entries = changedFieldNames.entrySet();
         Iterator<FieldMapping> iterator = tableGroup.getFieldMapping().iterator();
@@ -331,7 +319,7 @@ public class DDLParserImpl implements DDLParser {
 
                 // 只处理源字段名匹配的情况（changedFieldNames 中的键是源数据库的字段名）
                 if (source != null && source.matchesName(oldName)) {
-                    Field newSourceField = sourceFiledMap.get(newName.toLowerCase());
+                    Field newSourceField = tableGroup.getSourceTable().findColumnByName(newName);
                     if (newSourceField == null) {
                         logger.warn("源表中未找到新字段 {}，移除字段映射", newName);
                         iterator.remove();
@@ -344,7 +332,7 @@ public class DDLParserImpl implements DDLParser {
                     // 如果源字段名和目标字段名相同，则同时更新目标字段
                     // 这符合常见场景：同名字段应该同步更新
                     if (target != null && target.matchesName(oldName)) {
-                        Field newTargetField = targetFiledMap.get(newName.toLowerCase());
+                        Field newTargetField = tableGroup.getTargetTable().findColumnByName(newName);
                         if (newTargetField != null) {
                             fieldMapping.setTarget(newTargetField);
                             logger.debug("更新字段映射: {} -> {} (源和目标字段名相同，同时更新)", oldName, newName);

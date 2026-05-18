@@ -8,6 +8,7 @@ import org.dbsyncer.parser.model.Mapping;
 import org.dbsyncer.parser.model.TableGroup;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.Filter;
+import org.dbsyncer.sdk.model.Table;
 import org.springframework.beans.BeanUtils;
 
 import java.util.HashMap;
@@ -76,21 +77,18 @@ public abstract class PickerUtil {
         // 检查增量字段是否在映射关系中
         String eventFieldName = mapping.getListener().getEventFieldName();
         if (StringUtil.isNotBlank(eventFieldName)) {
-            Map<String, Field> fields = convert2Map(group.getSourceTable().getColumn());
-            addFieldMapping(fieldMapping, eventFieldName, fields, true);
+            addFieldMapping(fieldMapping, eventFieldName, group.getSourceTable(), true);
         }
 
         // 检查过滤条件是否在映射关系中
         List<Filter> filter = group.getFilter();
         if (!CollectionUtils.isEmpty(filter)) {
-            Map<String, Field> fields = convert2Map(group.getSourceTable().getColumn());
-            filter.forEach(f -> addFieldMapping(fieldMapping, f.getName(), fields, true));
+            filter.forEach(f -> addFieldMapping(fieldMapping, f.getName(), group.getSourceTable(), true));
         }
 
         // 检查转换配置是否在映射关系中（增强：支持无源字段）
         List<Convert> convert = group.getConvert();
         if (!CollectionUtils.isEmpty(convert)) {
-            Map<String, Field> targetFields = convert2Map(group.getTargetTable().getColumn());
             Set<String> targetFieldNames = fieldMapping.stream()
                     .map(FieldMapping::getTarget)
                     .filter(f -> f != null)
@@ -99,7 +97,7 @@ public abstract class PickerUtil {
                     .collect(Collectors.toSet());
             convert.forEach(c -> {
                 String fieldName = c.getName();
-                Field targetField = targetFields.get(fieldName.toLowerCase());
+                Field targetField = group.getTargetTable().findColumnByName(fieldName);
                 if (targetField != null && !targetFieldNames.contains(fieldName.toLowerCase())) {
                     fieldMapping.add(new FieldMapping(null, targetField));
                 }
@@ -107,7 +105,7 @@ public abstract class PickerUtil {
         }
     }
 
-    private static void addFieldMapping(List<FieldMapping> fieldMapping, String name, Map<String, Field> fields, boolean checkSource) {
+    private static void addFieldMapping(List<FieldMapping> fieldMapping, String name, Table table, boolean checkSource) {
         if (StringUtil.isNotBlank(name)) {
             boolean exist = false;
             for (FieldMapping m : fieldMapping) {
@@ -120,9 +118,12 @@ public abstract class PickerUtil {
                     break;
                 }
             }
-            if (!exist && null != fields.get(name.toLowerCase())) {
-                FieldMapping fm = checkSource ? new FieldMapping(fields.get(name.toLowerCase()), null) : new FieldMapping(null, fields.get(name.toLowerCase()));
-                fieldMapping.add(fm);
+            if (!exist) {
+                Field field = table.findColumnByName(name);
+                if (field != null) {
+                    FieldMapping fm = checkSource ? new FieldMapping(field, null) : new FieldMapping(null, field);
+                    fieldMapping.add(fm);
+                }
             }
         }
     }

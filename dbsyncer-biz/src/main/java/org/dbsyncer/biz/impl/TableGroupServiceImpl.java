@@ -845,19 +845,19 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         List<String> sqlStatements = new ArrayList<>();
         boolean hasDropOperation = false;
 
-        Map<String, Field> sourceFieldMap = FieldComparisonUtil.buildFieldMap(tableGroup.getSourceTable().getColumn());
-        Map<String, Field> targetFieldMap = FieldComparisonUtil.buildFieldMap(tableGroup.getTargetTable().getColumn());
+        Map<String, Field> sourceFieldMap = null;
+        Map<String, Field> targetFieldMap = null;
 
         // MAPPING_ONLY 优先处理
         processMappingOnlyFields(diffVO.getMappingOnlyFields(), tableGroup, items);
 
-        hasDropOperation = processTargetAddedFields(diffVO.getAddedFields(), targetFieldMap, tableGroup,
+        hasDropOperation = processTargetAddedFields(diffVO.getAddedFields(), tableGroup,
                 targetDbConnector, items, sqlStatements);
-        processTargetMissingFields(diffVO.getMissingFields(), sourceFieldMap, tableGroup, sourceDbConnector,
+        processTargetMissingFields(diffVO.getMissingFields(), tableGroup, sourceDbConnector,
                 targetDbConnector, items, sqlStatements);
-        processTargetTypeMismatched(diffVO.getTypeMismatched(), sourceFieldMap, tableGroup, sourceDbConnector,
+        processTargetTypeMismatched(diffVO.getTypeMismatched(), tableGroup, sourceDbConnector,
                 targetDbConnector, items, sqlStatements);
-        processTargetLengthMismatched(diffVO.getLengthMismatched(), sourceFieldMap, tableGroup, sourceDbConnector,
+        processTargetLengthMismatched(diffVO.getLengthMismatched(), tableGroup, sourceDbConnector,
                 targetDbConnector, items, sqlStatements);
 
         fixVO.setItems(items);
@@ -1032,7 +1032,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
      * 
      * @return 是否包含DROP操作
      */
-    private boolean processTargetAddedFields(List<FieldDiffItem> addedFields, Map<String, Field> targetFieldMap,
+    private boolean processTargetAddedFields(List<FieldDiffItem> addedFields,
             TableGroup tableGroup, AbstractDatabaseConnector targetDbConnector,
             List<FieldDiffFixItem> items, List<String> sqlStatements) {
         if (CollectionUtils.isEmpty(addedFields)) {
@@ -1041,7 +1041,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         String tableName = tableGroup.getTargetTable().getName();
         final boolean[] hasDrop = { false };
         addedFields.forEach(diffItem -> {
-            Field targetField = targetFieldMap.get(diffItem.getFieldName().toLowerCase());
+            Field targetField = tableGroup.getTargetTable().findColumnByName(diffItem.getFieldName());
             if (targetField == null) {
                 return;
             }
@@ -1059,7 +1059,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
     /**
      * 【TARGET-2】处理目标表缺少字段 -> 执行 ADD COLUMN
      */
-    private void processTargetMissingFields(List<FieldDiffItem> missingFields, Map<String, Field> sourceFieldMap,
+    private void processTargetMissingFields(List<FieldDiffItem> missingFields,
             TableGroup tableGroup, AbstractDatabaseConnector sourceDbConnector,
             AbstractDatabaseConnector targetDbConnector,
             List<FieldDiffFixItem> items, List<String> sqlStatements) {
@@ -1068,7 +1068,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         }
         String tableName = tableGroup.getTargetTable().getName();
         missingFields.forEach(diffItem -> {
-            Field sourceField = sourceFieldMap.get(diffItem.getFieldName().toLowerCase());
+            Field sourceField = tableGroup.getSourceTable().findColumnByName(diffItem.getFieldName());
             if (sourceField == null) {
                 return;
             }
@@ -1085,7 +1085,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
     /**
      * 【TARGET-3】处理类型不匹配字段 -> 执行 MODIFY COLUMN
      */
-    private void processTargetTypeMismatched(List<FieldDiffItem> typeMismatched, Map<String, Field> sourceFieldMap,
+    private void processTargetTypeMismatched(List<FieldDiffItem> typeMismatched,
             TableGroup tableGroup, AbstractDatabaseConnector sourceDbConnector,
             AbstractDatabaseConnector targetDbConnector,
             List<FieldDiffFixItem> items, List<String> sqlStatements) {
@@ -1094,7 +1094,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         }
         String tableName = tableGroup.getTargetTable().getName();
         typeMismatched.forEach(diffItem -> {
-            Field sourceField = sourceFieldMap.get(diffItem.getFieldName().toLowerCase());
+            Field sourceField = tableGroup.getSourceTable().findColumnByName(diffItem.getFieldName());
             if (sourceField == null) {
                 return;
             }
@@ -1111,7 +1111,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
     /**
      * 【TARGET-4】处理长度不匹配字段 -> 执行 MODIFY COLUMN
      */
-    private void processTargetLengthMismatched(List<FieldDiffItem> lengthMismatched, Map<String, Field> sourceFieldMap,
+    private void processTargetLengthMismatched(List<FieldDiffItem> lengthMismatched,
             TableGroup tableGroup, AbstractDatabaseConnector sourceDbConnector,
             AbstractDatabaseConnector targetDbConnector,
             List<FieldDiffFixItem> items, List<String> sqlStatements) {
@@ -1120,7 +1120,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         }
         String tableName = tableGroup.getTargetTable().getName();
         lengthMismatched.forEach(diffItem -> {
-            Field sourceField = sourceFieldMap.get(diffItem.getFieldName().toLowerCase());
+            Field sourceField = tableGroup.getSourceTable().findColumnByName(diffItem.getFieldName());
             if (sourceField == null) {
                 return;
             }
@@ -1235,7 +1235,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
             org.dbsyncer.parser.model.FieldMapping fieldMapping = iterator.next();
             if (fieldMapping != null && fieldMapping.getTarget() != null
                     && fieldMapping.getTarget().getName() != null
-                    && fieldMapping.getTarget().getName().equalsIgnoreCase(targetFieldName)) {
+                    && fieldMapping.getTarget().matchesName(targetFieldName)) {
                 iterator.remove();
             }
         }

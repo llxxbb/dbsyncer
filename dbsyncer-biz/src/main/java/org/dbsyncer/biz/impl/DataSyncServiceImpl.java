@@ -38,7 +38,6 @@ import javax.annotation.Resource;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 /**
  * 数据同步服务
@@ -83,9 +82,12 @@ public class DataSyncServiceImpl implements DataSyncService {
         messageVo.setId(messageId);
 
         if (!CollectionUtils.isEmpty(binlogData)) {
-            Map<String, String> columnMap = tableGroup.getTargetTable().getColumn().stream().collect(Collectors.toMap(Field::nameIgnoreCase, Field::getTypeName));
             List<BinlogColumnVo> columns = new ArrayList<>();
-            binlogData.forEach((k, v) -> columns.add(new BinlogColumnVo((String) k, v, columnMap.get(k == null ? null : k.toString().toLowerCase()))));
+            binlogData.forEach((k, v) -> {
+                Field col = tableGroup.getTargetTable().findColumnByName(k != null ? k.toString() : null);
+                String typeName = col != null ? col.getTypeName() : null;
+                columns.add(new BinlogColumnVo((String) k, v, typeName));
+            });
             messageVo.setColumns(columns);
         }
         return messageVo;
@@ -130,12 +132,10 @@ public class DataSyncServiceImpl implements DataSyncService {
         // 4、反序列化
         // 注意：存储的是源数据（sourceDataList），字段名是源表字段名
         // 所以需要使用源表字段类型来反序列化，直接使用源数据
-        final Map<String, Field> sourceFieldMap = tableGroup.getSourceTable().getColumn().stream()
-                .filter(java.util.Objects::nonNull)
-                .collect(Collectors.toMap(Field::nameIgnoreCase, f -> f, (k1, k2) -> k1));
         message.getRowMap().forEach((k, v) -> {
-            if (sourceFieldMap.containsKey(k == null ? null : k.toLowerCase())) {
-                Object val = BinlogMessageUtil.deserializeValue(sourceFieldMap.get(k.toLowerCase()).getType(), v);
+            Field field = tableGroup.getSourceTable().findColumnByName(k);
+            if (field != null) {
+                Object val = BinlogMessageUtil.deserializeValue(field.getType(), v);
                 // 处理二进制对象显示
                 if (prettyBytes) {
                     if (val instanceof byte[]) {
