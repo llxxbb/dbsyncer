@@ -267,17 +267,16 @@ public class TableGroupChecker extends AbstractChecker {
             throw new BizException("映射关系不能为空");
         }
 
-        final Map<String, Field> sMap = PickerUtil.convert2Map(tableGroup.getSourceTable().getColumn());
-        final Map<String, Field> tMap = PickerUtil.convert2Map(tableGroup.getTargetTable().getColumn());
-        int length = mappings.size();
         List<FieldMapping> list = new ArrayList<>();
         Map<String, Object> row = null;
         Field s = null;
         Field t = null;
-        for (int i = 0; i < length; i++) {
+        for (int i = 0, len = mappings.size(); i < len; i++) {
             row = mappings.get(i);
-            s = sMap.get(row.get("source"));
-            t = tMap.get(row.get("target"));
+            String sourceName = row.get("source") != null ? row.get("source").toString() : null;
+            String targetName = row.get("target") != null ? row.get("target").toString() : null;
+            s = tableGroup.getSourceTable().findColumnByName(sourceName);
+            t = tableGroup.getTargetTable().findColumnByName(targetName);
             if (null == s && null == t) {
                 continue;
             }

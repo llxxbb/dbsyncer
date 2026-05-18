@@ -5,7 +5,9 @@ import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.sdk.enums.TableTypeEnum;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @author AE86
@@ -43,6 +45,13 @@ public class Table {
      * 索引类型（ES）
      */
     private String indexType;
+
+    /**
+     * 不区分大小写的字段名 → Field 的 Map 缓存
+     * 延迟构建，column 变更时失效
+     */
+    @JsonIgnore
+    private transient Map<String, Field> columnMap;
 
     public Table() {
     }
@@ -85,6 +94,7 @@ public class Table {
 
     public Table setColumn(List<Field> column) {
         this.column = column;
+        this.columnMap = null; // column 变更，缓存失效
         return this;
     }
 
@@ -131,14 +141,47 @@ public class Table {
         return StringUtil.equalsIgnoreCase(this.name, other);
     }
 
+    /**
+     * 按字段名查找字段（不区分大小写）
+     * 基于内部缓存 Map 进行 O(1) 查找
+     *
+     * @param name 字段名
+     * @return 匹配的字段，未找到返回 null
+     */
+    @JsonIgnore
+    public Field findColumnByName(String name) {
+        return name == null ? null : getColumnMap().get(name.toLowerCase());
+    }
+
+    /**
+     * 获取不区分大小写的字段名 → Field 的 Map
+     * 懒加载缓存，column 变更时自动重建
+     *
+     * @return 小写字段名为 key 的 Map
+     */
+    @JsonIgnore
+    public Map<String, Field> getColumnMap() {
+        if (columnMap == null) {
+            if (column == null || column.isEmpty()) {
+                columnMap = new HashMap<>();
+            } else {
+                columnMap = new HashMap<>(column.size());
+                for (Field f : column) {
+                    columnMap.put(f.nameIgnoreCase(), f);
+                }
+            }
+        }
+        return columnMap;
+    }
+
     @Override
     public Table clone() {
-        // 深拷贝column列表，避免多线程环境下共享引用
         List<Field> clonedColumns = null;
         if (column != null) {
             clonedColumns = new ArrayList<>(column);
         }
-        // 创建新的Table对象，使用深拷贝的column列表
-        return new Table(name, type, clonedColumns, sql, indexType);
+        Table cloned = new Table(name, type, clonedColumns, sql, indexType);
+        cloned.columnMap = null; // 新对象独立构建缓存
+        return cloned;
     }
 }
