@@ -9,6 +9,7 @@ import org.dbsyncer.sdk.filter.CompareFilter;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.Filter;
 import org.dbsyncer.sdk.schema.SchemaResolver;
+import org.dbsyncer.sdk.util.RowConverter;
 
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -82,18 +83,10 @@ public class Picker {
         if (CollectionUtils.isEmpty(rows)) {
             return targetMapList;
         }
-        Map<String, Object> source = null;
-        Map<String, Object> target = null;
-        for (List<Object> row : rows) {
-            source = new HashMap<>();
-            // 使用索引映射获取正确的值，解决字段删除后的数据错位问题
-            for (Field field : sourceOriginalFields) {
-                Integer index = fieldIndexMap.get(field.nameIgnoreCase());
-                if (index != null && index < row.size()) {
-                    source.put(field.getName(), row.get(index));
-                }
-            }
-            target = new HashMap<>();
+        // 使用 RowConverter 统一处理原始行 → Map 的格式转换
+        List<Map<String, Object>> sourceMaps = RowConverter.toListOfMaps(sourceOriginalFields, fieldIndexMap, rows);
+        for (Map<String, Object> source : sourceMaps) {
+            Map<String, Object> target = new HashMap<>();
             exchange(sFieldSize, tFieldSize, this.sourceFields, this.targetFields, source, target);
             // 根据条件过滤数据
             if (enableFilter && !filter(target)) {

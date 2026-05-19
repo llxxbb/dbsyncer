@@ -34,6 +34,7 @@ import org.dbsyncer.sdk.model.ConnectorConfig;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.spi.ConnectorService;
+import org.dbsyncer.sdk.util.RowConverter;
 import org.springframework.util.Assert;
 
 import javax.annotation.PostConstruct;
@@ -324,7 +325,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             result.error = msg;
             result.setTableGroupId(tableGroup.getId());
             result.setTargetTableGroupName(tableGroup.getTargetTable().getName());
-            result.addFailData(response.getDataList());
+            result.addFailData(RowConverter.toListOfMaps(sourceFields, fieldIndexMap, response.getDataList()));
             flushStrategy.flushIncrementData(mapping.getMetaId(), result, response.getEvent());
             return;
         }
@@ -364,7 +365,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             result = new Result();
             result.error = msg;
             result.setTableGroupId(tableGroup.getId());
-            result.addFailData(response.getDataList());
+            result.addFailData(RowConverter.toListOfMaps(sourceFields, fieldIndexMap, response.getDataList()));
             result.setTargetTableGroupName(tableGroup.getTargetTable().getName());
             flushStrategy.flushIncrementData(mapping.getMetaId(), result, response.getEvent());
             return;
