@@ -259,7 +259,8 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
             Set<String> tableSet = new LinkedHashSet<>();
             while (rs.next()) {
                 String tableName = rs.getString(1);
-                if (filterTable.contains(tableName)) {
+                // filterTable key 为 Table.nameIgnoreCase() 生成的统一小写形式
+                if (tableName != null && filterTable.contains(tableName.toLowerCase())) {
                     tableSet.add(tableName);
                 }
             }

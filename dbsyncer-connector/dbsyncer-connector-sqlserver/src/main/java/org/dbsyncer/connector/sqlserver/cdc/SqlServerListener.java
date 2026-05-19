@@ -188,8 +188,10 @@ public class SqlServerListener extends AbstractDatabaseListener {
         tables = queryAndMapList(GET_TABLE_LIST.replace(STATEMENTS_PLACEHOLDER, schema), rs -> {
             Set<String> table = new LinkedHashSet<>();
             while (rs.next()) {
-                if (filterTable.contains(rs.getString(1))) {
-                    table.add(rs.getString(1));
+                String tableName = rs.getString(1);
+                // filterTable key 为 Table.nameIgnoreCase() 生成的统一小写形式
+                if (tableName != null && filterTable.contains(tableName.toLowerCase())) {
+                    table.add(tableName);
                 }
             }
             return table;
@@ -206,7 +208,8 @@ public class SqlServerListener extends AbstractDatabaseListener {
                 // 只处理当前 schema 且属于 filterTable 的表
                 // 注意：sys.sp_cdc_help_change_data_capture 返回数据库中所有启用 CDC 的表
                 // 我们需要过滤，只保留当前 Listener 监控的表
-                if (schema.equals(schemaName) && filterTable.contains(tableName)) {
+                // filterTable key 为 Table.nameIgnoreCase() 生成的统一小写形式
+                if (schema.equals(schemaName) && tableName != null && filterTable.contains(tableName.toLowerCase())) {
                     SqlServerChangeTable changeTable = new SqlServerChangeTable(
                             // schemaName
                             schemaName,
@@ -390,7 +393,8 @@ public class SqlServerListener extends AbstractDatabaseListener {
                 }
 
                 // 检查 schema 和表名是否匹配
-                if (filterTable.contains(tableName)) {
+                // filterTable key 为 Table.nameIgnoreCase() 生成的统一小写形式
+                if (tableName != null && filterTable.contains(tableName.toLowerCase())) {
                     events.add(new DDLEvent(tableName, ddlCommand, ddlLsn, ddlTime));
                     logger.info("添加 DDL 事件: tableName={}, ddlCommand={}", tableName, ddlCommand);
                 } else {
