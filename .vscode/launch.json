@@ -9,7 +9,15 @@
             "name": "Application",
             "request": "launch",
             "mainClass": "org.dbsyncer.web.Application",
-            "projectName": "dbsyncer-web"
+            "projectName": "dbsyncer-web",
+            "console": "integratedTerminal"
+        },
+        {
+            "type": "java",
+            "name": "Launch Current File",
+            "request": "launch",
+            "mainClass": "${file}",
+            "console": "integratedTerminal"   // 关键配置
         }
     ]
 }

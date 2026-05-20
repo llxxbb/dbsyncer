@@ -16,7 +16,8 @@ import org.apache.kafka.common.serialization.Serializer;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.sql.Timestamp;
-import java.text.SimpleDateFormat;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.Map;
 
@@ -82,20 +83,25 @@ public class MapToJsonSerializer implements Serializer<Map> {
     }
 
     private static class DateSerializer extends JsonSerializer<Date> {
-        private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
-        
+        // 使用 DateTimeFormatter 替代非线程安全的 SimpleDateFormat
+        private static final DateTimeFormatter DATE_FORMAT =
+                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
+                        .withZone(ZoneId.systemDefault());
+
         @Override
         public void serialize(Date value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
-            gen.writeString(DATE_FORMAT.format(value));
+            gen.writeString(DATE_FORMAT.format(value.toInstant()));
         }
     }
 
     private static class SqlDateSerializer extends JsonSerializer<java.sql.Date> {
-        private static final SimpleDateFormat SQL_DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd");
-        
+        // 使用 DateTimeFormatter 替代非线程安全的 SimpleDateFormat
+        private static final DateTimeFormatter SQL_DATE_FORMAT =
+                DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
         @Override
         public void serialize(java.sql.Date value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
-            gen.writeString(SQL_DATE_FORMAT.format(value));
+            gen.writeString(value.toLocalDate().format(SQL_DATE_FORMAT));
         }
     }
 
