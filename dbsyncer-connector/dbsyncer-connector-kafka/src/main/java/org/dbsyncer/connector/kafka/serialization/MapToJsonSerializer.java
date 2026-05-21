@@ -15,7 +15,9 @@ import org.apache.kafka.common.serialization.Serializer;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Date;
@@ -42,6 +44,8 @@ public class MapToJsonSerializer implements Serializer<Map> {
         dateModule.addSerializer(Timestamp.class, new TimestampSerializer());
         dateModule.addSerializer(Date.class, new DateSerializer());
         dateModule.addSerializer(java.sql.Date.class, new SqlDateSerializer());
+        dateModule.addSerializer(Time.class, new SqlTimeSerializer());
+        dateModule.addSerializer(LocalTime.class, new LocalTimeSerializer());
         KAFKA_OBJECT_MAPPER.registerModule(dateModule);
     }
 
@@ -102,6 +106,26 @@ public class MapToJsonSerializer implements Serializer<Map> {
         @Override
         public void serialize(java.sql.Date value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
             gen.writeString(value.toLocalDate().format(SQL_DATE_FORMAT));
+        }
+    }
+
+    private static class SqlTimeSerializer extends JsonSerializer<Time> {
+        private static final DateTimeFormatter SQL_TIME_FORMAT =
+                DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
+
+        @Override
+        public void serialize(Time value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
+            gen.writeString(value.toLocalTime().format(SQL_TIME_FORMAT));
+        }
+    }
+
+    private static class LocalTimeSerializer extends JsonSerializer<LocalTime> {
+        private static final DateTimeFormatter LOCAL_TIME_FORMAT =
+                DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
+
+        @Override
+        public void serialize(LocalTime value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
+            gen.writeString(value.format(LOCAL_TIME_FORMAT));
         }
     }
 
