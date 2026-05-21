@@ -1,9 +1,11 @@
 package org.dbsyncer.connector.mysql.schema.support;
 
 import net.sf.jsqlparser.statement.create.table.ColDataType;
+import org.dbsyncer.connector.mysql.util.MySQLCharsetUtil;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.schema.support.UnicodeTextType;
 
+import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -46,7 +48,9 @@ public final class MySQLTextType extends UnicodeTextType {
             return (String) val;
         }
         if (val instanceof byte[]) {
-            return new String((byte[]) val);
+            byte[] bytes = (byte[]) val;
+            Charset charset = MySQLCharsetUtil.resolveCharset(field.getCharset());
+            return new String(bytes, charset);
         }
         return throwUnsupportedException(val, field);
     }

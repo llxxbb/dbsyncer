@@ -98,6 +98,12 @@ public abstract class StringType extends AbstractDataType<String> {
             result.setIsSizeFixed(isSizeFixed);
         }
 
+        // 提取字符集信息（如 CHARACTER SET utf16）
+        String charset = colDataType.getCharacterSet();
+        if (charset != null) {
+            result.setCharset(charset);
+        }
+
         return result;
     }
 

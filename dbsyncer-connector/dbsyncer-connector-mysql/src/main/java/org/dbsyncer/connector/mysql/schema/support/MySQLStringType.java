@@ -1,9 +1,10 @@
 package org.dbsyncer.connector.mysql.schema.support;
 
+import org.dbsyncer.connector.mysql.util.MySQLCharsetUtil;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.schema.support.UnicodeStringType;
 
-import java.nio.charset.StandardCharsets;
+import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -25,7 +26,9 @@ public final class MySQLStringType extends UnicodeStringType {
     @Override
     protected String merge(Object val, Field field) {
         if (val instanceof byte[]) {
-            return new String((byte[]) val, StandardCharsets.UTF_8);
+            byte[] bytes = (byte[]) val;
+            Charset charset = MySQLCharsetUtil.resolveCharset(field.getCharset());
+            return new String(bytes, charset);
         }
         return throwUnsupportedException(val, field);
     }

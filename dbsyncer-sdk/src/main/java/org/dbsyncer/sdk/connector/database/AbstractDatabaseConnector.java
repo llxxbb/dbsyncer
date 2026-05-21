@@ -207,6 +207,16 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
                         field.setAutoincrement(false);
                     }
 
+                    // 填充 charset 属性（MySQL Connector/J 支持 CHARACTER_SET_NAME 列）
+                    try {
+                        String charsetName = columnMetadata.getString("CHARACTER_SET_NAME");
+                        if (charsetName != null && !charsetName.trim().isEmpty()) {
+                            field.setCharset(charsetName);
+                        }
+                    } catch (SQLException e) {
+                        // 某些数据库驱动不支持 CHARACTER_SET_NAME 列，忽略即可
+                    }
+
                     fields.add(field);
                 }
             }

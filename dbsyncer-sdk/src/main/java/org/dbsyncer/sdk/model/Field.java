@@ -84,6 +84,12 @@ public class Field {
     private boolean autoincrement;
 
     /**
+     * 字段字符集（如 utf8, utf16, gbk 等）
+     * 由 handleDDLParameters() 从 DDL 中解析
+     */
+    private String charset;
+
+    /**
      * 枚举值列表，用于 ENUM 和 SET 类型
      * 例如：["option1", "option2", "option3"]
      */
@@ -274,6 +280,22 @@ public class Field {
      */
     public void setEnumValues(java.util.List<String> enumValues) {
         this.enumValues = enumValues;
+    }
+
+    /**
+     * 获取字段字符集
+     * @return 字符集名称，如果未设置则返回 null
+     */
+    public String getCharset() {
+        return charset;
+    }
+
+    /**
+     * 设置字段字符集
+     * @param charset 字符集名称，如 utf8, utf16, gbk 等
+     */
+    public void setCharset(String charset) {
+        this.charset = charset;
     }
 
     /**
