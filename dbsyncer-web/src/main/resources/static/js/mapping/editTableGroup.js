@@ -7,6 +7,23 @@ function getBackendPKs() {
     return pkStr ? pkStr.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s; }) : [];
 }
 
+// 大小写不敏感的数组包含判断
+function containsIgnoreCase(arr, val) {
+    var lower = val.toLowerCase();
+    return arr.some(function(item) { return item.toLowerCase() === lower; });
+}
+
+// 大小写不敏感去重，保留首次出现顺序
+function dedupIgnoreCase(arr) {
+    var seen = {};
+    return arr.filter(function(item) {
+        var key = item.toLowerCase();
+        if (seen[key]) return false;
+        seen[key] = true;
+        return true;
+    });
+}
+
 function renderPKStatus() {
     var backendPKs = getBackendPKs();
     var tableGroupId = getCurrentTableGroupId();
@@ -22,8 +39,8 @@ function renderPKStatus() {
 
         $pkCell.find('.temp-pk-container').empty();
 
-        var isBackendPK = backendPKs.indexOf(targetField) >= 0;
-        var isTempPK = tempPKs.indexOf(targetField) >= 0;
+        var isBackendPK = containsIgnoreCase(backendPKs, targetField);
+        var isTempPK = containsIgnoreCase(tempPKs, targetField);
 
         if (isBackendPK && isTempPK) {
         } else if (isBackendPK && !isTempPK) {
@@ -63,7 +80,7 @@ function reconcileBackendPKIcons(backendPKs) {
         var targetField = $(this).find('td:eq(1)').text().trim();
         var $backendIcon = $(this).find('.backend-pk-icon');
 
-        if (backendPKs.indexOf(targetField) >= 0) {
+        if (containsIgnoreCase(backendPKs, targetField)) {
             if ($backendIcon.length === 0) {
                 $(this).find('.temp-pk-container').before(
                     '<i title="后端主键（已保存）" class="fa fa-key fa-fw fa-rotate-90 text-warning backend-pk-icon"></i>'
@@ -114,7 +131,7 @@ function initFieldMappingParams(){
         row.push({
             "source":$(this).find("td:eq(0)").text(),
             "target":targetField,
-            "pk": pkArray.indexOf(targetField) >= 0
+            "pk": containsIgnoreCase(pkArray, targetField)
         });
     });
     
@@ -203,7 +220,11 @@ function bindFieldMappingListClick(){
         const backendPKs = getBackendPKs();
         let tempPKs = tempData ? tempData.tempPKs.slice() : backendPKs.slice();
 
-        const idx = tempPKs.indexOf(targetField);
+        const targetFieldLower = targetField.toLowerCase();
+        let idx = -1;
+        for (let i = 0; i < tempPKs.length; i++) {
+            if (tempPKs[i].toLowerCase() === targetFieldLower) { idx = i; break; }
+        }
         if (idx >= 0) {
             tempPKs.splice(idx, 1);
         } else {
@@ -532,7 +553,7 @@ function bindFieldMappingAddClick(){
                     let tempData = TempPKManager.load(tgId);
                     let backendPKs = getBackendPKs();
                     let tempPKs = tempData ? tempData.tempPKs.slice() : backendPKs.slice();
-                    if (tempPKs.indexOf(tField) < 0) {
+                    if (!containsIgnoreCase(tempPKs, tField)) {
                         tempPKs.push(tField);
                         TempPKManager.save(tgId, tempPKs);
                         $('#targetTablePK').val(tempPKs.join(','));
@@ -642,7 +663,10 @@ function bindPrimaryKeyOrderBtn() {
 // 显示主键顺序对话框
 function showPrimaryKeyOrderModal(currentPKs) {
     // 解析当前主键
-    let pkArray = currentPKs ? currentPKs.split(',').map(s => s.trim()) : [];
+    // 大小写不敏感去重，防止历史数据中存在大小写不同的重复项
+    let pkArray = dedupIgnoreCase(
+        currentPKs ? currentPKs.split(',').map(s => s.trim()).filter(s => s) : []
+    );
     
     // 生成可拖拽的主键列表
     let html = '<div class="list-group" id="primaryKeyDragList">';
@@ -770,8 +794,8 @@ function updatePrimaryKeyMarkers(pkString) {
         let targetField = $(this).find('td:eq(1)').text().trim();
         let $pkCell = $(this).find('td:eq(2)');
         
-        var isBackendPK = backendPKs.indexOf(targetField) >= 0;
-        var isTempPK = pkArray.indexOf(targetField) >= 0;
+        var isBackendPK = containsIgnoreCase(backendPKs, targetField);
+        var isTempPK = containsIgnoreCase(pkArray, targetField);
         
         $pkCell.find('.temp-pk-container').empty();
         $pkCell.find('.backend-pk-icon').removeClass('backend-pk-cancelled');

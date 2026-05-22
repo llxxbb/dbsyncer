@@ -33,7 +33,9 @@ var TempPKManager = {
         } else {
             tempPKs = [];
         }
-        if (tempPKs.indexOf(fieldName) < 0) {
+        var fieldNameLower = fieldName.toLowerCase();
+        var exists = tempPKs.some(function(pk) { return pk.toLowerCase() === fieldNameLower; });
+        if (!exists) {
             tempPKs.push(fieldName);
             this.save(tableGroupId, tempPKs);
         }
@@ -42,8 +44,12 @@ var TempPKManager = {
     removeTempPK: function(tableGroupId, fieldName) {
         var tempData = this.load(tableGroupId);
         if (!tempData) return;
+        var fieldNameLower = fieldName.toLowerCase();
         var tempPKs = tempData.tempPKs.slice();
-        var idx = tempPKs.indexOf(fieldName);
+        var idx = -1;
+        for (var i = 0; i < tempPKs.length; i++) {
+            if (tempPKs[i].toLowerCase() === fieldNameLower) { idx = i; break; }
+        }
         if (idx >= 0) {
             tempPKs.splice(idx, 1);
             this.save(tableGroupId, tempPKs);
@@ -58,6 +64,6 @@ var TempPKManager = {
         if (a.length !== b.length) return false;
         var sortedA = a.slice().sort();
         var sortedB = b.slice().sort();
-        return sortedA.every(function(v, i) { return v === sortedB[i]; });
+        return sortedA.every(function(v, i) { return v.toLowerCase() === sortedB[i].toLowerCase(); });
     }
 };
