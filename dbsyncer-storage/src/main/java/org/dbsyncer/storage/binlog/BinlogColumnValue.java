@@ -37,8 +37,15 @@ public class BinlogColumnValue extends AbstractColumnValue<ByteString> {
 
     @Override
     public Short asShort() {
+        byte[] bytes = asByteArray();
         ByteBuffer buffer = ByteBuffer.allocate(BinlogByteEnum.SHORT.getByteLength());
-        buffer.put(asByteArray(), 0, buffer.capacity());
+        if (bytes.length == BinlogByteEnum.SHORT.getByteLength()) {
+            buffer.put(bytes);
+        } else {
+            byte[] padded = new byte[BinlogByteEnum.SHORT.getByteLength()];
+            System.arraycopy(bytes, 0, padded, Math.max(0, 2 - bytes.length), Math.min(bytes.length, 2));
+            buffer.put(padded);
+        }
         buffer.flip();
         return buffer.asShortBuffer().get();
     }
@@ -55,39 +62,75 @@ public class BinlogColumnValue extends AbstractColumnValue<ByteString> {
         }
 
         ByteBuffer buffer = ByteBuffer.allocate(BinlogByteEnum.INTEGER.getByteLength());
-        buffer.put(bytes, 0, buffer.capacity());
+        if (bytes.length == BinlogByteEnum.INTEGER.getByteLength()) {
+            buffer.put(bytes);
+        } else {
+            // 长度不匹配时，用零填充或截取到 4 字节
+            byte[] padded = new byte[BinlogByteEnum.INTEGER.getByteLength()];
+            System.arraycopy(bytes, 0, padded, Math.max(0, 4 - bytes.length), Math.min(bytes.length, 4));
+            buffer.put(padded);
+        }
         buffer.flip();
         return buffer.asIntBuffer().get();
     }
 
     @Override
     public Long asLong() {
+        byte[] bytes = asByteArray();
         ByteBuffer buffer = ByteBuffer.allocate(BinlogByteEnum.LONG.getByteLength());
-        buffer.put(asByteArray(), 0, buffer.capacity());
+        if (bytes.length == BinlogByteEnum.LONG.getByteLength()) {
+            buffer.put(bytes);
+        } else {
+            // 长度不匹配时，用零填充或截取到 8 字节
+            byte[] padded = new byte[BinlogByteEnum.LONG.getByteLength()];
+            System.arraycopy(bytes, 0, padded, Math.max(0, 8 - bytes.length), Math.min(bytes.length, 8));
+            buffer.put(padded);
+        }
         buffer.flip();
         return buffer.asLongBuffer().get();
     }
 
     @Override
     public Float asFloat() {
+        byte[] bytes = asByteArray();
         ByteBuffer buffer = ByteBuffer.allocate(BinlogByteEnum.FLOAT.getByteLength());
-        buffer.put(asByteArray(), 0, buffer.capacity());
+        if (bytes.length == BinlogByteEnum.FLOAT.getByteLength()) {
+            buffer.put(bytes);
+        } else {
+            byte[] padded = new byte[BinlogByteEnum.FLOAT.getByteLength()];
+            System.arraycopy(bytes, 0, padded, Math.max(0, 4 - bytes.length), Math.min(bytes.length, 4));
+            buffer.put(padded);
+        }
         buffer.flip();
         return buffer.asFloatBuffer().get();
     }
 
     @Override
     public Double asDouble() {
+        byte[] bytes = asByteArray();
         ByteBuffer buffer = ByteBuffer.allocate(BinlogByteEnum.DOUBLE.getByteLength());
-        buffer.put(asByteArray(), 0, buffer.capacity());
+        if (bytes.length == BinlogByteEnum.DOUBLE.getByteLength()) {
+            buffer.put(bytes);
+        } else {
+            byte[] padded = new byte[BinlogByteEnum.DOUBLE.getByteLength()];
+            System.arraycopy(bytes, 0, padded, Math.max(0, 8 - bytes.length), Math.min(bytes.length, 8));
+            buffer.put(padded);
+        }
         buffer.flip();
         return buffer.asDoubleBuffer().get();
     }
 
     @Override
     public Boolean asBoolean() {
+        byte[] bytes = asByteArray();
         ByteBuffer buffer = ByteBuffer.allocate(BinlogByteEnum.SHORT.getByteLength());
-        buffer.put(asByteArray(), 0, buffer.capacity());
+        if (bytes.length == BinlogByteEnum.SHORT.getByteLength()) {
+            buffer.put(bytes);
+        } else {
+            byte[] padded = new byte[BinlogByteEnum.SHORT.getByteLength()];
+            System.arraycopy(bytes, 0, padded, Math.max(0, 2 - bytes.length), Math.min(bytes.length, 2));
+            buffer.put(padded);
+        }
         buffer.flip();
         return buffer.asShortBuffer().get() == 1;
     }

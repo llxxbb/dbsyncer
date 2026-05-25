@@ -224,9 +224,13 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
         }
 
         // 获取最后一个响应（如果有）作为最大偏移量响应，传递给后置处理
+        // 注意：StorageBufferActuator 使用 StorageResponse，不能强制转换为 WriterResponse
         WriterResponse lastResponse = null;
         if (!sortedEntries.isEmpty()) {
-            lastResponse = (WriterResponse) sortedEntries.get(sortedEntries.size() - 1).getValue();
+            Response last = sortedEntries.get(sortedEntries.size() - 1).getValue();
+            if (last instanceof WriterResponse) {
+                lastResponse = (WriterResponse) last;
+            }
         }
         
         // 处理完成后，调用钩子方法（子类可以重写来处理偏移量刷新、pending 状态等）
