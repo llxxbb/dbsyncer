@@ -146,6 +146,10 @@ public abstract class AbstractSchemaResolver implements SchemaResolver {
             if (field.getEnumValues() != null) {
                 result.setEnumValues(field.getEnumValues());
             }
+            // 保留字符集信息（用于非 UTF-8 字符集的 STRING/TEXT 列）
+            if (field.getCharset() != null) {
+                result.setCharset(field.getCharset());
+            }
             return result;
         }
 
@@ -202,6 +206,10 @@ public abstract class AbstractSchemaResolver implements SchemaResolver {
             // 合并isSizeFixed信息（用于区分固定长度和可变长度字符串/二进制）
             if (ddlField.getIsSizeFixed() != null) {
                 result.setIsSizeFixed(ddlField.getIsSizeFixed());
+            }
+            // 合并charset信息（用于非 UTF-8 字符集的 STRING/TEXT 列）
+            if (ddlField.getCharset() != null) {
+                result.setCharset(ddlField.getCharset());
             }
 
             return result;

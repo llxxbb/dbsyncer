@@ -101,41 +101,55 @@ public class MySQLConnector extends AbstractDatabaseConnector {
 
     @Override
     protected List<Field> enhanceFields(DatabaseConnectorInstance connectorInstance, List<Field> fields, String tableName) throws Exception {
-        // 查询 information_schema.COLUMNS 获取 ENUM/SET 类型的枚举值
         DatabaseConfig cfg = connectorInstance.getConfig();
         String schema = getSchema(cfg);
-
-        // 构建查询 ENUM/SET 字段枚举值的 SQL（一次性批量查询）
-        StringBuilder sql = new StringBuilder();
-        sql.append("SELECT COLUMN_NAME, COLUMN_TYPE, DATA_TYPE ");
-        sql.append("FROM information_schema.COLUMNS ");
-        sql.append("WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ");
-        sql.append("AND DATA_TYPE IN ('enum', 'set')");
 
         connectorInstance.execute(databaseTemplate -> {
             Connection conn = databaseTemplate.getSimpleConnection();
             String catalog = conn.getCatalog();
 
-            List<Map<String, Object>> enumColumns = databaseTemplate.queryForList(sql.toString(), catalog, tableName);
-            if (enumColumns != null && !enumColumns.isEmpty()) {
-                // 构建字段名到枚举值的映射
-                Map<String, List<String>> enumValuesMap = new HashMap<>();
-                for (Map<String, Object> row : enumColumns) {
+            // 一次性查询 ENUM/SET 枚举值 + 字段字符集
+            String sql = "SELECT COLUMN_NAME, COLUMN_TYPE, DATA_TYPE, CHARACTER_SET_NAME " +
+                    "FROM information_schema.COLUMNS " +
+                    "WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?";
+
+            List<Map<String, Object>> columns = databaseTemplate.queryForList(sql, catalog, tableName);
+            if (columns != null && !columns.isEmpty()) {
+                for (Map<String, Object> row : columns) {
                     String columnName = (String) row.get("COLUMN_NAME");
-                    String columnType = (String) row.get("COLUMN_TYPE");
-                    if (columnType != null) {
-                        List<String> values = parseEnumValues(columnType);
-                        if (values != null && !values.isEmpty()) {
-                            enumValuesMap.put(columnName, values);
+                    if (columnName == null) {
+                        continue;
+                    }
+                    // 匹配 Field 对象
+                    Field field = null;
+                    for (Field f : fields) {
+                        if (columnName.equals(f.getName())) {
+                            field = f;
+                            break;
                         }
                     }
-                }
+                    if (field == null) {
+                        continue;
+                    }
 
-                // 将枚举值设置到对应的 Field 对象中
-                for (Field field : fields) {
-                    List<String> enumValues = enumValuesMap.get(field.getName());
-                    if (enumValues != null) {
-                        field.setEnumValues(enumValues);
+                    // ENUM/SET 枚举值
+                    String dataType = (String) row.get("DATA_TYPE");
+                    if ("enum".equals(dataType) || "set".equals(dataType)) {
+                        String columnType = (String) row.get("COLUMN_TYPE");
+                        if (columnType != null) {
+                            List<String> values = parseEnumValues(columnType);
+                            if (values != null && !values.isEmpty()) {
+                                field.setEnumValues(values);
+                            }
+                        }
+                    }
+
+                    // 字段字符集
+                    if (field.getCharset() == null) {
+                        String charsetName = (String) row.get("CHARACTER_SET_NAME");
+                        if (charsetName != null) {
+                            field.setCharset(charsetName);
+                        }
                     }
                 }
             }

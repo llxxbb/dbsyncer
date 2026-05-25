@@ -44,13 +44,12 @@ public final class MySQLTextType extends UnicodeTextType {
 
     @Override
     protected String merge(Object val, Field field) {
+        if (val instanceof byte[]) {
+            Charset charset = MySQLCharsetUtil.resolveCharset(field.getCharset());
+            return new String((byte[]) val, charset);
+        }
         if (val instanceof String) {
             return (String) val;
-        }
-        if (val instanceof byte[]) {
-            byte[] bytes = (byte[]) val;
-            Charset charset = MySQLCharsetUtil.resolveCharset(field.getCharset());
-            return new String(bytes, charset);
         }
         return throwUnsupportedException(val, field);
     }

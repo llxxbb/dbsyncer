@@ -9,6 +9,7 @@ import com.github.shyiko.mysql.binlog.io.ByteArrayInputStream;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.lang.reflect.Method;
 import java.util.Map;
 
 public final class ExtUpdateDeserializer extends UpdateRowsEventDataDeserializer {
@@ -18,6 +19,25 @@ public final class ExtUpdateDeserializer extends UpdateRowsEventDataDeserializer
 
     public ExtUpdateDeserializer(Map<Long, TableMapEventData> tableMapEventByTableId) {
         super(tableMapEventByTableId);
+        setDeserializeCharAndBinaryAsByteArray(this, true);
+    }
+
+    private static void setDeserializeCharAndBinaryAsByteArray(Object target, boolean value) {
+        try {
+            Class<?> clazz = target.getClass().getSuperclass();
+            while (clazz != null) {
+                try {
+                    Method m = clazz.getDeclaredMethod("setDeserializeCharAndBinaryAsByteArray", boolean.class);
+                    m.setAccessible(true);
+                    m.invoke(target, value);
+                    return;
+                } catch (NoSuchMethodException e) {
+                    clazz = clazz.getSuperclass();
+                }
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to set deserializeCharAndBinaryAsByteArray", e);
+        }
     }
 
     @Override
