@@ -24,7 +24,41 @@ public final class MySQLSetType extends SetType {
         if (val instanceof String) {
             return (String) val;
         }
+        if (val instanceof Number) {
+            return bitmaskToString(((Number) val).longValue(), field.getEnumValues());
+        }
         return throwUnsupportedException(val, field);
+    }
+
+    @Override
+    protected Object convert(Object val, Field field) {
+        if (val instanceof String) {
+            return val;
+        }
+        if (val instanceof Number) {
+            return bitmaskToString(((Number) val).longValue(), field.getEnumValues());
+        }
+        return throwUnsupportedException(val, field);
+    }
+
+    /**
+     * MySQL SET 底层是位图存储（bitmask），将位图值转换为逗号分隔的字符串。
+     * 例如：bitmask=5 (二进制 101) → "val1,val3"
+     */
+    private String bitmaskToString(long bitmask, List<String> setValues) {
+        if (setValues == null || setValues.isEmpty()) {
+            return String.valueOf(bitmask);
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < setValues.size(); i++) {
+            if ((bitmask & (1L << i)) != 0) {
+                if (sb.length() > 0) {
+                    sb.append(",");
+                }
+                sb.append(setValues.get(i));
+            }
+        }
+        return sb.toString();
     }
 
     @Override
