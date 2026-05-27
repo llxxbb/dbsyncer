@@ -33,7 +33,7 @@ public interface DataSyncService {
      * 手动同步数据
      *
      * @param params
-     * @return
+     * @return 成功的 messageId
      */
     String sync(Map<String, String> params) throws Exception;
 

@@ -164,36 +164,36 @@ public class DataSyncServiceImpl implements DataSyncService {
         Map row = getData(metaId, messageId);
         if (CollectionUtils.isEmpty(row)) {
             logger.warn("重试失败：无法从存储中获取数据, metaId={}, messageId={}", metaId, messageId);
-            return messageId;
+            throw new RuntimeException("无法从存储中获取数据");
         }
 
         Map binlogData = getBinlogData(row, false);
         if (CollectionUtils.isEmpty(binlogData)) {
             logger.warn("重试失败：无法解析binlog数据, metaId={}, messageId={}", metaId, messageId);
-            return messageId;
+            throw new RuntimeException("无法解析binlog数据");
         }
 
         String tableGroupId = (String) row.get(ConfigConstant.DATA_TABLE_GROUP_ID);
         if (StringUtil.isBlank(tableGroupId)) {
             logger.warn("重试失败：tableGroupId为空, metaId={}, messageId={}", metaId, messageId);
-            return messageId;
+            throw new RuntimeException("tableGroupId为空");
         }
 
         String event = (String) row.get(ConfigConstant.DATA_EVENT);
         if (StringUtil.isBlank(event)) {
             logger.warn("重试失败：event为空, metaId={}, messageId={}", metaId, messageId);
-            return messageId;
+            throw new RuntimeException("event为空");
         }
 
         TableGroup tableGroup = profileComponent.getTableGroup(tableGroupId);
         if (tableGroup == null) {
             logger.warn("重试失败：TableGroup不存在, tableGroupId={}, metaId={}, messageId={}", tableGroupId, metaId, messageId);
-            return messageId;
+            throw new RuntimeException("TableGroup不存在");
         }
 
         if (tableGroup.getSourceTable() == null) {
             logger.warn("重试失败：TableGroup的源表为空, tableGroupId={}, metaId={}, messageId={}", tableGroupId, metaId, messageId);
-            return messageId;
+            throw new RuntimeException("TableGroup源表为空");
         }
 
         String sourceTableName = tableGroup.getSourceTable().getName();
@@ -204,7 +204,7 @@ public class DataSyncServiceImpl implements DataSyncService {
             String ddlConfigJson = (String) binlogData.get(ConfigConstant.BINLOG_DATA);
             if (StringUtil.isBlank(ddlConfigJson)) {
                 logger.warn("DDL重做失败：无法从存储中获取DDLConfig数据, messageId={}", messageId);
-                return messageId;
+                throw new RuntimeException("无法从存储中获取DDLConfig数据");
             }
 
             try {
@@ -212,7 +212,7 @@ public class DataSyncServiceImpl implements DataSyncService {
                 DDLConfig ddlConfig = JsonUtil.jsonToObj(ddlConfigJson, DDLConfig.class);
                 if (ddlConfig == null || StringUtil.isBlank(ddlConfig.getSql())) {
                     logger.warn("DDL重做失败：DDLConfig数据无效, messageId={}", messageId);
-                    return messageId;
+                    throw new RuntimeException("DDLConfig数据无效");
                 }
 
                 // 创建DDLChangedEvent，通过BufferActuatorRouter执行，会自动调用parseDDl方法
@@ -234,8 +234,7 @@ public class DataSyncServiceImpl implements DataSyncService {
 
             } catch (Exception e) {
                 logger.error("DDL重做失败, messageId={}, error={}", messageId, e.getMessage(), e);
-                // 执行失败，不删除数据，保留以便后续重试
-                return messageId;
+                throw new RuntimeException("DDL重做执行失败: " + e.getMessage(), e);
             }
         } else {
             // 数据同步重做：处理ROW事件
@@ -269,13 +268,11 @@ public class DataSyncServiceImpl implements DataSyncService {
 
             } catch (Exception e) {
                 logger.error("数据重做失败, messageId={}, error={}", messageId, e.getMessage(), e);
-                // 执行失败，不删除数据，保留以便后续重试
-                return messageId;
+                throw new RuntimeException("数据重做执行失败: " + e.getMessage(), e);
             }
         }
 
         // 执行成功后，删除存储中的失败数据并更新统计
-        // 注意：如果 executeDirectly() 抛出异常，说明重试失败，不会执行到这里
         try {
             storageService.remove(StorageEnum.DATA, metaId, messageId);
             // 更新统计数据：减少失败数，增加成功数
@@ -284,15 +281,15 @@ public class DataSyncServiceImpl implements DataSyncService {
                 meta.getFail().decrementAndGet();
                 meta.getSuccess().incrementAndGet();
                 meta.setUpdateTime(Instant.now().toEpochMilli());
-                
-                    // 减少失败数，增加成功数
-                    tableGroup.setFail(Math.max(0, tableGroup.getFail() - 1));
-                    tableGroup.setSuccess(tableGroup.getSuccess() + 1);
-                    // 更新同步状态：根据失败计数判断（有失败记录则为"异常"，否则为"正常"）
-                    tableGroup.setStatus(tableGroup.getFail() > 0 ? "异常" : "正常");
-                    // 标记 TableGroup 计数发生变化
-                    meta.markTableGroupChanged(tableGroupId);
-                
+
+                // 减少失败数，增加成功数
+                tableGroup.setFail(Math.max(0, tableGroup.getFail() - 1));
+                tableGroup.setSuccess(tableGroup.getSuccess() + 1);
+                // 更新同步状态：根据失败计数判断（有失败记录则为"异常"，否则为"正常"）
+                tableGroup.setStatus(tableGroup.getFail() > 0 ? "异常" : "正常");
+                // 标记 TableGroup 计数发生变化
+                meta.markTableGroupChanged(tableGroupId);
+
                 profileComponent.editConfigModel(meta);
             } else {
                 logger.warn("重试成功但Meta不存在，无法更新统计, metaId={}, messageId={}", metaId, messageId);
@@ -411,14 +408,8 @@ public class DataSyncServiceImpl implements DataSyncService {
                     Map<String, String> syncParams = new HashMap<>();
                     syncParams.put("metaId", metaId);
                     syncParams.put("messageId", messageId);
-                    String result = sync(syncParams);
-                    
-                    // 如果返回的messageId与传入的相同，说明重试失败（sync方法失败时返回原messageId）
-                    if (messageId.equals(result)) {
-                        failCount++;
-                    } else {
-                        successCount++;
-                    }
+                    sync(syncParams);
+                    successCount++;
                 } catch (Exception e) {
                     logger.error("批量重试失败, metaId={}, messageId={}, error={}", metaId, messageId, e.getMessage(), e);
                     failCount++;
