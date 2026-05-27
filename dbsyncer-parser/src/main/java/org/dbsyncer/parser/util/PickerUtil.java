@@ -91,15 +91,14 @@ public abstract class PickerUtil {
         if (!CollectionUtils.isEmpty(convert)) {
             Set<String> targetFieldNames = fieldMapping.stream()
                     .map(FieldMapping::getTarget)
-                    .filter(f -> f != null)
-                    .map(Field::nameIgnoreCase)
                     .filter(StringUtil::isNotBlank)
+                    .map(String::toLowerCase)
                     .collect(Collectors.toSet());
             convert.forEach(c -> {
                 String fieldName = c.getName();
                 Field targetField = group.getTargetTable().findColumnByName(fieldName);
                 if (targetField != null && !targetFieldNames.contains(fieldName.toLowerCase())) {
-                    fieldMapping.add(new FieldMapping(null, targetField));
+                    fieldMapping.add(new FieldMapping(null, targetField.getName()));
                 }
             });
         }
@@ -109,11 +108,7 @@ public abstract class PickerUtil {
         if (StringUtil.isNotBlank(name)) {
             boolean exist = false;
             for (FieldMapping m : fieldMapping) {
-                Field f = checkSource ? m.getSource() : m.getTarget();
-                if (null == f) {
-                    continue;
-                }
-                if (f.matchesName(name)) {
+                if ((checkSource ? m.matchesSource(name) : m.matchesTarget(name))) {
                     exist = true;
                     break;
                 }
@@ -121,7 +116,9 @@ public abstract class PickerUtil {
             if (!exist) {
                 Field field = table.findColumnByName(name);
                 if (field != null) {
-                    FieldMapping fm = checkSource ? new FieldMapping(field, null) : new FieldMapping(null, field);
+                    FieldMapping fm = checkSource
+                        ? new FieldMapping(field.getName(), null)
+                        : new FieldMapping(null, field.getName());
                     fieldMapping.add(fm);
                 }
             }

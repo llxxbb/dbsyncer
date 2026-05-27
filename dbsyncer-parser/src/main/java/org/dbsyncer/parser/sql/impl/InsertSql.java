@@ -45,11 +45,11 @@ public final class InsertSql implements SqlParser {
             //替换字段
             List<Column> columns = insert.getColumns();
             for (Column column : columns) {
+                String colName = column.getColumnName().replaceAll("\"", "");
                 fieldMappingList.stream()
-                        .filter(x -> x.getSource().getName()
-                                .equals(column.getColumnName().replaceAll("\"", "")))
+                        .filter(x -> x.matchesSource(colName))
                         .findFirst().ifPresent(
-                        fieldMapping -> column.setColumnName(fieldMapping.getTarget().getName()));
+                        fieldMapping -> column.setColumnName(fieldMapping.getTarget()));
             }
             return insert.toString();
         } catch (JSQLParserException e) {

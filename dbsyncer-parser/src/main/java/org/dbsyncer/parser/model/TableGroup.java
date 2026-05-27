@@ -226,10 +226,10 @@ public class TableGroup extends AbstractConfigModel {
             return false;
         }
         for (FieldMapping fm : fieldMapping) {
-            if (fm.getSource() != null && fm.getSource().matchesName(name)) {
+            if (fm.matchesSource(name)) {
                 return true;
             }
-            if (fm.getTarget() != null && fm.getTarget().matchesName(name)) {
+            if (fm.matchesTarget(name)) {
                 return true;
             }
         }
@@ -325,15 +325,20 @@ public class TableGroup extends AbstractConfigModel {
                     targetTable != null ? targetTable.getName() : "null"));
         }
 
-        // 同步字段主要参考源库：sTable 使用所有有 source 的字段映射
+        // 同步字段主要参考源库：从 Table 查找字段元数据（ADR-0011）
         // tTable 使用有 target 的字段映射（target 字段依据源表字段构建）
         fieldMapping.forEach(m -> {
-            if (null != m.getSource()) {
-                sTable.getColumn().add(m.getSource());
+            if (StringUtil.isNotBlank(m.getSourceName())) {
+                Field sField = sourceTable.findColumnByName(m.getSourceName());
+                if (sField != null) {
+                    sTable.getColumn().add(sField);
+                }
             }
-            // tTable 使用 target 字段（target 字段依据源表字段构建）
-            if (null != m.getTarget()) {
-                tTable.getColumn().add(m.getTarget());
+            if (StringUtil.isNotBlank(m.getTargetName())) {
+                Field tField = targetTable.findColumnByName(m.getTargetName());
+                if (tField != null) {
+                    tTable.getColumn().add(tField);
+                }
             }
         });
 

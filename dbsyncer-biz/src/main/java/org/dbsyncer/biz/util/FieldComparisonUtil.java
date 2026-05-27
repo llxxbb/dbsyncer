@@ -2,6 +2,7 @@ package org.dbsyncer.biz.util;
 
 import org.dbsyncer.biz.vo.FieldDiffItem;
 import org.dbsyncer.common.util.CollectionUtils;
+import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.sdk.model.Field;
 
 import java.util.ArrayList;
@@ -235,22 +236,22 @@ public final class FieldComparisonUtil {
             return mappingOnlyFields;
         }
 
+        // ADR-0011: getTarget() 现在返回 String 字段名
         for (org.dbsyncer.parser.model.FieldMapping fieldMapping : fieldMappings) {
-            if (fieldMapping == null || fieldMapping.getTarget() == null || fieldMapping.getTarget().getName() == null) {
+            String targetFieldName = fieldMapping.getTarget();
+            if (StringUtil.isBlank(targetFieldName)) {
                 continue;
             }
-
-            String targetFieldName = fieldMapping.getTarget().getName();
 
             // 使用 Field.matchesName 进行不区分大小写的比较（ADR-0008 规范）
             boolean existsInTarget = targetFields.stream()
                     .anyMatch(targetField -> targetField != null && targetField.matchesName(targetFieldName));
 
             if (!existsInTarget) {
+                // MAPPING_ONLY: mapping 配置了但目标表实际不存在
+                // targetType/Length 无意义（目标表无此字段），设为 null
                 FieldDiffItem item = new FieldDiffItem();
                 item.setFieldName(targetFieldName);
-                item.setTargetType(fieldMapping.getTarget().getTypeName());
-                item.setTargetLength(fieldMapping.getTarget().getColumnSize());
                 item.setDiffType("MAPPING_ONLY");
                 item.setDescription("mapping 已配置但目标表不存在");
                 mappingOnlyFields.add(item);

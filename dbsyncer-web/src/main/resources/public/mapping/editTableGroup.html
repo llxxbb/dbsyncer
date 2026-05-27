@@ -188,11 +188,12 @@
                                             </tr>
                                             </thead>
                                             <tbody id="fieldMappingList">
+                                            <!-- ADR-0011: FieldMapping.source/target 现在是 String（字段名），不再持有 Field 对象 -->
                                             <tr th:id="'fieldMapping_'+${s.index + 1}" title='双击设置/取消主键' th:each="f,s:${tableGroup?.fieldMapping}">
-                                                <td>[[${f?.source?.name}]]</td>
-                                                <td>[[${f?.target?.name}]]</td>
+                                                <td>[[${f?.source}]]</td>
+                                                <td>[[${f?.target}]]</td>
                                                 <td class="pk-status-cell">
-                                                    <i th:if="${f?.target?.pk}" title="后端主键（已保存）" class="fa fa-key fa-fw fa-rotate-90 text-warning backend-pk-icon"></i>
+                                                    <i th:if="${#strings.contains(tableGroup?.targetTablePK, f?.target)}" title="后端主键（已保存）" class="fa fa-key fa-fw fa-rotate-90 text-warning backend-pk-icon"></i>
                                                     <span class="temp-pk-container"></span>
                                                 </td>
                                                 <td><input type="checkbox" class="fieldMappingDeleteCheckbox" /></td>

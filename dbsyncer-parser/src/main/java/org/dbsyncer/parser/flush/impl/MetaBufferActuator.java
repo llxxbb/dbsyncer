@@ -479,19 +479,8 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
                 return;
             }
 
-            // 7.更新表属性字段（DDL 执行成功后）
-            MetaInfo sourceMetaInfo = connectorFactory.getMetaInfo(connectorFactory.connect(getConnectorConfig(mapping.getSourceConnectorId())), tableGroup.getSourceTable().getName());
-            MetaInfo targetMetaInfo = connectorFactory.getMetaInfo(connectorFactory.connect(getConnectorConfig(mapping.getTargetConnectorId())), tableGroup.getTargetTable().getName());
-            tableGroup.getSourceTable().setColumn(sourceMetaInfo.getColumn());
-            tableGroup.getTargetTable().setColumn(targetMetaInfo.getColumn());
-
-            // 7.1 如果目标表字段列表为空（如Kafka连接器），使用源表字段
-            if (CollectionUtils.isEmpty(tableGroup.getTargetTable().getColumn())) {
-                tableGroup.getTargetTable().setColumn(new ArrayList<>(tableGroup.getSourceTable().getColumn()));
-                logger.debug("目标表字段列表为空，使用源表字段列表: table={}", tableGroup.getTargetTable().getName());
-            }
-
-            // 8.更新表字段映射关系
+            // 7.更新表字段映射关系（含元数据刷新）
+            // 注：表字段元数据刷新已收敛至 DDLParserImpl.refreshFiledMappings 内部
             ddlParser.refreshFiledMappings(tableGroup, targetDDLConfig);
             logger.info("字段映射关系已更新: table={}, 映射数量={}", tableGroup.getTargetTable().getName(),
                     tableGroup.getFieldMapping() != null ? tableGroup.getFieldMapping().size() : 0);

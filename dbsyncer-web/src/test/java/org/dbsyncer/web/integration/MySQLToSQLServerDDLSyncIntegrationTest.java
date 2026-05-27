@@ -463,8 +463,8 @@ public class MySQLToSQLServerDDLSyncIntegrationTest extends BaseDDLIntegrationTe
         TableGroup tableGroup = tableGroups.get(0);
         
         boolean foundFieldMapping = tableGroup.getFieldMapping().stream()
-                .anyMatch(fm -> fm.getSource() != null && "phone".equals(fm.getSource().getName()) &&
-                        fm.getTarget() != null && "phone".equals(fm.getTarget().getName()));
+                .anyMatch(fm -> fm.matchesSource("phone") &&
+                        fm.matchesTarget("phone"));
         assertTrue("应找到字段 phone 的映射", foundFieldMapping);
         
         // 验证目标数据库中字段是否存在
@@ -655,13 +655,13 @@ public class MySQLToSQLServerDDLSyncIntegrationTest extends BaseDDLIntegrationTe
         TableGroup tableGroup = tableGroups.get(0);
 
         boolean foundSalaryMapping = tableGroup.getFieldMapping().stream()
-                .anyMatch(fm -> fm.getSource() != null && "salary".equals(fm.getSource().getName()) &&
-                        fm.getTarget() != null && "salary".equals(fm.getTarget().getName()));
+                .anyMatch(fm -> fm.matchesSource("salary") &&
+                        fm.matchesTarget("salary"));
         assertTrue("应找到salary字段的映射", foundSalaryMapping);
 
         boolean foundBonusMapping = tableGroup.getFieldMapping().stream()
-                .anyMatch(fm -> fm.getSource() != null && "bonus".equals(fm.getSource().getName()) &&
-                        fm.getTarget() != null && "bonus".equals(fm.getTarget().getName()));
+                .anyMatch(fm -> fm.matchesSource("bonus") &&
+                        fm.matchesTarget("bonus"));
         assertTrue("应找到bonus字段的映射", foundBonusMapping);
 
         // 验证目标数据库中两个字段都存在
@@ -693,8 +693,8 @@ public class MySQLToSQLServerDDLSyncIntegrationTest extends BaseDDLIntegrationTe
         TableGroup tableGroup = tableGroups.get(0);
 
         boolean foundStatusMapping = tableGroup.getFieldMapping().stream()
-                .anyMatch(fm -> fm.getSource() != null && "status".equals(fm.getSource().getName()) &&
-                        fm.getTarget() != null && "status".equals(fm.getTarget().getName()));
+                .anyMatch(fm -> fm.matchesSource("status") &&
+                        fm.matchesTarget("status"));
 
         assertTrue("应找到status字段的映射", foundStatusMapping);
         verifyFieldExistsInTargetDatabase("status", tableGroup.getTargetTable().getName(), sqlServerConfig);
@@ -728,8 +728,8 @@ public class MySQLToSQLServerDDLSyncIntegrationTest extends BaseDDLIntegrationTe
         TableGroup tableGroup = tableGroups.get(0);
 
         boolean foundOutQrcodeIDMapping = tableGroup.getFieldMapping().stream()
-                .anyMatch(fm -> fm.getSource() != null && "outQrcodeID".equals(fm.getSource().getName()) &&
-                        fm.getTarget() != null && "outQrcodeID".equals(fm.getTarget().getName()));
+                .anyMatch(fm -> fm.matchesSource("outQrcodeID") &&
+                        fm.matchesTarget("outQrcodeID"));
 
         assertTrue("应找到outQrcodeID字段的映射", foundOutQrcodeIDMapping);
         verifyFieldExistsInTargetDatabase("outQrcodeID", tableGroup.getTargetTable().getName(), sqlServerConfig);
@@ -762,8 +762,8 @@ public class MySQLToSQLServerDDLSyncIntegrationTest extends BaseDDLIntegrationTe
         TableGroup tableGroup = tableGroups.get(0);
 
         boolean foundFirstNameMapping = tableGroup.getFieldMapping().stream()
-                .anyMatch(fm -> fm.getSource() != null && "first_name".equals(fm.getSource().getName()) &&
-                        fm.getTarget() != null && "first_name".equals(fm.getTarget().getName()));
+                .anyMatch(fm -> fm.matchesSource("first_name") &&
+                        fm.matchesTarget("first_name"));
 
         assertTrue("应找到first_name字段的映射", foundFirstNameMapping);
 
@@ -988,8 +988,8 @@ public class MySQLToSQLServerDDLSyncIntegrationTest extends BaseDDLIntegrationTe
         Map<String, String> sourceToTargetFieldMap = tableGroup.getFieldMapping().stream()
                 .filter(fm -> fm.getSource() != null && fm.getTarget() != null)
                 .collect(java.util.stream.Collectors.toMap(
-                        fm -> fm.getSource().getName(),
-                        fm -> fm.getTarget().getName(),
+                        fm -> fm.getSource(),
+                        fm -> fm.getTarget(),
                         (v1, v2) -> v1 // 如果有重复，保留第一个
                 ));
         
@@ -1054,15 +1054,15 @@ public class MySQLToSQLServerDDLSyncIntegrationTest extends BaseDDLIntegrationTe
 
         if (isAddOperation || isChangeOperation) {
             boolean foundFieldMapping = tableGroup.getFieldMapping().stream()
-                    .anyMatch(fm -> fm.getSource() != null && expectedFieldName.equals(fm.getSource().getName()) &&
-                            fm.getTarget() != null && expectedFieldName.equals(fm.getTarget().getName()));
+                    .anyMatch(fm -> fm.matchesSource(expectedFieldName) &&
+                            fm.getTarget() != null && fm.matchesTarget(expectedFieldName));
             assertTrue("应找到字段 " + expectedFieldName + " 的映射", foundFieldMapping);
 
             // 验证目标数据库中字段是否存在
             verifyFieldExistsInTargetDatabase(expectedFieldName, tableGroup.getTargetTable().getName(), sqlServerConfig);
         } else {
             boolean foundFieldMapping = tableGroup.getFieldMapping().stream()
-                    .anyMatch(fm -> fm.getSource() != null && expectedFieldName.equals(fm.getSource().getName()));
+                    .anyMatch(fm -> fm.matchesSource(expectedFieldName));
             assertTrue("应找到字段 " + expectedFieldName + " 的映射", foundFieldMapping);
         }
 
@@ -1086,7 +1086,7 @@ public class MySQLToSQLServerDDLSyncIntegrationTest extends BaseDDLIntegrationTe
         TableGroup tableGroup = tableGroups.get(0);
 
         boolean foundFieldMapping = tableGroup.getFieldMapping().stream()
-                .anyMatch(fm -> fm.getSource() != null && expectedFieldName.equals(fm.getSource().getName()));
+                .anyMatch(fm -> fm.matchesSource(expectedFieldName));
         assertFalse("应移除字段 " + expectedFieldName + " 的映射", foundFieldMapping);
 
         // 验证目标数据库中字段是否已被删除

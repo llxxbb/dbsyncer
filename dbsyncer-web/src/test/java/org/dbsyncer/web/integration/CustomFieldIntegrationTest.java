@@ -266,7 +266,7 @@ public class CustomFieldIntegrationTest extends BaseDDLIntegrationTest {
         List<String> fieldMappingsList = new ArrayList<>();
         for (org.dbsyncer.parser.model.FieldMapping fm : tableGroup.getFieldMapping()) {
             if (fm.getSource() != null && fm.getTarget() != null) {
-                fieldMappingsList.add(fm.getSource().getName() + "|" + fm.getTarget().getName());
+                fieldMappingsList.add(fm.getSource() + "|" + fm.getTarget());
             }
         }
         // 添加自定义字段映射
@@ -355,7 +355,7 @@ public class CustomFieldIntegrationTest extends BaseDDLIntegrationTest {
         List<String> fieldMappingsList = new ArrayList<>();
         for (org.dbsyncer.parser.model.FieldMapping fm : tableGroup.getFieldMapping()) {
             if (fm.getSource() != null && fm.getTarget() != null) {
-                fieldMappingsList.add(fm.getSource().getName() + "|" + fm.getTarget().getName());
+                fieldMappingsList.add(fm.getSource() + "|" + fm.getTarget());
             }
         }
         fieldMappingsList.add("ExistingCustomField|ExistingCustomField");
@@ -435,7 +435,7 @@ public class CustomFieldIntegrationTest extends BaseDDLIntegrationTest {
         List<String> fieldMappingsList = new ArrayList<>();
         for (org.dbsyncer.parser.model.FieldMapping fm : tableGroup.getFieldMapping()) {
             if (fm.getSource() != null && fm.getTarget() != null) {
-                fieldMappingsList.add(fm.getSource().getName() + "|" + fm.getTarget().getName());
+                fieldMappingsList.add(fm.getSource() + "|" + fm.getTarget());
             }
         }
         fieldMappingsList.add("CustomVarchar|CustomVarchar");

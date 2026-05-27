@@ -6,6 +6,8 @@
 
 | 编号 | 标题 | 状态 | 日期 |
 |------|------|------|------|
+| [0011](0011-简化-FieldMapping-结构.md) | 简化 FieldMapping 结构 | Proposed | 2026-05-27 |
+| [0010](0010-mysql-non-utf8-charset-handling.md) | MySQL 非 UTF-8 字符集列的数据一致性处理 | Proposed | 2026-05-20 |
 | [0009](0009-字段差异分析增加MAPPING_ONLY检测与修复.md) | 字段差异分析增加 MAPPING_ONLY 检测与修复 | Proposed | 2026-05-14 |
 | [0008](0008-field-table-case-insensitive.md) | 字段名/表名大小写不敏感的业务对象封装 | Accepted | 2026-05-13 |
 | [0007](0007-batch-convert-temp-to-formal-pk.md) | 批量添加转换配置 — 临时主键变更为正式主键 | Accepted | 2026-05-11 |
@@ -41,4 +43,4 @@ mkdir -p doc/adr doc/history/NNNN
 
 ---
 
-*最后更新：2026-05-14*
+*最后更新：2026-05-27*

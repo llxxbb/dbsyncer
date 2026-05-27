@@ -198,8 +198,8 @@ public class DDLSqlServerCTIntegrationTest extends BaseDDLIntegrationTest {
         TableGroup tableGroup = tableGroups.get(0);
 
         boolean foundSalaryMapping = tableGroup.getFieldMapping().stream()
-                .anyMatch(fm -> fm.getSource() != null && "salary".equals(fm.getSource().getName()) &&
-                        fm.getTarget() != null && "salary".equals(fm.getTarget().getName()));
+                .anyMatch(fm -> fm.matchesSource("salary") &&
+                        fm.matchesTarget("salary"));
 
         assertTrue("应找到salary字段的映射", foundSalaryMapping);
         verifyFieldExistsInTargetDatabase("salary", getTargetTableName(), targetConfig);
@@ -253,8 +253,8 @@ public class DDLSqlServerCTIntegrationTest extends BaseDDLIntegrationTest {
         TableGroup tableGroup = tableGroups.get(0);
 
         boolean foundPhoneMapping = tableGroup.getFieldMapping().stream()
-                .anyMatch(fm -> fm.getSource() != null && "phone".equals(fm.getSource().getName()) &&
-                        fm.getTarget() != null && "phone".equals(fm.getTarget().getName()));
+                .anyMatch(fm -> fm.matchesSource("phone") &&
+                        fm.matchesTarget("phone"));
 
         assertTrue("应找到phone字段的映射", foundPhoneMapping);
         verifyFieldExistsInTargetDatabase("phone", getTargetTableName(), targetConfig);
@@ -357,8 +357,8 @@ public class DDLSqlServerCTIntegrationTest extends BaseDDLIntegrationTest {
         TableGroup tableGroup = tableGroups.get(0);
 
         boolean foundRemarkMapping = tableGroup.getFieldMapping().stream()
-                .anyMatch(fm -> fm.getSource() != null && "remark".equals(fm.getSource().getName()) &&
-                        fm.getTarget() != null && "remark".equals(fm.getTarget().getName()));
+                .anyMatch(fm -> fm.matchesSource("remark") &&
+                        fm.matchesTarget("remark"));
 
         assertTrue("应找到remark字段的映射（通过fallbackQuery检测）", foundRemarkMapping);
         verifyFieldExistsInTargetDatabase("remark", getTargetTableName(), targetConfig);
@@ -420,7 +420,7 @@ public class DDLSqlServerCTIntegrationTest extends BaseDDLIntegrationTest {
         TableGroup tableGroup = tableGroups.get(0);
 
         boolean foundDepartmentMapping = tableGroup.getFieldMapping().stream()
-                .anyMatch(fm -> fm.getSource() != null && "department".equals(fm.getSource().getName()));
+                .anyMatch(fm -> fm.matchesSource("department"));
 
         assertFalse("不应找到department字段的映射", foundDepartmentMapping);
         verifyFieldNotExistsInTargetDatabase("department", getTargetTableName(), targetConfig);
@@ -475,8 +475,8 @@ public class DDLSqlServerCTIntegrationTest extends BaseDDLIntegrationTest {
         TableGroup tableGroup = tableGroups.get(0);
 
         boolean foundFirstNameMapping = tableGroup.getFieldMapping().stream()
-                .anyMatch(fm -> fm.getSource() != null && "first_name".equals(fm.getSource().getName()) &&
-                        fm.getTarget() != null && "first_name".equals(fm.getTarget().getName()));
+                .anyMatch(fm -> fm.matchesSource("first_name") &&
+                        fm.matchesTarget("first_name"));
 
         assertTrue("应找到first_name字段的映射", foundFirstNameMapping);
 
@@ -539,8 +539,8 @@ public class DDLSqlServerCTIntegrationTest extends BaseDDLIntegrationTest {
         TableGroup tableGroup = tableGroups.get(0);
 
         boolean foundCountNumMapping = tableGroup.getFieldMapping().stream()
-                .anyMatch(fm -> fm.getSource() != null && "count_num".equals(fm.getSource().getName()) &&
-                        fm.getTarget() != null && "count_num".equals(fm.getTarget().getName()));
+                .anyMatch(fm -> fm.matchesSource("count_num") &&
+                        fm.matchesTarget("count_num"));
 
         assertTrue("应找到count_num字段的映射", foundCountNumMapping);
 
@@ -592,8 +592,8 @@ public class DDLSqlServerCTIntegrationTest extends BaseDDLIntegrationTest {
         TableGroup tableGroup = tableGroups.get(0);
 
         boolean foundLastNameMapping = tableGroup.getFieldMapping().stream()
-                .anyMatch(fm -> fm.getSource() != null && "last_name".equals(fm.getSource().getName()) &&
-                        fm.getTarget() != null && "last_name".equals(fm.getTarget().getName()));
+                .anyMatch(fm -> fm.matchesSource("last_name") &&
+                        fm.matchesTarget("last_name"));
 
         assertTrue("应找到last_name字段的映射", foundLastNameMapping);
 
@@ -649,8 +649,8 @@ public class DDLSqlServerCTIntegrationTest extends BaseDDLIntegrationTest {
         TableGroup tableGroup = tableGroups.get(0);
 
         boolean foundFirstNameMapping = tableGroup.getFieldMapping().stream()
-                .anyMatch(fm -> fm.getSource() != null && "first_name".equals(fm.getSource().getName()) &&
-                        fm.getTarget() != null && "first_name".equals(fm.getTarget().getName()));
+                .anyMatch(fm -> fm.matchesSource("first_name") &&
+                        fm.matchesTarget("first_name"));
 
         assertTrue("应找到first_name字段的映射", foundFirstNameMapping);
 
@@ -710,13 +710,13 @@ public class DDLSqlServerCTIntegrationTest extends BaseDDLIntegrationTest {
 
         // 验证新映射存在
         boolean foundNewMapping = tableGroup.getFieldMapping().stream()
-                .anyMatch(fm -> fm.getSource() != null && "full_name".equals(fm.getSource().getName()) &&
-                        fm.getTarget() != null && "full_name".equals(fm.getTarget().getName()));
+                .anyMatch(fm -> fm.matchesSource("full_name") &&
+                        fm.matchesTarget("full_name"));
 
         // 验证旧映射不存在
         boolean notFoundOldMapping = tableGroup.getFieldMapping().stream()
-                .noneMatch(fm -> fm.getSource() != null && "first_name".equals(fm.getSource().getName()) &&
-                        fm.getTarget() != null && "first_name".equals(fm.getTarget().getName()));
+                .noneMatch(fm -> fm.matchesSource("first_name") &&
+                        fm.matchesTarget("first_name"));
 
         assertTrue("应找到full_name到full_name的字段映射", foundNewMapping);
         assertTrue("不应找到first_name到first_name的旧字段映射", notFoundOldMapping);
@@ -795,13 +795,13 @@ public class DDLSqlServerCTIntegrationTest extends BaseDDLIntegrationTest {
 
         // 验证新映射存在
         boolean foundNewMapping = tableGroup.getFieldMapping().stream()
-                .anyMatch(fm -> fm.getSource() != null && "desc_text".equals(fm.getSource().getName()) &&
-                        fm.getTarget() != null && "desc_text".equals(fm.getTarget().getName()));
+                .anyMatch(fm -> fm.matchesSource("desc_text") &&
+                        fm.matchesTarget("desc_text"));
 
         // 验证旧映射不存在
         boolean notFoundOldMapping = tableGroup.getFieldMapping().stream()
-                .noneMatch(fm -> fm.getSource() != null && "description".equals(fm.getSource().getName()) &&
-                        fm.getTarget() != null && "description".equals(fm.getTarget().getName()));
+                .noneMatch(fm -> fm.matchesSource("description") &&
+                        fm.matchesTarget("description"));
 
         assertTrue("应找到desc_text到desc_text的字段映射", foundNewMapping);
         assertTrue("不应找到description到description的旧字段映射", notFoundOldMapping);

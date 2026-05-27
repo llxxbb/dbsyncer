@@ -1229,13 +1229,11 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
             return;
         }
 
-        // 使用 Iterator 安全移除
+        // ADR-0011: getTarget() 现在返回 String 字段名
         java.util.Iterator<org.dbsyncer.parser.model.FieldMapping> iterator = fieldMappings.iterator();
         while (iterator.hasNext()) {
             org.dbsyncer.parser.model.FieldMapping fieldMapping = iterator.next();
-            if (fieldMapping != null && fieldMapping.getTarget() != null
-                    && fieldMapping.getTarget().getName() != null
-                    && fieldMapping.getTarget().matchesName(targetFieldName)) {
+            if (fieldMapping != null && fieldMapping.matchesTarget(targetFieldName)) {
                 iterator.remove();
             }
         }

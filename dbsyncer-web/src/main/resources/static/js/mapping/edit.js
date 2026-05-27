@@ -2338,14 +2338,14 @@ function addConvertToSingleTableGroup(tableGroup, convertConfig, targetFieldName
         converts.push(newConvert);
     }
     
-    // 前端构造：字段映射数据
+    // ADR-0011: FieldMapping.source/target 现在是 String（字段名），不再持有 Field 对象
     var fieldMappingData = [];
     if (tableGroup.fieldMapping) {
         tableGroup.fieldMapping.forEach(function(fm) {
             fieldMappingData.push({
-                source: fm.source ? fm.source.name : "",
-                target: fm.target ? fm.target.name : "",
-                pk: fm.target ? fm.target.pk : false
+                source: (typeof fm.source === 'string') ? fm.source : (fm.source ? fm.source.name : ""),
+                target: (typeof fm.target === 'string') ? fm.target : (fm.target ? fm.target.name : ""),
+                pk: (typeof fm.target === 'object' && fm.target !== null) ? fm.target.pk : false
             });
         });
     }

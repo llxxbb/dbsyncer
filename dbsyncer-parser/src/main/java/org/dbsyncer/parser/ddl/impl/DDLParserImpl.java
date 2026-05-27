@@ -22,6 +22,8 @@ import org.dbsyncer.sdk.config.DDLConfig;
 import org.dbsyncer.sdk.connector.database.Database;
 import org.dbsyncer.sdk.connector.database.sql.SqlTemplate;
 import org.dbsyncer.sdk.enums.DDLOperationEnum;
+import org.dbsyncer.sdk.connector.ConnectorInstance;
+import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.model.ConnectorConfig;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.parser.ddl.converter.IRToTargetConverter;
@@ -34,6 +36,7 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -236,8 +239,39 @@ public class DDLParserImpl implements DDLParser {
                 : tableName;
     }
 
+    /**
+     * 刷新 Table 的字段元数据（收敛自 MetaBufferActuator 第 7 步）
+     * ADR-0011: Table 是唯一的元数据源，刷新 FieldMapping 前必须保证 Table 最新
+     */
+    private void refreshTableColumns(TableGroup tableGroup) {
+        try {
+            Mapping mapping = tableGroup.profileComponent.getMapping(tableGroup.getMappingId());
+            ConnectorConfig sourceConfig = tableGroup.profileComponent
+                    .getConnector(mapping.getSourceConnectorId()).getConfig();
+            ConnectorConfig targetConfig = tableGroup.profileComponent
+                    .getConnector(mapping.getTargetConnectorId()).getConfig();
+
+            ConnectorInstance sourceInstance = connectorFactory.connect(sourceConfig);
+            MetaInfo sourceMeta = connectorFactory.getMetaInfo(sourceInstance, tableGroup.getSourceTable().getName());
+            tableGroup.getSourceTable().setColumn(sourceMeta.getColumn());
+
+            ConnectorInstance targetInstance = connectorFactory.connect(targetConfig);
+            MetaInfo targetMeta = connectorFactory.getMetaInfo(targetInstance, tableGroup.getTargetTable().getName());
+            tableGroup.getTargetTable().setColumn(targetMeta.getColumn());
+
+            if (CollectionUtils.isEmpty(tableGroup.getTargetTable().getColumn())) {
+                tableGroup.getTargetTable().setColumn(new ArrayList<>(tableGroup.getSourceTable().getColumn()));
+            }
+        } catch (Exception e) {
+            logger.warn("刷新表元数据失败，使用现有 Table 字段，table={}", tableGroup.getTargetTable().getName(), e);
+        }
+    }
+
     @Override
     public void refreshFiledMappings(TableGroup tableGroup, DDLConfig targetDDLConfig) {
+        // ADR-0011: FieldMapping 依赖 Table 中的 Field 元数据，此处显式刷新以保证自洽
+        refreshTableColumns(tableGroup);
+
         switch (targetDDLConfig.getDdlOperationEnum()) {
             case ALTER_MODIFY:
                 updateFieldMapping(tableGroup, targetDDLConfig.getModifiedFieldNames());
@@ -259,32 +293,9 @@ public class DDLParserImpl implements DDLParser {
     }
 
     private void updateFieldMapping(TableGroup tableGroup, List<String> modifiedFieldNames) {
-        // 不区分大小写构建字段 Map
-        Map<String, Field> sourceFiledMap = tableGroup.getSourceTable().getColumn().stream()
-                .collect(Collectors.toMap(Field::nameIgnoreCase, filed -> filed));
-        Map<String, Field> targetFiledMap = tableGroup.getTargetTable().getColumn().stream()
-                .collect(Collectors.toMap(Field::nameIgnoreCase, filed -> filed));
-        for (FieldMapping fieldMapping : tableGroup.getFieldMapping()) {
-            Field source = fieldMapping.getSource();
-            Field target = fieldMapping.getTarget();
-            // 支持1对多场景
-            if (source != null) {
-                String modifiedName = source.getName();
-                if (!modifiedFieldNames.contains(modifiedName)) {
-                    continue;
-                }
-                sourceFiledMap.computeIfPresent(source.nameIgnoreCase(), (k, field) -> {
-                    fieldMapping.setSource(field);
-                    return field;
-                });
-                if (target != null && StringUtil.equalsIgnoreCase(modifiedName, target.getName())) {
-                    targetFiledMap.computeIfPresent(target.nameIgnoreCase(), (k, field) -> {
-                        fieldMapping.setTarget(field);
-                        return field;
-                    });
-                }
-            }
-        }
+        // ADR-0011: FieldMapping 只存字段名，元数据从 Table 动态获取
+        // MODIFY COLUMN 场景下字段名不变，无需额外处理
+        // 元数据已通过 initCommand() 中 findColumnByName 自动更新
     }
 
     private void appendFieldMappings(TableGroup tableGroup, List<String> addedFieldNames) {
@@ -296,6 +307,7 @@ public class DDLParserImpl implements DDLParser {
             Field source = tableGroup.getSourceTable().findColumnByName(addedFieldName);
             Field target = tableGroup.getTargetTable().findColumnByName(addedFieldName);
             if (source != null && target != null) {
+                // ADR-0011: 使用 Field 构造函数，内部提取字段名
                 tableGroup.getFieldMapping().add(new FieldMapping(source, target));
             }
         }
@@ -310,15 +322,15 @@ public class DDLParserImpl implements DDLParser {
         Iterator<FieldMapping> iterator = tableGroup.getFieldMapping().iterator();
         while (iterator.hasNext()) {
             FieldMapping fieldMapping = iterator.next();
-            Field source = fieldMapping.getSource();
-            Field target = fieldMapping.getTarget();
+            String sourceName = fieldMapping.getSourceName();
+            String targetName = fieldMapping.getTargetName();
 
             for (Map.Entry<String, String> entry : entries) {
                 String oldName = entry.getKey();
                 String newName = entry.getValue();
 
                 // 只处理源字段名匹配的情况（changedFieldNames 中的键是源数据库的字段名）
-                if (source != null && source.matchesName(oldName)) {
+                if (fieldMapping.matchesSource(oldName)) {
                     Field newSourceField = tableGroup.getSourceTable().findColumnByName(newName);
                     if (newSourceField == null) {
                         logger.warn("源表中未找到新字段 {}，移除字段映射", newName);
@@ -326,15 +338,15 @@ public class DDLParserImpl implements DDLParser {
                         break; // 已移除，跳过后续处理
                     }
 
-                    // 更新源字段
-                    fieldMapping.setSource(newSourceField);
+                    // 更新源字段名
+                    fieldMapping.setSourceName(newName);
 
                     // 如果源字段名和目标字段名相同，则同时更新目标字段
                     // 这符合常见场景：同名字段应该同步更新
-                    if (target != null && target.matchesName(oldName)) {
+                    if (fieldMapping.matchesTarget(oldName)) {
                         Field newTargetField = tableGroup.getTargetTable().findColumnByName(newName);
                         if (newTargetField != null) {
-                            fieldMapping.setTarget(newTargetField);
+                            fieldMapping.setTargetName(newName);
                             logger.debug("更新字段映射: {} -> {} (源和目标字段名相同，同时更新)", oldName, newName);
                         } else {
                             logger.warn("目标表中未找到新字段 {}，但保留字段映射（源字段已更新）", newName);
@@ -356,11 +368,11 @@ public class DDLParserImpl implements DDLParser {
         Iterator<FieldMapping> iterator = tableGroup.getFieldMapping().iterator();
         while (iterator.hasNext()) {
             FieldMapping fieldMapping = iterator.next();
-            Field source = fieldMapping.getSource();
-            Field target = fieldMapping.getTarget();
+            String sourceName = fieldMapping.getSourceName();
+            String targetName = fieldMapping.getTargetName();
             for (String droppedFieldName : droppedFieldNames) {
-                if ((source != null && source.matchesName(droppedFieldName))
-                        || (target != null && target.matchesName(droppedFieldName))) {
+                if (fieldMapping.matchesSource(droppedFieldName)
+                        || fieldMapping.matchesTarget(droppedFieldName)) {
                     iterator.remove();
                     break;
                 }

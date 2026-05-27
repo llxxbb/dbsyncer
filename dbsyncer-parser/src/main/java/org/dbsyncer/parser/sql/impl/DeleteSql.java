@@ -63,11 +63,11 @@ public final class DeleteSql implements SqlParser {
     private void findColumn(BinaryExpression binaryExpression){
         if (binaryExpression.getLeftExpression() instanceof Column){
             Column column = (Column) binaryExpression.getLeftExpression();
+            String colName = column.getColumnName().replaceAll("\"", "");
             fieldMappingList.stream()
-                    .filter(x -> x.getSource().getName()
-                            .equals(column.getColumnName().replaceAll("\"", "")))
+                    .filter(x -> x.matchesSource(colName))
                     .findFirst().ifPresent(
-                    fieldMapping -> column.setColumnName(fieldMapping.getTarget().getName()));
+                    fieldMapping -> column.setColumnName(fieldMapping.getTarget()));
             return;
         }
         findColumn((BinaryExpression) binaryExpression.getLeftExpression());

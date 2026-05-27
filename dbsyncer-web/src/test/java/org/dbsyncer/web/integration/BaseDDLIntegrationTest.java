@@ -1192,8 +1192,8 @@ public abstract class BaseDDLIntegrationTest {
                 if (elapsed > 0 && elapsed % 3000 < checkInterval) {
                     List<String> currentFieldNames = tableGroup.getFieldMapping().stream()
                             .map(fm -> {
-                                String sourceName = fm.getSource() != null ? fm.getSource().getName() : "null";
-                                String targetName = fm.getTarget() != null ? fm.getTarget().getName() : "null";
+                                String sourceName = fm.getSource() != null ? fm.getSource() : "null";
+                                String targetName = fm.getTarget() != null ? fm.getTarget() : "null";
                                 return sourceName + "->" + targetName;
                             })
                             .collect(java.util.stream.Collectors.toList());
@@ -1201,8 +1201,8 @@ public abstract class BaseDDLIntegrationTest {
                 }
                 
                 boolean foundFieldMapping = tableGroup.getFieldMapping().stream()
-                        .anyMatch(fm -> fm.getSource() != null && expectedFieldName.equals(fm.getSource().getName()) &&
-                                fm.getTarget() != null && expectedFieldName.equals(fm.getTarget().getName()));
+                        .anyMatch(fm -> fm.matchesSource(expectedFieldName) &&
+                                fm.getTarget() != null && fm.matchesTarget(expectedFieldName));
 
                 if (foundFieldMapping) {
                     logger.info("DDL处理完成，字段 {} 的映射已更新", expectedFieldName);
@@ -1219,8 +1219,8 @@ public abstract class BaseDDLIntegrationTest {
             TableGroup tableGroup = tableGroups.get(0);
             List<String> currentFieldNames = tableGroup.getFieldMapping().stream()
                     .map(fm -> {
-                        String sourceName = fm.getSource() != null ? fm.getSource().getName() : "null";
-                        String targetName = fm.getTarget() != null ? fm.getTarget().getName() : "null";
+                        String sourceName = fm.getSource() != null ? fm.getSource() : "null";
+                        String targetName = fm.getTarget() != null ? fm.getTarget() : "null";
                         return sourceName + "->" + targetName;
                     })
                     .collect(java.util.stream.Collectors.toList());
@@ -1244,7 +1244,7 @@ public abstract class BaseDDLIntegrationTest {
             if (tableGroups != null && !tableGroups.isEmpty()) {
                 TableGroup tableGroup = tableGroups.get(0);
                 boolean foundFieldMapping = tableGroup.getFieldMapping().stream()
-                        .anyMatch(fm -> fm.getSource() != null && expectedFieldName.equals(fm.getSource().getName()));
+                        .anyMatch(fm -> fm.matchesSource(expectedFieldName));
 
                 if (!foundFieldMapping) {
                     logger.info("DDL DROP处理完成，字段 {} 的映射已移除", expectedFieldName);

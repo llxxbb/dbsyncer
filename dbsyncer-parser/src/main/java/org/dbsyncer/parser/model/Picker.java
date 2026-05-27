@@ -8,6 +8,7 @@ import org.dbsyncer.sdk.enums.OperationEnum;
 import org.dbsyncer.sdk.filter.CompareFilter;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.Filter;
+import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.schema.SchemaResolver;
 import org.dbsyncer.sdk.util.RowConverter;
 
@@ -28,10 +29,26 @@ public class Picker {
     private SchemaResolver sourceResolver;
 
     public Picker(TableGroup tableGroup) {
+        Table sourceTable = tableGroup.getSourceTable();
+        Table targetTable = tableGroup.getTargetTable();
+
         if (!CollectionUtils.isEmpty(tableGroup.getFieldMapping())) {
             tableGroup.getFieldMapping().forEach(m -> {
-                sourceFields.add(m.getSource());
-                targetFields.add(m.getTarget());
+                // 从 Table 查找字段元数据（ADR-0011）
+                // exchange() 按索引位置配对，必须保证 source 和 target 同进同出
+                Field sf = null;
+                Field tf = null;
+                if (StringUtil.isNotBlank(m.getSourceName()) && sourceTable != null) {
+                    sf = sourceTable.findColumnByName(m.getSourceName());
+                }
+                if (StringUtil.isNotBlank(m.getTargetName()) && targetTable != null) {
+                    tf = targetTable.findColumnByName(m.getTargetName());
+                }
+                // 只有找到源字段时才添加；target 为 null 时 exchange 有 null 防护
+                if (sf != null) {
+                    sourceFields.add(sf);
+                    targetFields.add(tf);  // 可以为 null
+                }
             });
         }
         this.sFieldSize = sourceFields.size();

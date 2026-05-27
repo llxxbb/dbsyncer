@@ -308,8 +308,8 @@ public class SQLServerCTToMySQLDDLSyncIntegrationTest extends BaseDDLIntegration
         TableGroup tableGroup = tableGroups.get(0);
         
         boolean foundUpdatedAtMapping = tableGroup.getFieldMapping().stream()
-                .anyMatch(fm -> fm.getSource() != null && "updated_at".equals(fm.getSource().getName()) &&
-                        fm.getTarget() != null && "updated_at".equals(fm.getTarget().getName()));
+                .anyMatch(fm -> fm.matchesSource("updated_at") &&
+                        fm.matchesTarget("updated_at"));
         
         assertTrue("应找到updated_at字段的映射", foundUpdatedAtMapping);
         verifyFieldExistsInTargetDatabase("updated_at", "ddlTestEmployee", mysqlConfig);
@@ -477,13 +477,13 @@ public class SQLServerCTToMySQLDDLSyncIntegrationTest extends BaseDDLIntegration
 
         // 验证新映射存在
         boolean foundNewMapping = tableGroup.getFieldMapping().stream()
-                .anyMatch(fm -> fm.getSource() != null && "full_name".equals(fm.getSource().getName()) &&
-                        fm.getTarget() != null && "full_name".equals(fm.getTarget().getName()));
+                .anyMatch(fm -> fm.matchesSource("full_name") &&
+                        fm.matchesTarget("full_name"));
 
         // 验证旧映射不存在
         boolean notFoundOldMapping = tableGroup.getFieldMapping().stream()
-                .noneMatch(fm -> fm.getSource() != null && "first_name".equals(fm.getSource().getName()) &&
-                        fm.getTarget() != null && "first_name".equals(fm.getTarget().getName()));
+                .noneMatch(fm -> fm.matchesSource("first_name") &&
+                        fm.matchesTarget("first_name"));
 
         assertTrue("应找到full_name到full_name的字段映射", foundNewMapping);
         assertTrue("不应找到first_name到first_name的旧字段映射", notFoundOldMapping);
@@ -542,13 +542,13 @@ public class SQLServerCTToMySQLDDLSyncIntegrationTest extends BaseDDLIntegration
 
         // 验证新映射存在
         boolean foundNewMapping = tableGroup.getFieldMapping().stream()
-                .anyMatch(fm -> fm.getSource() != null && "desc_text".equals(fm.getSource().getName()) &&
-                        fm.getTarget() != null && "desc_text".equals(fm.getTarget().getName()));
+                .anyMatch(fm -> fm.matchesSource("desc_text") &&
+                        fm.matchesTarget("desc_text"));
 
         // 验证旧映射不存在
         boolean notFoundOldMapping = tableGroup.getFieldMapping().stream()
-                .noneMatch(fm -> fm.getSource() != null && "description".equals(fm.getSource().getName()) &&
-                        fm.getTarget() != null && "description".equals(fm.getTarget().getName()));
+                .noneMatch(fm -> fm.matchesSource("description") &&
+                        fm.matchesTarget("description"));
 
         assertTrue("应找到desc_text到desc_text的字段映射", foundNewMapping);
         assertTrue("不应找到description到description的旧字段映射", notFoundOldMapping);
@@ -596,13 +596,13 @@ public class SQLServerCTToMySQLDDLSyncIntegrationTest extends BaseDDLIntegration
 
         // 验证新映射存在
         boolean foundNewMapping = tableGroup.getFieldMapping().stream()
-                .anyMatch(fm -> fm.getSource() != null && "user_name".equals(fm.getSource().getName()) &&
-                        fm.getTarget() != null && "user_name".equals(fm.getTarget().getName()));
+                .anyMatch(fm -> fm.matchesSource("user_name") &&
+                        fm.matchesTarget("user_name"));
 
         // 验证旧映射不存在
         boolean notFoundOldMapping = tableGroup.getFieldMapping().stream()
-                .noneMatch(fm -> fm.getSource() != null && "first_name".equals(fm.getSource().getName()) &&
-                        fm.getTarget() != null && "first_name".equals(fm.getTarget().getName()));
+                .noneMatch(fm -> fm.matchesSource("first_name") &&
+                        fm.matchesTarget("first_name"));
 
         assertTrue("应找到user_name到user_name的字段映射", foundNewMapping);
         assertTrue("不应找到first_name到first_name的旧字段映射", notFoundOldMapping);
@@ -643,13 +643,13 @@ public class SQLServerCTToMySQLDDLSyncIntegrationTest extends BaseDDLIntegration
         TableGroup tableGroup = tableGroups.get(0);
 
         boolean foundSalaryMapping = tableGroup.getFieldMapping().stream()
-                .anyMatch(fm -> fm.getSource() != null && "salary".equals(fm.getSource().getName()) &&
-                        fm.getTarget() != null && "salary".equals(fm.getTarget().getName()));
+                .anyMatch(fm -> fm.matchesSource("salary") &&
+                        fm.matchesTarget("salary"));
         assertTrue("应找到salary字段的映射", foundSalaryMapping);
 
         boolean foundBonusMapping = tableGroup.getFieldMapping().stream()
-                .anyMatch(fm -> fm.getSource() != null && "bonus".equals(fm.getSource().getName()) &&
-                        fm.getTarget() != null && "bonus".equals(fm.getTarget().getName()));
+                .anyMatch(fm -> fm.matchesSource("bonus") &&
+                        fm.matchesTarget("bonus"));
         assertTrue("应找到bonus字段的映射", foundBonusMapping);
 
         verifyFieldExistsInTargetDatabase("salary", tableGroup.getTargetTable().getName(), mysqlConfig);
@@ -1124,14 +1124,14 @@ public class SQLServerCTToMySQLDDLSyncIntegrationTest extends BaseDDLIntegration
 
         if (isAddOperation) {
             boolean foundFieldMapping = tableGroup.getFieldMapping().stream()
-                    .anyMatch(fm -> fm.getSource() != null && expectedFieldName.equals(fm.getSource().getName()) &&
-                            fm.getTarget() != null && expectedFieldName.equals(fm.getTarget().getName()));
+                    .anyMatch(fm -> fm.getSource() != null && fm.matchesSource(expectedFieldName) &&
+                            fm.getTarget() != null && fm.matchesTarget(expectedFieldName));
             assertTrue("应找到字段 " + expectedFieldName + " 的映射", foundFieldMapping);
 
             verifyFieldExistsInTargetDatabase(expectedFieldName, tableGroup.getTargetTable().getName(), mysqlConfig);
         } else if (isModifyOperation) {
             boolean foundFieldMapping = tableGroup.getFieldMapping().stream()
-                    .anyMatch(fm -> fm.getSource() != null && expectedFieldName.equals(fm.getSource().getName()));
+                    .anyMatch(fm -> fm.getSource() != null && fm.matchesSource(expectedFieldName));
             assertTrue("应找到字段 " + expectedFieldName + " 的映射", foundFieldMapping);
         }
 
@@ -1277,7 +1277,7 @@ public class SQLServerCTToMySQLDDLSyncIntegrationTest extends BaseDDLIntegration
         TableGroup tableGroup = tableGroups.get(0);
 
         boolean foundFieldMapping = tableGroup.getFieldMapping().stream()
-                .anyMatch(fm -> fm.getSource() != null && expectedFieldName.equals(fm.getSource().getName()));
+                .anyMatch(fm -> fm.getSource() != null && fm.matchesSource(expectedFieldName));
         assertFalse("应移除字段 " + expectedFieldName + " 的映射", foundFieldMapping);
 
         verifyFieldNotExistsInTargetDatabase(expectedFieldName, tableGroup.getTargetTable().getName(), mysqlConfig);
@@ -1354,8 +1354,8 @@ public class SQLServerCTToMySQLDDLSyncIntegrationTest extends BaseDDLIntegration
                 TableGroup tableGroup = tableGroups.get(0);
                 boolean allFieldsFound = expectedFieldNames.stream().allMatch(expectedFieldName -> {
                     return tableGroup.getFieldMapping().stream()
-                            .anyMatch(fm -> fm.getSource() != null && expectedFieldName.equals(fm.getSource().getName()) &&
-                                    fm.getTarget() != null && expectedFieldName.equals(fm.getTarget().getName()));
+                            .anyMatch(fm -> fm.getSource() != null && fm.matchesSource(expectedFieldName) &&
+                                    fm.getTarget() != null && fm.matchesTarget(expectedFieldName));
                 });
 
                 if (allFieldsFound) {

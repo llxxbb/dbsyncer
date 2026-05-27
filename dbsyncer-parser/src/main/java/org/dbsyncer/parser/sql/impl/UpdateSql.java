@@ -49,11 +49,11 @@ public final class UpdateSql implements SqlParser {
             for (UpdateSet updateSet : update.getUpdateSets()) {
                 List<Column> columns = updateSet.getColumns();
                 for (Column column : columns) {
+                    String colName = column.getColumnName().replaceAll("\"", "");
                     fieldMappingList.stream()
-                            .filter(x -> x.getSource().getName()
-                                    .equals(column.getColumnName().replaceAll("\"", "")))
+                            .filter(x -> x.matchesSource(colName))
                             .findFirst().ifPresent(
-                            fieldMapping -> column.setColumnName(fieldMapping.getTarget().getName()));
+                            fieldMapping -> column.setColumnName(fieldMapping.getTarget()));
                 }
             }
             whereParse(update.getWhere());
@@ -74,11 +74,11 @@ public final class UpdateSql implements SqlParser {
     private void findColumn(BinaryExpression binaryExpression) {
         if (binaryExpression.getLeftExpression() instanceof Column) {
             Column column = (Column) binaryExpression.getLeftExpression();
+            String colName = column.getColumnName().replaceAll("\"", "");
             fieldMappingList.stream()
-                    .filter(x -> x.getSource().getName()
-                            .equals(column.getColumnName().replaceAll("\"", "")))
+                    .filter(x -> x.matchesSource(colName))
                     .findFirst().ifPresent(
-                    fieldMapping -> column.setColumnName(fieldMapping.getTarget().getName()));
+                    fieldMapping -> column.setColumnName(fieldMapping.getTarget()));
             return;
         }
         findColumn((BinaryExpression) binaryExpression.getLeftExpression());
