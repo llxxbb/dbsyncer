@@ -128,6 +128,78 @@ public class TableGroup extends AbstractConfigModel {
         this.fieldMapping = fieldMapping;
     }
 
+    /**
+     * 按 fieldMapping 顺序获取同步用的源字段列表。
+     * 直接从 sourceTable 提取，不克隆。
+     */
+    @JsonIgnore
+    public List<Field> getSyncSourceFields() {
+        Table sourceTable = this.getSourceTable();
+        if (sourceTable == null || CollectionUtils.isEmpty(this.getFieldMapping())) {
+            return Collections.emptyList();
+        }
+        List<Field> result = new ArrayList<>(this.getFieldMapping().size());
+        for (FieldMapping m : this.getFieldMapping()) {
+            if (StringUtil.isNotBlank(m.getSourceName())) {
+                Field sField = sourceTable.findColumnByName(m.getSourceName());
+                if (sField != null) {
+                    result.add(sField);
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
+     * 按 fieldMapping 顺序获取同步用的目标字段列表。
+     * targetTable 无元数据时（如 Kafka），从源字段克隆，保留 pk 等属性。
+     */
+    @JsonIgnore
+    public List<Field> getSyncTargetFields() {
+        Table sourceTable = this.getSourceTable();
+        Table targetTable = this.getTargetTable();
+        List<FieldMapping> fieldMapping = this.getFieldMapping();
+        if (CollectionUtils.isEmpty(fieldMapping)) {
+            return Collections.emptyList();
+        }
+        Map<String, Field> sourceFieldCache = new HashMap<>();
+        List<Field> result = new ArrayList<>(fieldMapping.size());
+        for (FieldMapping m : fieldMapping) {
+            if (StringUtil.isNotBlank(m.getTargetName())) {
+                Field tField = null;
+                if (targetTable != null) {
+                    tField = targetTable.findColumnByName(m.getTargetName());
+                }
+                if (tField != null) {
+                    result.add(tField);
+                } else {
+                    // 目标表无元数据（如 Kafka），从源字段克隆
+                    if (StringUtil.isNotBlank(m.getSourceName()) && sourceTable != null) {
+                        Field sField = sourceFieldCache.computeIfAbsent(m.getSourceName(),
+                                k -> sourceTable.findColumnByName(k));
+                        if (sField != null) {
+                            tField = new Field(m.getTargetName(), sField.getTypeName(), sField.getType(), sField.isPk(),
+                                    sField.getColumnSize(), sField.getRatio(), sField.getSrid());
+                            result.add(tField);
+                        }
+                    }
+                }
+            }
+        }
+        // 处理转换配置中的自定义字段
+        Set<String> added = result.stream().map(Field::nameIgnoreCase).collect(Collectors.toSet());
+        List<Convert> convert = this.getConvert();
+        if (!CollectionUtils.isEmpty(convert)) {
+            for (Convert c : convert) {
+                Field fm = c.getFieldMetadata();
+                if (fm != null && !added.contains(fm.nameIgnoreCase())) {
+                    result.add(fm);
+                }
+            }
+        }
+        return result;
+    }
+
     public String getTargetTablePK() {
         return targetTablePK;
     }
@@ -309,53 +381,20 @@ public class TableGroup extends AbstractConfigModel {
     public void initCommand(Mapping mapping, ConnectorFactory connectorFactory) throws Exception {
         ConnectorConfig sConnConfig = profileComponent.getConnector(mapping.getSourceConnectorId()).getConfig();
         ConnectorConfig tConnConfig = profileComponent.getConnector(mapping.getTargetConnectorId()).getConfig();
-        Table sourceTable = this.getSourceTable();
-        Table targetTable = this.getTargetTable();
-        Table sTable = sourceTable.clone().setColumn(new ArrayList<>());
-        Table tTable = targetTable.clone().setColumn(new ArrayList<>());
-        List<FieldMapping> fieldMapping = this.getFieldMapping();
-
         // 关键修复：fieldMapping 不能为空，重置任务不应该操作 fieldMapping
-        // 如果 fieldMapping 为空，说明在添加或编辑时没有正确配置，应该抛出异常
-        if (CollectionUtils.isEmpty(fieldMapping)) {
+        if (CollectionUtils.isEmpty(this.getFieldMapping())) {
             throw new SdkException(String.format(
                     "字段映射为空！表组ID=%s, 表组名=%s, 源表=%s, 目标表=%s。请在添加或编辑表组时配置字段映射关系。",
                     this.getId(), this.getName(),
-                    sourceTable != null ? sourceTable.getName() : "null",
-                    targetTable != null ? targetTable.getName() : "null"));
+                    this.sourceTable != null ? this.sourceTable.getName() : "null",
+                    this.targetTable != null ? this.targetTable.getName() : "null"));
         }
 
-        // 同步字段主要参考源库：从 Table 查找字段元数据（ADR-0011）
-        // tTable 使用有 target 的字段映射（target 字段依据源表字段构建）
-        fieldMapping.forEach(m -> {
-            if (StringUtil.isNotBlank(m.getSourceName())) {
-                Field sField = sourceTable.findColumnByName(m.getSourceName());
-                if (sField != null) {
-                    sTable.getColumn().add(sField);
-                }
-            }
-            if (StringUtil.isNotBlank(m.getTargetName())) {
-                Field tField = targetTable.findColumnByName(m.getTargetName());
-                if (tField != null) {
-                    tTable.getColumn().add(tField);
-                }
-            }
-        });
-
-        // 【新增】处理转换配置中的自定义字段
-        List<Convert> convert = this.getConvert();
-        if (!CollectionUtils.isEmpty(convert)) {
-            convert.forEach(c -> {
-                Field fieldMetadata = c.getFieldMetadata();
-                if (fieldMetadata != null) {
-                    boolean exists = tTable.getColumn().stream()
-                            .anyMatch(f -> f.matchesName(fieldMetadata.getName()));
-                    if (!exists) {
-                        tTable.getColumn().add(fieldMetadata);
-                    }
-                }
-            });
-        }
+        // 基于 fieldMapping 构建同步用的源/目标表（按需组合，不缓存）
+        List<Field> sourceFields = getSyncSourceFields();
+        List<Field> targetFields = getSyncTargetFields();
+        Table sTable = sourceTable.clone().setColumn(new ArrayList<>(sourceFields));
+        Table tTable = targetTable.clone().setColumn(new ArrayList<>(targetFields));
 
 
         // 如果 tableGroup.getFilter()空使用 mapping.getFilter()0
