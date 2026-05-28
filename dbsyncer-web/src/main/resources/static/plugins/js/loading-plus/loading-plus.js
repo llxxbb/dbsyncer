@@ -21,10 +21,25 @@ $.loadingT = {
 }
 //创建遮罩层
 $.loadingT.init();
+var __loadingTimer = null;
 //定义遮罩层开启关闭方法
 jQuery.extend({
 	loadingT:function (a) {
-		if(a){ $(".loadingT").fadeIn(300);}else{$(".loadingT").fadeOut(300);}
+		if(a){
+			$(".loadingT").fadeIn(300);
+			// 超时保护：30秒自动关掉遮罩，防止页面僵住
+			clearTimeout(__loadingTimer);
+			__loadingTimer = setTimeout(function(){
+				$.loadingT(false);
+				if(typeof bootGrowl === 'function'){
+					bootGrowl("页面加载超时，可能存在问题。请刷新或联系管理员。", "warning");
+				}
+			}, 30000);
+		}else{
+			clearTimeout(__loadingTimer);
+			__loadingTimer = null;
+			$(".loadingT").fadeOut(300);
+		}
 	},
 	resetIndicato:function(){
 		var $indicato = $(".loading-indicator");

@@ -355,28 +355,31 @@ function doLoaderWithoutHashUpdate(url, route = 0) {
     if (contentToShow) {
         contentToShow.removeClass('hidden');
     }
-    contentToShow.load($basePath + url, function (response, status, xhr) {
-        if (status != 'success') {
-            bootGrowl(response);
-        }
-        watermark();
-        $.loadingT(false);
-        
-        // 页面加载完成后，先从传递的URL参数中提取projectGroupId
-        var reg = new RegExp('(?:\\?|&)projectGroupId=([^&]*)');
-        var match = url.match(reg);
-        var projectGroupId = match ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : '';
-        
-        // 如果传递的URL参数中没有projectGroupId，则从当前URL中提取
-        if (!projectGroupId) {
-            reg = new RegExp('[\\#&]projectGroupId=([^&#]*)');
-            match = reg.exec(window.location.href);
-            projectGroupId = match ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : '';
-        }
-        
-        // 更新隐藏字段
-        if (projectGroupId) {
-            $('#projectGroup').val(projectGroupId);
+        contentToShow.load($basePath + url, function (response, status, xhr) {
+        try {
+            if (status != 'success') {
+                bootGrowl(response);
+                return;
+            }
+            watermark();
+            // 页面加载完成后，先从传递的URL参数中提取projectGroupId
+            var reg = new RegExp('(?:\\?|&)projectGroupId=([^&]*)');
+            var match = url.match(reg);
+            var projectGroupId = match ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : '';
+            // 如果传递的URL参数中没有projectGroupId，则从当前URL中提取
+            if (!projectGroupId) {
+                reg = new RegExp('[\#&]projectGroupId=([^&#]*)');
+                match = reg.exec(window.location.href);
+                projectGroupId = match ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : '';
+            }
+            // 更新隐藏字段
+            if (projectGroupId) {
+                $('#projectGroup').val(projectGroupId);
+            }
+        } catch(e) {
+            bootGrowl("页面初始化异常：" + (e.message || e), "danger");
+        } finally {
+            $.loadingT(false);
         }
     });
 }
@@ -396,11 +399,17 @@ function doLoader(url, route = 0) {
         contentToShow.removeClass('hidden');
     }
     contentToShow.load($basePath + url, function (response, status, xhr) {
-        if (status != 'success') {
-            bootGrowl(response);
+        try {
+            if (status != 'success') {
+                bootGrowl(response);
+                return;
+            }
+            watermark();
+        } catch(e) {
+            bootGrowl("页面初始化异常：" + (e.message || e), "danger");
+        } finally {
+            $.loadingT(false);
         }
-        watermark();
-        $.loadingT(false);
     });
 }
 
@@ -408,27 +417,30 @@ function timerLoad(url, route = 1) {
 
     const contentToShow = $('#initContainer' + route);
     contentToShow.load($basePath + url, function (response, status, xhr) {
-        if (status != 'success') {
-            bootGrowl(response);
-        }
-        watermark();
-        $.loadingT(false);
-        
-        // 页面加载完成后，先从传递的URL参数中提取projectGroupId
-        var reg = new RegExp('(?:\?|&)projectGroupId=([^&]*)');
-        var match = url.match(reg);
-        var projectGroupId = match ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : '';
-        
-        // 如果传递的URL参数中没有projectGroupId，则从当前URL中提取
-        if (!projectGroupId) {
-            reg = new RegExp('[\\#&]projectGroupId=([^&#]*)');
-            match = reg.exec(window.location.href);
-            projectGroupId = match ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : '';
-        }
-        
-        // 更新隐藏字段
-        if (projectGroupId) {
-            $('#projectGroup').val(projectGroupId);
+        try {
+            if (status != 'success') {
+                bootGrowl(response);
+                return;
+            }
+            watermark();
+            // 页面加载完成后，先从传递的URL参数中提取projectGroupId
+            var reg = new RegExp('(?:\\?|&)projectGroupId=([^&]*)');
+            var match = url.match(reg);
+            var projectGroupId = match ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : '';
+            // 如果传递的URL参数中没有projectGroupId，则从当前URL中提取
+            if (!projectGroupId) {
+                reg = new RegExp('[\#&]projectGroupId=([^&#]*)');
+                match = reg.exec(window.location.href);
+                projectGroupId = match ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : '';
+            }
+            // 更新隐藏字段
+            if (projectGroupId) {
+                $('#projectGroup').val(projectGroupId);
+            }
+        } catch(e) {
+            bootGrowl("页面初始化异常：" + (e.message || e), "danger");
+        } finally {
+            $.loadingT(false);
         }
     });
 }
