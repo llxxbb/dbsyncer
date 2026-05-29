@@ -35,6 +35,11 @@ import static org.junit.Assert.*;
 @ActiveProfiles("test")
 public class DDLSqlServerCTIntegrationTest extends BaseDDLIntegrationTest {
 
+    static {
+        // 测试环境减少 CT 轮询间隔到 1 秒，加速 DDL 同步检测
+        System.setProperty("sqlserver.ct.poll.interval.ms", "1000");
+    }
+
     @BeforeClass
     public static void setUpClass() throws Exception {
         logger.info("开始初始化SQL Server CT到SQL Server CT的DDL同步测试环境");

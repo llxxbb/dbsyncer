@@ -428,7 +428,7 @@ public class MySQLListener extends AbstractDatabaseListener {
             // 注意：同一个表名可能对应多个 tableId（如果表被删除后重建），所以需要遍历所有 tableId
             List<Long> tableIdsToRemove = new ArrayList<>();
             for (Map.Entry<Long, TableMapEventData> entry : tables.entrySet()) {
-                if (entry.getValue() != null && tableName.equals(entry.getValue().getTable())) {
+                if (entry.getValue() != null && StringUtil.equalsIgnoreCase(tableName, entry.getValue().getTable())) {
                     tableIdsToRemove.add(entry.getKey());
                 }
             }
@@ -479,7 +479,7 @@ public class MySQLListener extends AbstractDatabaseListener {
         }
 
         private boolean isFilterTable(String dbName, String tableName) {
-            return StringUtil.equalsIgnoreCase(database, dbName) && filterTable.contains(tableName);
+            return StringUtil.equalsIgnoreCase(database, dbName) && filterTable.contains(tableName.toLowerCase());
         }
 
         private boolean isNotUniqueCodeEvent(String sql) {

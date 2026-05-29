@@ -673,7 +673,7 @@ public class SqlServerListener extends AbstractDatabaseListener {
                     return tableName;
                 }
                 // 如果 DDL 中指定了 schema，只有当它匹配当前 schema 时才返回表名
-                if (schema != null && schema.equals(schemaName)) {
+                if (schema != null && StringUtil.equalsIgnoreCase(schema, schemaName)) {
                     return tableName;
                 }
             }
