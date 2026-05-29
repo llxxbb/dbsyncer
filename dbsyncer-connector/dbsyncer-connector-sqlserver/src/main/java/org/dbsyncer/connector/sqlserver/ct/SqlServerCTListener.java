@@ -52,9 +52,9 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
     private static final int STREAMING_FETCH_SIZE = 5000;
 
     // 增量持久化配置（可配置）
-    private static final long SNAPSHOT_TIME_INTERVAL_MS = Long.parseLong(
+    private static long SNAPSHOT_TIME_INTERVAL_MS = Long.parseLong(
             System.getProperty("sqlserver.ct.snapshot.time.interval.ms", "30000"));
-    private static final int MAX_RETRY_PER_VERSION = Integer.parseInt(
+    private static int MAX_RETRY_PER_VERSION = Integer.parseInt(
             System.getProperty("sqlserver.ct.max.retry.per.version", "3"));
 
     private final SqlServerTemplate sqlTemplate;
@@ -75,7 +75,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
     private String schema;
     private String realDatabaseName;
     // 版本号轮询间隔（毫秒），可通过系统属性 sqlserver.ct.poll.interval.ms 覆盖
-    private static final long POLL_INTERVAL_MILLIS = Long.parseLong(
+    private static long POLL_INTERVAL_MILLIS = Long.parseLong(
             System.getProperty("sqlserver.ct.poll.interval.ms", "30000"));
     // 主键信息缓存（表名 -> 主键列表）
     private final Map<String, List<String>> primaryKeysCache = new HashMap<>();
@@ -99,6 +99,9 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
 
     @Override
     public void start() throws Exception {
+        logger.info("SNAPSHOT_TIME_INTERVAL_MS: {}", SNAPSHOT_TIME_INTERVAL_MS);
+        logger.info("POLL_INTERVAL_MILLIS: {}", POLL_INTERVAL_MILLIS);
+        
         try {
             connectLock.lock();
             if (connected) {

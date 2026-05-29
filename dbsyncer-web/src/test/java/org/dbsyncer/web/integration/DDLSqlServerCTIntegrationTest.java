@@ -1,7 +1,9 @@
 package org.dbsyncer.web.integration;
 
+import org.dbsyncer.connector.sqlserver.SqlServerConnector;
 import org.dbsyncer.parser.model.TableGroup;
 import org.dbsyncer.sdk.config.DatabaseConfig;
+import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.web.Application;
 import org.junit.*;
 import org.junit.runner.RunWith;
@@ -12,6 +14,7 @@ import org.springframework.test.context.junit4.SpringRunner;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
 
@@ -921,11 +924,18 @@ public class DDLSqlServerCTIntegrationTest extends BaseDDLIntegrationTest {
         assertNotNull("无法获取源表结构: " + sourceTable, sourceMetaInfo);
         assertFalse("源表没有字段: " + sourceTable, sourceMetaInfo.getColumn() == null || sourceMetaInfo.getColumn().isEmpty());
 
-        // 4. SQL Server -> SQL Server同构场景：直接使用源表结构，无需类型转换
-        org.dbsyncer.sdk.spi.ConnectorService<?, ?> targetConnectorService = connectorFactory.getConnectorService(targetConfig.getConnectorType());
+        // 4. SQL Server -> SQL Server同构场景：使用 SqlServerConnector 生成 DDL
+        // SqlServerCT ConnectorService 没有实现 generateCreateTableDDL，
+        // 但实际运行时通过 SqlServerConnector 生成 DDL，所以测试也应保持一致
+        SqlServerConnector sqlServerConnector = new SqlServerConnector();
+
+        // 收集主键
+        String primaryKeys = sourceMetaInfo.getColumn().stream()
+                .filter(Field::isPk)
+                .map(Field::getName)
+                .collect(Collectors.joining(","));
         
-        // 生成 CREATE TABLE DDL（直接使用源表MetaInfo，因为同构数据库无需类型转换）
-        String createTableDDL = targetConnectorService.generateCreateTableDDL(sourceMetaInfo, targetTable);
+        String createTableDDL = sqlServerConnector.generateCreateTableDDL(sourceMetaInfo, targetTable, primaryKeys);
 
         // 5. 核心验证：检查生成的DDL中不包含重复的IDENTITY关键字
         assertNotNull("无法生成 CREATE TABLE DDL", createTableDDL);
