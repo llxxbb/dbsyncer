@@ -59,7 +59,13 @@ public class LogServiceImpl implements LogService {
             Map<String, Object> params = new HashMap();
             params.put(ConfigConstant.CONFIG_MODEL_ID, String.valueOf(snowflakeIdWorker.nextId()));
             params.put(ConfigConstant.CONFIG_MODEL_TYPE, type);
-            params.put(ConfigConstant.CONFIG_MODEL_JSON, StringUtil.substring(error, 0, profileComponent.getSystemConfig().getMaxStorageErrorLength()));
+            int maxLen = 4000;
+            try {
+                if (profileComponent.getSystemConfig() != null) {
+                    maxLen = profileComponent.getSystemConfig().getMaxStorageErrorLength();
+                }
+            } catch (Exception e) { /* ignore */ }
+            params.put(ConfigConstant.CONFIG_MODEL_JSON, StringUtil.substring(error, 0, maxLen));
             params.put(ConfigConstant.CONFIG_MODEL_CREATE_TIME, Instant.now().toEpochMilli());
             try {
                 storageService.add(StorageEnum.LOG, params);
