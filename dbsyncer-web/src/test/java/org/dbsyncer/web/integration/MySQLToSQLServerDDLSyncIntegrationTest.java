@@ -17,7 +17,6 @@ import org.springframework.test.context.junit4.SpringRunner;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
-import java.util.Properties;
 
 import static org.junit.Assert.*;
 
@@ -37,6 +36,12 @@ import static org.junit.Assert.*;
 @SpringBootTest(classes = Application.class)
 @ActiveProfiles("test")
 public class MySQLToSQLServerDDLSyncIntegrationTest extends BaseDDLIntegrationTest {
+
+    static {
+        // 测试环境减少 CT 轮询间隔到 1 秒，加速 DDL 同步检测
+        System.setProperty("sqlserver.ct.poll.interval.ms", "100");
+    }
+
 
     private static DatabaseConfig mysqlConfig;
     private static DatabaseConfig sqlServerConfig;
@@ -1193,6 +1198,7 @@ public class MySQLToSQLServerDDLSyncIntegrationTest extends BaseDDLIntegrationTe
         standardizedMetaInfo.setTableType(sourceMetaInfo.getTableType());
         standardizedMetaInfo.setSql(sourceMetaInfo.getSql());
         standardizedMetaInfo.setIndexType(sourceMetaInfo.getIndexType());
+        standardizedMetaInfo.setPrimaryKeys(sourceMetaInfo.getPrimaryKeys());
 
         // 将源字段转换为标准类型（toStandardType 会自动保留所有元数据属性，包括 COMMENT）
         List<org.dbsyncer.sdk.model.Field> standardizedFields = new ArrayList<>();
@@ -1202,8 +1208,20 @@ public class MySQLToSQLServerDDLSyncIntegrationTest extends BaseDDLIntegrationTe
         }
         standardizedMetaInfo.setColumn(standardizedFields);
 
-        // 生成 CREATE TABLE DDL（使用标准化后的 MetaInfo）
-        String createTableDDL = targetConnectorService.generateCreateTableDDL(standardizedMetaInfo, targetTable);
+        // 提取主键信息（逗号分隔）
+        String primaryKeys = null;
+        List<String> pkList = sourceMetaInfo.getPrimaryKeys();
+        if (pkList != null && !pkList.isEmpty()) {
+            primaryKeys = String.join(",", pkList);
+        }
+
+        // 生成 CREATE TABLE DDL（使用标准化后的 MetaInfo 和主键信息）
+        String createTableDDL;
+        if (primaryKeys != null && !primaryKeys.isEmpty()) {
+            createTableDDL = targetConnectorService.generateCreateTableDDL(standardizedMetaInfo, targetTable, primaryKeys);
+        } else {
+            createTableDDL = targetConnectorService.generateCreateTableDDL(standardizedMetaInfo, targetTable);
+        }
 
         // 5. 执行 CREATE TABLE DDL
         assertNotNull("无法生成 CREATE TABLE DDL", createTableDDL);

@@ -793,17 +793,36 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
     private List<String> findTablePrimaryKeys(DatabaseMetaData md, String catalog, String schema, String tableName)
             throws SQLException {
         // 根据表名获得主键结果集
+        // 注意：必须按 KEY_SEQ 排序以保证复合主键的列顺序与定义一致
         ResultSet rs = null;
         List<String> primaryKeys = new ArrayList<>();
         try {
             rs = md.getPrimaryKeys(catalog, schema, tableName);
+            // 收集 (KEY_SEQ, COLUMN_NAME) 对，按 KEY_SEQ 排序
+            List<KeySeqName> entries = new ArrayList<>();
             while (rs.next()) {
-                primaryKeys.add(rs.getString("COLUMN_NAME"));
+                int keySeq = rs.getInt("KEY_SEQ");
+                String columnName = rs.getString("COLUMN_NAME");
+                entries.add(new KeySeqName(keySeq, columnName));
+            }
+            entries.sort(Comparator.comparingInt(e -> e.keySeq));
+            for (KeySeqName entry : entries) {
+                primaryKeys.add(entry.name);
             }
         } finally {
             DatabaseUtil.close(rs);
         }
         return primaryKeys;
+    }
+
+    /** 临时内部类：存储主键列的 KEY_SEQ 和列名 */
+    private static class KeySeqName {
+        final int keySeq;
+        final String name;
+        KeySeqName(int keySeq, String name) {
+            this.keySeq = keySeq;
+            this.name = name;
+        }
     }
 
     private List<Object[]> batchRows(List<Field> fields, List<Map> data) {

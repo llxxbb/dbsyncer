@@ -282,6 +282,19 @@ public interface ConnectorService<I extends ConnectorInstance, C extends Connect
     }
 
     /**
+     * 基于源表结构生成目标表的 CREATE TABLE DDL（带主键信息）
+     *
+     * @param sourceMetaInfo 源表元信息（字段为标准类型）
+     * @param targetTableName 目标表名
+     * @param primaryKeys 主键列表（逗号分隔），用于在目标表中定义主键约束
+     * @return CREATE TABLE DDL 语句
+     * @throws UnsupportedOperationException 如果连接器不支持此功能
+     */
+    default String generateCreateTableDDL(MetaInfo sourceMetaInfo, String targetTableName, String primaryKeys) {
+        throw new UnsupportedOperationException("该连接器不支持自动生成 CREATE TABLE DDL: " + getConnectorType());
+    }
+
+    /**
      * 判断连接器是否支持执行 DDL 操作（如表创建、表结构修改等）
      * 用于在表缺失检测时判断是否需要检查表是否存在
      * 
