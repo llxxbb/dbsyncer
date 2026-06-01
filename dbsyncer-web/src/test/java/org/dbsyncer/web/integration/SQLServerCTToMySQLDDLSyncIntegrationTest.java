@@ -15,7 +15,6 @@ import org.springframework.test.context.junit4.SpringRunner;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
-import java.util.Properties;
 
 import static org.junit.Assert.*;
 
@@ -42,6 +41,12 @@ import static org.junit.Assert.*;
 )
 @ActiveProfiles("test")
 public class SQLServerCTToMySQLDDLSyncIntegrationTest extends BaseDDLIntegrationTest {
+
+   static {
+        // 测试环境减少 CT 轮询间隔到 1 秒，加速 DDL 同步检测
+        System.setProperty("sqlserver.ct.poll.interval.ms", "100");
+    }
+
 
     // 测试表字段名常量
     private static final String TABLE_NAME = "ddlTestEmployee";
@@ -1579,8 +1584,14 @@ public class SQLServerCTToMySQLDDLSyncIntegrationTest extends BaseDDLIntegration
         }
         standardizedMetaInfo.setColumn(standardizedFields);
 
-        // 生成 CREATE TABLE DDL（使用标准化后的 MetaInfo）
-        String createTableDDL = targetConnectorService.generateCreateTableDDL(standardizedMetaInfo, targetTable);
+        // 从源表元信息中提取主键，传递给 3 参数版本
+        List<String> primaryKeys = sourceMetaInfo.getPrimaryKeys();
+        String primaryKeyStr = (primaryKeys != null && !primaryKeys.isEmpty())
+                ? String.join(",", primaryKeys)
+                : null;
+
+        // 生成 CREATE TABLE DDL（使用标准化后的 MetaInfo + 主键信息）
+        String createTableDDL = targetConnectorService.generateCreateTableDDL(standardizedMetaInfo, targetTable, primaryKeyStr);
 
         // 5. 执行 CREATE TABLE DDL
         assertNotNull("无法生成 CREATE TABLE DDL", createTableDDL);
