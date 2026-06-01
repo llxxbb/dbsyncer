@@ -202,18 +202,20 @@ public abstract class BaseDDLIntegrationTest {
 
             for (Mapping mapping : allMappings) {
                 String mappingName = mapping.getName();
+                String mappingId = mapping.getId();
                 try {
-                    String mappingId = mapping.getId();
-                    try {
-                        mappingService.stop(mappingId);
-                        mappingService.remove(mappingId);
-                        cleanedCount++;
-                        logger.debug("已清理残留的测试 mapping: {} ({})", mappingId, mappingName);
-                    } catch (Exception e) {
-                        logger.debug("删除残留 mapping {} 失败: {}", mappingId, e.getMessage());
-                    }
+                    // 先尝试停止（可能已停止，忽略异常）
+                    mappingService.stop(mappingId);
                 } catch (Exception e) {
-                    logger.debug("清理残留 mapping {} 时出错: {}", mapping.getId(), e.getMessage());
+                    logger.debug("停止残留 mapping {} 失败（可能已停止）: {}", mappingId, e.getMessage());
+                }
+                try {
+                    // 独立执行删除（stop 失败不影响 remove）
+                    mappingService.remove(mappingId);
+                    cleanedCount++;
+                    logger.info("已清理残留的测试 mapping: {} ({})", mappingId, mappingName);
+                } catch (Exception e) {
+                    logger.error("删除残留 mapping {} 失败: {}", mappingId, e.getMessage(), e);
                 }
             }
 
@@ -237,9 +239,9 @@ public abstract class BaseDDLIntegrationTest {
             String sourceResetSql = loadSqlScriptByDatabaseType("reset-test-table", true);
             // 加载目标数据库的重置脚本（对于同构数据库，通常与源数据库相同）
             String targetResetSql = loadSqlScriptByDatabaseType("reset-test-table", false);
-            
+
             if (sourceResetSql != null && !sourceResetSql.trim().isEmpty() &&
-                targetResetSql != null && !targetResetSql.trim().isEmpty()) {
+                    targetResetSql != null && !targetResetSql.trim().isEmpty()) {
                 // 同时重置源表和目标表，确保测试间的隔离性
                 testDatabaseManager.resetTableStructure(sourceResetSql, targetResetSql);
                 logger.debug("测试数据库表结构重置完成（源表和目标表已重置）");
@@ -311,7 +313,7 @@ public abstract class BaseDDLIntegrationTest {
         tableGroupParams.put("targetTable", getTargetTableName());
         tableGroupParams.put("fieldMappings", String.join(",", getInitialFieldMappings()));
         String tableGroupId = tableGroupService.add(tableGroupParams);
-            logger.info("TableGroup 创建成功：{}", tableGroupId);
+        logger.info("TableGroup 创建成功：{}", tableGroupId);
 
         return mappingId;
     }
@@ -355,20 +357,19 @@ public abstract class BaseDDLIntegrationTest {
      * @param config    数据库配置
      * @return 插入的完整数据（Map<字段名, 值>），包含自动生成的 id，可直接用于验证数据同步
      */
-    protected Map<String, Object> executeInsertDMLToSourceDatabase(String tableName, Map<String, Object> data, DatabaseConfig config) throws Exception {
+    protected Map<String, Object> executeInsertDMLToSourceDatabase(String tableName, Map<String, Object> data,
+            DatabaseConfig config) throws Exception {
         // 查询表结构，找到IDENTITY/AUTO_INCREMENT列的名称（不区分大小写）
         String identityColumnName = findIdentityColumnName(tableName, config);
-        
+
         // 创建不包含IDENTITY列的数据副本用于生成 INSERT SQL（IDENTITY列由数据库自动生成）
         Map<String, Object> dataWithoutId = new HashMap<>(data);
         if (identityColumnName != null) {
             // 移除IDENTITY列（不区分大小写）
-            dataWithoutId.entrySet().removeIf(entry -> 
-                entry.getKey().equalsIgnoreCase(identityColumnName));
+            dataWithoutId.entrySet().removeIf(entry -> entry.getKey().equalsIgnoreCase(identityColumnName));
         } else {
             // 如果没有找到IDENTITY列，尝试移除常见的ID字段名（不区分大小写）
-            dataWithoutId.entrySet().removeIf(entry -> 
-                entry.getKey().equalsIgnoreCase("id"));
+            dataWithoutId.entrySet().removeIf(entry -> entry.getKey().equalsIgnoreCase("id"));
         }
 
         // 生成 INSERT SQL（不包含IDENTITY字段）
@@ -408,9 +409,9 @@ public abstract class BaseDDLIntegrationTest {
         } else if (generatedId != null) {
             // 如果没有找到IDENTITY列名，使用原始数据中的ID字段名（如果存在）
             String idKey = data.keySet().stream()
-                .filter(key -> key.equalsIgnoreCase("id"))
-                .findFirst()
-                .orElse("id");
+                    .filter(key -> key.equalsIgnoreCase("id"))
+                    .findFirst()
+                    .orElse("id");
             if (generatedId instanceof Number) {
                 result.put(idKey, ((Number) generatedId).intValue());
             } else {
@@ -425,25 +426,25 @@ public abstract class BaseDDLIntegrationTest {
      * 查询表结构，找到IDENTITY/AUTO_INCREMENT列的名称
      * 
      * @param tableName 表名
-     * @param config 数据库配置
+     * @param config    数据库配置
      * @return IDENTITY/AUTO_INCREMENT列的名称，如果不存在则返回null
      */
     private String findIdentityColumnName(String tableName, DatabaseConfig config) throws Exception {
         if (config.getConnectorType() == null) {
             config.setConnectorType(getConnectorType(config, true));
         }
-        
+
         String connectorType = config.getConnectorType();
         DatabaseConnectorInstance instance = new DatabaseConnectorInstance(config);
-        
+
         return instance.execute(databaseTemplate -> {
             String sql;
-            
+
             if ("mysql".equalsIgnoreCase(connectorType) || "Mysql".equals(connectorType)) {
                 sql = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS " +
-                      "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? " +
-                      "AND EXTRA LIKE '%auto_increment%' " +
-                      "LIMIT 1";
+                        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? " +
+                        "AND EXTRA LIKE '%auto_increment%' " +
+                        "LIMIT 1";
                 return databaseTemplate.queryForObject(sql, String.class, tableName);
             } else if ("SqlServer".equals(connectorType) || "SqlServerCT".equals(connectorType)) {
                 String schemaSql = "SELECT SCHEMA_NAME()";
@@ -452,8 +453,8 @@ public abstract class BaseDDLIntegrationTest {
                     schema = "dbo";
                 }
                 sql = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS " +
-                      "WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? " +
-                      "AND COLUMNPROPERTY(OBJECT_ID(? + '.' + ?), COLUMN_NAME, 'IsIdentity') = 1";
+                        "WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? " +
+                        "AND COLUMNPROPERTY(OBJECT_ID(? + '.' + ?), COLUMN_NAME, 'IsIdentity') = 1";
                 return databaseTemplate.queryForObject(sql, String.class, schema, tableName, schema, tableName);
             } else {
                 // 其他数据库类型，返回null
@@ -461,7 +462,6 @@ public abstract class BaseDDLIntegrationTest {
             }
         });
     }
-
 
     /**
      * 根据表名和数据生成 INSERT SQL
@@ -481,11 +481,13 @@ public abstract class BaseDDLIntegrationTest {
                 // SQL Server: 对于只有 IDENTITY 列的表，无法插入空行
                 // 这种情况下，我们需要确保表至少有一个非 IDENTITY 列
                 // 如果表只有 IDENTITY 列，这个调用应该失败，提示需要至少一个非主键列
-                throw new IllegalArgumentException("SQL Server 不支持向只有 IDENTITY 列的表插入空数据。表 " + tableName + " 需要至少一个非主键列。");
+                throw new IllegalArgumentException(
+                        "SQL Server 不支持向只有 IDENTITY 列的表插入空数据。表 " + tableName + " 需要至少一个非主键列。");
             } else {
                 // MySQL: 支持 INSERT INTO table () VALUES ()，但需要至少一个列
                 // 如果表只有 AUTO_INCREMENT 主键，也需要至少一个非主键列
-                throw new IllegalArgumentException("MySQL 不支持向只有 AUTO_INCREMENT 主键的表插入空数据。表 " + tableName + " 需要至少一个非主键列。");
+                throw new IllegalArgumentException(
+                        "MySQL 不支持向只有 AUTO_INCREMENT 主键的表插入空数据。表 " + tableName + " 需要至少一个非主键列。");
             }
         }
 
@@ -519,7 +521,8 @@ public abstract class BaseDDLIntegrationTest {
                     // MySQL: TINYINT 类型，使用 0 或 1
                     values.append(((Boolean) value) ? 1 : 0);
                 }
-            } else if (value instanceof java.util.Date || value instanceof java.sql.Date || value instanceof java.sql.Timestamp) {
+            } else if (value instanceof java.util.Date || value instanceof java.sql.Date
+                    || value instanceof java.sql.Timestamp) {
                 // 日期时间类型：格式化为 SQL Server/MySQL 可识别的格式
                 String driverClassName = config != null ? config.getDriverClassName() : null;
                 java.util.Date dateValue;
@@ -530,7 +533,7 @@ public abstract class BaseDDLIntegrationTest {
                 } else {
                     dateValue = (java.util.Date) value;
                 }
-                
+
                 // 使用 SimpleDateFormat 格式化为数据库可识别的格式
                 java.text.SimpleDateFormat sdf;
                 if (driverClassName != null && driverClassName.contains("sqlserver")) {
@@ -572,7 +575,8 @@ public abstract class BaseDDLIntegrationTest {
      * @param targetConfig     目标数据库配置
      * @param timeoutMs        超时时间（毫秒）
      */
-    protected void waitForDataSync(Map<String, Object> insertedData, String tableName, String primaryKeyColumn, DatabaseConfig targetConfig, long timeoutMs) throws Exception {
+    protected void waitForDataSync(Map<String, Object> insertedData, String tableName, String primaryKeyColumn,
+            DatabaseConfig targetConfig, long timeoutMs) throws Exception {
         if (insertedData == null || insertedData.isEmpty()) {
             fail("插入的数据为空，无法验证");
         }
@@ -589,7 +593,8 @@ public abstract class BaseDDLIntegrationTest {
 
         while (System.currentTimeMillis() - startTime < timeoutMs) {
             // 查询目标表数据
-            String whereCondition = primaryKeyColumn + " = " + (primaryKeyValue instanceof String ? "'" + primaryKeyValue + "'" : primaryKeyValue);
+            String whereCondition = primaryKeyColumn + " = "
+                    + (primaryKeyValue instanceof String ? "'" + primaryKeyValue + "'" : primaryKeyValue);
             String targetSql = String.format("SELECT * FROM %s WHERE %s", tableName, whereCondition);
             Map<String, Object> targetData = queryTableData(targetSql, targetConfig);
 
@@ -613,7 +618,8 @@ public abstract class BaseDDLIntegrationTest {
      * @param primaryKeyColumn 主键字段名（用于构建 WHERE 条件）
      * @param targetConfig     目标数据库配置
      */
-    protected void verifyDataSync(Map<String, Object> insertedData, String tableName, String primaryKeyColumn, DatabaseConfig targetConfig) throws Exception {
+    protected void verifyDataSync(Map<String, Object> insertedData, String tableName, String primaryKeyColumn,
+            DatabaseConfig targetConfig) throws Exception {
         if (insertedData == null || insertedData.isEmpty()) {
             fail("插入的数据为空，无法验证");
         }
@@ -624,7 +630,8 @@ public abstract class BaseDDLIntegrationTest {
         }
 
         // 查询目标表数据
-        String whereCondition = primaryKeyColumn + " = " + (primaryKeyValue instanceof String ? "'" + primaryKeyValue + "'" : primaryKeyValue);
+        String whereCondition = primaryKeyColumn + " = "
+                + (primaryKeyValue instanceof String ? "'" + primaryKeyValue + "'" : primaryKeyValue);
         String targetSql = String.format("SELECT * FROM %s WHERE %s", tableName, whereCondition);
         Map<String, Object> targetData = queryTableData(targetSql, targetConfig);
 
@@ -708,7 +715,8 @@ public abstract class BaseDDLIntegrationTest {
     /**
      * 验证目标数据库中字段是否存在
      */
-    protected void verifyFieldExistsInTargetDatabase(String fieldName, String tableName, DatabaseConfig config) throws Exception {
+    protected void verifyFieldExistsInTargetDatabase(String fieldName, String tableName, DatabaseConfig config)
+            throws Exception {
         // 确保 connectorType 已设置
         if (config.getConnectorType() == null) {
             config.setConnectorType(getConnectorType(config, false));
@@ -723,7 +731,8 @@ public abstract class BaseDDLIntegrationTest {
     /**
      * 验证目标数据库中字段是否不存在
      */
-    protected void verifyFieldNotExistsInTargetDatabase(String fieldName, String tableName, DatabaseConfig config) throws Exception {
+    protected void verifyFieldNotExistsInTargetDatabase(String fieldName, String tableName, DatabaseConfig config)
+            throws Exception {
         // 确保 connectorType 已设置
         if (config.getConnectorType() == null) {
             config.setConnectorType(getConnectorType(config, false));
@@ -738,29 +747,30 @@ public abstract class BaseDDLIntegrationTest {
     /**
      * 验证字段的默认值（支持 MySQL 和 SQL Server）
      * 
-     * @param fieldName 字段名
-     * @param tableName 表名
-     * @param config 数据库配置
+     * @param fieldName       字段名
+     * @param tableName       表名
+     * @param config          数据库配置
      * @param expectedDefault 期望的默认值（例如：'' 表示空字符串，'0' 表示0，null 表示无默认值）
      */
-    protected void verifyFieldDefaultValue(String fieldName, String tableName, DatabaseConfig config, String expectedDefault) throws Exception {
+    protected void verifyFieldDefaultValue(String fieldName, String tableName, DatabaseConfig config,
+            String expectedDefault) throws Exception {
         // 确保 connectorType 已设置
         if (config.getConnectorType() == null) {
             config.setConnectorType(getConnectorType(config, false));
         }
-        
+
         String connectorType = config.getConnectorType();
-        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance instance = 
-            (org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance) connectorFactory.connect(config);
-        
+        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance instance = (org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance) connectorFactory
+                .connect(config);
+
         instance.execute(databaseTemplate -> {
             String sql;
             String actualDefault;
-            
+
             if ("mysql".equalsIgnoreCase(connectorType) || "Mysql".equals(connectorType)) {
                 // MySQL: 使用 INFORMATION_SCHEMA.COLUMNS
                 sql = "SELECT COLUMN_DEFAULT FROM INFORMATION_SCHEMA.COLUMNS " +
-                      "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?";
+                        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?";
                 actualDefault = databaseTemplate.queryForObject(sql, String.class, tableName, fieldName);
             } else if ("SqlServer".equals(connectorType) || "SqlServerCT".equals(connectorType)) {
                 // SQL Server: 使用 INFORMATION_SCHEMA.COLUMNS，但需要指定 schema（通常是 dbo）
@@ -770,28 +780,29 @@ public abstract class BaseDDLIntegrationTest {
                 if (schema == null || schema.trim().isEmpty()) {
                     schema = "dbo"; // 默认 schema
                 }
-                
+
                 sql = "SELECT COLUMN_DEFAULT FROM INFORMATION_SCHEMA.COLUMNS " +
-                      "WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?";
+                        "WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?";
                 actualDefault = databaseTemplate.queryForObject(sql, String.class, schema, tableName, fieldName);
             } else {
                 throw new UnsupportedOperationException("不支持的数据库类型: " + connectorType);
             }
-            
+
             if (expectedDefault == null || "NULL".equalsIgnoreCase(expectedDefault)) {
                 assertTrue(String.format("字段 %s 的默认值应为 NULL，但实际是 %s", fieldName, actualDefault),
                         actualDefault == null || "NULL".equalsIgnoreCase(actualDefault));
             } else {
                 // 标准化比较：去除引号和空格，统一大小写
                 String normalizedExpected = expectedDefault.replace("'", "").replace("\"", "").trim().toUpperCase();
-                String normalizedActual = actualDefault != null ? 
-                    actualDefault.replace("'", "").replace("\"", "").trim().toUpperCase() : "";
-                
+                String normalizedActual = actualDefault != null
+                        ? actualDefault.replace("'", "").replace("\"", "").trim().toUpperCase()
+                        : "";
+
                 // SQL Server 的默认值可能包含括号，例如 (N'') 或 ('')
                 // 需要进一步处理
                 normalizedActual = normalizedActual.replace("(", "").replace(")", "");
                 normalizedExpected = normalizedExpected.replace("(", "").replace(")", "");
-                
+
                 // 对于空字符串，SQL Server 可能返回 N'' 或 ''，MySQL 可能返回 ''
                 if (normalizedExpected.equals("") || normalizedExpected.equals("N")) {
                     assertTrue(String.format("字段 %s 的默认值应为空字符串，但实际是 %s", fieldName, actualDefault),
@@ -807,11 +818,12 @@ public abstract class BaseDDLIntegrationTest {
                     } catch (NumberFormatException e) {
                         // 如果转换失败，说明不是数值类型，使用字符串比较
                         matches = normalizedExpected.equals(normalizedActual);
-                        
+
                         // 对于日期时间类型，SQL Server 可能自动补全时间部分
                         // 例如：'1900-01-01' 会被存储为 '1900-01-01 00:00:00'
                         // 这里我们检查实际值是否以期望值开头（对于日期类型）
-                        if (!matches && normalizedExpected.contains("1900-01-01") && normalizedActual.contains("1900-01-01")) {
+                        if (!matches && normalizedExpected.contains("1900-01-01")
+                                && normalizedActual.contains("1900-01-01")) {
                             // 如果期望值是日期，实际值是日期时间，且日期部分相同，则认为匹配
                             matches = normalizedActual.startsWith(normalizedExpected);
                         }
@@ -820,7 +832,7 @@ public abstract class BaseDDLIntegrationTest {
                             matches);
                 }
             }
-            
+
             logger.info("字段默认值验证通过: {} 的默认值是 {}", fieldName, actualDefault);
             return null;
         });
@@ -831,27 +843,27 @@ public abstract class BaseDDLIntegrationTest {
      * 
      * @param fieldName 字段名
      * @param tableName 表名
-     * @param config 数据库配置
+     * @param config    数据库配置
      */
     protected void verifyFieldNotNull(String fieldName, String tableName, DatabaseConfig config) throws Exception {
         // 确保 connectorType 已设置
         if (config.getConnectorType() == null) {
             config.setConnectorType(getConnectorType(config, false));
         }
-        
+
         String connectorType = config.getConnectorType();
         @SuppressWarnings("unchecked")
-        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance instance = 
-            (org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance) connectorFactory.connect(config);
-        
+        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance instance = (org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance) connectorFactory
+                .connect(config);
+
         instance.execute(databaseTemplate -> {
             String sql;
             String isNullable;
-            
+
             if ("mysql".equalsIgnoreCase(connectorType) || "Mysql".equals(connectorType)) {
                 // MySQL: 使用 INFORMATION_SCHEMA.COLUMNS
                 sql = "SELECT IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS " +
-                      "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?";
+                        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?";
                 isNullable = databaseTemplate.queryForObject(sql, String.class, tableName, fieldName);
             } else if ("SqlServer".equals(connectorType) || "SqlServerCT".equals(connectorType)) {
                 // SQL Server: 使用 INFORMATION_SCHEMA.COLUMNS，需要指定 schema
@@ -860,17 +872,17 @@ public abstract class BaseDDLIntegrationTest {
                 if (schema == null || schema.trim().isEmpty()) {
                     schema = "dbo"; // 默认 schema
                 }
-                
+
                 sql = "SELECT IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS " +
-                      "WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?";
+                        "WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?";
                 isNullable = databaseTemplate.queryForObject(sql, String.class, schema, tableName, fieldName);
             } else {
                 throw new UnsupportedOperationException("不支持的数据库类型: " + connectorType);
             }
-            
+
             assertTrue(String.format("字段 %s 应为 NOT NULL，但实际 IS_NULLABLE = %s", fieldName, isNullable),
                     "NO".equalsIgnoreCase(isNullable));
-            
+
             logger.info("字段NOT NULL约束验证通过: {}", fieldName);
             return null;
         });
@@ -883,17 +895,17 @@ public abstract class BaseDDLIntegrationTest {
         if (config.getConnectorType() == null) {
             config.setConnectorType(getConnectorType(config, false));
         }
-        
+
         String connectorType = config.getConnectorType();
-        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance instance =
-                new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(config);
+        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance instance = new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(
+                config);
         instance.execute(databaseTemplate -> {
             String sql;
             Integer count;
-            
+
             if ("mysql".equalsIgnoreCase(connectorType) || "Mysql".equals(connectorType)) {
                 sql = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES " +
-                      "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?";
+                        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?";
                 count = databaseTemplate.queryForObject(sql, Integer.class, tableName);
             } else if ("SqlServer".equals(connectorType) || "SqlServerCT".equals(connectorType)) {
                 String schemaSql = "SELECT SCHEMA_NAME()";
@@ -902,12 +914,12 @@ public abstract class BaseDDLIntegrationTest {
                     schema = "dbo";
                 }
                 sql = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES " +
-                      "WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?";
+                        "WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?";
                 count = databaseTemplate.queryForObject(sql, Integer.class, schema, tableName);
             } else {
                 throw new UnsupportedOperationException("不支持的数据库类型: " + connectorType);
             }
-            
+
             assertTrue(String.format("表 %s 应存在，但未找到", tableName), count != null && count > 0);
             logger.info("表存在验证通过: {}", tableName);
             return null;
@@ -921,17 +933,17 @@ public abstract class BaseDDLIntegrationTest {
         if (config.getConnectorType() == null) {
             config.setConnectorType(getConnectorType(config, false));
         }
-        
+
         String connectorType = config.getConnectorType();
-        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance instance =
-                new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(config);
+        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance instance = new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(
+                config);
         instance.execute(databaseTemplate -> {
             String sql;
             Integer actualCount;
-            
+
             if ("mysql".equalsIgnoreCase(connectorType) || "Mysql".equals(connectorType)) {
                 sql = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS " +
-                      "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?";
+                        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?";
                 actualCount = databaseTemplate.queryForObject(sql, Integer.class, tableName);
             } else if ("SqlServer".equals(connectorType) || "SqlServerCT".equals(connectorType)) {
                 String schemaSql = "SELECT SCHEMA_NAME()";
@@ -940,12 +952,12 @@ public abstract class BaseDDLIntegrationTest {
                     schema = "dbo";
                 }
                 sql = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS " +
-                      "WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?";
+                        "WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?";
                 actualCount = databaseTemplate.queryForObject(sql, Integer.class, schema, tableName);
             } else {
                 throw new UnsupportedOperationException("不支持的数据库类型: " + connectorType);
             }
-            
+
             assertNotNull(String.format("未找到表 %s", tableName), actualCount);
             assertEquals(String.format("表 %s 的字段数量应为 %d，但实际是 %d", tableName, expectedCount, actualCount),
                     Integer.valueOf(expectedCount), actualCount);
@@ -957,23 +969,24 @@ public abstract class BaseDDLIntegrationTest {
     /**
      * 验证表的主键（支持 MySQL 和 SQL Server）
      */
-    protected void verifyTablePrimaryKeys(String tableName, DatabaseConfig config, List<String> expectedKeys) throws Exception {
+    protected void verifyTablePrimaryKeys(String tableName, DatabaseConfig config, List<String> expectedKeys)
+            throws Exception {
         if (config.getConnectorType() == null) {
             config.setConnectorType(getConnectorType(config, false));
         }
-        
+
         String connectorType = config.getConnectorType();
-        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance instance =
-                new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(config);
+        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance instance = new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(
+                config);
         instance.execute(databaseTemplate -> {
             String sql;
             List<String> actualKeys;
-            
+
             if ("mysql".equalsIgnoreCase(connectorType) || "Mysql".equals(connectorType)) {
                 sql = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE " +
-                      "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? " +
-                      "AND CONSTRAINT_NAME = 'PRIMARY' " +
-                      "ORDER BY ORDINAL_POSITION";
+                        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? " +
+                        "AND CONSTRAINT_NAME = 'PRIMARY' " +
+                        "ORDER BY ORDINAL_POSITION";
                 actualKeys = databaseTemplate.queryForList(sql, String.class, tableName);
             } else if ("SqlServer".equals(connectorType) || "SqlServerCT".equals(connectorType)) {
                 String schemaSql = "SELECT SCHEMA_NAME()";
@@ -982,19 +995,21 @@ public abstract class BaseDDLIntegrationTest {
                     schema = "dbo";
                 }
                 sql = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE " +
-                      "WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? " +
-                      "AND CONSTRAINT_NAME LIKE 'PK_%' " +
-                      "ORDER BY ORDINAL_POSITION";
+                        "WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? " +
+                        "AND CONSTRAINT_NAME LIKE 'PK_%' " +
+                        "ORDER BY ORDINAL_POSITION";
                 actualKeys = databaseTemplate.queryForList(sql, String.class, schema, tableName);
             } else {
                 throw new UnsupportedOperationException("不支持的数据库类型: " + connectorType);
             }
-            
+
             assertNotNull(String.format("未找到表 %s 的主键信息", tableName), actualKeys);
             assertEquals(String.format("表 %s 的主键数量应为 %d，但实际是 %d", tableName, expectedKeys.size(), actualKeys.size()),
                     expectedKeys.size(), actualKeys.size());
             for (int i = 0; i < expectedKeys.size(); i++) {
-                assertTrue(String.format("表 %s 的主键第 %d 列应为 %s，但实际是 %s", tableName, i + 1, expectedKeys.get(i), actualKeys.get(i)),
+                assertTrue(
+                        String.format("表 %s 的主键第 %d 列应为 %s，但实际是 %s", tableName, i + 1, expectedKeys.get(i),
+                                actualKeys.get(i)),
                         expectedKeys.get(i).equalsIgnoreCase(actualKeys.get(i)));
             }
             logger.info("表主键验证通过: {} 的主键是 {}", tableName, actualKeys);
@@ -1005,21 +1020,22 @@ public abstract class BaseDDLIntegrationTest {
     /**
      * 验证字段类型（支持 MySQL 和 SQL Server）
      */
-    protected void verifyFieldType(String fieldName, String tableName, DatabaseConfig config, String expectedType) throws Exception {
+    protected void verifyFieldType(String fieldName, String tableName, DatabaseConfig config, String expectedType)
+            throws Exception {
         if (config.getConnectorType() == null) {
             config.setConnectorType(getConnectorType(config, false));
         }
-        
+
         String connectorType = config.getConnectorType();
-        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance instance =
-                new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(config);
+        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance instance = new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(
+                config);
         instance.execute(databaseTemplate -> {
             String sql;
             String actualType;
-            
+
             if ("mysql".equalsIgnoreCase(connectorType) || "Mysql".equals(connectorType)) {
                 sql = "SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS " +
-                      "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?";
+                        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?";
                 actualType = databaseTemplate.queryForObject(sql, String.class, tableName, fieldName);
             } else if ("SqlServer".equals(connectorType) || "SqlServerCT".equals(connectorType)) {
                 String schemaSql = "SELECT SCHEMA_NAME()";
@@ -1028,12 +1044,12 @@ public abstract class BaseDDLIntegrationTest {
                     schema = "dbo";
                 }
                 sql = "SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS " +
-                      "WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?";
+                        "WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?";
                 actualType = databaseTemplate.queryForObject(sql, String.class, schema, tableName, fieldName);
             } else {
                 throw new UnsupportedOperationException("不支持的数据库类型: " + connectorType);
             }
-            
+
             assertNotNull(String.format("未找到字段 %s", fieldName), actualType);
             assertTrue(String.format("字段 %s 的类型应为 %s，但实际是 %s", fieldName, expectedType, actualType),
                     expectedType.equalsIgnoreCase(actualType));
@@ -1045,21 +1061,22 @@ public abstract class BaseDDLIntegrationTest {
     /**
      * 验证字段长度（支持 MySQL 和 SQL Server）
      */
-    protected void verifyFieldLength(String fieldName, String tableName, DatabaseConfig config, int expectedLength) throws Exception {
+    protected void verifyFieldLength(String fieldName, String tableName, DatabaseConfig config, int expectedLength)
+            throws Exception {
         if (config.getConnectorType() == null) {
             config.setConnectorType(getConnectorType(config, false));
         }
-        
+
         String connectorType = config.getConnectorType();
-        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance instance =
-                new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(config);
+        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance instance = new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(
+                config);
         instance.execute(databaseTemplate -> {
             String sql;
             Integer actualLength;
-            
+
             if ("mysql".equalsIgnoreCase(connectorType) || "Mysql".equals(connectorType)) {
                 sql = "SELECT CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS " +
-                      "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?";
+                        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?";
                 actualLength = databaseTemplate.queryForObject(sql, Integer.class, tableName, fieldName);
             } else if ("SqlServer".equals(connectorType) || "SqlServerCT".equals(connectorType)) {
                 String schemaSql = "SELECT SCHEMA_NAME()";
@@ -1068,12 +1085,12 @@ public abstract class BaseDDLIntegrationTest {
                     schema = "dbo";
                 }
                 sql = "SELECT CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS " +
-                      "WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?";
+                        "WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?";
                 actualLength = databaseTemplate.queryForObject(sql, Integer.class, schema, tableName, fieldName);
             } else {
                 throw new UnsupportedOperationException("不支持的数据库类型: " + connectorType);
             }
-            
+
             assertNotNull(String.format("未找到字段 %s 或字段没有长度属性", fieldName), actualLength);
             assertEquals(String.format("字段 %s 的长度应为 %d，但实际是 %d", fieldName, expectedLength, actualLength),
                     Integer.valueOf(expectedLength), actualLength);
@@ -1089,17 +1106,17 @@ public abstract class BaseDDLIntegrationTest {
         if (config.getConnectorType() == null) {
             config.setConnectorType(getConnectorType(config, false));
         }
-        
+
         String connectorType = config.getConnectorType();
-        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance instance =
-                new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(config);
+        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance instance = new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(
+                config);
         instance.execute(databaseTemplate -> {
             String sql;
             String isNullable;
-            
+
             if ("mysql".equalsIgnoreCase(connectorType) || "Mysql".equals(connectorType)) {
                 sql = "SELECT IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS " +
-                      "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?";
+                        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?";
                 isNullable = databaseTemplate.queryForObject(sql, String.class, tableName, fieldName);
             } else if ("SqlServer".equals(connectorType) || "SqlServerCT".equals(connectorType)) {
                 String schemaSql = "SELECT SCHEMA_NAME()";
@@ -1108,12 +1125,12 @@ public abstract class BaseDDLIntegrationTest {
                     schema = "dbo";
                 }
                 sql = "SELECT IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS " +
-                      "WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?";
+                        "WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?";
                 isNullable = databaseTemplate.queryForObject(sql, String.class, schema, tableName, fieldName);
             } else {
                 throw new UnsupportedOperationException("不支持的数据库类型: " + connectorType);
             }
-            
+
             assertNotNull(String.format("未找到字段 %s", fieldName), isNullable);
             assertEquals(String.format("字段 %s 应为NULL（可空），但实际是 %s", fieldName, isNullable),
                     "YES", isNullable.toUpperCase());
@@ -1126,20 +1143,21 @@ public abstract class BaseDDLIntegrationTest {
      * 验证字段的COMMENT（支持 MySQL 和 SQL Server）
      * MySQL使用COLUMN_COMMENT，SQL Server使用MS_Description扩展属性
      */
-    protected void verifyFieldComment(String fieldName, String tableName, DatabaseConfig config, String expectedComment) throws Exception {
+    protected void verifyFieldComment(String fieldName, String tableName, DatabaseConfig config, String expectedComment)
+            throws Exception {
         if (config.getConnectorType() == null) {
             config.setConnectorType(getConnectorType(config, false));
         }
-        
+
         String connectorType = config.getConnectorType();
-        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance instance =
-                new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(config);
+        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance instance = new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(
+                config);
         instance.execute(databaseTemplate -> {
             String actualComment;
-            
+
             if ("mysql".equalsIgnoreCase(connectorType) || "Mysql".equals(connectorType)) {
                 String sql = "SELECT COLUMN_COMMENT FROM INFORMATION_SCHEMA.COLUMNS " +
-                      "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?";
+                        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?";
                 actualComment = databaseTemplate.queryForObject(sql, String.class, tableName, fieldName);
             } else if ("SqlServer".equals(connectorType) || "SqlServerCT".equals(connectorType)) {
                 String schemaSql = "SELECT SCHEMA_NAME()";
@@ -1148,11 +1166,12 @@ public abstract class BaseDDLIntegrationTest {
                     schema = "dbo";
                 }
                 String sql = "SELECT value FROM sys.extended_properties " +
-                      "WHERE major_id = OBJECT_ID(? + '.' + ?) " +
-                      "  AND minor_id = COLUMNPROPERTY(OBJECT_ID(? + '.' + ?), ?, 'ColumnId') " +
-                      "  AND name = 'MS_Description'";
-                actualComment = databaseTemplate.queryForObject(sql, String.class, schema, tableName, schema, tableName, fieldName);
-                
+                        "WHERE major_id = OBJECT_ID(? + '.' + ?) " +
+                        "  AND minor_id = COLUMNPROPERTY(OBJECT_ID(? + '.' + ?), ?, 'ColumnId') " +
+                        "  AND name = 'MS_Description'";
+                actualComment = databaseTemplate.queryForObject(sql, String.class, schema, tableName, schema, tableName,
+                        fieldName);
+
                 // SQL Server的sys.extended_properties.value可能返回转义后的单引号（''），需要转换为单个单引号（'）
                 if (actualComment != null) {
                     actualComment = actualComment.replace("''", "'");
@@ -1160,10 +1179,10 @@ public abstract class BaseDDLIntegrationTest {
             } else {
                 throw new UnsupportedOperationException("不支持的数据库类型: " + connectorType);
             }
-            
+
             String normalizedExpected = expectedComment != null ? expectedComment.trim() : "";
             String normalizedActual = actualComment != null ? actualComment.trim() : "";
-            
+
             assertTrue(String.format("字段 %s 的COMMENT应为 '%s'，但实际是 '%s'", fieldName, expectedComment, normalizedActual),
                     normalizedExpected.equals(normalizedActual));
             logger.info("字段COMMENT验证通过: {} 的COMMENT是 '{}'", fieldName, normalizedActual);
@@ -1176,7 +1195,8 @@ public abstract class BaseDDLIntegrationTest {
     /**
      * 等待DDL处理完成（通过轮询检查字段映射是否已更新）
      */
-    protected void waitForDDLProcessingComplete(String expectedFieldName, long timeoutMs) throws InterruptedException, Exception {
+    protected void waitForDDLProcessingComplete(String expectedFieldName, long timeoutMs)
+            throws InterruptedException, Exception {
         long startTime = System.currentTimeMillis();
         long checkInterval = 300; // 每300ms检查一次
 
@@ -1186,7 +1206,7 @@ public abstract class BaseDDLIntegrationTest {
             List<TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
             if (tableGroups != null && !tableGroups.isEmpty()) {
                 TableGroup tableGroup = tableGroups.get(0);
-                
+
                 // 增强日志：输出当前所有字段映射，便于调试（每3秒输出一次）
                 long elapsed = System.currentTimeMillis() - startTime;
                 if (elapsed > 0 && elapsed % 3000 < checkInterval) {
@@ -1199,7 +1219,7 @@ public abstract class BaseDDLIntegrationTest {
                             .collect(java.util.stream.Collectors.toList());
                     logger.info("等待中... 当前字段映射: {}", currentFieldNames);
                 }
-                
+
                 boolean foundFieldMapping = tableGroup.getFieldMapping().stream()
                         .anyMatch(fm -> fm.matchesSource(expectedFieldName) &&
                                 fm.getTarget() != null && fm.matchesTarget(expectedFieldName));
@@ -1233,7 +1253,8 @@ public abstract class BaseDDLIntegrationTest {
     /**
      * 等待DDL DROP处理完成（通过轮询检查字段映射是否已移除）
      */
-    protected void waitForDDLDropProcessingComplete(String expectedFieldName, long timeoutMs) throws InterruptedException, Exception {
+    protected void waitForDDLDropProcessingComplete(String expectedFieldName, long timeoutMs)
+            throws InterruptedException, Exception {
         long startTime = System.currentTimeMillis();
         long checkInterval = 300; // 每300ms检查一次
 
@@ -1272,7 +1293,8 @@ public abstract class BaseDDLIntegrationTest {
             if (meta != null) {
                 logger.info("Meta状态检查: metaId={}, state={}, isRunning={}, errorMessage={}",
                         metaId, meta.getState(), meta.isRunning(),
-                        meta.getErrorMessage() != null && !meta.getErrorMessage().isEmpty() ? meta.getErrorMessage() : "无");
+                        meta.getErrorMessage() != null && !meta.getErrorMessage().isEmpty() ? meta.getErrorMessage()
+                                : "无");
 
                 if (meta.isRunning()) {
                     logger.info("Meta {} 已处于运行状态", metaId);
@@ -1299,8 +1321,7 @@ public abstract class BaseDDLIntegrationTest {
         logger.error("Meta状态检查失败: metaId={}, state={}, isRunning={}, errorMessage={}",
                 metaId, meta.getState(), meta.isRunning(), meta.getErrorMessage());
         assertTrue("Meta应在" + timeoutMs + "ms内进入运行状态，当前状态: " + meta.getState() +
-                        (meta.getErrorMessage() != null ? ", 错误信息: " + meta.getErrorMessage() : ""),
+                (meta.getErrorMessage() != null ? ", 错误信息: " + meta.getErrorMessage() : ""),
                 meta.isRunning());
     }
 }
-

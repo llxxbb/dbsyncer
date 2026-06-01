@@ -151,6 +151,11 @@ public interface ProfileComponent {
 
     List<TableGroup> getSortedTableGroupAll(String mappingId) throws Exception;
 
+    /**
+     * 获取 TableGroup ID 列表（不触发初始化，适用于移除等轻量场景）
+     */
+    List<String> getTableGroupIds(String mappingId);
+
     int getTableGroupCount(String mappingId);
 
     // Meta

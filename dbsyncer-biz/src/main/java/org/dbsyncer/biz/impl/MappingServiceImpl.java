@@ -104,21 +104,21 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         String projectGroupId = params.get("projectGroupId");
         if (StringUtil.isNotBlank(projectGroupId)) {
 
-                ProjectGroup projectGroup = profileComponent.getProjectGroup(projectGroupId);
-                if (projectGroup != null) {
-                    List<String> mappingIds = projectGroup.getMappingIds();
-                    if (mappingIds == null) {
-                        mappingIds = new ArrayList<>();
-                    }
-                    if (!mappingIds.contains(id)) {
-                        // Always create a new ArrayList to avoid UnsupportedOperationException
-                        // when the original list is immutable (e.g., from JSON deserialization)
-                        List<String> newMappingIds = new ArrayList<>(mappingIds);
-                        newMappingIds.add(id);
-                        projectGroup.setMappingIds(newMappingIds);
-                        profileComponent.editConfigModel(projectGroup);
-                    }
+            ProjectGroup projectGroup = profileComponent.getProjectGroup(projectGroupId);
+            if (projectGroup != null) {
+                List<String> mappingIds = projectGroup.getMappingIds();
+                if (mappingIds == null) {
+                    mappingIds = new ArrayList<>();
                 }
+                if (!mappingIds.contains(id)) {
+                    // Always create a new ArrayList to avoid UnsupportedOperationException
+                    // when the original list is immutable (e.g., from JSON deserialization)
+                    List<String> newMappingIds = new ArrayList<>(mappingIds);
+                    newMappingIds.add(id);
+                    projectGroup.setMappingIds(newMappingIds);
+                    profileComponent.editConfigModel(projectGroup);
+                }
+            }
         }
 
         // 匹配相似表 on
@@ -215,20 +215,21 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         String metaId = mapping.getMetaId();
         Meta meta = profileComponent.getMeta(metaId);
         synchronized (LOCK) {
-            meta.assertNotRunning();
 
-            // 删除数据
-            monitorService.clearData(metaId);
+            if (meta != null) {
+                // 删除数据
+                monitorService.clearData(metaId);
 
-            // 删除meta
-            profileComponent.removeConfigModel(metaId);
+                // 删除meta
+                profileComponent.removeConfigModel(metaId);
+            }
 
-            // 删除tableGroup
-            List<TableGroup> groupList = profileComponent.getTableGroupAll(id);
-            if (!CollectionUtils.isEmpty(groupList)) {
-                groupList.forEach(t -> {
+            // 删除tableGroup（使用轻量方法获取 ID，避免触发 initTableGroup 初始化校验）
+            List<String> tableGroupIds = profileComponent.getTableGroupIds(id);
+            if (!CollectionUtils.isEmpty(tableGroupIds)) {
+                tableGroupIds.forEach(tableGroupId -> {
                     try {
-                        profileComponent.removeTableGroup(t.getId());
+                        profileComponent.removeTableGroup(tableGroupId);
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
@@ -291,7 +292,8 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
                         // 捕获其他可能的异常（如 Meta 为 null 等）
                         logger.error("转换 Mapping 失败，mappingId: {}, mappingName: {}",
                                 mapping.getId(), mapping.getName(), e);
-                        logService.log(LogType.MappingLog.CONFIG, String.format("mappingId: %s, msg: %s", mapping.getId(), e.getMessage()));
+                        logService.log(LogType.MappingLog.CONFIG,
+                                String.format("mappingId: %s, msg: %s", mapping.getId(), e.getMessage()));
                         return createErrorMappingVo(mapping, e.getMessage());
                     }
                 })
@@ -381,7 +383,8 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         if (s == null) {
             logger.error("源连接器不存在，mappingId: {}, sourceConnectorId: {}",
                     mapping.getId(), mapping.getSourceConnectorId());
-            logService.log(LogType.MappingLog.CONFIG, String.format("源连接器不存在，mappingId: %s, sourceConnectorId: %s", mapping.getId(), mapping.getSourceConnectorId()));
+            logService.log(LogType.MappingLog.CONFIG, String.format("源连接器不存在，mappingId: %s, sourceConnectorId: %s",
+                    mapping.getId(), mapping.getSourceConnectorId()));
             return createErrorMappingVo(mapping,
                     String.format("源连接器不存在，sourceConnectorId: %s", mapping.getSourceConnectorId()));
         }
@@ -393,7 +396,8 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         if (t == null) {
             logger.error("目标连接器不存在，mappingId: {}, targetConnectorId: {}",
                     mapping.getId(), mapping.getTargetConnectorId());
-            logService.log(LogType.MappingLog.CONFIG, String.format("目标连接器不存在，mappingId: %s, targetConnectorId: %s", mapping.getId(), mapping.getSourceConnectorId()));
+            logService.log(LogType.MappingLog.CONFIG, String.format("目标连接器不存在，mappingId: %s, targetConnectorId: %s",
+                    mapping.getId(), mapping.getSourceConnectorId()));
             return createErrorMappingVo(mapping,
                     String.format("目标连接器不存在，targetConnectorId: %s", mapping.getTargetConnectorId()));
         }
@@ -573,13 +577,13 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         synchronized (LOCK) {
             logger.info("重置驱动：{}", mapping.getName());
             Meta meta = profileComponent.getMeta(mapping.getMetaId());
-            
+
             // 重置元数据
             meta.clear(mapping.getModel());
-            
+
             // 清理错误队列（dbsyncer_data 表中的失败数据）
             storageService.clear(StorageEnum.DATA, meta.getId());
-            
+
             managerFactory.close(mapping);
             List<TableGroup> tableGroupAll = profileComponent.getTableGroupAll(mapping.getId());
             for (TableGroup tableGroup : tableGroupAll) {
@@ -623,8 +627,8 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
             return;
         }
 
-        org.dbsyncer.sdk.spi.ConnectorService<?, ?> targetConnectorService =
-                connectorFactory.getConnectorService(targetConnector.getConfig().getConnectorType());
+        org.dbsyncer.sdk.spi.ConnectorService<?, ?> targetConnectorService = connectorFactory
+                .getConnectorService(targetConnector.getConfig().getConnectorType());
 
         // 只支持数据库类型的连接器执行 TRUNCATE
         if (!(targetConnectorService instanceof org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector)) {
@@ -632,13 +636,12 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
             return;
         }
 
-        org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector dbConnector =
-                (org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector) targetConnectorService;
+        org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector dbConnector = (org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector) targetConnectorService;
 
         try {
-            org.dbsyncer.sdk.connector.ConnectorInstance connectorInstance = connectorFactory.connect(targetConnector.getConfig());
-            org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance dbInstance =
-                    (org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance) connectorInstance;
+            org.dbsyncer.sdk.connector.ConnectorInstance connectorInstance = connectorFactory
+                    .connect(targetConnector.getConfig());
+            org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance dbInstance = (org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance) connectorInstance;
 
             String schema = ((org.dbsyncer.sdk.config.DatabaseConfig) targetConnector.getConfig()).getSchema();
 

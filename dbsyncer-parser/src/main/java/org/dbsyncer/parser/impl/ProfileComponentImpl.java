@@ -6,6 +6,7 @@ package org.dbsyncer.parser.impl;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
+import org.dbsyncer.parser.CacheService;
 import org.dbsyncer.parser.ParserComponent;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.enums.CommandEnum;
@@ -15,6 +16,7 @@ import org.dbsyncer.parser.model.*;
 import org.dbsyncer.sdk.enums.FilterEnum;
 import org.dbsyncer.sdk.enums.OperationEnum;
 import org.dbsyncer.sdk.enums.QuartzFilterEnum;
+import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.model.ConnectorConfig;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.storage.enums.StorageDataStatusEnum;
@@ -22,6 +24,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 
 import javax.annotation.Resource;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -38,6 +41,9 @@ public class ProfileComponentImpl implements ProfileComponent {
 
     @Resource
     private OperationTemplate operationTemplate;
+
+    @Resource
+    private CacheService cacheService;
 
     @Resource
     private ConnectorFactory connectorFactory;
@@ -175,6 +181,18 @@ public class ProfileComponentImpl implements ProfileComponent {
                 .stream()
                 .sorted(Comparator.comparing(TableGroup::getIndex).reversed())
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<String> getTableGroupIds(String mappingId) {
+        String groupId = ConfigConstant.TABLE_GROUP + "_" + mappingId;
+        List<String> ids = new ArrayList<>();
+        cacheService.getCache().computeIfPresent(groupId, (k, v) -> {
+            Group group = (Group) v;
+            ids.addAll(group.getIndex());
+            return group;
+        });
+        return ids;
     }
 
     @Override
