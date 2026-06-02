@@ -8,13 +8,24 @@
 RetryPolicy {
     disable: boolean             // 是否禁用重试（默认 false）
     useKeyword: boolean          // 是否启用关键字匹配（默认 false = 无条件重试）
-    exactKeywords: List<String>  // 精确匹配关键字
-    fuzzyKeywords: List<String>  // 模糊匹配关键字
+    keywords: List<String>       // 重试关键字列表
+    matchMode: MatchMode         // 匹配模式（默认 CONTAINS_IGNORE_CASE）
     initialInterval: Duration    // 起始间隔
     maxInterval: Duration        // 最大间隔
     maxAttempts: int             // 最大重试次数
     multiplier: double           // 增长因子
 }
+
+### MatchMode 枚举
+
+```java
+MatchMode {
+    EXACT,                    // 精确匹配
+    CONTAINS,                 // 包含匹配
+    CASE_INSENSITIVE,         // 精确匹配（忽略大小写）
+    CONTAINS_IGNORE_CASE      // 包含匹配（忽略大小写，默认）
+}
+```
 ```
 
 ### 指数退避
@@ -51,10 +62,8 @@ retryInterceptor.execute(() -> batchWrite(data), policy);
 - **`disable = true`**：跳过重试，直接执行，失败直接抛异常
 - **`useKeyword = false`（默认）**：无条件重试，**所有异常均触发重试**
 - **`useKeyword = true`**：仅匹配关键字的异常触发重试
-  - **精确匹配**：异常消息**完全等于**关键字（`exactKeywords`），**不区分大小写**
-  - **模糊匹配**：异常消息**包含**关键字（`fuzzyKeywords`），**不区分大小写**
-  - 精确或模糊**任一**匹配成功即触发重试
-  - 匹配范围包含完整 cause chain
+  - 匹配行为由 `matchMode` 控制（精确/包含/忽略大小写）
+  - 匹配范围为异常顶层消息（`e.getMessage()`）
 
 ## 配置规范
 

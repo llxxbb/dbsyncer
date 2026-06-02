@@ -1,8 +1,12 @@
 package org.dbsyncer.connector.sqlserver.ct;
 
 import org.apache.commons.codec.digest.DigestUtils;
+import org.dbsyncer.common.config.RetryConfig;
+import org.dbsyncer.common.retry.RetryInterceptor;
+import org.dbsyncer.common.retry.RetryPolicy;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
+import org.dbsyncer.common.util.SpringContextUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.sqlserver.SqlServerCTConnector;
 import org.dbsyncer.connector.sqlserver.SqlServerException;
@@ -54,8 +58,6 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
     // 增量持久化配置（可配置）
     private static long SNAPSHOT_TIME_INTERVAL_MS = Long.parseLong(
             System.getProperty("sqlserver.ct.snapshot.time.interval.ms", "30000"));
-    private static int MAX_RETRY_PER_VERSION = Integer.parseInt(
-            System.getProperty("sqlserver.ct.max.retry.per.version", "3"));
 
     private final SqlServerTemplate sqlTemplate;
 
@@ -69,8 +71,8 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
     private Long lastSuccessfulVersion;
     // 优雅停止标志
     private final AtomicBoolean stopRequested = new AtomicBoolean(false);
-    // 当前版本重试计数
-    private int currentVersionRetryCount = 0;
+    // 统一重试拦截器
+    private final RetryInterceptor retryInterceptor = new RetryInterceptor();
     private String serverName;
     private String schema;
     private String realDatabaseName;
@@ -199,22 +201,6 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
 
     public void stopGracefully() {
         stopRequested.set(true);
-    }
-
-    private boolean isRetryableError(Throwable e) {
-        if (e == null) {
-            return false;
-        }
-        String msg = e.getMessage();
-        if (msg == null) {
-            return false;
-        }
-        msg = msg.toLowerCase();
-        return msg.contains("timeout") || msg.contains("connection") || msg.contains("timed")
-                || msg.contains("socket") || msg.contains("reset")
-                || msg.contains("transport")
-                || e instanceof java.sql.SQLTimeoutException
-                || e instanceof java.net.SocketException;
     }
 
     private void connect() throws Exception {
@@ -1263,49 +1249,54 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
 
     final class Worker extends Thread {
         private long lastSnapshotTime = System.currentTimeMillis();
-        
+
+        /**
+         * 获取重试策略（直接复用全局配置）
+         */
+        private RetryPolicy getRetryPolicy() {
+            RetryConfig retryConfig = SpringContextUtil.getBean(RetryConfig.class);
+            return retryConfig != null ? retryConfig.getGlobal() : new RetryPolicy();
+        }
+
         @Override
         public void run() {
             while (!isInterrupted() && !stopRequested.get()) {
                 try {
                     Long maxVersion = getMaxVersion();
-                    if (maxVersion != null && maxVersion > lastSuccessfulVersion) {
-                        pull(lastSuccessfulVersion, maxVersion);
-                        currentVersionRetryCount = 0;
-                    } else {
-                        // 统一的时间间隔检查
-                        long now = System.currentTimeMillis();
-                        if (now - lastSnapshotTime >= SNAPSHOT_TIME_INTERVAL_MS) {
-                            snapshotProgress(lastSuccessfulVersion);
-                            lastSnapshotTime = now;
-                        }
+                    if (maxVersion == null || maxVersion <= lastSuccessfulVersion) {
+                        maybeSnapshot();
                         sleepInMills(POLL_INTERVAL_MILLIS);
+                        continue;
                     }
+
+                    RetryPolicy retryPolicy = getRetryPolicy();
+                    retryInterceptor.execute(
+                            () -> {
+                                pull(lastSuccessfulVersion, maxVersion);
+                                return null;
+                            },
+                            retryPolicy
+                    );
                 } catch (InterruptedException e) {
                     break;
                 } catch (Exception e) {
                     if (stopRequested.get()) {
                         break;
                     }
-                    if (connected && isRetryableError(e)) {
-                        currentVersionRetryCount++;
-                        logger.warn("处理版本 {} 失败，重试次数: {}/{}", lastSuccessfulVersion, currentVersionRetryCount,
-                                MAX_RETRY_PER_VERSION);
-                        if (currentVersionRetryCount >= MAX_RETRY_PER_VERSION) {
-                            logger.error("版本 {} 达到最大重试次数 {}，停止同步", lastSuccessfulVersion, MAX_RETRY_PER_VERSION);
-                            // 记录错误到数据库
-                            errorEvent(e);
-                            break;
-                        }
-                        sleepInMills(1000L);
-                    } else {
-                        logger.error("轮询版本号失败: {}", e.getMessage(), e);
-                        // 记录错误到数据库
-                        errorEvent(e);
-                        break;
-                    }
+                    logger.error("同步失败: {}", e.getMessage(), e);
+                    errorEvent(e);
+                    break;
                 }
             }
+        }
+
+        private void maybeSnapshot() {
+            long now = System.currentTimeMillis();
+            if (now - lastSnapshotTime < SNAPSHOT_TIME_INTERVAL_MS) {
+                return;
+            }
+            snapshotProgress(lastSuccessfulVersion);
+            lastSnapshotTime = now;
         }
 
     }

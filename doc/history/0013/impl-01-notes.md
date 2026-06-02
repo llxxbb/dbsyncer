@@ -24,6 +24,7 @@ BatchUpdateException: Deadlock found when trying to get lock; try restarting tra
 | `RetryPolicy.java` | 新增 | 重试策略配置类 |
 | `RetryInterceptor.java` | 新增 | 统一重试组件 |
 | `KeywordMatcher.java` | 新增 | 关键字匹配器 |
+| `TerminationMode.java` | 新增 | 终止模式枚举 |
 | `DatabaseConnectorInstance.java` | 修改 | 注入重试拦截 |
 | `SqlServerCTQueryUtil.java` | 修改 | 移除内部硬编码重试 |
 | `SqlServerCTListener.java` | 修改 | 用统一重试替代 isRetryableError |
@@ -153,3 +154,6 @@ while (!isInterrupted() && !stopRequested.get()) {
 | 指数退避 | 间隔按预期递增 |
 | 配置优先级 | 任务级 > 全局 |
 | 性能 | 无异常路径零开销 |
+| MAX_ATTEMPTS | 达到最大次数即停止，不检查总耗时 |
+| MAX_DURATION | 达到总耗时上限即停止，不检查次数 |
+| WHICHEVER_FIRST | 任一条件达到即停止（默认行为） |

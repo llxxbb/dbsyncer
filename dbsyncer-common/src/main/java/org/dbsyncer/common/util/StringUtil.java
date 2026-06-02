@@ -47,6 +47,10 @@ public abstract class StringUtil {
         return StringUtils.equalsIgnoreCase(cs1, cs2);
     }
 
+    public static boolean containsIgnoreCase(CharSequence seq, CharSequence searchSeq) {
+        return StringUtils.containsIgnoreCase(seq, searchSeq);
+    }
+
     public static boolean isBlank(CharSequence cs) {
         return StringUtils.isBlank(cs);
     }

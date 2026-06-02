@@ -153,69 +153,32 @@ public class SqlServerCTQueryUtil {
      * @throws Exception 查询异常
      */
     public <T> T queryWithReadUncommitted(String preparedQuerySql, StatementPreparer statementPreparer, ResultSetMapper<T> mapper) throws Exception {
-        final int maxRetries = 3;
-        final long retryDelayMs = 100;
-        Exception lastException = null;
-
-        for (int attempt = 0; attempt < maxRetries; attempt++) {
+        return (T) instance.execute(databaseTemplate -> {
+            Connection conn = databaseTemplate.getSimpleConnection();
+            int originalIsolation = conn.getTransactionIsolation();
+            PreparedStatement ps = null;
+            ResultSet rs = null;
+            T apply = null;
             try {
-                Object execute = instance.execute(databaseTemplate -> {
-                    Connection conn = databaseTemplate.getSimpleConnection();
-                    int originalIsolation = conn.getTransactionIsolation();
-                    PreparedStatement ps = null;
-                    ResultSet rs = null;
-                    T apply = null;
-                    try {
-                        // 设置 READ UNCOMMITTED 隔离级别，避免等待锁
-                        conn.setTransactionIsolation(Connection.TRANSACTION_READ_UNCOMMITTED);
-                        ps = conn.prepareStatement(preparedQuerySql);
-                        if (null != statementPreparer) {
-                            statementPreparer.accept(ps);
-                        }
-                        rs = ps.executeQuery();
-                        apply = mapper.apply(rs);
-                    } finally {
-                        // 恢复原始隔离级别
-                        try {
-                            conn.setTransactionIsolation(originalIsolation);
-                        } catch (SQLException e) {
-                            logger.warn("恢复事务隔离级别失败: {}", e.getMessage());
-                        }
-                        close(rs);
-                        close(ps);
-                    }
-                    return apply;
-                });
-                return (T) execute;
-            } catch (SQLException e) {
-                // 检查是否是死锁错误（错误代码 1205）
-                if (e.getErrorCode() == 1205 || e.getMessage().contains("死锁") || e.getMessage().contains("deadlock")) {
-                    lastException = e;
-                    if (attempt < maxRetries - 1) {
-                        logger.warn("查询时发生死锁，重试 {}/{}: {}", attempt + 1, maxRetries, e.getMessage());
-                        try {
-                            Thread.sleep(retryDelayMs * (attempt + 1)); // 递增延迟
-                        } catch (InterruptedException ie) {
-                            Thread.currentThread().interrupt();
-                            throw new SQLException("重试被中断", ie);
-                        }
-                        continue;
-                    }
+                conn.setTransactionIsolation(Connection.TRANSACTION_READ_UNCOMMITTED);
+                ps = conn.prepareStatement(preparedQuerySql);
+                if (null != statementPreparer) {
+                    statementPreparer.accept(ps);
                 }
-                // 非死锁错误或重试次数已用完，直接抛出
-                logger.error("查询失败: {}, sql: {}", e.getMessage(), preparedQuerySql, e);
-                throw e;
-            } catch (Exception e) {
-                logger.error("查询失败: {}", e.getMessage(), e);
-                throw e;
+                rs = ps.executeQuery();
+                apply = mapper.apply(rs);
+            } finally {
+                try {
+                    conn.setTransactionIsolation(originalIsolation);
+                } catch (SQLException e) {
+                    logger.error("恢复事务隔离级别失败: {}", e.getMessage(), e);
+                    throw new RuntimeException("恢复事务隔离级别失败", e);
+                }
+                close(rs);
+                close(ps);
             }
-        }
-
-        // 所有重试都失败
-        if (lastException != null) {
-            throw lastException;
-        }
-        throw new SQLException("查询失败：未知错误");
+            return apply;
+        });
     }
 
     /**
