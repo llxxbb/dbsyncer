@@ -6,6 +6,7 @@
 
 | 编号 | 标题 | 状态 | 日期 |
 |------|------|------|------|
+| [0013](0013-同步任务指数退避重试机制.md) | 同步任务指数退避重试机制 | Proposed | 2026-06-02 |
 | [0012](0012-消除-syncSourceTable-克隆-TableGroup即上下文.md) | 消除 syncSourceTable/syncTargetTable 克隆，TableGroup 即上下文 | Proposed | 2026-05-28 |
 | [0011](0011-简化-FieldMapping-结构.md) | 简化 FieldMapping 结构 | Proposed | 2026-05-27 |
 | [0010](0010-mysql-non-utf8-charset-handling.md) | MySQL 非 UTF-8 字符集列的数据一致性处理 | Proposed | 2026-05-20 |
@@ -44,4 +45,4 @@ mkdir -p doc/adr doc/history/NNNN
 
 ---
 
-*最后更新：2026-05-28*
+*最后更新：2026-06-02*
