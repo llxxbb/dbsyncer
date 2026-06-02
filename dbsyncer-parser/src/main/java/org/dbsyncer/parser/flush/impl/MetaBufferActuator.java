@@ -289,7 +289,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         WriterResponse response = new WriterResponse();
 
         // 标记为重试操作，防止重试失败时再次写入错误队列
-        response.setRetry(true);
+        response.setErrQueueRetry(true);
 
         // 分区处理
         partition(request, response);
@@ -318,7 +318,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             logger.error(msg);
             logService.log(LogType.MappingLog.RUNNING, msg);
             // 重试场景下，如果有失败数据，先抛出异常，避免调用 flushIncrementData 写入错误数据
-            if (response.isRetry()) {
+            if (response.isErrQueueRetry()) {
                 throw new RuntimeException("重试失败: " + msg);
             }
             result = new Result();
@@ -359,7 +359,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             logger.error(msg);
             logService.log(LogType.MappingLog.RUNNING, msg);
             // 只在重试场景下设置重试标识
-            if (response.isRetry()) {
+            if (response.isErrQueueRetry()) {
                 throw new RuntimeException("重试失败: " + msg);
             }
             result = new Result();
@@ -406,7 +406,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         } catch (Exception e) {
             logger.error("process batch data error:", e);
             // 只在重试场景下设置重试标识
-            if (response.isRetry()) {
+            if (response.isErrQueueRetry()) {
                 throw new RuntimeException("重试失败: " + e.getMessage());
             }
             result = new Result();

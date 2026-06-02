@@ -21,7 +21,7 @@ public class WriterResponse extends AbstractWriter implements BufferResponse {
     /**
      * 是否为重试操作（用于防止重试失败时再次写入错误队列）
      */
-    private transient boolean isRetry = false;
+    private transient boolean isErrQueueRetry = false;
 
     @Override
     public int getTaskSize() {
@@ -68,14 +68,14 @@ public class WriterResponse extends AbstractWriter implements BufferResponse {
     /**
      * 是否为重试操作
      */
-    public boolean isRetry() {
-        return isRetry;
+    public boolean isErrQueueRetry() {
+        return isErrQueueRetry;
     }
 
     /**
      * 设置是否为重试操作
      */
-    public void setRetry(boolean retry) {
-        isRetry = retry;
+    public void setErrQueueRetry(boolean retry) {
+        isErrQueueRetry = retry;
     }
 }
