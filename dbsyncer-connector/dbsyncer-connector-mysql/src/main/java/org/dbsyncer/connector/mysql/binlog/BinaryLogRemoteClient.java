@@ -22,7 +22,6 @@ import javax.net.ssl.X509TrustManager;
 import java.io.EOFException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.security.GeneralSecurityException;
@@ -136,6 +135,7 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
         this.username = username;
         this.password = password;
         this.serverId = randomPort(serverId);
+        logger.info("MySQL Binlog Client serverId: {} (auto={})", this.serverId, serverId == 0);
     }
 
     @Override
@@ -736,15 +736,11 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
 
     private long randomPort(long serverId) throws IOException {
         if (0 == serverId) {
-            ServerSocket serverSocket = null;
-            try {
-                serverSocket = new ServerSocket(0);
-                return serverSocket.getLocalPort();
-            } finally {
-                if (null != serverSocket) {
-                    serverSocket.close();
-                }
-            }
+            // 每次启动生成新 UUID，取低 32 位作为 serverId
+            // 42.9 亿种可能，比随机端口（~6.4万）碰撞概率低 6 万倍
+            long uuidBasedId = java.util.UUID.randomUUID().getLeastSignificantBits() & 0xFFFFFFFFL;
+            // 确保不为 0（0 有特殊含义）
+            return uuidBasedId == 0 ? 1 : uuidBasedId;
         }
         return serverId;
     }
