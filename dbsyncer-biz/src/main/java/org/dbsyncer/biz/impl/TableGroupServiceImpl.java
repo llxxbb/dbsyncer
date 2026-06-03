@@ -467,8 +467,15 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         org.dbsyncer.parser.model.Connector targetConnector = profileComponent
                 .getConnector(mapping.getTargetConnectorId());
 
-        SqlTemplate sqlTemplate = ((org.dbsyncer.sdk.connector.database.Database) connectorFactory
-                .getConnectorService(targetConnector.getConfig())).getSqlTemplate();
+        // 非数据库连接器（如 Kafka）跳过 DDL
+        ConnectorService connectorService = connectorFactory.getConnectorService(targetConnector.getConfig());
+        if (!isDatabaseConnector(connectorService)) {
+            logger.info("目标连接器非数据库类型({})，跳过自定义字段 DDL", targetConnector.getName());
+            return;
+        }
+
+        AbstractDatabaseConnector dbConnector = (AbstractDatabaseConnector) connectorService;
+        SqlTemplate sqlTemplate = dbConnector.getSqlTemplate();
 
         // 获取目标表现有字段名称集合（不区分大小写，避免 siteId/siteID 误判）
         List<Field> existingColumns = tableGroup.getTargetTable().getColumn();
@@ -573,9 +580,14 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
             }
         }
 
-        // 使用 SqlTemplate 构建 DDL（由各数据库连接器提供实现）
-        AbstractDatabaseConnector dbConnector = (AbstractDatabaseConnector) connectorFactory
-                .getConnectorService(targetConnector.getConfig().getConnectorType());
+        // 非数据库连接器（如 Kafka）跳过 DDL
+        ConnectorService connectorService = connectorFactory.getConnectorService(targetConnector.getConfig());
+        if (!isDatabaseConnector(connectorService)) {
+            logger.info("目标连接器非数据库类型({})，跳过主键变更 DDL", targetConnector.getName());
+            return;
+        }
+
+        AbstractDatabaseConnector dbConnector = (AbstractDatabaseConnector) connectorService;
         SqlTemplate sqlTemplate = dbConnector.getSqlTemplate();
 
         String tableName = tableGroup.getTargetTable().getName();
