@@ -6,11 +6,12 @@
 
 | 编号 | 标题 | 状态 | 日期 |
 |------|------|------|------|
-| [0013](0013-同步任务指数退避重试机制.md) | 同步任务指数退避重试机制 | Proposed | 2026-06-02 |
-| [0012](0012-消除-syncSourceTable-克隆-TableGroup即上下文.md) | 消除 syncSourceTable/syncTargetTable 克隆，TableGroup 即上下文 | Proposed | 2026-05-28 |
-| [0011](0011-简化-FieldMapping-结构.md) | 简化 FieldMapping 结构 | Proposed | 2026-05-27 |
-| [0010](0010-mysql-non-utf8-charset-handling.md) | MySQL 非 UTF-8 字符集列的数据一致性处理 | Proposed | 2026-05-20 |
-| [0009](0009-字段差异分析增加MAPPING_ONLY检测与修复.md) | 字段差异分析增加 MAPPING_ONLY 检测与修复 | Proposed | 2026-05-14 |
+| [0014](0014-钉钉群消息通知机制.md) | 钉钉群消息通知机制 | Accepted | 2026-06-03 |
+| [0013](0013-同步任务指数退避重试机制.md) | 同步任务指数退避重试机制 | Accepted | 2026-06-02 |
+| [0012](0012-消除-syncSourceTable-克隆-TableGroup即上下文.md) | 消除 syncSourceTable/syncTargetTable 克隆，TableGroup 即上下文 | Accepted | 2026-05-28 |
+| [0011](0011-简化-FieldMapping-结构.md) | 简化 FieldMapping 结构 | Accepted | 2026-05-27 |
+| [0010](0010-mysql-non-utf8-charset-handling.md) | MySQL 非 UTF-8 字符集列的数据一致性处理 | Accepted | 2026-05-20 |
+| [0009](0009-字段差异分析增加MAPPING_ONLY检测与修复.md) | 字段差异分析增加 MAPPING_ONLY 检测与修复 | Accepted | 2026-05-14 |
 | [0008](0008-field-table-case-insensitive.md) | 字段名/表名大小写不敏感的业务对象封装 | Accepted | 2026-05-13 |
 | [0007](0007-batch-convert-temp-to-formal-pk.md) | 批量添加转换配置 — 临时主键变更为正式主键 | Accepted | 2026-05-11 |
 | [0006](0006-sqlserver-ct-query-refactor.md) | SQL Server CT 查询重构 — RIGHT JOIN + U→I 转换 + 强制覆盖写入 | Accepted | 2026-04-28 |
@@ -45,4 +46,4 @@ mkdir -p doc/adr doc/history/NNNN
 
 ---
 
-*最后更新：2026-06-02*
+*最后更新：2026-06-03*
