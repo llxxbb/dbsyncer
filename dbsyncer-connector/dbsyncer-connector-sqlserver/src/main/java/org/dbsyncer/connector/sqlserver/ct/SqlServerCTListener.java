@@ -1260,6 +1260,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
 
         @Override
         public void run() {
+            RetryPolicy retryPolicy = getRetryPolicy();
             while (!isInterrupted() && !stopRequested.get()) {
                 try {
                     Long maxVersion = getMaxVersion();
@@ -1269,7 +1270,6 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
                         continue;
                     }
 
-                    RetryPolicy retryPolicy = getRetryPolicy();
                     retryInterceptor.execute(
                             () -> {
                                 pull(lastSuccessfulVersion, maxVersion);
