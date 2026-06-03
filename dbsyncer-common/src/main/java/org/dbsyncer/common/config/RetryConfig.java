@@ -4,8 +4,12 @@
 package org.dbsyncer.common.config;
 
 import org.dbsyncer.common.retry.RetryPolicy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
+
+import javax.annotation.PostConstruct;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -38,6 +42,8 @@ import java.util.Map;
 @Configuration
 @ConfigurationProperties(prefix = "dbsyncer.retry")
 public class RetryConfig {
+
+    private static final Logger logger = LoggerFactory.getLogger(RetryConfig.class);
 
     /** 全局默认重试策略 */
     private RetryPolicy global = new RetryPolicy();
@@ -73,5 +79,48 @@ public class RetryConfig {
 
     public void setTask(Map<String, RetryPolicy> task) {
         this.task = task;
+    }
+
+    @PostConstruct
+    public void init() {
+        printConfig();
+    }
+
+    /**
+     * 打印重试配置信息
+     */
+    private void printConfig() {
+        logger.info("========== 重试配置加载完成 ==========");
+        logger.info("全局配置:");
+        logger.info("  disable: {}", global.isDisable());
+        logger.info("  maxAttempts: {}", global.getMaxAttempts());
+        logger.info("  initialIntervalMs: {}", global.getInitialIntervalMs());
+        logger.info("  maxIntervalMs: {}", global.getMaxIntervalMs());
+        logger.info("  multiplier: {}", global.getMultiplier());
+        logger.info("  maxDurationMs: {}", global.getMaxDurationMs());
+        logger.info("  terminationMode: {}", global.getTerminationMode());
+        logger.info("  useKeyword: {}", global.isUseKeyword());
+        logger.info("  matchMode: {}", global.getMatchMode());
+        logger.info("  keywords: {}", global.getKeywords());
+
+        if (task != null && !task.isEmpty()) {
+            logger.info("任务级配置 ({} 个任务):", task.size());
+            task.forEach((id, policy) -> {
+                logger.info("  任务 {}:", id);
+                logger.info("    disable: {}", policy.isDisable());
+                logger.info("    maxAttempts: {}", policy.getMaxAttempts());
+                logger.info("    initialIntervalMs: {}", policy.getInitialIntervalMs());
+                logger.info("    maxIntervalMs: {}", policy.getMaxIntervalMs());
+                logger.info("    multiplier: {}", policy.getMultiplier());
+                logger.info("    maxDurationMs: {}", policy.getMaxDurationMs());
+                logger.info("    terminationMode: {}", policy.getTerminationMode());
+                logger.info("    useKeyword: {}", policy.isUseKeyword());
+                logger.info("    matchMode: {}", policy.getMatchMode());
+                logger.info("    keywords: {}", policy.getKeywords());
+            });
+        } else {
+            logger.info("任务级配置: 无");
+        }
+        logger.info("=======================================");
     }
 }
