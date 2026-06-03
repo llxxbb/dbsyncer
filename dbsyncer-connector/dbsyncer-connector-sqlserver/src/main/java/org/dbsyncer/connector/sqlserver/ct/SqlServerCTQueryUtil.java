@@ -173,9 +173,10 @@ public class SqlServerCTQueryUtil {
                 } catch (SQLException e) {
                     logger.error("恢复事务隔离级别失败: {}", e.getMessage(), e);
                     throw new RuntimeException("恢复事务隔离级别失败", e);
+                } finally {
+                    close(rs);
+                    close(ps);
                 }
-                close(rs);
-                close(ps);
             }
             return apply;
         });
