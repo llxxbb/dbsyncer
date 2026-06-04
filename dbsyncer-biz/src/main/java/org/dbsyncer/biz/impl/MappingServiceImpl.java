@@ -16,6 +16,7 @@ import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.manager.ManagerFactory;
 import org.dbsyncer.parser.*;
+import org.dbsyncer.plugin.model.NotifyType;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.parser.enums.MetaEnum;
@@ -336,9 +337,16 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
 
             // 发送关闭驱动通知消息
             String model = ModelEnum.getModelEnum(mapping.getModel()).getName();
-            sendNotifyMessage("停止驱动", String.format("手动停止驱动：%s(%s)", mapping.getName(), model));
+            String mappingId = mapping.getId();
+            
+            StringBuilder msg = new StringBuilder();
+            msg.append("### DBSyncer 手动操作提示\n\n");
+            msg.append("**操作类型**: 停止任务\n\n");
+            msg.append("**Mapping ID**: ").append(mappingId).append("\n\n");
+            msg.append("**任务名称**: ").append(mapping.getName()).append("\n\n");
+            messageService.sendMessage("dbsyncer", msg.toString(), NotifyType.MANUAL_OPERATION);
         }
-        return "驱动停止成功";
+        return "任务停止成功";
     }
 
     @Override
@@ -601,9 +609,17 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
 
             log(LogType.MappingLog.RESET, mapping);
 
-            // 发送关闭驱动通知消息
+            // 发送重置驱动通知消息
             String model = ModelEnum.getModelEnum(mapping.getModel()).getName();
-            sendNotifyMessage("重置驱动", String.format("手动重置驱动：%s(%s)", mapping.getName(), model));
+            String mappingId = mapping.getId();
+            
+
+            StringBuilder msg = new StringBuilder();
+            msg.append("### DBSyncer 手动操作提示\n\n");
+            msg.append("**操作类型**: 重置任务\n\n");
+            msg.append("**Mapping ID**: ").append(mappingId).append("\n\n");
+            msg.append("**任务名称**: ").append(mapping.getName()).append("\n\n");
+            messageService.sendMessage("dbsyncer", msg.toString(), NotifyType.MANUAL_OPERATION);
         }
         submitMappingCountTask(mapping);
 

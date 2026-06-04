@@ -1,9 +1,8 @@
-/**
- * DBSyncer Copyright 2020-2023 All Rights Reserved.
- */
 package org.dbsyncer.parser.consumer;
 
+import org.dbsyncer.parser.MessageService;
 import org.dbsyncer.parser.ProfileComponent;
+import org.dbsyncer.parser.model.Mapping;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.parser.enums.MetaEnum;
 import org.dbsyncer.parser.flush.impl.BufferActuatorRouter;
@@ -11,6 +10,7 @@ import org.dbsyncer.parser.model.Meta;
 import org.dbsyncer.parser.model.TableGroup;
 import org.dbsyncer.plugin.PluginFactory;
 import org.dbsyncer.plugin.enums.ProcessEnum;
+import org.dbsyncer.plugin.model.NotifyType;
 import org.dbsyncer.sdk.listener.ChangedEvent;
 import org.dbsyncer.sdk.listener.QuartzListenerContext;
 import org.dbsyncer.sdk.listener.Watcher;
@@ -36,15 +36,17 @@ public final class ParserConsumer implements Watcher {
     private final ProfileComponent profileComponent;
     private final PluginFactory pluginFactory;
     private final LogService logService;
+    private final MessageService messageService;
     private final String metaId;
     private final Runnable onClose;
 
-    public ParserConsumer(BufferActuatorRouter bufferActuatorRouter, ProfileComponent profileComponent, PluginFactory pluginFactory, LogService logService, String metaId, List<TableGroup> tableGroups, Runnable onClose) {
+    public ParserConsumer(BufferActuatorRouter bufferActuatorRouter, ProfileComponent profileComponent, PluginFactory pluginFactory, LogService logService, String metaId, List<TableGroup> tableGroups, MessageService messageService, Runnable onClose) {
         this.bufferActuatorRouter = bufferActuatorRouter;
         this.profileComponent = profileComponent;
         this.pluginFactory = pluginFactory;
         this.logService = logService;
         this.metaId = metaId;
+        this.messageService = messageService;
         this.onClose = onClose;  // 初始化 onClose
         // 注册到路由服务中
         bufferActuatorRouter.getOrCreateActuator(metaId);
@@ -82,7 +84,7 @@ public final class ParserConsumer implements Watcher {
                             profileComponent.editConfigModel(tableGroup);
                         }
                     } catch (Exception e) {
-                        logger.error("持久化 TableGroup 失败: tableGroupId={}", tableGroupId, e);
+                        logger.error("持久化 TableGroup 失败：tableGroupId={}", tableGroupId, e);
                     }
                 }
                 // 持久化完成后清空标记
@@ -103,6 +105,9 @@ public final class ParserConsumer implements Watcher {
                 String errorMessage = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
                 meta.saveState(MetaEnum.ERROR, errorMessage);
                 logger.info("Meta 状态已更新为 ERROR: metaId={}, errorMessage={}", metaId, errorMessage);
+                
+                // 发送任务中断通知
+                sendTaskInterruptedNotification(meta, errorMessage);
             }
         } catch (Exception ex) {
             logger.error("更新 Meta 状态失败：metaId={}", metaId, ex);
@@ -118,6 +123,35 @@ public final class ParserConsumer implements Watcher {
                     logger.error("errorEvent 触发关闭失败：metaId={}", metaId, ex);
                 }
             });
+        }
+    }
+    
+    /**
+     * 发送任务中断通知
+     */
+    private void sendTaskInterruptedNotification(Meta meta, String errorMessage) {
+        try {
+            String mappingId = meta.getMappingId();
+            // 通过 mappingId 获取 Mapping 对象
+            Mapping mapping = profileComponent.getMapping(mappingId);
+            if (mapping == null) {
+                logger.warn("找不到 Mapping 配置，无法发送通知：mappingId={}", mappingId);
+                return;
+            }
+            
+            String mappingName = mapping.getName();
+            
+            StringBuilder msg = new StringBuilder();
+            msg.append("### DBSyncer 任务中断\n\n");
+            msg.append("**错误类型**: ").append(NotifyType.TASK_INTERRUPTED.getName()).append("\n\n");
+            msg.append("**Mapping ID**: ").append(mappingId).append("\n\n");
+            msg.append("**任务名称**: ").append(mappingName).append("\n\n");
+            msg.append("**错误原因**: ").append(errorMessage);
+            messageService.sendMessage("dbsyncer", msg.toString(), NotifyType.TASK_INTERRUPTED);
+            
+            logger.info("发送任务中断通知成功：metaId={}, mappingId={}", metaId, mappingId);
+        } catch (Exception ex) {
+            logger.error("发送任务中断通知失败：metaId={}", metaId, ex);
         }
     }
 

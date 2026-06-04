@@ -23,7 +23,7 @@ public class BaseServiceImpl {
     private LogService logService;
 
     @Resource
-    private MessageService messageService;
+    protected MessageService messageService;
 
     /**
      * 驱动启停锁

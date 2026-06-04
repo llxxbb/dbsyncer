@@ -6,9 +6,12 @@ import org.dbsyncer.parser.MessageService;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.model.UserConfig;
 import org.dbsyncer.plugin.model.NotifyMessage;
+import org.dbsyncer.plugin.model.NotifyType;
 import org.dbsyncer.plugin.NotifyService;
 import org.springframework.stereotype.Component;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -17,7 +20,12 @@ import java.util.List;
 @Component
 public class MessageServiceImpl implements MessageService {
 
-    @Resource
+    /**
+     * NotifyService 为可选注入，未配置时通过 CompositeNotifyService 兜底
+     * 若 CompositeNotifyService.channels 为空，则所有通知直接跳过
+     */
+    @Autowired
+    @Qualifier("compositeNotifyService")
     private NotifyService notifyService;
 
     @Resource
@@ -25,6 +33,15 @@ public class MessageServiceImpl implements MessageService {
 
     @Override
     public void sendMessage(String title, String content) {
+        sendMessage(title, content, null);
+    }
+
+    @Override
+    public void sendMessage(String title, String content, NotifyType type) {
+        if (notifyService == null) {
+            return;
+        }
+
         UserConfig userConfig = profileComponent.getUserConfig();
         if (null == userConfig) {
             return;
@@ -36,10 +53,13 @@ public class MessageServiceImpl implements MessageService {
                 mails.addAll(Arrays.asList(StringUtil.split(userInfo.getEmail(), StringUtil.COMMA)));
             }
         });
-        if (CollectionUtils.isEmpty(mails)) {
-            return;
-        }
-        notifyService.sendMessage(NotifyMessage.newBuilder().setTitle(title).setContent(content).setReceivers(mails));
+
+        NotifyMessage msg = NotifyMessage.newBuilder()
+                .setTitle(title)
+                .setContent(content)
+                .setReceivers(mails)
+                .setType(type);
+        notifyService.sendMessage(msg);
     }
 
 }

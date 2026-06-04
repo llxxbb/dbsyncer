@@ -286,33 +286,6 @@ public class MonitorServiceImpl extends BaseServiceImpl implements MonitorServic
 
     @Override
     public void run() {
-        // 预警：驱动出现失败记录，发送通知消息
-        List<Meta> metaAll = profileComponent.getMetaAll();
-        if (CollectionUtils.isEmpty(metaAll)) {
-            return;
-        }
-
-        StringBuilder content = new StringBuilder();
-        metaAll.forEach(meta -> {
-            // 有失败记录
-            if (MetaEnum.isRunning(meta.getState()) && meta.getFail().get() > 0) {
-                Mapping mapping = profileComponent.getMapping(meta.getMappingId());
-                if (null != mapping) {
-                    ModelEnum modelEnum = ModelEnum.getModelEnum(mapping.getModel());
-                    content.append("<p>");
-                    content.append(String.format("%s(%s) 失败:%s, 成功:%s", mapping.getName(), modelEnum.getName(), meta.getFail(), meta.getSuccess()));
-                    if (ModelEnum.FULL == modelEnum) {
-                        content.append(String.format(", 总数:%s", meta.getTotal()));
-                    }
-                    content.append("<p>");
-                }
-            }
-        });
-
-        String msg = content.toString();
-        if (StringUtil.isNotBlank(msg)) {
-            sendNotifyMessage("同步失败", msg);
-        }
     }
 
     private Paging queryData(String metaId, int pageNum, int pageSize, String error, String dataStatus) {

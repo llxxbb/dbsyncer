@@ -26,6 +26,11 @@ public class NotifyMessage {
      */
     private List<String> receivers;
 
+    /**
+     * 事件类型
+     */
+    private NotifyType type;
+
     public static NotifyMessage newBuilder() {
         return new NotifyMessage();
     }
@@ -54,6 +59,15 @@ public class NotifyMessage {
 
     public NotifyMessage setReceivers(List<String> receivers) {
         this.receivers = receivers;
+        return this;
+    }
+
+    public NotifyType getType() {
+        return type;
+    }
+
+    public NotifyMessage setType(NotifyType type) {
+        this.type = type;
         return this;
     }
 }

@@ -7,6 +7,7 @@ import org.dbsyncer.common.scheduled.ScheduledTaskService;
 import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.manager.ManagerException;
 import org.dbsyncer.manager.Puller;
+import org.dbsyncer.parser.MessageService;
 import org.dbsyncer.parser.ParserComponent;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.TableGroupContext;
@@ -64,6 +65,9 @@ public final class IncrementPuller implements Puller {
 
     @Resource
     private ParserComponent parserComponent;
+
+    @Resource
+    private MessageService messageService;
 
     @Resource
     private ProfileComponent profileComponent;
@@ -186,6 +190,7 @@ public final class IncrementPuller implements Puller {
             logService, 
             meta.getId(), 
             list, 
+            messageService,
             onClose  // 传递顶层关闭回调
         );
         listener.register(consumer);

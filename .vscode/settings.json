@@ -1,4 +1,20 @@
 {
     "java.compile.nullAnalysis.mode": "disabled",
-    "java.configuration.updateBuildConfiguration": "automatic"
+    "java.configuration.updateBuildConfiguration": "automatic",
+
+    // =============================================
+    // 3. 【性能】排除无用目录，避免多模块项目性能雪崩
+    // =============================================
+    "files.watcherExclude": {
+        "**/target/**": true,      // Maven 编译输出，这是罪魁祸首
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true,
+        "**/node_modules/**": true
+    },
+
+    // =============================================
+    // 4. 【同步】确保 Java 插件使用操作系统文件系统事件
+    // =============================================
+    // 告诉 Java 插件不要仅依赖自身的轮询机制，而是信任操作系统的文件变更事件
+    "java.settings.url": ".vscode/java-settings.xml"  // 可选，高级调优
 }

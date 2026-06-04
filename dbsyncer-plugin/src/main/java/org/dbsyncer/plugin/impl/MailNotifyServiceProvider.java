@@ -3,17 +3,15 @@ package org.dbsyncer.plugin.impl;
 import com.sun.mail.util.MailSSLSocketFactory;
 import org.dbsyncer.common.config.AppConfig;
 import org.dbsyncer.common.util.StringUtil;
+import org.dbsyncer.plugin.config.NotifyConfig;
 import org.dbsyncer.plugin.model.NotifyMessage;
 import org.dbsyncer.plugin.NotifyService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 
 import javax.annotation.PostConstruct;
-import javax.annotation.Resource;
 import javax.mail.Authenticator;
 import javax.mail.Message;
 import javax.mail.PasswordAuthentication;
@@ -32,39 +30,37 @@ import java.util.Properties;
  * @version 1.0.0
  * @date 2022/11/13 22:20
  */
-@Component
-@ConditionalOnProperty(value = "dbsyncer.plugin.notify.mail.enabled", havingValue = "true")
-@ConfigurationProperties(prefix = "dbsyncer.plugin.notify.mail")
+@Component("mailNotifyService")
 public final class MailNotifyServiceProvider implements NotifyService {
 
-    private final Logger logger = LoggerFactory.getLogger(getClass());
+    private static final Logger logger = LoggerFactory.getLogger(MailNotifyServiceProvider.class);
 
-    @Resource
-    private AppConfig appConfig;
-
-    /**
-     * 邮箱账户
-     */
-    private String username;
-
-    /**
-     * 授权码
-     */
-    private String password;
+    private final AppConfig appConfig;
+    private final NotifyConfig notifyConfig;
 
     /**
      * 邮箱会话
      */
     private Session session;
 
+    public MailNotifyServiceProvider(AppConfig appConfig, NotifyConfig notifyConfig) {
+        this.appConfig = appConfig;
+        this.notifyConfig = notifyConfig;
+    }
+
     @PostConstruct
     private void init() {
+        NotifyConfig.MailConfig mail = notifyConfig.getMail();
+        if (StringUtil.isBlank(mail.getUsername())) {
+            return;
+        }
+
         try {
             final Properties props = new Properties();
             props.put("mail.smtp.auth", "true");
             props.put("mail.smtp.host", "smtp.qq.com");
-            props.put("mail.user", username);
-            props.put("mail.password", password);
+            props.put("mail.user", mail.getUsername());
+            props.put("mail.password", mail.getPassword());
             MailSSLSocketFactory sf = new MailSSLSocketFactory();
             sf.setTrustAllHosts(true);
             props.put("mail.smtp.ssl.enable", "true");
@@ -73,7 +69,7 @@ public final class MailNotifyServiceProvider implements NotifyService {
             session = Session.getInstance(props, new Authenticator() {
                 @Override
                 protected PasswordAuthentication getPasswordAuthentication() {
-                    return new PasswordAuthentication(username, password);
+                    return new PasswordAuthentication(mail.getUsername(), mail.getPassword());
                 }
             });
         } catch (GeneralSecurityException e) {
@@ -83,6 +79,10 @@ public final class MailNotifyServiceProvider implements NotifyService {
 
     @Override
     public void sendMessage(NotifyMessage notifyMessage) {
+        if (session == null) {
+            return;
+        }
+
         try {
             checkMail(notifyMessage);
             // 统一应用标题
@@ -92,7 +92,7 @@ public final class MailNotifyServiceProvider implements NotifyService {
             // 创建邮件消息
             MimeMessage message = new MimeMessage(session);
             // 设置发件人
-            message.setFrom(new InternetAddress(username));
+            message.setFrom(new InternetAddress(notifyConfig.getMail().getUsername()));
 
             // 接收人
             List<String> messageReceivers = notifyMessage.getReceivers();
@@ -137,13 +137,5 @@ public final class MailNotifyServiceProvider implements NotifyService {
         Assert.notNull(notifyMessage.getTitle(), "邮件主题不能为空");
         Assert.notNull(notifyMessage.getContent(), "邮件内容不能为空");
         Assert.notEmpty(notifyMessage.getReceivers(), "邮件收件人不能为空");
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
     }
 }

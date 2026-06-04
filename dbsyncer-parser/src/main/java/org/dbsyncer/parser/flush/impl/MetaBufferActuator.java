@@ -323,6 +323,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             }
             result = new Result();
             result.error = msg;
+            result.setMappingId(mapping.getId());
             result.setTableGroupId(tableGroup.getId());
             result.setTargetTableGroupName(tableGroup.getTargetTable().getName());
             result.addFailData(RowConverter.toListOfMaps(sourceFields, fieldIndexMap, response.getDataList()));
@@ -364,6 +365,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             }
             result = new Result();
             result.error = msg;
+            result.setMappingId(mapping.getId());
             result.setTableGroupId(tableGroup.getId());
             result.addFailData(RowConverter.toListOfMaps(sourceFields, fieldIndexMap, response.getDataList()));
             result.setTargetTableGroupName(tableGroup.getTargetTable().getName());
@@ -396,13 +398,14 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             result = connectorFactory.writeBatch(context);
 
             // 5、持久化同步结果
+            result.setMappingId(mapping.getId());
             result.setTableGroupId(tableGroup.getId());
             result.setTargetTableGroupName(context.getTargetTableName());
 
             // 6、执行后置处理
             pluginFactory.process(context, ProcessEnum.AFTER);
             // 生产不使用下面的代码，用于生成错误数据
-//            throw new RuntimeException("just test");
+        //    throw new RuntimeException("just test");
         } catch (Exception e) {
             logger.error("process batch data error:", e);
             // 只在重试场景下设置重试标识
@@ -411,6 +414,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             }
             result = new Result();
             result.error = e.getMessage();
+            result.setMappingId(mapping.getId());
             result.setTableGroupId(tableGroup.getId());
             result.setTargetTableGroupName(context.getTargetTableName());
             result.addFailData(sourceDataList);  // 存储源数据，便于重试时直接使用
@@ -469,6 +473,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
                 logger.error("目标 DDL 执行失败: table={}, sql={}, error={}", tableGroup.getTargetTable().getName(), targetDDLConfig.getSql(), result.error);
             }
             // 5.持久化增量事件数据(含错误信息)
+            result.setMappingId(mapping.getId());
             result.setTableGroupId(tableGroup.getId());
             result.setTargetTableGroupName(tableGroup.getTargetTable().getName());
             flushStrategy.flushIncrementData(mapping.getMetaId(), result, response.getEvent());

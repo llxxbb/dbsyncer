@@ -26,6 +26,11 @@ public class Result<T> {
     private String tableGroupId;
 
     /**
+     * 映射关系ID
+     */
+    private String mappingId;
+
+    /**
      * 目标表名称
      */
     private String targetTableGroupName;
@@ -83,5 +88,13 @@ public class Result<T> {
 
     public void setTargetTableGroupName(String targetTableGroupName) {
         this.targetTableGroupName = targetTableGroupName;
+    }
+
+    public String getMappingId() {
+        return mappingId;
+    }
+
+    public void setMappingId(String mappingId) {
+        this.mappingId = mappingId;
     }
 }

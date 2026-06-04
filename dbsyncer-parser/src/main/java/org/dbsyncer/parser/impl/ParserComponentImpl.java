@@ -228,6 +228,7 @@ public class ParserComponentImpl implements ParserComponent {
 
         // 5、更新Meta统计信息
         if (result != null) {
+            result.setMappingId(profileComponent.getMeta(metaId).getMappingId());
             result.setTargetTableGroupName(tableGroup.getName());
             result.setTableGroupId(tableGroup.getId());
             flushStrategy.flushFullData(metaId, result, ConnectorConstant.OPERTION_INSERT);

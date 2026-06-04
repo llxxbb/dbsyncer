@@ -2,13 +2,15 @@ package org.dbsyncer.manager;
 
 import org.dbsyncer.manager.impl.FullIncrementPuller;
 import org.dbsyncer.manager.impl.FullPuller;
-import org.dbsyncer.sdk.spi.LogService;
-import org.dbsyncer.sdk.spi.LogType;
+import org.dbsyncer.parser.MessageService;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.enums.MetaEnum;
 import org.dbsyncer.parser.model.Mapping;
 import org.dbsyncer.parser.model.Meta;
 import org.dbsyncer.parser.model.TableGroup;
+import org.dbsyncer.plugin.model.NotifyType;
+import org.dbsyncer.sdk.spi.LogService;
+import org.dbsyncer.sdk.spi.LogType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 
@@ -29,6 +31,9 @@ public class ManagerFactory {
     private ProfileComponent profileComponent;
 
     @Resource
+    private MessageService messageService;
+
+    @Resource
     private Map<String, Puller> map;
 
     @Resource
@@ -41,7 +46,7 @@ public class ManagerFactory {
     public void start(Mapping mapping, List<TableGroup> tableGroupsToSync) throws Exception {
         Puller puller = getPuller(mapping);
 
-        // 标记运行中，使用Meta类的统一方法
+        // 标记运行中，使用 Meta 类的统一方法
         Meta meta = profileComponent.getMeta(mapping.getMetaId());
         meta.setBeginTime(Instant.now().toEpochMilli());
         meta.saveState(MetaEnum.RUNNING);
@@ -58,9 +63,22 @@ public class ManagerFactory {
                 puller.start(mapping);
             }
         } catch (Exception e) {
-            // 记录异常状态和异常信息到Meta对象，使用统一方法
+            // 记录异常状态和异常信息到 Meta 对象，使用统一方法
             meta.saveState(MetaEnum.ERROR, e.getMessage());
-            logService.log(LogType.MappingLog.RUNNING, String.format("Puller启动失败: mappingId=%s, metaId=%s, error=%s", mapping.getId(), mapping.getMetaId(), e.getMessage()));
+            logService.log(LogType.MappingLog.RUNNING, String.format("Puller 启动失败：mappingId=%s, metaId=%s, error=%s", mapping.getId(), mapping.getMetaId(), e.getMessage()));
+            
+            // 发送任务中断通知
+            String mappingId = mapping.getId();
+            String mappingName = mapping.getName();
+            
+            StringBuilder msg = new StringBuilder();
+            msg.append("### DBSyncer 任务中断\n\n");
+            msg.append("**错误类型**: ").append(NotifyType.TASK_INTERRUPTED.getName()).append("\n\n");
+            msg.append("**Mapping ID**: ").append(mappingId).append("\n\n");
+            msg.append("**任务名称**: ").append(mappingName).append("\n\n");
+            msg.append("**错误原因**: ").append(e.getMessage());
+            messageService.sendMessage("dbsyncer", msg.toString(), NotifyType.TASK_INTERRUPTED);
+            
             throw new ManagerException(e.getMessage());
         }
     }
@@ -75,10 +93,10 @@ public class ManagerFactory {
         String model = mapping.getModel();
         String metaId = mapping.getMetaId();
         Assert.hasText(model, "同步方式不能为空");
-        Assert.hasText(metaId, "任务ID不能为空");
+        Assert.hasText(metaId, "任务 ID 不能为空");
 
         Puller puller = map.get(model.concat("Puller"));
-        Assert.notNull(puller, String.format("未知的同步方式: %s", model));
+        Assert.notNull(puller, String.format("未知的同步方式：%s", model));
         return puller;
     }
 

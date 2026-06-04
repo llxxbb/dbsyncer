@@ -6,6 +6,7 @@ package org.dbsyncer.parser.strategy.impl;
 import org.dbsyncer.common.model.Result;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.parser.CacheService;
+import org.dbsyncer.parser.MessageService;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.flush.BufferActuator;
 import org.dbsyncer.parser.model.Meta;
@@ -13,9 +14,9 @@ import org.dbsyncer.parser.model.StorageRequest;
 import org.dbsyncer.parser.model.SystemConfig;
 import org.dbsyncer.parser.model.TableGroup;
 import org.dbsyncer.parser.strategy.FlushStrategy;
+import org.dbsyncer.plugin.model.NotifyType;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.spi.LogService;
-import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.storage.enums.StorageDataStatusEnum;
 import org.dbsyncer.storage.impl.SnowflakeIdWorker;
 import org.dbsyncer.storage.util.BinlogMessageUtil;
@@ -56,6 +57,9 @@ public final class FlushStrategyImpl implements FlushStrategy {
     @Resource
     private BufferActuator storageBufferActuator;
 
+    @Resource
+    private MessageService messageService;
+
     @Override
     public void flushFullData(String metaId, Result result, String event) {
         refreshTotal(metaId, result);
@@ -71,19 +75,22 @@ public final class FlushStrategyImpl implements FlushStrategy {
             total.getAndAdd(result.getFailData().size());
             total.getAndAdd(result.getSuccessData().size());
 
-            // 更新TableGroup的增量同步数量
+            // 更新 TableGroup 的增量同步数量
             updateTableGroupIncrementProgress(metaId, result);
             
-            // 更新Meta的同步计数
+            // 更新 Meta 的同步计数
             updateMetaCounts(meta, result);
         }
 
-        // 直接调用asyncWrite方法，不调用flush方法，避免更新fullSuccess和fullFail字段
+        // 直接调用 asyncWrite 方法，不调用 flush 方法，避免更新 fullSuccess 和 fullFail 字段
         flush(metaId, result, event);
+
+        // 错误数据通知
+        notifyOnError(result, event);
     }
 
     /**
-     * 更新TableGroup的增量同步进度
+     * 更新 TableGroup 的增量同步进度
      *
      * @param metaId Meta ID
      * @param result 同步结果，包含成功和失败的数据
@@ -126,7 +133,7 @@ public final class FlushStrategyImpl implements FlushStrategy {
                 }
             }
         } catch (Exception e) {
-            logger.error("更新TableGroup增量同步数量失败", e);
+            logger.error("更新 TableGroup 增量同步数量失败", e);
         }
     }
 
@@ -145,7 +152,7 @@ public final class FlushStrategyImpl implements FlushStrategy {
                 byte[] bytes = BinlogMessageUtil.toBinlogMap(r).toByteArray();
                 row.put(ConfigConstant.BINLOG_DATA, bytes);
             } catch (Exception e) {
-                logger.warn("可能存在Blob或inputStream大文件类型, 无法序列化:{}", r);
+                logger.warn("可能存在 Blob 或 inputStream 大文件类型，无法序列化:{}", r);
             }
             storageBufferActuator.offer(new StorageRequest(metaId, row));
         });
@@ -161,21 +168,21 @@ public final class FlushStrategyImpl implements FlushStrategy {
             int failCount = writer.getFailData().size();
             int totalCount = successCount + failCount;
             String targetTableName = writer.getTargetTableGroupName();
-            logger.info("tableGroupName: {} 写入 {} 条, 失败 {} 条, 总计 {} 条",
+            logger.info("tableGroupName: {} 写入 {} 条，失败 {} 条，总计 {} 条",
                     targetTableName, successCount, failCount, totalCount);
         }
 
-        // 更新Meta的总数
+        // 更新 Meta 的总数
         updateMetaCounts(meta, writer);
 
-        // 更新TableGroup的进度
+        // 更新 TableGroup 的进度
         if (writer.getTableGroupId() != null) {
             updateTableGroupProgress(writer.getTableGroupId(), writer);
         }
     }
 
     /**
-     * 更新Meta的同步计数
+     * 更新 Meta 的同步计数
      *
      * @param meta   元数据对象，包含全局同步计数
      * @param writer 同步结果，包含成功和失败的数据
@@ -187,9 +194,9 @@ public final class FlushStrategyImpl implements FlushStrategy {
     }
 
     /**
-     * 更新TableGroup的同步进度
+     * 更新 TableGroup 的同步进度
      *
-     * @param tableGroupId 表组ID
+     * @param tableGroupId 表组 ID
      * @param writer       同步结果，包含成功和失败的数据
      */
     private void updateTableGroupProgress(String tableGroupId, Result writer) {
@@ -213,27 +220,27 @@ public final class FlushStrategyImpl implements FlushStrategy {
             
 //            profileComponent.editConfigModel(tableGroup);
         } catch (Exception e) {
-            logger.error("更新TableGroup进度失败", e);
+            logger.error("更新 TableGroup 进度失败", e);
         }
     }
 
     /**
-     * 获取TableGroup实例
+     * 获取 TableGroup 实例
      *
-     * @param tableGroupId 表组ID
-     * @return TableGroup实例，如果获取失败返回null
+     * @param tableGroupId 表组 ID
+     * @return TableGroup 实例，如果获取失败返回 null
      */
     private TableGroup getTableGroup(String tableGroupId) {
         try {
             return profileComponent.getTableGroup(tableGroupId);
         } catch (Exception e) {
-            logger.error("获取TableGroup失败", e);
+            logger.error("获取 TableGroup 失败", e);
             return null;
         }
     }
 
     /**
-     * 更新TableGroup的同步计数
+     * 更新 TableGroup 的同步计数
      *
      * @param tableGroup 表组实例
      * @param writer     同步结果，包含成功和失败的数据
@@ -264,7 +271,7 @@ public final class FlushStrategyImpl implements FlushStrategy {
     }
 
     /**
-     * 动态调整TableGroup的总数
+     * 动态调整 TableGroup 的总数
      * 当已完成的同步数量超过当前总数时，更新总数为已完成数量
      *
      * @param tableGroup 表组实例
@@ -277,7 +284,7 @@ public final class FlushStrategyImpl implements FlushStrategy {
     }
 
     /**
-     * 设置TableGroup的预计总数
+     * 设置 TableGroup 的预计总数
      * 如果预计总数未设置，则根据源表计数或当前总数来设置
      *
      * @param tableGroup 表组实例
@@ -295,13 +302,41 @@ public final class FlushStrategyImpl implements FlushStrategy {
     }
 
     /**
-     * 更新TableGroup的同步状态
+     * 更新 TableGroup 的同步状态
      * 根据失败计数判断同步状态：有失败记录则为"异常"，否则为"正常"
      *
      * @param tableGroup 表组实例
      */
     private void updateTableGroupStatus(TableGroup tableGroup) {
         tableGroup.setStatus(tableGroup.getFail() > 0 ? "异常" : "正常");
+    }
+
+    /**
+     * 错误数据通知：当同步结果包含失败数据时发送告警
+     *
+     * @param result  同步结果
+     * @param event   事件类型
+     */
+    private void notifyOnError(Result result, String event) {
+        if (result == null || CollectionUtils.isEmpty(result.getFailData())) {
+            return;
+        }
+
+        String mappingId = result.getMappingId();
+        String tableGroup = result.getTargetTableGroupName();
+        String error = result.error;
+        int failCount = result.getFailData().size();
+        
+        // 构建格式化的消息
+        StringBuilder msg = new StringBuilder();
+        msg.append("### DBSyncer 数据同步异常\n\n");
+        msg.append("**错误类型**: ").append(NotifyType.DATA_ERROR_QUEUE.getName()).append("\n\n");
+        msg.append("**Mapping ID**: ").append(mappingId).append("\n\n");
+        msg.append("**目标表**: ").append(tableGroup).append("\n\n");
+        msg.append("**失败数量**: ").append(failCount).append(" 条\n\n");
+        msg.append("**错误原因**: ").append(error);
+        
+        messageService.sendMessage("dbsyncer", msg.toString(), NotifyType.DATA_ERROR_QUEUE);
     }
 
     private void flush(String metaId, Result result, String event) {
