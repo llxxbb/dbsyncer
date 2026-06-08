@@ -11,6 +11,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -38,10 +40,14 @@ public class DingTalkNotifyServiceProvider implements NotifyService {
         NotifyConfig.DingTalkConfig cfg = notifyConfig.getDingtalk();
         if (!cfg.shouldNotify(msg.getType()) || StringUtil.isBlank(cfg.getWebhookUrl())) return;
 
+        // 添加发送时间到内容
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        String contentWithTime = "**发送时间：** " + timestamp + "\n\n" + msg.getContent();
+        
         try {
             Map<String, Object> markdown = new HashMap<>();
             markdown.put("title", "DBSyncer");
-            markdown.put("text", msg.getContent());
+            markdown.put("text", contentWithTime);
             
             Map<String, Object> payload = new HashMap<>();
             payload.put("msgtype", "markdown");
