@@ -375,7 +375,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
                 return result;
             }, policy);
         } catch (Exception e) {
-            throw new SdkException("写入重试耗尽", e);
+            throw new SdkException(e);
         }
     }
 
