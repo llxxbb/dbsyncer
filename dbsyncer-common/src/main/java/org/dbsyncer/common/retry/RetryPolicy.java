@@ -35,11 +35,17 @@ public class RetryPolicy {
     /** 重试关键字列表 */
     private List<String> keywords;
 
+    /** 排除关键字列表（命中后直接抛出异常，不重试） */
+    private List<String> excludeKeywords;
+
     /** 关键字匹配模式 */
     private MatchMode matchMode = MatchMode.CONTAINS_IGNORE_CASE;
 
     /** 缓存的关键字匹配器 */
     private volatile KeywordMatcher matcher;
+
+    /** 缓存的排除关键字匹配器 */
+    private volatile KeywordMatcher excludeMatcher;
 
     /**
      * 关键字匹配模式
@@ -128,6 +134,15 @@ public class RetryPolicy {
         this.matcher = null;
     }
 
+    public List<String> getExcludeKeywords() {
+        return excludeKeywords;
+    }
+
+    public void setExcludeKeywords(List<String> excludeKeywords) {
+        this.excludeKeywords = excludeKeywords;
+        this.excludeMatcher = null;
+    }
+
     public MatchMode getMatchMode() {
         return matchMode;
     }
@@ -135,6 +150,7 @@ public class RetryPolicy {
     public void setMatchMode(MatchMode matchMode) {
         this.matchMode = matchMode;
         this.matcher = null;
+        this.excludeMatcher = null;
     }
 
     /**
@@ -159,18 +175,50 @@ public class RetryPolicy {
     }
 
     /**
+     * 获取缓存的排除关键字匹配器（延迟初始化）
+     */
+    KeywordMatcher getExcludeMatcher() {
+        if (excludeMatcher == null) {
+            excludeMatcher = new KeywordMatcher(excludeKeywords, matchMode);
+        }
+        return excludeMatcher;
+    }
+
+    /**
      * 判断异常消息是否匹配重试关键字
+     *
+     * <p>三段式原则：验证 → 处理 → 返回</p>
      *
      * @param message 异常消息
      * @return 是否匹配
      */
     public boolean isKeywordMatch(String message) {
+        // 验证 1：useKeyword 为 false 时，无条件重试
         if (!useKeyword) {
             return true;
         }
+        // 验证 2：message 或 keywords 为空时，不匹配
         if (message == null || keywords == null || keywords.isEmpty()) {
             return false;
         }
+        // 处理：使用缓存的匹配器进行匹配
         return getMatcher().matches(message);
+    }
+
+    /**
+     * 判断异常消息是否匹配排除关键字（命中则不应重试）
+     *
+     * <p>三段式原则：验证 → 处理 → 返回</p>
+     *
+     * @param message 异常消息
+     * @return 是否匹配排除关键字
+     */
+    public boolean isExcludeKeywordMatch(String message) {
+        // 验证：message 或 excludeKeywords 为空时，不匹配
+        if (message == null || excludeKeywords == null || excludeKeywords.isEmpty()) {
+            return false;
+        }
+        // 处理：使用缓存的排除关键字匹配器进行匹配
+        return getExcludeMatcher().matches(message);
     }
 }

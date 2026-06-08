@@ -369,4 +369,153 @@ public class RetryInterceptorTest {
             fail("unexpected: " + e.getMessage());
         }
     }
+
+    // ==================== 排除关键字优先测试 ====================
+
+    @Test
+    public void testExcludeKeywordPriorityOverRetryKeyword() {
+        // 验证排除关键字优先级高于重试关键字
+        // 当同时命中 exclude 和 keywords 时，应不重试
+        AtomicInteger counter = new AtomicInteger(0);
+        ThrowingSupplier<String> op = () -> {
+            counter.incrementAndGet();
+            throw new RuntimeException("deadlock detected and fatal error");
+        };
+
+        RetryPolicy policy = new RetryPolicy();
+        policy.setDisable(false);
+        policy.setMaxAttempts(5);
+        policy.setInitialIntervalMs(10L);
+        policy.setMultiplier(1.0);
+        policy.setUseKeyword(true);
+        policy.setKeywords(Arrays.asList("deadlock"));       // 命中 - 应重试
+        policy.setExcludeKeywords(Arrays.asList("fatal"));   // 命中 - 不重试
+        policy.setMatchMode(RetryPolicy.MatchMode.CONTAINS);
+
+        try {
+            interceptor.execute(op, policy);
+            fail("should throw");
+        } catch (RuntimeException e) {
+            // 应只执行 1 次，因为排除关键字优先级更高
+            assertEquals(1, counter.get());
+        } catch (Exception e) {
+            fail("unexpected: " + e.getMessage());
+        }
+    }
+
+    @Test
+    public void testExcludeKeywordOnlyNoRetry() {
+        // 验证命中排除关键字时不重试
+        AtomicInteger counter = new AtomicInteger(0);
+        ThrowingSupplier<String> op = () -> {
+            counter.incrementAndGet();
+            throw new RuntimeException("deadlock occurred");
+        };
+
+        RetryPolicy policy = new RetryPolicy();
+        policy.setDisable(false);
+        policy.setMaxAttempts(5);
+        policy.setInitialIntervalMs(10L);
+        policy.setMultiplier(1.0);
+        policy.setUseKeyword(true);
+        policy.setKeywords(Arrays.asList("timeout"));         // 不命中
+        policy.setExcludeKeywords(Arrays.asList("deadlock")); // 命中
+        policy.setMatchMode(RetryPolicy.MatchMode.CONTAINS);
+
+        try {
+            interceptor.execute(op, policy);
+            fail("should throw");
+        } catch (RuntimeException e) {
+            // 应只执行 1 次，因为命中排除关键字
+            assertEquals(1, counter.get());
+        } catch (Exception e) {
+            fail("unexpected: " + e.getMessage());
+        }
+    }
+
+    @Test
+    public void testUseKeywordFalseNoFilter() throws Exception {
+        // 验证 useKeyword=false 时，即使不命中 keywords 也重试
+        AtomicInteger counter = new AtomicInteger(0);
+        ThrowingSupplier<String> op = () -> {
+            if (counter.incrementAndGet() < 3) {
+                throw new RuntimeException("connection reset"); // 不命中任何关键字
+            }
+            return "success";
+        };
+
+        RetryPolicy policy = new RetryPolicy();
+        policy.setDisable(false);
+        policy.setMaxAttempts(5);
+        policy.setInitialIntervalMs(10L);
+        policy.setMultiplier(1.0);
+        policy.setUseKeyword(false);  // 关闭关键字匹配
+        policy.setKeywords(Arrays.asList("deadlock"));
+        policy.setMatchMode(RetryPolicy.MatchMode.CONTAINS);
+
+        String result = interceptor.execute(op, policy);
+
+        assertEquals("success", result);
+        assertEquals(3, counter.get());
+    }
+
+    @Test
+    public void testExcludeKeywordsNullBehavior() throws Exception {
+        // 验证 excludeKeywords 为 null 时不拦截
+        AtomicInteger counter = new AtomicInteger(0);
+        ThrowingSupplier<String> op = () -> {
+            if (counter.incrementAndGet() < 2) {
+                throw new RuntimeException("deadlock occurred");
+            }
+            return "success";
+        };
+
+        RetryPolicy policy = new RetryPolicy();
+        policy.setDisable(false);
+        policy.setMaxAttempts(5);
+        policy.setInitialIntervalMs(10L);
+        policy.setMultiplier(1.0);
+        policy.setUseKeyword(true);
+        policy.setKeywords(Arrays.asList("deadlock"));
+        policy.setExcludeKeywords(null);  // excludeKeywords 为 null
+        policy.setMatchMode(RetryPolicy.MatchMode.CONTAINS);
+
+        String result = interceptor.execute(op, policy);
+
+        assertEquals("success", result);
+        assertEquals(2, counter.get());
+    }
+
+    @Test
+    public void testKeywordsAndExcludeKeywordsBothEmpty() throws Exception {
+        // 验证 keywords 和 excludeKeywords 都为空时的行为
+        AtomicInteger counter = new AtomicInteger(0);
+        ThrowingSupplier<String> op = () -> {
+            if (counter.incrementAndGet() < 2) {
+                throw new RuntimeException("any error");
+            }
+            return "success";
+        };
+
+        RetryPolicy policy = new RetryPolicy();
+        policy.setDisable(false);
+        policy.setMaxAttempts(5);
+        policy.setInitialIntervalMs(10L);
+        policy.setMultiplier(1.0);
+        policy.setUseKeyword(true);
+        policy.setKeywords(Arrays.asList());       // 空
+        policy.setExcludeKeywords(Arrays.asList()); // 空
+        policy.setMatchMode(RetryPolicy.MatchMode.CONTAINS);
+
+        // useKeyword=true 且 keywords 为空时，isKeywordMatch 返回 false
+        // 因此不重试，直接抛出异常
+        try {
+            interceptor.execute(op, policy);
+            fail("should throw");
+        } catch (RuntimeException e) {
+            assertEquals(1, counter.get());
+        } catch (Exception e) {
+            fail("unexpected: " + e.getMessage());
+        }
+    }
 }

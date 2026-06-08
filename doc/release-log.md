@@ -2,6 +2,8 @@
 
 ## 2.25.1
 
+新功能：重试增加排除关键字配置（dbsyncer.retry.global.excludeKeywords[n]=deadlock）
+
 优化：用真实原因替换错误队列的“写入重试耗尽”。
 
 ## 2.25.0

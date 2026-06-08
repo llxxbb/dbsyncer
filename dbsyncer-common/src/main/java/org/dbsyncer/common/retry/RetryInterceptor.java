@@ -132,33 +132,66 @@ public class RetryInterceptor {
 
     /**
      * 判断异常是否应该重试
+     *
+     * <p>三段式原则：验证 → 处理 → 返回</p>
+     *
+     * 逻辑顺序：
+     * 1. 验证：检查是否命中排除关键字，命中则不重试
+     * 2. 处理：检查是否启用关键字匹配模式
+     * 3. 返回：返回重试决策结果
      */
     private boolean shouldRetry(Exception e, RetryPolicy policy, String message) {
+        // 验证 1：检查排除关键字（命中则立即抛出，不重试）
+        if (policy.isExcludeKeywordMatch(message)) {
+            return false;
+        }
+        // 验证 2：检查是否启用关键字匹配模式
         if (!policy.isUseKeyword()) {
             return true;
         }
+        // 处理：检查是否命中重试关键字
         return policy.isKeywordMatch(message);
     }
 
     /**
-     * 查找实际匹配的关键字
+     * 查找实际匹配的关键字（用于日志）
+     *
+     * <p>三段式原则：验证 → 处理 → 返回</p>
+     *
+     * 返回格式：
+     * - 命中排除关键字：返回 "EXCLUDED:" + 关键字
+     * - 命中重试关键字：返回关键字
+     * - 未命中任何关键字：返回 null
      */
     private String findMatchedKeyword(String message, RetryPolicy policy) {
+        // 验证：message 为空时直接返回
         if (message == null) {
             return null;
         }
+        
+        // 处理 1：优先检查排除关键字
+        List<String> excludeKeywords = policy.getExcludeKeywords();
+        if (excludeKeywords != null && !excludeKeywords.isEmpty()) {
+            KeywordMatcher excludeMatcher = policy.getExcludeMatcher();
+            for (String keyword : excludeKeywords) {
+                if (keyword != null && excludeMatcher.match(message, keyword)) {
+                    return "EXCLUDED:" + keyword;
+                }
+            }
+        }
+        
+        // 处理 2：再检查重试关键字
         List<String> keywords = policy.getKeywords();
         if (keywords == null || keywords.isEmpty()) {
             return null;
         }
-
-        // 复用 policy 内部缓存的匹配器
         KeywordMatcher matcher = policy.getMatcher();
         for (String keyword : keywords) {
             if (keyword != null && matcher.match(message, keyword)) {
                 return keyword;
             }
         }
+        // 返回：未命中任何关键字
         return null;
     }
 

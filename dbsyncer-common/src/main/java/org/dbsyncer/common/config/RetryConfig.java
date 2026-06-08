@@ -102,6 +102,7 @@ public class RetryConfig {
         logger.info("  useKeyword: {}", global.isUseKeyword());
         logger.info("  matchMode: {}", global.getMatchMode());
         logger.info("  keywords: {}", global.getKeywords());
+        logger.info("  excludeKeywords: {}", global.getExcludeKeywords());
 
         if (task != null && !task.isEmpty()) {
             logger.info("任务级配置 ({} 个任务):", task.size());
@@ -117,6 +118,7 @@ public class RetryConfig {
                 logger.info("    useKeyword: {}", policy.isUseKeyword());
                 logger.info("    matchMode: {}", policy.getMatchMode());
                 logger.info("    keywords: {}", policy.getKeywords());
+                logger.info("    excludeKeywords: {}", policy.getExcludeKeywords());
             });
         } else {
             logger.info("任务级配置: 无");
