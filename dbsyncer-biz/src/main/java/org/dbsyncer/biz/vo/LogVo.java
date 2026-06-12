@@ -3,7 +3,10 @@ package org.dbsyncer.biz.vo;
 public class LogVo {
 
     private String id;
-    private String type;
+    private String modelType;    // 实体类型：mapping, system, connector
+    private String modelId;      // 实体 ID
+    private String logType;      // 日志类型：INSERT, UPDATE, DELETE, CONNECT
+    private String logLevel;     // 日志级别：INFO, WARN, ERROR
     private String json;
     private long createTime;
 
@@ -15,14 +18,37 @@ public class LogVo {
         this.id = id;
     }
 
-    public String getType() {
-        return type;
+    public String getModelType() {
+        return modelType;
     }
 
-    public void setType(String type) {
-        this.type = type;
+    public void setModelType(String modelType) {
+        this.modelType = modelType;
     }
 
+    public String getModelId() {
+        return modelId;
+    }
+
+    public void setModelId(String modelId) {
+        this.modelId = modelId;
+    }
+
+    public String getLogType() {
+        return logType;
+    }
+
+    public void setLogType(String logType) {
+        this.logType = logType;
+    }
+
+    public String getLogLevel() {
+        return logLevel;
+    }
+
+    public void setLogLevel(String logLevel) {
+        this.logLevel = logLevel;
+    }
     public String getJson() {
         return json;
     }

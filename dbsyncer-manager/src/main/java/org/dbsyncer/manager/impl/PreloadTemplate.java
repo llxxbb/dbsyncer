@@ -214,7 +214,7 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
                         connectorFactory.connect(connector.getConfig());
                     } catch (Exception e) {
                         logger.error("连接配置异常", e);
-                        logService.log(LogType.ConnectorLog.FAILED, e.getMessage());
+                        logService.log(connector, LogType.CONNECT, String.format("连接器连接失败：connectorType=%s, error=%s", connector.getConfig().getConnectorType(), e.getMessage()));
                     }
                 });
             });

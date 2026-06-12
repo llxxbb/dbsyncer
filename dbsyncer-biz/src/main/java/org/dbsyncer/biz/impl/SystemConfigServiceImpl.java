@@ -14,6 +14,7 @@ import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
+import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.model.ConfigModel;
 import org.dbsyncer.parser.model.SystemConfig;
 import org.dbsyncer.manager.impl.PreloadTemplate;
@@ -119,7 +120,7 @@ public class SystemConfigServiceImpl implements SystemConfigService {
                 preloadTemplate.reload(json.toString());
             }
         } catch (IOException e) {
-            logService.log(LogType.CacheLog.IMPORT_ERROR);
+            logService.log(null, LogType.IMPORT, LogLevel.INFO, "系统配置导入失败：" + e.getMessage());
         } finally {
             FileUtils.deleteQuietly(file);
         }

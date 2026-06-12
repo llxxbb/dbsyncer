@@ -2507,4 +2507,126 @@ function escapeHtml(str) {
     div.appendChild(document.createTextNode(str));
     return div.innerHTML;
 }
+
+// Log 查询功能
+function bindMappingLogEvent(mappingId) {
+    console.log('绑定日志查询事件，mappingId:', mappingId);
+    
+    // 查询日志
+    $('#queryLogBtn').click(function () {
+        var keyword = $('#searchLogKeyword').val();
+        var logType = $('#logTypeFilter').val();
+        var logLevel = $('#logLevelFilter').val();
+        
+        doGetter('/monitor/queryLog', {
+            modelId: mappingId,
+            logType: logType,
+            logLevel: logLevel,
+            json: keyword,
+            pageNum: 1,
+            pageSize: 10
+        }, function (data) {
+            if (data.success === true) {
+                refreshLogList(data.resultValue);
+            } else {
+                bootGrowl(data.resultValue, "danger");
+            }
+        });
+    });
+    
+    // 显示更多
+    $('#queryLogMore').click(function () {
+        var num = parseInt($(this).attr('num'));
+        var keyword = $('#searchLogKeyword').val();
+        var logType = $('#logTypeFilter').val();
+        var logLevel = $('#logLevelFilter').val();
+        
+        showMore($(this), '/monitor/queryLog', {
+            modelId: mappingId,
+            logType: logType,
+            logLevel: logLevel,
+            json: keyword,
+            pageNum: num + 1,
+            pageSize: 10
+        }, function (resultValue) {
+            refreshLogList(resultValue, true);
+        });
+    });
+    
+    // 清空日志
+    $('#clearLogBtn').click(function () {
+        BootstrapDialog.show({
+            title: '警告',
+            type: BootstrapDialog.TYPE_DANGER,
+            message: '确认清空该任务的所有日志？',
+            size: BootstrapDialog.SIZE_NORMAL,
+            buttons: [{
+                label: '确定',
+                action: function (dialog) {
+                    doPoster('/monitor/clearLog', {
+                        modelId: mappingId
+                    }, function (data) {
+                        if (data.success === true) {
+                            bootGrowl('清空日志成功!', "success");
+                            refreshLogList({ data: [], total: 0 });
+                        } else {
+                            bootGrowl(data.resultValue, "danger");
+                        }
+                    });
+                    dialog.close();
+                }
+            }, {
+                label: '取消',
+                action: function (dialog) {
+                    dialog.close();
+                }
+            }]
+        });
+    });
+}
+
+function refreshLogList(resultValue, append) {
+    var $logList = $('#logList');
+    var $logTotal = $('#logTotal');
+    var html = showLog($logList, resultValue.data, append);
+    if (append) {
+        $logList.append(html);
+    } else {
+        $logList.html(html);
+        $('#queryLogMore').attr('num', 1);
+    }
+    $logTotal.html(resultValue.total);
+}
+
+function showLog($logList, arr, append) {
+    var size = arr.length;
+    var html = '';
+    if (size > 0) {
+        var start = append ? $logList.find('tr').length : 0;
+        for (var i = 0; i < size; i++) {
+            html += '<tr>';
+            html += '<td>' + (start + i + 1) + '</td>';
+            html += '<td>' + (arr[i].modelType || arr[i].type || '-') + '</td>';
+            html += '<td>' + (arr[i].logLevel || '-') + '</td>';
+            html += '<td>' + (arr[i].json || '') + '</td>';
+            html += '<td>' + formatDate(arr[i].createTime) + '</td>';
+            html += '</tr>';
+        }
+    }
+    return html;
+}
+
+// 初始化调用
+$(function () {
+    var mappingIdField = $('input[name="mappingId"], #mappingId, #id');
+    var mappingId = mappingIdField.val();
+    
+    if (mappingId) {
+        console.log('页面初始化，发现 mappingId:', mappingId);
+        bindMappingLogEvent(mappingId);
+    } else {
+        console.log('页面初始化，未找到 mappingId 字段');
+    }
+});
+
 //*********************************** 数据源详情 结束位置***********************************//

@@ -23,6 +23,7 @@ import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.manager.ManagerFactory;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
+import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.parser.ParserComponent;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.model.*;
@@ -60,7 +61,7 @@ import java.util.stream.Stream;
  * @date 2019/11/27 23:14
  */
 @Service
-public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroupService {
+public class TableGroupServiceImpl implements TableGroupService {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -74,6 +75,9 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
 
     @Resource
     private ProfileComponent profileComponent;
+
+    @Resource
+    private org.dbsyncer.parser.MessageService messageService;
 
     @Resource
     private ParserComponent parserComponent;
@@ -103,7 +107,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         // 检查是否禁止编辑
         mappingModelService.assertDisableEdit(mapping);
 
-        synchronized (LOCK) {
+        synchronized (this) {
             // table1, table2
             String[] sourceTableArray = StringUtil.split(params.get("sourceTable"), StringUtil.VERTICAL_LINE);
             String[] targetTableArray = StringUtil.split(params.get("targetTable"), StringUtil.VERTICAL_LINE);
@@ -119,7 +123,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
                     // 【修改】保存原始 fieldMapping（JSON格式），用于 DDL 后重新应用
                     String fieldMapping = params.get("fieldMapping");
                     TableGroup model = (TableGroup) tableGroupChecker.checkAddConfigModel(params);
-                    log(LogType.TableGroupLog.INSERT, model);
+                    this.logService.log(model, LogType.INSERT, LogLevel.INFO, "INSERT:" + model.getName());
                     int tableGroupCount = profileComponent.getTableGroupCount(mappingId);
                     model.setIndex(tableGroupCount + 1);
                     id = profileComponent.addTableGroup(model);
@@ -161,7 +165,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
                     String msg = String.format("跳过缺少主键的表组 - 驱动:%s, 源表:%s, 目标表:%s, 原因:%s",
                             mappingName, sourceTableName, targetTableName, e.getMessage());
                     logger.warn(msg);
-                    logService.log(LogType.SystemLog.ERROR, msg);
+                    logService.log(mapping, LogType.DELETE, LogLevel.INFO, String.format("%s (mappingId=%s)", msg, mappingId));
                 }
             }
             submitTableGroupCountTask(mapping, list);
@@ -260,7 +264,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         }
 
         // 所有 DDL 成功后保存配置
-        log(LogType.TableGroupLog.UPDATE, model);
+        this.logService.log(model, LogType.UPDATE, LogLevel.INFO, "UPDATE:" + model.getName());
         profileComponent.editTableGroup(model);
         // 初始化 TableGroup（设置运行时组件并初始化 command）
         model.isInit = false;
@@ -307,7 +311,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
             TableGroup model = null;
             try {
                 model = profileComponent.getTableGroup(id);
-                log(LogType.TableGroupLog.DELETE, model);
+                this.logService.log(model, LogType.DELETE, LogLevel.INFO, "DELETE:" + model.getName());
                 profileComponent.removeTableGroup(id);
             } catch (Exception e) {
                 throw new RuntimeException(e);
@@ -336,7 +340,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
     }
 
     private void resetTableGroupAllIndex(String mappingId) throws Exception {
-        synchronized (LOCK) {
+        synchronized (this) {
             List<TableGroup> list = profileComponent.getSortedTableGroupAll(mappingId);
             int size = list.size();
             int i = size;
@@ -532,11 +536,11 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
 
                 logger.info("自定义字段 DDL 执行成功：{}.{}",
                         tableGroup.getTargetTable().getName(), field.getName());
-            } catch (Exception e) {
+             } catch (Exception e) {
                 logger.error("DDL 执行异常：{}", field.getName(), e);
                 // 持久化异常到数据库，带上 mappingId 便于定位
                 String mappingId = mapping != null ? mapping.getId() : "unknown";
-                logService.log(LogType.SystemLog.ERROR,
+                logService.log(tableGroup, LogType.DELETE, LogLevel.ERROR,
                         String.format("[mappingId=%s] DDL 执行异常：表=%s, 字段=%s, 错误=%s",
                                 mappingId, tableGroup.getTargetTable().getName(),
                                 field.getName(), e.getMessage()));
@@ -629,7 +633,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
             if (StringUtil.isNotBlank(result.error)) {
                 // 持久化异常到数据库，带上 mappingId 便于定位
                 String mappingId = tableGroup.getMappingId();
-                logService.log(LogType.SystemLog.ERROR,
+                logService.log(tableGroup, LogType.DELETE,
                         String.format("[mappingId=%s] 修改主键约束失败：表=%s, SQL=%s, 错误=%s",
                                 mappingId, tableGroup.getTargetTable().getName(),
                                 trimmedSql, result.error));
@@ -653,7 +657,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
 
         meta.assertNotRunning();
 
-        synchronized (LOCK) {
+        synchronized (this) {
             logger.info("重新同步表映射关系：驱动={}, 表组IDs={}", mapping.getName(), tableGroupIds);
 
             String[] ids = StringUtil.split(tableGroupIds, ",");
@@ -677,7 +681,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
             for (TableGroup tableGroup : tableGroupsToReset) {
                 tableGroup.clear();
                 profileComponent.editConfigModel(tableGroup);
-                log(LogType.TableGroupLog.UPDATE, tableGroup);
+                this.logService.log(tableGroup, LogType.UPDATE, LogLevel.INFO, "UPDATE:" + tableGroup.getSourceTable().getName() + " >> " + tableGroup.getTargetTable().getName());
             }
 
             // 使用 partialClear 而不是 clear，保留 syncPhase 和 snapshot
@@ -692,12 +696,12 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
             profileComponent.editConfigModel(mapping);
 
             String model = org.dbsyncer.sdk.enums.ModelEnum.getModelEnum(mapping.getModel()).getName();
-            sendNotifyMessage("重新同步", String.format("手动重新同步驱动：%s(%s)，共 %d 个表映射关系",
+            this.messageService.sendMessage("重新同步", String.format("手动重新同步驱动：%s(%s)，共 %d 个表映射关系",
                     mapping.getName(), model, tableGroupsToReset.size()));
 
             // 传递要同步的 TableGroup 列表，实现选择性同步
             managerFactory.start(mapping, tableGroupsToReset);
-            log(LogType.MappingLog.RUNNING, mapping);
+            this.logService.log(mapping, LogType.UPDATE, LogLevel.INFO, "UPDATE:" + mapping.getName());
 
             logger.info("重新同步完成，已自动启动任务：{}", mapping.getName());
 
@@ -1005,7 +1009,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
                     try {
                         tableGroupChecker.refreshTableFields(tableGroup);
                         profileComponent.editTableGroup(tableGroup);
-                        log(LogType.TableGroupLog.UPDATE, tableGroup);
+                        this.logService.log(tableGroup, LogType.UPDATE, LogLevel.INFO, "UPDATE:" + tableGroup.getSourceTable().getName() + " >> " + tableGroup.getTargetTable().getName());
                     } catch (Exception e) {
                         logger.error("刷新表字段失败", e);
                     }
@@ -1031,12 +1035,12 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
                     message = String.format("成功清理 Mapping 配置，共移除 %d/%d 个无效映射",
                             mappingRemovedCount, totalSelected);
                 }
-                logService.log(LogType.SystemLog.INFO, message);
+                logService.log(tableGroup, LogType.INSERT, LogLevel.INFO, message);
                 return message;
             } else {
                 String message = String.format("部分 DDL 执行失败，成功 %d/%d 条，失败 %d 条。失败的 SQL: %s",
                         successCount, totalSelected, failedSqls.size(), String.join("; ", failedSqls));
-                logService.log(LogType.SystemLog.ERROR, message);
+                logService.log(tableGroup, LogType.DELETE, LogLevel.INFO, message);
                 return message;
             }
         }

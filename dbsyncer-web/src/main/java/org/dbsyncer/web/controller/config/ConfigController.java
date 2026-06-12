@@ -10,6 +10,7 @@ import org.dbsyncer.storage.impl.SnowflakeIdWorker;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
+import org.dbsyncer.sdk.spi.LogLevel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -88,7 +89,7 @@ public class ConfigController {
                     systemConfigService.refreshConfig(dest);
                     String msg = String.format("导入配置文件%s", filename);
                     logger.info(msg);
-                    logService.log(LogType.CacheLog.IMPORT, msg);
+                    logService.log(null, LogType.IMPORT, LogLevel.INFO, msg);
                 }
             }
             return RestResult.restSuccess("ok");
@@ -113,7 +114,7 @@ public class ConfigController {
             int length = bytes.length;
             String msg = String.format("导出配置文件%s，大小%dKB", fileName, (length / 1024));
             logger.info(msg);
-            logService.log(LogType.CacheLog.EXPORT, msg);
+            logService.log(null, LogType.EXPORT, LogLevel.INFO, msg);
             outputStream.write(bytes, 0, length);
             outputStream.flush();
         } catch (IOException e) {

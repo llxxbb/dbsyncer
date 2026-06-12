@@ -189,9 +189,10 @@ public class MonitorController extends BaseController {
     @PostMapping("/clearLog")
     @ResponseBody
     @PreAuthorize("hasRole('admin')")
-    public RestResult clearLog() {
+    public RestResult clearLog(HttpServletRequest request) {
         try {
-            return RestResult.restSuccess(monitorService.clearLog());
+            Map<String, String> params = getParams(request);
+            return RestResult.restSuccess(monitorService.clearLog(params));
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage(), e);
             return RestResult.restFail(e.getMessage());

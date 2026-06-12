@@ -12,6 +12,7 @@ import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
+import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.sdk.model.ConfigModel;
 import org.dbsyncer.parser.model.Connector;
@@ -45,7 +46,7 @@ import java.util.stream.Collectors;
  * @date 2019/10/17 23:20
  */
 @Service
-public class ConnectorServiceImpl extends BaseServiceImpl implements ConnectorService {
+public class ConnectorServiceImpl implements ConnectorService {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -66,7 +67,7 @@ public class ConnectorServiceImpl extends BaseServiceImpl implements ConnectorSe
     @Override
     public String add(Map<String, String> params) throws Exception {
         ConfigModel model = connectorChecker.checkAddConfigModel(params);
-        log(LogType.ConnectorLog.INSERT, model);
+        this.logService.log(model, LogType.INSERT, LogLevel.INFO, "INSERT:" + model.getName());
 
         return profileComponent.addConfigModel(model);
     }
@@ -79,7 +80,7 @@ public class ConnectorServiceImpl extends BaseServiceImpl implements ConnectorSe
         Map params = JsonUtil.parseMap(connector.getConfig());
         params.put(ConfigConstant.CONFIG_MODEL_NAME, connector.getName() + "(复制)");
         ConfigModel model = connectorChecker.checkAddConfigModel(params);
-        log(LogType.ConnectorLog.COPY, model);
+        this.logService.log(model, LogType.COPY, LogLevel.INFO, "COPY:" + model.getName());
         profileComponent.addConfigModel(model);
 
         return String.format("复制成功[%s]", model.getName());
@@ -88,7 +89,7 @@ public class ConnectorServiceImpl extends BaseServiceImpl implements ConnectorSe
     @Override
     public String edit(Map<String, String> params) throws Exception {
         ConfigModel model = connectorChecker.checkEditConfigModel(params);
-        log(LogType.ConnectorLog.UPDATE, model);
+        this.logService.log(model, LogType.UPDATE, LogLevel.INFO, "UPDATE:" + model.getName());
 
         return profileComponent.editConfigModel(model);
     }
@@ -109,7 +110,7 @@ public class ConnectorServiceImpl extends BaseServiceImpl implements ConnectorSe
         Connector connector = profileComponent.getConnector(id);
         if (connector != null) {
             connectorFactory.disconnect(connector.getConfig());
-            log(LogType.ConnectorLog.DELETE, connector);
+            this.logService.log(connector, LogType.DELETE, LogLevel.INFO, "DELETE:" + connector.getName());
             profileComponent.removeConfigModel(id);
         }
         return "删除连接器成功!";
@@ -181,8 +182,7 @@ public class ConnectorServiceImpl extends BaseServiceImpl implements ConnectorSe
         try {
             return connectorFactory.isAlive(config);
         } catch (Exception e) {
-            LogType.ConnectorLog logType = LogType.ConnectorLog.FAILED;
-            logService.log(logType, "%s%s", logType.getName(), e.getMessage());
+            logService.log(null, LogType.CONNECT, LogLevel.ERROR, String.format("%s%s", LogType.CONNECT.getType(), e.getMessage()));
             return false;
         }
     }

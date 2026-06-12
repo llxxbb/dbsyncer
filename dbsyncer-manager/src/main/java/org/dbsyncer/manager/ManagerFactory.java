@@ -70,7 +70,7 @@ public class ManagerFactory {
             // 记录异常状态和异常信息到 Meta 对象，使用统一方法
             meta.saveState(MetaEnum.ERROR, e.getMessage());
             logger.error("Puller 启动失败：mappingId={}, metaId={}, error={}", mapping.getId(), mapping.getMetaId(), e.getMessage(), e);
-            logService.log(LogType.MappingLog.RUNNING, String.format("Puller 启动失败：mappingId=%s, metaId=%s, error=%s", mapping.getId(), mapping.getMetaId(), e.getMessage()));
+            logService.log(null, LogType.START, String.format("Puller 启动失败：mappingId=%s, metaId=%s, error=%s", mapping.getId(), mapping.getMetaId(), e.getMessage()));
             
             // 发送任务中断通知
             String mappingId = mapping.getId();

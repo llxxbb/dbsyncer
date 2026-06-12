@@ -11,12 +11,14 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
+import org.dbsyncer.biz.SystemConfigService;
 import org.dbsyncer.biz.UserConfigService;
 import org.dbsyncer.biz.vo.ProductInfoVo;
 import org.dbsyncer.biz.vo.RestResult;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.StringUtil;
+import org.dbsyncer.parser.model.SystemConfig;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.parser.model.UserInfo;
@@ -69,6 +71,9 @@ public class LicenseController extends BaseController {
     @Resource
     private UserConfigService userConfigService;
 
+    @Resource
+    private SystemConfigService systemConfigService;
+
     @Value("${dbsyncer.web.license.server.address:http://101.132.145.213:9999/api/license/create}")
     private String serverAddress;
 
@@ -88,6 +93,12 @@ public class LicenseController extends BaseController {
     @PostMapping(value = "/upload")
     @ResponseBody
     public RestResult upload(MultipartFile[] files) {
+        SystemConfig systemConfig = null;
+        try {
+            systemConfig = (SystemConfig) systemConfigService.getConfigModelAll();
+        } catch (Exception e) {
+            logger.warn("获取系统配置失败：{}", e.getMessage());
+        }
         try {
             if (files != null && files[0] != null) {
                 String filename = "license";
@@ -95,12 +106,12 @@ public class LicenseController extends BaseController {
                 FileUtils.deleteQuietly(dest);
                 FileUtils.copyInputStreamToFile(files[0].getInputStream(), dest);
                 licenseService.updateLicense();
-                logger.info("{}:{}", LogType.UserLog.UPLOAD_LICENSE_FILE.getMessage(), filename);
-                logService.log(LogType.UserLog.UPLOAD_LICENSE_FILE);
+                logger.info("{}:{}", LogType.UPLOAD.getType(), filename);
+                logService.log(systemConfig, LogType.UPLOAD, String.format("上传授权文件成功：%s", filename));
             }
             return RestResult.restSuccess("ok");
         } catch (Exception e) {
-            logService.log(LogType.UserLog.UPLOAD_LICENSE_FILE_ERROR);
+            logService.log(systemConfig, LogType.CONNECT, "上传授权文件失败：" + e.getLocalizedMessage());
             logger.error(e.getLocalizedMessage(), e);
             return RestResult.restFail(e.getMessage());
         }
@@ -109,6 +120,12 @@ public class LicenseController extends BaseController {
     @PostMapping(value = "/activate")
     @ResponseBody
     public RestResult activate(HttpServletRequest request) {
+        SystemConfig systemConfig = null;
+        try {
+            systemConfig = (SystemConfig) systemConfigService.getConfigModelAll();
+        } catch (Exception e) {
+            logger.warn("获取系统配置失败：{}", e.getMessage());
+        }
         try {
             String content = getLicenseContent(getParams(request));
             if (StringUtil.isNotBlank(content)) {
@@ -116,12 +133,12 @@ public class LicenseController extends BaseController {
                 File dest = new File(licenseService.getLicensePath() + filename);
                 FileUtils.writeStringToFile(dest, content, Charset.defaultCharset());
                 licenseService.updateLicense();
-                logger.info("{}:{}", LogType.UserLog.ACTIVATE_FREE_LICENSE_FILE.getMessage(), filename);
-                logService.log(LogType.UserLog.ACTIVATE_FREE_LICENSE_FILE);
+                logger.info("{}:{}", LogType.ACTIVATE.getType(), filename);
+                logService.log(systemConfig, LogType.ACTIVATE, String.format("激活授权许可成功：%s", filename));
             }
             return RestResult.restSuccess("ok");
         } catch (Exception e) {
-            logService.log(LogType.UserLog.ACTIVATE_FREE_LICENSE_FILE_ERROR);
+            logService.log(systemConfig, LogType.CONNECT, "激活授权许可失败：" + e.getLocalizedMessage());
             logger.error(e.getLocalizedMessage(), e);
             return RestResult.restFail(e.getMessage());
         }
@@ -130,16 +147,22 @@ public class LicenseController extends BaseController {
     @PostMapping(value = "/remove")
     @ResponseBody
     public RestResult remove() {
+        SystemConfig systemConfig = null;
+        try {
+            systemConfig = (SystemConfig) systemConfigService.getConfigModelAll();
+        } catch (Exception e) {
+            logger.warn("获取系统配置失败：{}", e.getMessage());
+        }
         try {
             String filename = "license";
             File dest = new File(licenseService.getLicensePath() + filename);
             FileUtils.deleteQuietly(dest);
             licenseService.updateLicense();
-            logger.info("{}:{}", LogType.UserLog.DELETE_LICENSE_FILE.getMessage(), filename);
-            logService.log(LogType.UserLog.DELETE_LICENSE_FILE);
+            logger.info("{}:{}", LogType.DELETE.getType(), filename);
+            logService.log(systemConfig, LogType.DELETE, String.format("删除授权许可成功：%s", filename));
             return RestResult.restSuccess("ok");
         } catch (Exception e) {
-            logService.log(LogType.UserLog.DELETE_LICENSE_FILE_ERROR);
+            logService.log(systemConfig, LogType.DELETE, "删除授权许可失败：" + e.getLocalizedMessage());
             logger.error(e.getLocalizedMessage(), e);
             return RestResult.restFail(e.getMessage());
         }

@@ -8,6 +8,7 @@ import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.manager.ManagerException;
 import org.dbsyncer.manager.Puller;
 import org.dbsyncer.sdk.spi.LogService;
+import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.sdk.enums.MetaEnum;
@@ -127,7 +128,7 @@ public final class FullIncrementPuller implements Puller {
                 }
                 logger.error("混合同步异常，已更新Meta状态为ERROR: {}", metaId, e);
                 // 在logService中记录异常信息
-                logService.log(LogType.TableGroupLog.FULL_FAILED, "混合同步异常: %s，错误信息: %s", metaId, e.getMessage());
+                logService.log(mapping, LogType.START, LogLevel.ERROR, String.format("启动异常：mappingId=%s, metaId=%s, 错误信息=%s", mapping.getId(), metaId, e.getMessage()));
             }
         });
 

@@ -3,8 +3,10 @@ package org.dbsyncer.parser.consumer;
 import org.dbsyncer.parser.MessageService;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.sdk.model.Mapping;
+import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.enums.MetaEnum;
+import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.parser.flush.impl.BufferActuatorRouter;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.sdk.model.TableGroup;
@@ -92,11 +94,13 @@ public final class ParserConsumer implements Watcher {
     @Override
     public void errorEvent(Exception e) {
         // 记录错误到数据库
-        logService.log(org.dbsyncer.sdk.spi.LogType.TableGroupLog.INCREMENT_FAILED, e.getMessage());
+        Meta meta = profileComponent.getMeta(metaId);
+        String mappingId = meta != null ? meta.getMappingId() : null;
+        Mapping mapping = profileComponent.getMapping(mappingId);
+        logService.log(mapping, LogType.SYNC, LogLevel.ERROR, String.format("增量同步异常：映射关系 ID=%s，错误=%s", metaId, e.getMessage()));
         
         // 更新 Meta 状态为 ERROR，确保任务状态正确显示为"异常"
         try {
-            Meta meta = profileComponent.getMeta(metaId);
             if (meta != null && !meta.isError()) {
                 String errorMessage = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
                 meta.saveState(MetaEnum.ERROR, errorMessage);

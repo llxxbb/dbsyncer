@@ -85,12 +85,12 @@ public final class FullPuller implements org.dbsyncer.manager.Puller, ProcessEve
                     throw new RuntimeException(ex);
                 }
                 logger.error(e.getMessage(), e);
-                logService.log(LogType.SystemLog.ERROR, e.getMessage());
+                logService.log(mapping, LogType.DELETE, String.format("混合同步异常|增量同步异常|全量同步异常|Puller 启动失败：mappingId=%s, metaId=%s, 错误信息=%s", mapping.getId(), metaId, e.getMessage()));
             } finally {
                 try {
                     executor.shutdown();
                 } catch (Exception e) {
-                    logService.log(LogType.SystemLog.ERROR, e.getMessage());
+                    logService.log(mapping, LogType.DELETE, String.format("混合同步异常|增量同步异常|全量同步异常|Puller 启动失败：mappingId=%s, metaId=%s, 错误信息=%s", mapping.getId(), metaId, e.getMessage()));
                 }
 
                 // 清除task引用
@@ -144,7 +144,7 @@ public final class FullPuller implements org.dbsyncer.manager.Puller, ProcessEve
                         meta.saveState(MetaEnum.ERROR, e.getMessage());
                     } catch (Exception ignored) {
                     }
-                    logService.log(LogType.SystemLog.ERROR, e.getMessage());
+                    logService.log(mapping, LogType.DELETE, String.format("混合同步异常|增量同步异常|全量同步异常|Puller 启动失败：mappingId=%s, metaId=%s, 错误信息=%s", mapping.getId(), metaId, e.getMessage()));
                 }
             }, executor);
 

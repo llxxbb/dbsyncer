@@ -1,0 +1,17 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anomalyco/opencode/main/schema.json",
+  "instructions": [
+    "使用 coder 技能进行所有编程任务",
+    "使用 decision-tracker 技能进行架构决策",
+    "所有架构变更创建 ADR 记录",
+    "遵循 GSD 文档规范"
+  ],
+  "workspace": {
+    "project_root": "/work/project/github/dbsyncer",
+    "gds_docs": {
+      "projects": ["PROJECT.md"],
+      "roadmaps": ["ROADMAP.md"],
+      "adrs": ["doc/adr"]
+    }
+  }
+}

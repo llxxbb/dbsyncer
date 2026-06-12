@@ -308,7 +308,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             String msg = String.format("字段定位错误！mappingId: %s, 表名: %s, 列名: %s，未找到任何匹配字段",
                     mapping.getId(), response.getTableName(), response.getColumnNames());
             logger.error(msg);
-            logService.log(LogType.MappingLog.RUNNING, msg);
+            logService.log(mapping, LogType.UPDATE, msg);
             // 重试场景下，如果有失败数据，先抛出异常，避免调用 flushIncrementData 写入错误数据
             if (response.isErrQueueRetry()) {
                 throw new RuntimeException("重试失败: " + msg);
@@ -355,7 +355,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             String msg = String.format("异常！mappingId: %s，msg %s",
                     mapping.getId(), e.getMessage());
             logger.error(msg);
-            logService.log(LogType.MappingLog.RUNNING, msg);
+            logService.log(mapping, LogType.UPDATE, msg);
             // 只在重试场景下设置重试标识
             if (response.isErrQueueRetry()) {
                 throw new RuntimeException("重试失败: " + msg);

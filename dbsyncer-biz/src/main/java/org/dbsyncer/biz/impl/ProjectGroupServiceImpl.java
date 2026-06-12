@@ -16,6 +16,7 @@ import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.sdk.spi.LogType;
+import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.model.ConfigModel;
 import org.dbsyncer.parser.model.Connector;
 import org.dbsyncer.parser.model.ProjectGroup;
@@ -37,7 +38,7 @@ import java.util.stream.Collectors;
  * @date 2022/6/9 17:09
  **/
 @Service
-public class ProjectGroupServiceImpl extends BaseServiceImpl implements ProjectGroupService {
+public class ProjectGroupServiceImpl implements ProjectGroupService {
 
     @Resource
     private ConnectorService connectorService;
@@ -47,6 +48,12 @@ public class ProjectGroupServiceImpl extends BaseServiceImpl implements ProjectG
 
     @Resource
     private ProfileComponent profileComponent;
+
+    @Resource
+    private org.dbsyncer.sdk.spi.LogService logService;
+
+    @Resource
+    private org.dbsyncer.parser.MessageService messageService;
 
     @Resource
     private Checker projectGroupChecker;
@@ -60,7 +67,7 @@ public class ProjectGroupServiceImpl extends BaseServiceImpl implements ProjectG
     @Override
     public String add(Map<String, String> params) throws Exception {
         ConfigModel model = projectGroupChecker.checkAddConfigModel(params);
-        log(LogType.ConnectorLog.INSERT, model);
+        this.logService.log(model, LogType.INSERT, LogLevel.INFO, "INSERT:" + model.getName());
 
         return profileComponent.addConfigModel(model);
     }
@@ -68,7 +75,7 @@ public class ProjectGroupServiceImpl extends BaseServiceImpl implements ProjectG
     @Override
     public String edit(Map<String, String> params) throws Exception {
         ConfigModel model = projectGroupChecker.checkEditConfigModel(params);
-        log(LogType.ConnectorLog.UPDATE, model);
+        this.logService.log(model, LogType.UPDATE, LogLevel.INFO, "UPDATE:" + model.getName());
 
         return profileComponent.editConfigModel(model);
     }
@@ -76,7 +83,7 @@ public class ProjectGroupServiceImpl extends BaseServiceImpl implements ProjectG
     @Override
     public String remove(String id) throws Exception {
         ProjectGroup projectGroup = profileComponent.getProjectGroup(id);
-        log(LogType.ConnectorLog.DELETE, projectGroup);
+        this.logService.log(projectGroup, LogType.DELETE, LogLevel.INFO, "DELETE:" + projectGroup.getName());
         Assert.notNull(projectGroup, "该分组已被删除");
         profileComponent.removeConfigModel(id);
         return "删除分组成功!";

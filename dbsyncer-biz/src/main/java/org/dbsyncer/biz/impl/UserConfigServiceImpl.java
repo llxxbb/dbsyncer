@@ -15,6 +15,7 @@ import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
+import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.parser.model.ProjectGroup;
 import org.dbsyncer.parser.model.UserConfig;
 import org.dbsyncer.parser.model.UserGroup;
@@ -85,7 +86,7 @@ public class UserConfigServiceImpl implements UserConfigService {
         // 维护用户组的双向关联：将用户添加到指定的用户组中
         userGroupService.addUserToGroups(username, userGroupIds);
 
-        logService.log(LogType.UserLog.INSERT, String.format("[%s]添加[%s]账号成功", currentUser.getUsername(), username));
+        logService.log(userConfig, LogType.INSERT, LogLevel.INFO, String.format("[用户管理] 添加账号成功：%s (操作人：%s)", username, currentUser.getUsername()));
         return result;
     }
 
@@ -130,14 +131,14 @@ public class UserConfigServiceImpl implements UserConfigService {
                 String oldPwd = params.get("oldPwd");
                 Assert.hasText(oldPwd, "旧密码不能为空.");
                 if (!StringUtil.equals(SHA1Util.b64_sha1(oldPwd), updateUser.getPassword())) {
-                    logService.log(LogType.SystemLog.ERROR, String.format("[%s]修改密码失败", username));
+                    logService.log(userConfig, LogType.DELETE, LogLevel.INFO, String.format("[用户管理] 修改密码失败：用户=%s", username));
                     throw new BizException("修改密码失败.");
                 }
             }
             newPwd = SHA1Util.b64_sha1(newPwd);
             Assert.isTrue(!StringUtil.equals(newPwd, updateUser.getPassword()), "新旧密码不能完全一样.");
             updateUser.setPassword(newPwd);
-            logService.log(LogType.UserLog.UPDATE, String.format("[%s]修改[%s]账号密码成功", currentUser.getUsername(), username));
+            logService.log(userConfig, LogType.UPDATE, LogLevel.INFO, String.format("[用户管理] 修改密码成功：%s (操作人：%s)", username, currentUser.getUsername()));
         }
 
         // 保存用户配置
@@ -186,7 +187,7 @@ public class UserConfigServiceImpl implements UserConfigService {
             userGroupService.removeUserFromGroups(username, userGroupIds);
         }
         
-        logService.log(LogType.UserLog.DELETE, String.format("[%s]删除[%s]账号成功", currentUser.getUsername(), username));
+        logService.log(userConfig, LogType.DELETE, LogLevel.INFO, String.format("[用户管理] 删除账号成功：%s (操作人：%s)", username, currentUser.getUsername()));
         return "删除用户成功!";
     }
 

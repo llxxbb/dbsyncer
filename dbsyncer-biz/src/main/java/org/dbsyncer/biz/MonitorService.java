@@ -62,17 +62,18 @@ public interface MonitorService {
     /**
      * 查询操作日志
      *
-     * @param params
+     * @param params 参数包含 modelId(必填), pageNum, pageSize, type, logLevel, json
      * @return
      */
     Paging queryLog(Map<String, String> params);
 
     /**
-     * 清空操作日志
+     * 清空操作日志 (按 modelId)
      *
+     * @param params 参数包含 modelId(必填)
      * @return
      */
-    String clearLog();
+    String clearLog(Map<String, String> params);
 
     /**
      * 删除过期的数据和日志

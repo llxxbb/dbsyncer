@@ -33,6 +33,7 @@ import org.dbsyncer.common.util.NumberUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
+import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.sdk.enums.MetaEnum;
 import org.dbsyncer.sdk.model.Mapping;
@@ -71,7 +72,7 @@ import java.util.stream.Collectors;
  * @Date 2020-04-27 10:20
  */
 @Service
-public class MonitorServiceImpl extends BaseServiceImpl implements MonitorService, ScheduledTaskJob {
+public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -230,19 +231,30 @@ public class MonitorServiceImpl extends BaseServiceImpl implements MonitorServic
         
         Meta meta = profileComponent.getMeta(metaId);
         Mapping mapping = profileComponent.getMapping(meta.getMappingId());
-        String model = ModelEnum.getModelEnum(mapping.getModel()).getName();
-        LogType.MappingLog log = LogType.MappingLog.CLEAR_DATA;
-        logService.log(log, "%s:%s(%s)", log.getMessage(), mapping.getName(), model);
+        logService.log(mapping, LogType.CLEAR, LogLevel.INFO, String.format("%s:%s(%s)", LogType.CLEAR.getType(), mapping.getName(), mapping.getModel()));
         storageService.clear(StorageEnum.DATA, metaId);
         return "清空同步数据成功";
     }
 
     @Override
     public Paging queryLog(Map<String, String> params) {
+        String modelId = params.get(ConfigConstant.CONFIG_MODEL_ID);
+        Assert.hasText(modelId, "modelId 是必填参数");
+        
         int pageNum = NumberUtil.toInt(params.get("pageNum"), 1);
         int pageSize = NumberUtil.toInt(params.get("pageSize"), 10);
+        String type = params.get("type");
+        String logLevel = params.get("logLevel");
         String json = params.get(ConfigConstant.CONFIG_MODEL_JSON);
+        
         Query query = new Query(pageNum, pageSize);
+        query.addFilter(ConfigConstant.CONFIG_MODEL_ID, modelId, false);
+        if (StringUtil.isNotBlank(type)) {
+            query.addFilter(ConfigConstant.CONFIG_MODEL_TYPE, type, false);
+        }
+        if (StringUtil.isNotBlank(logLevel)) {
+            query.addFilter("logLevel", logLevel, false);
+        }
         if (StringUtil.isNotBlank(json)) {
             query.addFilter(ConfigConstant.CONFIG_MODEL_JSON, json, true);
         }
@@ -256,8 +268,14 @@ public class MonitorServiceImpl extends BaseServiceImpl implements MonitorServic
     }
 
     @Override
-    public String clearLog() {
-        storageService.clear(StorageEnum.LOG, null);
+    public String clearLog(Map<String, String> params) {
+        String modelId = params.get(ConfigConstant.CONFIG_MODEL_ID);
+        Assert.hasText(modelId, "modelId 是必填参数");
+        
+        Query query = new Query();
+        query.addFilter(ConfigConstant.CONFIG_MODEL_ID, modelId, false);
+        query.setType(StorageEnum.LOG);
+        storageService.delete(query);
         return "清空日志成功";
     }
 
@@ -342,7 +360,7 @@ public class MonitorServiceImpl extends BaseServiceImpl implements MonitorServic
         if (mapping == null) {
             String msg = String.format("mapping missing, id: %s, metaId: %s", meta.getMappingId(), meta.getId());
             logger.error(msg);
-            logService.log(LogType.MappingLog.CONFIG, msg);
+            logService.log(mapping, LogType.UPDATE, LogLevel.INFO, String.format("mapping missing, id: %s, metaId: %s", meta.getMappingId(), meta.getId()));
             return new MetaVo("异常", msg);
         }
         ModelEnum modelEnum = ModelEnum.getModelEnum(mapping.getModel());

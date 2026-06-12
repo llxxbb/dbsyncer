@@ -16,7 +16,6 @@ import org.dbsyncer.sdk.enums.MetaEnum;
 import org.dbsyncer.sdk.enums.SyncPhaseEnum;
 import org.dbsyncer.parser.flush.impl.BufferActuatorRouter;
 import org.dbsyncer.parser.model.*;
-import org.dbsyncer.sdk.model.ConfigModel;
 import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.model.Meta;
@@ -143,7 +142,7 @@ public final class IncrementPuller implements Puller {
                 } catch (Exception ex) {
                     throw new RuntimeException(ex);
                 }
-                logService.log(LogType.TableGroupLog.INCREMENT_FAILED, e.getMessage());
+                logService.log(mapping, LogType.START, String.format("启动异常：mappingId=%s, metaId=%s, 错误信息=%s", mapping.getId(), metaId, e.getMessage()));
                 logger.error("运行异常，结束增量同步：{}", metaId, e);
             }
         });

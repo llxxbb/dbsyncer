@@ -355,8 +355,9 @@ public class MySQLStorageService extends AbstractStorageService {
         builder.build(ConfigConstant.CONFIG_MODEL_ID, ConfigConstant.CONFIG_MODEL_NAME, ConfigConstant.CONFIG_MODEL_TYPE, ConfigConstant.CONFIG_MODEL_CREATE_TIME, ConfigConstant.CONFIG_MODEL_UPDATE_TIME, ConfigConstant.CONFIG_MODEL_JSON);
         List<Field> configFields = builder.getFields();
 
-        // 日志
-        builder.build(ConfigConstant.CONFIG_MODEL_ID, ConfigConstant.CONFIG_MODEL_TYPE, ConfigConstant.CONFIG_MODEL_CREATE_TIME, ConfigConstant.CONFIG_MODEL_JSON);
+        // 日志 (ADR-0016 v2: model_type + model_id 双字段方案)
+        // ADR-0016 新增字段：MODEL_ID, LOG_TYPE, LOG_LEVEL (已在 FieldBuilder 中定义)
+        builder.build(ConfigConstant.CONFIG_MODEL_ID, ConfigConstant.CONFIG_MODEL_TYPE, ConfigConstant.LOG_MODEL_ID, ConfigConstant.LOG_TYPE, ConfigConstant.LOG_LEVEL, ConfigConstant.CONFIG_MODEL_CREATE_TIME, ConfigConstant.CONFIG_MODEL_JSON);
         List<Field> logFields = builder.getFields();
 
         // 数据
@@ -372,7 +373,7 @@ public class MySQLStorageService extends AbstractStorageService {
                 try {
                     createTableIfNotExist(tableName, e);
                 } catch (Exception ex) {
-                    throw new RuntimeException(ex);
+                    logger.error("创建系统表失败：tableName={}, error={}", tableName, ex.getMessage(), ex);
                 }
             }
         });
@@ -431,7 +432,11 @@ public class MySQLStorageService extends AbstractStorageService {
             bf = new BufferedReader(isr);
             String newLine;
             while ((newLine = bf.readLine()) != null) {
-                res.append(newLine);
+                String trimmedLine = newLine.trim();
+                if (trimmedLine.startsWith("--") || trimmedLine.startsWith("/*")) {
+                    continue;
+                }
+                res.append(newLine).append("\n");
             }
         } catch (IOException e) {
             logger.error("failed read file:{}", filePath);
@@ -492,6 +497,9 @@ public class MySQLStorageService extends AbstractStorageService {
                     new Field(ConfigConstant.CONFIG_MODEL_CREATE_TIME, "BIGINT", Types.BIGINT),
                     new Field(ConfigConstant.CONFIG_MODEL_UPDATE_TIME, "BIGINT", Types.BIGINT),
                     new Field(ConfigConstant.CONFIG_MODEL_JSON, "LONGVARCHAR", Types.LONGVARCHAR),
+                    new Field(ConfigConstant.LOG_MODEL_ID, "VARCHAR", Types.VARCHAR),
+                    new Field(ConfigConstant.LOG_TYPE, "VARCHAR", Types.VARCHAR),
+                    new Field(ConfigConstant.LOG_LEVEL, "VARCHAR", Types.VARCHAR),
                     new Field(ConfigConstant.DATA_SUCCESS, "INTEGER", Types.INTEGER),
                     new Field(ConfigConstant.DATA_TABLE_GROUP_ID, "VARCHAR", Types.VARCHAR),
                     new Field(ConfigConstant.DATA_TARGET_TABLE_NAME, "VARCHAR", Types.VARCHAR),

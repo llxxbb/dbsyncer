@@ -19,6 +19,7 @@ import org.dbsyncer.parser.*;
 import org.dbsyncer.parser.service.MappingModelService;
 import org.dbsyncer.parser.service.MetaService;
 import org.dbsyncer.sdk.notify.NotifyType;
+import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.enums.MetaEnum;
@@ -52,9 +53,11 @@ import java.util.stream.Collectors;
  * @date 2019/10/17 23:20
  */
 @Service
-public class MappingServiceImpl extends BaseServiceImpl implements MappingService {
+public class MappingServiceImpl implements MappingService {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
+
+    private final static Object LOCK = new Object();
 
     @Resource
     private MappingChecker mappingChecker;
@@ -101,10 +104,13 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
     @Resource
     private org.dbsyncer.sdk.storage.StorageService storageService;
 
+    @Resource
+    private org.dbsyncer.parser.MessageService messageService;
+
     @Override
     public String add(Map<String, String> params) throws Exception {
         ConfigModel model = mappingChecker.checkAddConfigModel(params);
-        log(LogType.MappingLog.INSERT, model);
+        this.logService.log(model, LogType.INSERT, LogLevel.INFO, LogType.INSERT.getType() + ":" + model.getName());
 
         // 先保存 Mapping，确保 Mapping 保存成功
         String id = profileComponent.addConfigModel(model);
@@ -160,7 +166,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         String newName = (name != null && !name.trim().isEmpty()) ? name.trim() : mapping.getName() + "(复制)";
 
         Mapping newMapping = mappingModelService.copy(mapping, snowflakeIdWorker, newName, targetConnectorId);
-        log(LogType.MappingLog.COPY, newMapping);
+        this.logService.log(newMapping, LogType.COPY, LogLevel.INFO, LogType.COPY.getType() + ":" + newMapping.getName());
 
         submitMappingCountTask(newMapping);
         return String.format("复制成功[%s]", newMapping.getName());
@@ -171,7 +177,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         String id = params.get(ConfigConstant.CONFIG_MODEL_ID);
         Mapping mapping = assertMappingExist(id);
         String metaSnapshot = params.get("metaSnapshot");
-        synchronized (LOCK) {
+        synchronized (this) {
             // 检查是否禁止编辑
             mappingModelService.assertDisableEdit(mapping);
 
@@ -179,7 +185,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
             checkAllTargetTablesExist(mapping);
 
             Mapping model = (Mapping) mappingChecker.checkEditConfigModel(params);
-            log(LogType.MappingLog.UPDATE, model);
+            this.logService.log(model, LogType.UPDATE, LogLevel.INFO, LogType.UPDATE.getType() + ":" + model.getName());
 
             // 更新meta
             mappingModelService.updateSnapshot(mapping, metaSnapshot);
@@ -229,7 +235,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         Mapping mapping = assertMappingExist(id);
         String metaId = mapping.getMetaId();
         Meta meta = profileComponent.getMeta(metaId);
-        synchronized (LOCK) {
+        synchronized (this) {
 
             if (meta != null) {
                 // 删除数据
@@ -256,7 +262,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
 
             // 删除驱动
             profileComponent.removeConfigModel(id);
-            log(LogType.MappingLog.DELETE, mapping);
+            this.logService.log(mapping, LogType.DELETE, LogLevel.INFO, LogType.DELETE.getType() + ":" + mapping.getName());
         }
         return "驱动删除成功";
     }
@@ -307,8 +313,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
                         // 捕获其他可能的异常（如 Meta 为 null 等）
                         logger.error("转换 Mapping 失败，mappingId: {}, mappingName: {}",
                                 mapping.getId(), mapping.getName(), e);
-                        logService.log(LogType.MappingLog.CONFIG,
-                                String.format("mappingId: %s, msg: %s", mapping.getId(), e.getMessage()));
+                        logService.log(mapping, LogType.UPDATE, LogLevel.INFO, String.format("映射配置失败：mappingId=%s, mappingName=%s, error=%s", mapping.getId(), mapping.getName(), e.getMessage()));
                         return createErrorMappingVo(mapping, e.getMessage());
                     }
                 })
@@ -326,7 +331,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
             // 启动
             managerFactory.start(mapping);
 
-            log(LogType.MappingLog.RUNNING, mapping);
+            this.logService.log(mapping, LogType.UPDATE, LogLevel.INFO, LogType.UPDATE.getType() + ":" + mapping.getName());
         }
         return "驱动启动成功";
     }
@@ -347,7 +352,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
                 profileComponent.editConfigModel(tableGroup);
             }
 
-            log(LogType.MappingLog.STOP, mapping);
+            this.logService.log(mapping, LogType.UPDATE, LogLevel.INFO, LogType.UPDATE.getType() + ":" + mapping.getName());
 
             // 发送关闭驱动通知消息
             String model = ModelEnum.getModelEnum(mapping.getModel()).getName();
@@ -405,8 +410,9 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         if (s == null) {
             logger.error("源连接器不存在，mappingId: {}, sourceConnectorId: {}",
                     mapping.getId(), mapping.getSourceConnectorId());
-            logService.log(LogType.MappingLog.CONFIG, String.format("源连接器不存在，mappingId: %s, sourceConnectorId: %s",
-                    mapping.getId(), mapping.getSourceConnectorId()));
+            logService.log(mapping, LogType.UPDATE,
+                    String.format("源连接器不存在：mappingId=%s, sourceConnectorId=%s",
+                            mapping.getId(), mapping.getSourceConnectorId()));
             return createErrorMappingVo(mapping,
                     String.format("源连接器不存在，sourceConnectorId: %s", mapping.getSourceConnectorId()));
         }
@@ -418,8 +424,9 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         if (t == null) {
             logger.error("目标连接器不存在，mappingId: {}, targetConnectorId: {}",
                     mapping.getId(), mapping.getTargetConnectorId());
-            logService.log(LogType.MappingLog.CONFIG, String.format("目标连接器不存在，mappingId: %s, targetConnectorId: %s",
-                    mapping.getId(), mapping.getSourceConnectorId()));
+            logService.log(mapping, LogType.UPDATE,
+                    String.format("目标连接器不存在：mappingId=%s, targetConnectorId=%s",
+                            mapping.getId(), mapping.getTargetConnectorId()));
             return createErrorMappingVo(mapping,
                     String.format("目标连接器不存在，targetConnectorId: %s", mapping.getTargetConnectorId()));
         }
@@ -596,7 +603,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         Mapping mapping = profileComponent.getMapping(id);
         Assert.notNull(mapping, "驱动不存在");
 
-        synchronized (LOCK) {
+        synchronized (this) {
             logger.info("重置驱动：{}", mapping.getName());
             Meta meta = profileComponent.getMeta(mapping.getMetaId());
 
@@ -621,7 +628,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
             mapping.setUpdateTime(Instant.now().toEpochMilli());
             profileComponent.editConfigModel(mapping);
 
-            log(LogType.MappingLog.RESET, mapping);
+            this.logService.log(mapping, LogType.RESET, LogLevel.INFO, LogType.RESET.getType() + ":" + mapping.getName());
 
             // 发送重置驱动通知消息
             String model = ModelEnum.getModelEnum(mapping.getModel()).getName();

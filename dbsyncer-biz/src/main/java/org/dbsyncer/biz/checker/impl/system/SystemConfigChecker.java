@@ -75,7 +75,6 @@ public class SystemConfigChecker extends AbstractChecker {
         SystemConfig systemConfig = profileComponent.getSystemConfig();
         Assert.notNull(systemConfig, "配置文件为空.");
         BeanUtil.mapToBean(params, systemConfig);
-        logService.log(LogType.SystemLog.INFO, "修改系统配置");
 
         // 修改基本配置
         this.modifyConfigModel(systemConfig, params);

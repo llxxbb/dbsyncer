@@ -221,6 +221,11 @@
                             错误队列
                         </a>
                     </li>
+                    <li role="presentation">
+                        <a href="#mappingLog" aria-controls="mappingLog" role="tab" data-toggle="tab">
+                            日志查询
+                        </a>
+                    </li>
                 </ul>
 
                 <!-- Tab内容区域 -->
@@ -362,6 +367,67 @@
                             <div class="col-md-5">共计: <span id="errorQueueDataTotal">0</span>条</div>
                             <div class="col-md-7">
                                 <a href="javascript:void(0);" id="errorQueueQueryMore" num="1">显示更多<i class="fa fa-angle-double-down" aria-hidden="true"></i></a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 日志查询 Tab 面板 -->
+                    <div role="tabpanel" class="tab-pane" id="mappingLog">
+                        <div class="panel panel-default">
+                            <div class="panel-heading">
+                                <h4 class="panel-title">查询日志</h4>
+                            </div>
+                            <div class="panel-body">
+                                <!-- 查询条件 -->
+                                <div class="form-group">
+                                    <div class="col-sm-4">
+                                        <input id="searchLogKeyword" class="form-control" type="text" maxlength="32" placeholder="请输入日志关键字 (最多 32 个字)." />
+                                    </div>
+                                    <div class="col-sm-2">
+                                        <select id="logTypeFilter" class="form-control">
+                                            <option value="">所有类型</option>
+                                            <option value="TASK">任务日志</option>
+                                            <option value="SYSTEM">系统日志</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-sm-2">
+                                        <select id="logLevelFilter" class="form-control">
+                                            <option value="">所有级别</option>
+                                            <option value="INFO">INFO</option>
+                                            <option value="WARN">WARN</option>
+                                            <option value="ERROR">ERROR</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-1">
+                                        <button id="queryLogBtn" type="button" class="btn btn-primary">查询日志</button>
+                                    </div>
+                                    <div class="col-md-3"></div>
+                                    <div class="col-md-3 text-right">
+                                        <button id="clearLogBtn" type="button" class="btn btn-default">清空日志</button>
+                                    </div>
+                                </div>
+                                
+                                <!-- 日志表格 -->
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th style="width:3%;">#</th>
+                                            <th style="width:15%;">类型</th>
+                                            <th style="width:8%;">级别</th>
+                                            <th style="width:59%;">内容</th>
+                                            <th style="width:15%;">时间</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="logList"></tbody>
+                                </table>
+                                
+                                <!-- 分页 -->
+                                <div class="form-group">
+                                    <div class="col-md-5">共计：<span id="logTotal">0</span>条</div>
+                                    <div class="col-md-7">
+                                        <a href="javascript:void(0);" id="queryLogMore" num="1">显示更多<i class="fa fa-angle-double-down"></i></a>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

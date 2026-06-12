@@ -11,6 +11,7 @@ import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.sdk.spi.LogType;
+import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.model.ConfigModel;
 import org.dbsyncer.parser.model.ProjectGroup;
 import org.dbsyncer.parser.model.UserConfig;
@@ -32,10 +33,13 @@ import java.util.stream.Collectors;
  * @date 2024/01/01
  */
 @Service
-public class UserGroupServiceImpl extends BaseServiceImpl implements UserGroupService {
+public class UserGroupServiceImpl implements UserGroupService {
 
     @Resource
     private ProfileComponent profileComponent;
+
+    @Resource
+    private org.dbsyncer.sdk.spi.LogService logService;
 
     @Resource
     private Checker userGroupChecker;
@@ -43,14 +47,17 @@ public class UserGroupServiceImpl extends BaseServiceImpl implements UserGroupSe
     @Resource
     private UserConfigService userConfigService;
 
+    @Resource
+    private org.dbsyncer.parser.MessageService messageService;
+
     @Override
     public String add(Map<String, String> params) throws Exception {
         ConfigModel model = userGroupChecker.checkAddConfigModel(params);
-        log(LogType.UserLog.INSERT, model);
+        this.logService.log(model, LogType.INSERT, LogLevel.INFO, "INSERT:" + model.getName());
 
         String result = profileComponent.addConfigModel(model);
 
-        // 更新关联用户的userGroupIds
+        // 更新关联用户的 userGroupIds
         updateUserUserGroupIds((UserGroup) model);
 
         return result;
@@ -62,13 +69,13 @@ public class UserGroupServiceImpl extends BaseServiceImpl implements UserGroupSe
         UserGroup oldUserGroup = profileComponent.getUserGroup(id);
 
         // 保存旧的用户列表，用于后续移除关联
-        // 注意：必须在checkEditConfigModel之前保存，因为checkEditConfigModel会修改缓存中的对象
+        // 注意：必须在 checkEditConfigModel 之前保存，因为 checkEditConfigModel 会修改缓存中的对象
         List<String> oldUserIds = oldUserGroup != null && oldUserGroup.getUserIds() != null
                 ? new ArrayList<>(oldUserGroup.getUserIds())
                 : null;
 
         ConfigModel model = userGroupChecker.checkEditConfigModel(params);
-        log(LogType.UserLog.UPDATE, model);
+        this.logService.log(model, LogType.UPDATE, LogLevel.INFO, "UPDATE:" + model.getName());
 
         String result = profileComponent.editConfigModel(model);
 
@@ -90,7 +97,7 @@ public class UserGroupServiceImpl extends BaseServiceImpl implements UserGroupSe
         UserGroup userGroup = profileComponent.getUserGroup(id);
         Assert.notNull(userGroup, "该用户组已被删除");
 
-        log(LogType.UserLog.DELETE, userGroup);
+        this.logService.log(userGroup, LogType.DELETE, LogLevel.INFO, "DELETE:" + userGroup.getName());
 
         // 先移除关联用户的userGroupIds
         removeUserUserGroupIds(userGroup);

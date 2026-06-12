@@ -2,7 +2,7 @@ function formatDate(time) {
     var date = new Date(time);
     var YY = date.getFullYear() + '-';
     var MM = (date.getMonth() + 1 < 10 ? '0' + (date.getMonth() + 1) : date.getMonth() + 1) + '-';
-    var DD = (date.getDate() < 10 ? '0' + (date.getDate()) : date.getDate());
+    var DD = (date.getDate() < 10 ? '0' + date.getDate() : date.getDate());
     var hh = (date.getHours() < 10 ? '0' + date.getHours() : date.getHours()) + ':';
     var mm = (date.getMinutes() < 10 ? '0' + date.getMinutes() : date.getMinutes()) + ':';
     var ss = (date.getSeconds() < 10 ? '0' + date.getSeconds() : date.getSeconds());
@@ -10,7 +10,6 @@ function formatDate(time) {
 }
 
 // 查看详细数据
-function bindQueryDataDetailEvent() {
     let $queryData = $(".queryData");
     $queryData.unbind("click");
     $queryData.click(function () {
@@ -207,59 +206,7 @@ function showData($dataList, arr, append) {
     return html;
 }
 
-// 查看日志
-function bindQueryLogEvent() {
-    $("#queryLogBtn").click(function () {
-        var keyword = $("#searchLogKeyword").val();
-        doGetter('/monitor/queryLog', {"json": keyword, "pageNum": 1, "pageSize": 10}, function (data) {
-            if (data.success == true) {
-                refreshLogList(data.resultValue);
-            } else {
-                bootGrowl(data.resultValue, "danger");
-            }
-        });
-    });
-}
-
-function bindQueryLogMoreEvent() {
-    $("#queryLogMore").click(function () {
-        var keyword = $("#searchLogKeyword").val();
-        showMore($(this), '/monitor/queryLog', {"json": keyword}, function (resultValue) {
-            refreshLogList(resultValue, true)
-        });
-    });
-}
-
-function refreshLogList(resultValue, append) {
-    var $logList = $("#logList");
-    var $logTotal = $("#logTotal");
-    var html = showLog($logList, resultValue.data, append);
-    if (append) {
-        $logList.append(html);
-    } else {
-        $logList.html(html);
-        $("#queryLogMore").attr("num", 1);
-    }
-    $logTotal.html(resultValue.total);
-}
-
-function showLog($logList, arr, append) {
-    var size = arr.length;
-    var html = '';
-    if (size > 0) {
-        var start = append ? $logList.find("tr").size() : 0;
-        for (i = 0; i < size; i++) {
-            html += '<tr>';
-            html += '<td>' + (start + i + 1) + '</td>';
-            html += '<td>' + arr[i].json + '</td>';
-            html += '<td>' + formatDate(arr[i].createTime) + '</td>';
-            html += '</tr>';
-        }
-    }
-    return html;
-}
-
-// 执行器TPS历史
+// 执行器 TPS 历史
 function showTPSChart(tps) {
     const title = tps.average > 0 ? '执行器TPS, 平均:'+ tps.average + '/秒' : '执行器TPS';
     let option = {
@@ -534,8 +481,6 @@ $(function () {
         $("#queryDataBtn").click();
     });
 
-    bindQueryLogEvent();
-    bindQueryLogMoreEvent();
     bindQueryDataEvent();
     bindQueryDataMoreEvent();
     bindQueryDataDetailEvent();
@@ -544,7 +489,6 @@ $(function () {
     bindClearEvent($(".clearDataBtn"), "确认清空数据？", "清空数据成功!", "/monitor/clearData", function () {
         return $("#searchMetaData").selectpicker("val");
     });
-    bindClearEvent($(".clearLogBtn"), "确认清空日志？", "清空日志成功!", "/monitor/clearLog");
 
     createTimer();
     
@@ -557,11 +501,6 @@ $(function () {
     $("#searchDataKeyword").keydown(function (e) {
         if (e.which == 13) {
             $("#queryDataBtn").trigger("click");
-        }
-    });
-    $("#searchLogKeyword").keydown(function (e) {
-        if (e.which == 13) {
-            $("#queryLogBtn").trigger("click");
         }
     });
 
