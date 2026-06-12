@@ -1,12 +1,11 @@
 # 发布日志
 
-## 2.25.1
+## 2.26.0
 
-新功能：重试增加排除关键字配置（dbsyncer.retry.global.excludeKeywords[n]=deadlock）
+新功能：重试增加排除关键字配置（dbsyncer.retry.global.excludeKeywords[n]=word to ignore）
 优化：优化主流程性能，将重试检测后置。
 优化：用真实原因替换错误队列的“写入重试耗尽”。
 优化：钉钉加发送时间
-
 
 ## 2.25.0
 
