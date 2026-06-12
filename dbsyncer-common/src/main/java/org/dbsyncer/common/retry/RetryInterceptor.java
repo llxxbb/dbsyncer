@@ -35,6 +35,13 @@ public class RetryInterceptor {
      * @param <T>       返回类型
      * @return 操作结果
      * @throws Exception 重试耗尽后抛出原始异常
+     *
+     * <p>执行策略：</p>
+     * <ul>
+     *   <li><strong>正常路径 (99.9%+)</strong>：直接调用 operation.get()，零额外开销</li>
+     *   <li><strong>异常路径 (0.1%-)</strong>：捕获异常后，检查终止条件，决定是否重试</li>
+     * </ul>
+     * <p><strong>设计理念</strong>：避免在正常路径上添加任何检查逻辑，仅在异常发生时才进入重试决策流程。</p>
      */
     public <T> T execute(ThrowingSupplier<T> operation, RetryPolicy policy, String mappingId) throws Exception {
         if (policy.isDisable()) {
@@ -43,43 +50,50 @@ public class RetryInterceptor {
 
         Exception lastException = null;
         String lastMatchedKeyword = null;
-        long startMs = System.currentTimeMillis();
         int attempt = 0;
+        long startMs = System.currentTimeMillis();
 
         while (true) {
-            // 检查次数约束
-            if (isAttemptLimitReached(policy, attempt)) {
-                break;
-            }
-
-            // 检查耗时约束
-            if (isDurationExceeded(policy, startMs, attempt)) {
-                break;
-            }
-
             try {
+                // 【核心】正常路径：直接执行，零开销
                 return operation.get();
             } catch (Exception e) {
+                // 【核心】异常路径：进入重试决策
                 lastException = e;
                 String message = e.getMessage();
-
+                
+                // 次数约束检查（仅在异常时执行）
+                if (attempt >= policy.getMaxAttempts()) {
+                    throw e;
+                }
+                
+                // 耗时约束检查（仅在异常时执行）
+                TerminationMode mode = policy.getTerminationMode();
+                if (mode == TerminationMode.MAX_DURATION) {
+                    long maxDuration = policy.getMaxDurationMs();
+                    if (maxDuration > 0 && (System.currentTimeMillis() - startMs) >= maxDuration) {
+                        throw e;
+                    }
+                }
+                
+                // 判断是否应该重试
                 if (!shouldRetry(e, policy, message)) {
                     throw e;
                 }
 
+                attempt++;
                 long interval = policy.calculateInterval(attempt);
                 lastMatchedKeyword = findMatchedKeyword(message, policy);
 
                 String id = mappingId != null ? mappingId : "-";
                 logger.warn("触发重试 | mappingId={} | 第{}/{}次 | 间隔={}ms | 关键字={} | 异常={}",
-                        id, attempt + 1, getMaxAttemptsDisplay(policy), interval,
+                        id, attempt, getMaxAttemptsDisplay(policy), interval,
                         lastMatchedKeyword != null ? lastMatchedKeyword : "无条件",
                         message);
 
                 if (sleep(interval)) {
                     break;
                 }
-                attempt++;
             }
         }
 
