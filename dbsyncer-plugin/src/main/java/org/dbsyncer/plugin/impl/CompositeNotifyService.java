@@ -49,6 +49,7 @@ public class CompositeNotifyService implements NotifyService {
     @Override
     public void sendMessage(NotifyMessage notifyMessage) {
         if (notifyConfig.getChannels() == null || notifyConfig.getChannels().isEmpty()) {
+            logger.warn("未配置任何通知通道，消息发送已跳过");
             return;
         }
 

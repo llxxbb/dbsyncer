@@ -1,12 +1,12 @@
 package org.dbsyncer.parser.impl;
 
-import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.MessageService;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.model.UserConfig;
 import org.dbsyncer.plugin.model.NotifyMessage;
 import org.dbsyncer.plugin.model.NotifyType;
+import org.slf4j.LoggerFactory;
 import org.dbsyncer.plugin.NotifyService;
 import org.springframework.stereotype.Component;
 
@@ -16,9 +16,11 @@ import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.slf4j.Logger;
 
 @Component
 public class MessageServiceImpl implements MessageService {
+    private static final Logger logger = LoggerFactory.getLogger(MessageServiceImpl.class);
 
     /**
      * NotifyService 为可选注入，未配置时通过 CompositeNotifyService 兜底
@@ -59,6 +61,7 @@ public class MessageServiceImpl implements MessageService {
                 .setContent(content)
                 .setReceivers(mails)
                 .setType(type);
+        logger.info("发送通知消息：{}", msg.getContent());
         notifyService.sendMessage(msg);
     }
 
