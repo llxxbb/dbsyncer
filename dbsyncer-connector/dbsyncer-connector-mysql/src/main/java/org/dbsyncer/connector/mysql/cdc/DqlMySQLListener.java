@@ -3,8 +3,6 @@
  */
 package org.dbsyncer.connector.mysql.cdc;
 
-import org.dbsyncer.sdk.listener.ChangedEvent;
-
 /**
  * @Author AE86
  * @Version 1.0.0
