@@ -8,10 +8,12 @@ import org.dbsyncer.sdk.config.CommandConfig;
 import org.dbsyncer.sdk.config.DatabaseConfig;
 import org.dbsyncer.sdk.connector.database.sql.context.SqlBuildContext;
 import org.dbsyncer.sdk.model.Field;
+import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.model.Table;
-import org.dbsyncer.sdk.util.PrimaryKeyUtil;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * SQL模板接口
@@ -227,14 +229,15 @@ public interface SqlTemplate {
     default SqlBuildContext createBuildContext(CommandConfig commandConfig,
                                                java.util.function.Function<String, String> buildTableName,
                                                java.util.function.Function<CommandConfig, String> getQueryFilterSql) {
-        Table table = commandConfig.getTable();
+        MetaInfo table = commandConfig.getTable();
         DatabaseConfig dbConfig = (DatabaseConfig) commandConfig.getConnectorConfig();
 
         SqlBuildContext buildContext = new SqlBuildContext();
         buildContext.setSchema(dbConfig.getSchema());
         buildContext.setTableName(buildTableName.apply(table.getName()));
         buildContext.setFields(table.getColumn());
-        buildContext.setPrimaryKeys(PrimaryKeyUtil.findTablePrimaryKeys(table));
+        buildContext.setPrimaryKeys(table.getPrimaryKeys() != null ? 
+            table.getPrimaryKeys() : Collections.emptyList());
         buildContext.setQueryFilter(getQueryFilterSql.apply(commandConfig));
         buildContext.setCursorCondition(buildCursorConditionFromCached(commandConfig.getCachedPrimaryKeys()));
 

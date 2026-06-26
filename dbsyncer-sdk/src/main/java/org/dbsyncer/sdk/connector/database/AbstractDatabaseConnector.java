@@ -32,7 +32,6 @@ import org.dbsyncer.sdk.plugin.ReaderContext;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.util.DatabaseUtil;
-import org.dbsyncer.sdk.util.PrimaryKeyUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -41,7 +40,12 @@ import org.springframework.jdbc.support.rowset.SqlRowSet;
 import org.springframework.jdbc.support.rowset.SqlRowSetMetaData;
 import org.springframework.util.Assert;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Types;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -131,8 +135,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
             List<SqlTable> sqlTables = cfg.getSqlTables();
             List<Table> tables = new ArrayList<>();
             if (!CollectionUtils.isEmpty(sqlTables)) {
-                sqlTables.forEach(s -> tables.add(new Table(s.getSqlName(), TableTypeEnum.TABLE.getCode(),
-                        Collections.EMPTY_LIST, s.getSql(), null)));
+                sqlTables.forEach(s -> tables.add(new Table(s.getSqlName(), TableTypeEnum.TABLE.getCode(), Collections.EMPTY_LIST, s.getSql(), null)));
             }
             return tables;
         }
@@ -324,7 +327,10 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
     public Result update(DatabaseConnectorInstance connectorInstance, PluginContext context) {
         // UPDATE 操作：移除主键字段，只保留非主键字段 + 主键字段
         List<Field> fields = new ArrayList<>(context.getTargetFields());
-        List<Field> pkFields = PrimaryKeyUtil.findExistPrimaryKeyFields(context.getTargetFields());
+        List<Field> pkFields = context.getPkFields();
+        if (CollectionUtils.isEmpty(pkFields)) {
+            throw new SdkException("Primary keys cannot be empty for UPDATE operation");
+        }
         removeFieldWithPk(fields, pkFields);
         fields.addAll(pkFields);
         return executeWriter(connectorInstance, context, fields);
@@ -333,7 +339,10 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
     @Override
     public Result delete(DatabaseConnectorInstance connectorInstance, PluginContext context) {
         // DELETE 操作：只使用主键字段
-        List<Field> pkFields = PrimaryKeyUtil.findExistPrimaryKeyFields(context.getTargetFields());
+        List<Field> pkFields = context.getPkFields();
+        if (CollectionUtils.isEmpty(pkFields)) {
+            throw new SdkException("Primary keys cannot be empty for DELETE operation");
+        }
         return executeWriter(connectorInstance, context, pkFields);
     }
 
@@ -341,8 +350,15 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
     public Result upsert(DatabaseConnectorInstance connectorInstance, PluginContext context) {
         // UPSERT 操作：同 UPDATE 逻辑
         List<Field> fields = new ArrayList<>(context.getTargetFields());
+        List<Field> pkFields = context.getPkFields();
+        if (CollectionUtils.isEmpty(pkFields)) {
+            throw new SdkException("Primary keys cannot be empty for UPSERT operation");
+        }
+        removeFieldWithPk(fields, pkFields);
+        fields.addAll(pkFields);
         return executeWriter(connectorInstance, context, fields);
     }
+
 
     /**
      * 执行写入操作（带重试支持）
@@ -399,8 +415,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
 
     @Override
     public Map<String, String> getSourceCommand(CommandConfig commandConfig) {
-        Table table = commandConfig.getTable();
-        List<String> primaryKeys = PrimaryKeyUtil.findTablePrimaryKeys(table);
+        MetaInfo table = commandConfig.getTable();
+        List<String> primaryKeys = table.getPrimaryKeys();
         assert primaryKeys != null && !primaryKeys.isEmpty();
 
         String tableName = table.getName();
@@ -417,13 +433,13 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
      * @param commandConfig 命令配置
      * @return SQL命令映射
      */
-    protected Map<String, String> buildSourceCommands(CommandConfig commandConfig) {
-        // DQL模式：直接使用用户自定义的SQL
+        protected Map<String, String> buildSourceCommands(CommandConfig commandConfig) {
+        // DQL 模式：直接使用用户自定义的 SQL
         if (isDql) {
             String queryFilterSql = getQueryFilterSql(commandConfig);
-            Table table = commandConfig.getTable();
+            MetaInfo table = commandConfig.getTable();
             Map<String, String> map = new HashMap<>();
-            List<String> primaryKeys = PrimaryKeyUtil.findTablePrimaryKeys(table);
+            List<String> primaryKeys = table.getPrimaryKeys();
             if (CollectionUtils.isEmpty(primaryKeys)) {
                 return map;
             }
@@ -466,9 +482,24 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
         map.put(ConnectorConstant.OPERTION_QUERY_STREAM, streamingSql);
 
         // 构建游标查询SQL
-        if (PrimaryKeyUtil.isSupportedCursor(commandConfig.getTable().getColumn())) {
-            String cursorSql = sqlTemplate.buildQueryCursorSql(buildContext);
-            map.put(ConnectorConstant.OPERTION_QUERY_CURSOR, cursorSql);
+        List<String> primaryKeys = commandConfig.getTable().getPrimaryKeys();
+        if (!CollectionUtils.isEmpty(primaryKeys) && !CollectionUtils.isEmpty(commandConfig.getTable().getColumn())) {
+            Map<String, Integer> pkTypes = new HashMap<>();
+            for (String pkName : primaryKeys) {
+                Field f = commandConfig.getTable().findColumnByName(pkName);
+                if (f != null) {
+                    pkTypes.put(f.getName(), f.getType());
+                }
+            }
+            if (!CollectionUtils.isEmpty(pkTypes)) {
+                boolean isCursorSupported = pkTypes.values().stream()
+                    .allMatch(t -> t == Types.NUMERIC || t == Types.BIGINT || t == Types.INTEGER || 
+                        t == Types.TINYINT || t == Types.SMALLINT);
+                if (isCursorSupported) {
+                    String cursorSql = sqlTemplate.buildQueryCursorSql(buildContext);
+                    map.put(ConnectorConstant.OPERTION_QUERY_CURSOR, cursorSql);
+                }
+            }
         }
 
         // 构建计数SQL
@@ -480,8 +511,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
 
     @Override
     public Map<String, String> getTargetCommand(CommandConfig commandConfig) throws Exception {
-        Table table = commandConfig.getTable();
-        List<String> primaryKeys = PrimaryKeyUtil.findTablePrimaryKeys(table);
+        MetaInfo table = commandConfig.getTable();
+        List<String> primaryKeys = table.getPrimaryKeys();
         assert primaryKeys != null && !primaryKeys.isEmpty();
 
         String tableName = table.getName();
@@ -715,7 +746,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
             while (rs.next()) {
                 final String tableName = rs.getString("TABLE_NAME");
                 final String tableType = rs.getString("TABLE_TYPE");
-                tables.add(new Table(tableName, tableType));
+                tables.add(new Table(tableName, tableType, null, null, null));
             }
             return tables;
         });
@@ -931,5 +962,26 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
      */
     public boolean supportsFieldDifference() {
         return false;
+    }
+
+    /**
+     * 检查主键是否支持游标（必须为数字类型）
+     * @param columns 字段列表
+     * @return 是否支持游标
+     */
+    protected boolean supportsCursor(List<Field> columns) {
+        if (columns == null || columns.isEmpty()) {
+            return false;
+        }
+        for (Field f : columns) {
+            if (f.isPk()) {
+                int type = f.getType();
+                if (type != Types.NUMERIC && type != Types.BIGINT && type != Types.INTEGER && 
+                    type != Types.TINYINT && type != Types.SMALLINT) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 }

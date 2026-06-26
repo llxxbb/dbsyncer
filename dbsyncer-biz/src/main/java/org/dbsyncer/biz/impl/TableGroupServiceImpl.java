@@ -36,7 +36,6 @@ import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.spi.ConnectorService;
-import org.dbsyncer.sdk.util.PrimaryKeyUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -131,8 +130,10 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
                             }
                         }
                     } // end if customFields
-                    // 【新增】目标表主键检查（DDL 之后，自定义主键字段已存在）
-                    List<String> targetTablePrimaryKeys = PrimaryKeyUtil.findTablePrimaryKeys(model.getTargetTable());
+                    // 目标表主键检查（DDL 之后，自定义主键字段已存在）
+                    // 从目标表 MetaInfo 获取主键（数据库定义顺序）
+                    MetaInfo targetMetaInfo = model.getTargetTable();
+                    List<String> targetTablePrimaryKeys = targetMetaInfo != null ? targetMetaInfo.getPrimaryKeys() : Collections.emptyList();
                     if (CollectionUtils.isEmpty(targetTablePrimaryKeys)) {
                         throw new PrimaryKeyRequiredException(String.format("目标表 %s 缺少主键，无法进行数据同步。", model.getTargetTable().getName()));
                     }

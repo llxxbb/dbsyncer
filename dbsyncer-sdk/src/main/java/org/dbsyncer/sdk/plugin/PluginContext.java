@@ -18,6 +18,28 @@ import java.util.Map;
 public interface PluginContext extends BaseContext {
 
     /**
+     * 获取同步主键列表（按数据库主键顺序）
+     * @return 主键名称列表
+     */
+    List<String> getPrimaryKeys();
+
+    /**
+     * 设置同步主键列表
+     * @param primaryKeys 主键名称列表
+     */
+    void setPrimaryKeys(List<String> primaryKeys);
+
+    /**
+     * 获取预计算的主键字段列表（按主键顺序）
+     * 初始化阶段由 ParserComponentImpl 根据 primaryKeys + targetFields 解析，
+     * 后续 update/delete/upsert 等高频操作直接读取，避免重复查找。
+     * @return 有序的主键字段列表，never null
+     */
+    List<Field> getPkFields();
+
+    void setPkFields(List<Field> pkFields);
+
+    /**
      * 获取同步方式
      *
      * @return

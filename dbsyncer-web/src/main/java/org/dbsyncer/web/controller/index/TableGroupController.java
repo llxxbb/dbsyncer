@@ -300,7 +300,7 @@ public class TableGroupController extends BaseController {
 
                 // 创建标准化的 MetaInfo
                 MetaInfo standardizedMetaInfo = new MetaInfo();
-                standardizedMetaInfo.setTableType(sourceMetaInfo.getTableType());
+                standardizedMetaInfo.setType(sourceMetaInfo.getType());
                 standardizedMetaInfo.setSql(sourceMetaInfo.getSql());
                 standardizedMetaInfo.setIndexType(sourceMetaInfo.getIndexType());
 

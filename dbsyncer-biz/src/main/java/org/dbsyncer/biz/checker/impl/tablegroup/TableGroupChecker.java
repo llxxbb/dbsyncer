@@ -4,7 +4,6 @@
 package org.dbsyncer.biz.checker.impl.tablegroup;
 
 import org.dbsyncer.biz.BizException;
-import org.dbsyncer.biz.PrimaryKeyRequiredException;
 import org.dbsyncer.biz.RepeatedTableGroupException;
 import org.dbsyncer.biz.checker.AbstractChecker;
 import org.dbsyncer.common.util.CollectionUtils;
@@ -22,10 +21,8 @@ import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.model.ConnectorConfig;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.MetaInfo;
-import org.dbsyncer.sdk.model.Table;
-import org.dbsyncer.sdk.schema.SchemaResolver;
 import org.dbsyncer.sdk.spi.ConnectorService;
-import org.dbsyncer.sdk.util.PrimaryKeyUtil;
+import org.dbsyncer.sdk.schema.SchemaResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -33,7 +30,6 @@ import org.springframework.util.Assert;
 
 import javax.annotation.Resource;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * @Author AE86
@@ -65,6 +61,7 @@ public class TableGroupChecker extends AbstractChecker {
         Assert.hasText(mappingId, "tableGroup mappingId is empty.");
         Assert.hasText(sourceTable, "tableGroup sourceTable is empty.");
         Assert.hasText(targetTable, "tableGroup targetTable is empty.");
+        Assert.hasText(sourceTablePK, "tableGroup sourceTablePK is empty.");
         Mapping mapping = profileComponent.getMapping(mappingId);
         Assert.notNull(mapping, "mapping can not be null.");
 
@@ -73,8 +70,8 @@ public class TableGroupChecker extends AbstractChecker {
 
         // 获取连接器信息
         TableGroup tableGroup = TableGroup.create(mappingId, sourceTable, parserComponent, profileComponent);
-        tableGroup.setSourceTable(getTable(mapping.getSourceConnectorId(), sourceTable, sourceTablePK));
-        tableGroup.setTargetTable(getTable(mapping.getTargetConnectorId(), targetTable, targetTablePK));
+        tableGroup.setSourceTable(getMetaInfo(mapping.getSourceConnectorId(), sourceTable, sourceTablePK));
+        tableGroup.setTargetTable(getMetaInfo(mapping.getTargetConnectorId(), targetTable, targetTablePK));
 
         // 保存主键配置到 tableGroup
         // 原则：主键顺序应该从数据库元数据查询获取，而不是从 Field.isPk 标记推断
@@ -93,12 +90,6 @@ public class TableGroupChecker extends AbstractChecker {
         // 修改基本配置
         this.modifyConfigModel(tableGroup, params);
 
-        // 检查源表主键（源表字段不会变化，可以提前检查）
-        List<String> sourceTablePrimaryKeys = PrimaryKeyUtil.findTablePrimaryKeys(tableGroup.getSourceTable());
-        if (CollectionUtils.isEmpty(sourceTablePrimaryKeys)) {
-            throw new PrimaryKeyRequiredException(String.format("数据源表 %s 缺少主键，无法进行数据同步。", sourceTable));
-        }
-        // 目标表主键检查移到 add()/edit() 的 DDL 之后执行（自定义字段可能在 DDL 中创建）
 
         // 验证转换器规则：每个字段必须有且仅有一个根转换器
         ConvertUtil.validateFieldConverterRule(tableGroup.getConvert());
@@ -115,7 +106,6 @@ public class TableGroupChecker extends AbstractChecker {
         Assert.notNull(tableGroup, "Can not find tableGroup.");
         Mapping mapping = profileComponent.getMapping(tableGroup.getMappingId());
         Assert.notNull(mapping, "mapping can not be null.");
-        String fieldMappingJson = params.get("fieldMapping");
 
         // 处理目标表变化（前端已感应并提交，后端直接使用）
         String newTargetTableName = params.get("targetTable");
@@ -132,12 +122,12 @@ public class TableGroupChecker extends AbstractChecker {
             checkRepeatedTable(mapping.getId(), tableGroup.getSourceTable().getName(), newTargetTableName, id);
             
             // 直接使用前端提供的主键配置
-            Table newTargetTable = getTable(mapping.getTargetConnectorId(), newTargetTableName, newTargetTablePK);
+            MetaInfo newTargetTable = getMetaInfo(mapping.getTargetConnectorId(), newTargetTableName, newTargetTablePK);
             tableGroup.setTargetTable(newTargetTable);
             tableGroup.setTargetTablePK(newTargetTablePK);
         } else if (StringUtil.isNotBlank(newTargetTablePK)) {
             // 只修改主键配置（不修改目标表名称）
-            Table newTargetTable = getTable(mapping.getTargetConnectorId(), tableGroup.getTargetTable().getName(), newTargetTablePK);
+            MetaInfo newTargetTable = getMetaInfo(mapping.getTargetConnectorId(), tableGroup.getTargetTable().getName(), newTargetTablePK);
             tableGroup.setTargetTable(newTargetTable);
             tableGroup.setTargetTablePK(newTargetTablePK);
         }
@@ -174,57 +164,34 @@ public class TableGroupChecker extends AbstractChecker {
     }
 
     /**
-     * 刷新表字段
+     * 刷新表字段（从数据库重新获取列信息）
+     * - 源表：使用数据库 KEY_SEQ 最新主键顺序（不传 primaryKeyStr）
+     * - 目标表：保留用户配置的主键顺序（从 tableGroup.getTargetTablePK() 获取）
      */
     public void refreshTableFields(TableGroup tableGroup) throws Exception {
         Mapping mapping = profileComponent.getMapping(tableGroup.getMappingId());
         Assert.notNull(mapping, "mapping can not be null.");
 
-        Table sourceTable = tableGroup.getSourceTable();
-        Table targetTable = tableGroup.getTargetTable();
+        // 源表：从数据库重新获取元数据，主键使用 KEY_SEQ 顺序
+        tableGroup.setSourceTable(
+            parserComponent.getMetaInfo(mapping.getSourceConnectorId(), tableGroup.getSourceTable().getName()));
 
-        // 添加空值检查，防止NullPointerException
-        List<String> sourceTablePks = new ArrayList<>();
-        if (sourceTable.getColumn() != null) {
-            sourceTablePks = sourceTable.getColumn().stream().filter(Field::isPk).map(Field::getName).collect(Collectors.toList());
-        }
-
-        List<String> targetTablePks = new ArrayList<>();
-        if (targetTable.getColumn() != null) {
-            targetTablePks = targetTable.getColumn().stream().filter(Field::isPk).map(Field::getName).collect(Collectors.toList());
-        }
-
-        tableGroup.setSourceTable(getTable(mapping.getSourceConnectorId(), sourceTable.getName(), StringUtil.join(sourceTablePks, ",")));
-        tableGroup.setTargetTable(getTable(mapping.getTargetConnectorId(), targetTable.getName(), StringUtil.join(targetTablePks, ",")));
+        // 目标表：从数据库重新获取元数据，主键保留用户配置
+        tableGroup.setTargetTable(
+            getMetaInfo(mapping.getTargetConnectorId(), tableGroup.getTargetTable().getName(), tableGroup.getTargetTablePK()));
     }
 
-    private Table getTable(String connectorId, String tableName, String primaryKeyStr) throws Exception {
+    private MetaInfo getMetaInfo(String connectorId, String tableName, String primaryKeyStr) throws Exception {
         MetaInfo metaInfo = parserComponent.getMetaInfo(connectorId, tableName);
         Assert.notNull(metaInfo, "无法获取连接器表信息:" + tableName);
         
-        List<Field> fields = metaInfo.getColumn();
-        
-        // 自定义主键：只标记主键字段，不调整字段顺序
-        if (StringUtil.isNotBlank(primaryKeyStr) && !CollectionUtils.isEmpty(fields)) {
-            String[] pks = StringUtil.split(primaryKeyStr, StringUtil.COMMA);
-            
-            // 1. 清除所有主键标记
-            for (Field field : fields) {
-                field.setPk(false);
-            }
-            
-            // 2. 按用户指定的主键配置标记主键字段
-            for (String pk : pks) {
-                for (Field field : fields) {
-                    if (field.matchesName(pk.trim())) {
-                        field.setPk(true);
-                        break;
-                    }
-                }
-            }
+        // 自定义主键：使用传入的主键配置（覆盖数据库默认顺序）
+        if (StringUtil.isNotBlank(primaryKeyStr)) {
+            List<String> primaryKeys = Arrays.asList(primaryKeyStr.split(","));
+            metaInfo.setPrimaryKeys(primaryKeys);
         }
         
-        return new Table(tableName, metaInfo.getTableType(), fields, metaInfo.getSql(), metaInfo.getIndexType());
+        return metaInfo;
     }
 
     /**

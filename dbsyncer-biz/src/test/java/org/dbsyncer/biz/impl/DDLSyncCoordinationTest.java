@@ -6,6 +6,7 @@ import org.dbsyncer.sdk.enums.ChangedEventTypeEnum;
 import org.dbsyncer.sdk.enums.DDLOperationEnum;
 import org.dbsyncer.sdk.listener.event.DDLChangedEvent;
 import org.dbsyncer.sdk.listener.event.RowChangedEvent;
+import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.model.Table;
 import org.junit.Assert;
 import org.junit.Before;
@@ -38,13 +39,11 @@ public class DDLSyncCoordinationTest {
         testTableGroup.setMappingId("coordination-test-mapping-id");
         // Note: TableGroup类中没有setEnableDDL方法，我们通过其他方式处理
 
-        Table sourceTable = new Table();
-        sourceTable.setName("test_table");
-        // Note: Table类中没有setSchema方法，我们只设置表名
+        MetaInfo sourceTable = new MetaInfo("test_table", null, null, null, null, null);
+        // Note: MetaInfo类中没有setSchema方法，我们只设置表名
 
-        Table targetTable = new Table();
-        targetTable.setName("test_table");
-        // Note: Table类中没有setSchema方法，我们只设置表名
+        MetaInfo targetTable = new MetaInfo("test_table", null, null, null, null, null);
+        // Note: MetaInfo类中没有setSchema方法，我们只设置表名
 
         testTableGroup.setSourceTable(sourceTable);
         testTableGroup.setTargetTable(targetTable);

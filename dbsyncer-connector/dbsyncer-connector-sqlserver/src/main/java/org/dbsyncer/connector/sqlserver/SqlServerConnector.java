@@ -93,7 +93,7 @@ public class SqlServerConnector extends AbstractDatabaseConnector {
     private List<Table> getTables(DatabaseConnectorInstance connectorInstance, String sql, TableTypeEnum type) throws Exception {
         List<String> tableNames = connectorInstance.execute(databaseTemplate -> databaseTemplate.queryForList(sql, String.class));
         if (!CollectionUtils.isEmpty(tableNames)) {
-            return tableNames.stream().map(name -> new Table(name, type.getCode())).collect(Collectors.toList());
+            return tableNames.stream().map(name -> new Table(name, type.getCode(), null, null, null)).collect(Collectors.toList());
         }
         return new ArrayList<>();
     }

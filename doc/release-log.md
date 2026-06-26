@@ -1,5 +1,10 @@
 # 发布日志
 
+## 2.26.1
+
+缺陷：修正复合主键在 update 时有缺失问题。
+优化：优化主键处理逻辑。
+
 ## 2.26.0
 
 新功能：重试增加排除关键字配置（dbsyncer.retry.global.excludeKeywords[n]=word to ignore）

@@ -34,6 +34,12 @@ import org.springframework.jdbc.core.ArgumentPreparedStatementSetter;
 import org.springframework.jdbc.core.ColumnMapRowMapper;
 import org.springframework.stereotype.Component;
 
+import org.dbsyncer.sdk.model.Field;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -78,7 +84,7 @@ public class ParserComponentImpl implements ParserComponent {
         if (!CollectionUtils.isEmpty(connector.getTable())) {
             for (Table t : connector.getTable()) {
                 if (t.matchesName(tableName)) {
-                    metaInfo.setTableType(t.getType());
+                    metaInfo.setType(t.getType());
                     metaInfo.setSql(t.getSql());
                     break;
                 }
@@ -109,18 +115,17 @@ public class ParserComponentImpl implements ParserComponent {
         ConnectorConfig tConfig = getConnectorConfig(targetConnectorId);
         TableGroup group = PickerUtil.mergeTableGroupConfig(mapping, tableGroup);
         Map<String, String> command = group.getCommand();
-        Table sourceTable = group.getSourceTable();
         // append mapping param to command
         if (mapping.getParams() != null)
             command.putAll(mapping.getParams());
 
-        List<String> primaryKeys = PrimaryKeyUtil.findTablePrimaryKeys(sourceTable);
+        List<String> primaryKeys = group.getSourceTable().getPrimaryKeys();
 
         final FullPluginContext context = new FullPluginContext();
         context.setSourceConnectorInstance(connectorFactory.connect(sConfig));
         context.setTargetConnectorInstance(connectorFactory.connect(tConfig));
         context.setSourceTableName(group.getSourceTable().getName());
-        context.setSourceTable(sourceTable);
+        context.setSourceTable(group.getSourceTable());
         context.setTargetTableName(group.getTargetTable().getName());
         context.setEvent(ConnectorConstant.OPERTION_INSERT);
         context.setCommand(command);
@@ -137,6 +142,7 @@ public class ParserComponentImpl implements ParserComponent {
         Picker picker = new Picker(group);
         picker.setSourceResolver(context.isEnableSchemaResolver() ? sourceConnector.getSchemaResolver() : null);
         context.setTargetFields(picker.getTargetFields());
+        context.setPkFields(group.resolveTargetPkFields(picker.getTargetFields()));
 
 
         // 0、插件前置处理

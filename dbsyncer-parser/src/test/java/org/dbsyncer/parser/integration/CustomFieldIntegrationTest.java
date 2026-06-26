@@ -9,6 +9,7 @@ import org.dbsyncer.parser.model.Picker;
 import org.dbsyncer.parser.util.ConvertUtil;
 import org.dbsyncer.parser.util.PickerUtil;
 import org.dbsyncer.sdk.model.Field;
+import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.model.Table;
 import org.junit.Before;
 import org.junit.Test;
@@ -101,10 +102,10 @@ public class CustomFieldIntegrationTest {
         timestampField.setTypeName("TIMESTAMP");
         targetColumns.add(timestampField);
 
-        Table sourceTable = new Table("source_table");
+        MetaInfo sourceTable = new MetaInfo("source_table", null, null, null, null, null);
         sourceTable.setColumn(sourceColumns);
 
-        Table targetTable = new Table("target_table");
+        MetaInfo targetTable = new MetaInfo("target_table", null, null, null, null, null);
         targetTable.setColumn(targetColumns);
 
         tableGroup.setSourceTable(sourceTable);

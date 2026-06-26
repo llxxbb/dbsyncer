@@ -42,9 +42,7 @@ public final class UpdateSql implements SqlParser {
     public String parse() {
         try {
             Update update = (Update) CCJSqlParserUtil.parse(sql);
-            //替换表名
-            Table table = new Table();
-            table.setName(targetTableName);
+            Table table = new Table(targetTableName);
             update.setTable(table);
             for (UpdateSet updateSet : update.getUpdateSets()) {
                 List<Column> columns = updateSet.getColumns();

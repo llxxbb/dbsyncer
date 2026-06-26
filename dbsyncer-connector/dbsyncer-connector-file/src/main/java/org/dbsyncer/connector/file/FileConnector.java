@@ -113,7 +113,7 @@ public final class FileConnector extends AbstractConnector implements ConnectorS
 
     @Override
     public List<Table> getTable(FileConnectorInstance connectorInstance) {
-        return connectorInstance.getFileSchemaList().stream().map(fileSchema -> new Table(fileSchema.getFileName())).collect(Collectors.toList());
+        return connectorInstance.getFileSchemaList().stream().map(fileSchema -> new Table(fileSchema.getFileName(), null, null, null, null)).collect(Collectors.toList());
     }
 
     @Override

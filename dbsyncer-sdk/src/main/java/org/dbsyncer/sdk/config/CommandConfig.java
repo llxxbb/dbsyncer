@@ -7,7 +7,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.model.ConnectorConfig;
 import org.dbsyncer.sdk.model.Filter;
-import org.dbsyncer.sdk.model.Table;
+import org.dbsyncer.sdk.model.MetaInfo;
 
 import java.util.List;
 
@@ -22,7 +22,7 @@ public class CommandConfig {
 
     private String connectorType;
 
-    private Table table;
+    private MetaInfo table;
 
     private List<Filter> filter;
 
@@ -34,7 +34,7 @@ public class CommandConfig {
     // 缓存的主键列表字符串（避免重复构建）
     private String cachedPrimaryKeys;
 
-    public CommandConfig(String connectorType, Table table, ConnectorInstance connectorInstance, List<Filter> filter) {
+    public CommandConfig(String connectorType, MetaInfo table, ConnectorInstance connectorInstance, List<Filter> filter) {
         this.connectorType = connectorType;
         this.table = table;
         this.filter = filter;
@@ -45,7 +45,7 @@ public class CommandConfig {
         return connectorType;
     }
 
-    public Table getTable() {
+    public MetaInfo getTable() {
         return table;
     }
 
@@ -83,4 +83,5 @@ public class CommandConfig {
     public void setCachedPrimaryKeys(String cachedPrimaryKeys) {
         this.cachedPrimaryKeys = cachedPrimaryKeys;
     }
+
 }

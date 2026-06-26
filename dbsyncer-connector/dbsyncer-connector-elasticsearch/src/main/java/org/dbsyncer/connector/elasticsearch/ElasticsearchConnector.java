@@ -31,7 +31,6 @@ import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.plugin.ReaderContext;
 import org.dbsyncer.sdk.spi.ConnectorService;
-import org.dbsyncer.sdk.util.PrimaryKeyUtil;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.elasticsearch.action.bulk.BulkRequest;
@@ -143,8 +142,7 @@ public final class ElasticsearchConnector extends AbstractConnector implements C
             GetAliasesResponse indicesAlias = indices.getAlias(aliasesRequest, RequestOptions.DEFAULT);
             Map<String, Set<AliasMetadata>> aliases = indicesAlias.getAliases();
             if (!CollectionUtils.isEmpty(aliases)) {
-                // 排除系统索引
-                return aliases.keySet().stream().filter(index -> !StringUtil.startsWith(index, StringUtil.POINT)).map(index -> new Table(index)).collect(Collectors.toList());
+                return aliases.keySet().stream().filter(index -> !StringUtil.startsWith(index, StringUtil.POINT)).map(index -> new Table(index, null, null, null, null)).collect(Collectors.toList());
             }
             return Collections.EMPTY_LIST;
         } catch (IOException e) {
@@ -212,9 +210,8 @@ public final class ElasticsearchConnector extends AbstractConnector implements C
         SearchSourceBuilder builder = new SearchSourceBuilder();
         genSearchSourceBuilder(builder, context.getCommand());
         builder.timeout(TimeValue.timeValueSeconds(connectorInstance.getConfig().getTimeoutSeconds()));
-        List<String> primaryKeys = PrimaryKeyUtil.findTablePrimaryKeys(context.getSourceTable());
-        primaryKeys.forEach(pk -> builder.sort(pk, SortOrder.ASC));
-        // 深度分页
+        // 深度分页：使用 cursor 进行深度分页，不需要显式设置 sort，因为 cursor 已包含排序值
+        // if (!CollectionUtils.isEmpty(context.getCursors())) {/* 排序已在 cursor 中设置 */}
         if (!CollectionUtils.isEmpty(context.getCursors())) {
             builder.from(0);
             builder.searchAfter(context.getCursors());
@@ -245,17 +242,21 @@ public final class ElasticsearchConnector extends AbstractConnector implements C
     @Override
     public Result writer(ESConnectorInstance connectorInstance, PluginContext context) {
         List<Map> data = context.getTargetList();
+        final List<Map> sourceList = context.getSourceList();  // 获取源数据列表
         if (CollectionUtils.isEmpty(data)) {
             logger.error("writer data can not be empty.");
             throw new ElasticsearchException("writer data can not be empty.");
         }
 
         Result result = new Result();
-        final List<Field> pkFields = PrimaryKeyUtil.findExistPrimaryKeyFields(context.getTargetFields());
-        List<Map> sourceList = context.getSourceList();  // 获取源数据列表
+        List<String> primaryKeys = context.getPrimaryKeys();
+        final String pk = primaryKeys != null && !primaryKeys.isEmpty() ? primaryKeys.get(0) : null;
+        if (pk == null) {
+            logger.warn("Elasticsearch writer missing primary key, will use first field as ID");
+            throw new ElasticsearchException("Missing primary key in data");
+        }
         try {
             final BulkRequest request = new BulkRequest();
-            final String pk = pkFields.get(0).getName();
             final String indexName = context.getCommand().get(_TARGET_INDEX);
             final String type = context.getCommand().get(_TYPE);
             data.forEach(row -> addRequest(request, indexName, type, context.getEvent(), String.valueOf(row.get(pk)), row));
@@ -307,7 +308,6 @@ public final class ElasticsearchConnector extends AbstractConnector implements C
     @Override
     public Map<String, String> getTargetCommand(CommandConfig commandConfig) {
         Table table = commandConfig.getTable();
-        PrimaryKeyUtil.findTablePrimaryKeys(table);
         Map<String, String> command = new HashMap<>();
         command.put(_TARGET_INDEX, table.getName());
         command.put(_TYPE, table.getIndexType());
@@ -452,4 +452,9 @@ public final class ElasticsearchConnector extends AbstractConnector implements C
         return writer(connectorInstance, context);
     }
 
+
+
+
+
 }
+

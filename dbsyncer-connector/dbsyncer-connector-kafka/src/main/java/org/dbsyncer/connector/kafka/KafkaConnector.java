@@ -22,11 +22,11 @@ import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.plugin.ReaderContext;
 import org.dbsyncer.sdk.spi.ConnectorService;
-import org.dbsyncer.sdk.util.PrimaryKeyUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Kafka连接器实现
@@ -110,7 +110,20 @@ public class KafkaConnector extends AbstractConnector implements ConnectorServic
         }
 
         Result result = new Result();
-        final List<Field> pkFields = PrimaryKeyUtil.findExistPrimaryKeyFields(context.getTargetFields());
+        // 从 context 中获取主键列表
+        List<String> primaryKeys = context.getPrimaryKeys();
+        if (primaryKeys == null || primaryKeys.isEmpty()) {
+            throw new KafkaException("Primary keys must be set");
+        }
+        
+        // 获取主键字段用于 formatMessages
+        final String pkField = primaryKeys.get(0);
+        final List<Field> pkFields = primaryKeys.stream()
+            .filter(pn -> context.getTargetFields() != null)
+            .flatMap(pn -> context.getTargetFields().stream()
+                .filter(f -> f.getName().equalsIgnoreCase(pn)))
+            .collect(Collectors.toList());
+        
         try {
             // 从 command 中获取 topic 参数，如果没有则使用目标表名作为默认值
             String topic = context.getCommand().get("topic");
@@ -121,16 +134,13 @@ public class KafkaConnector extends AbstractConnector implements ConnectorServic
             if (topic == null || topic.isEmpty()) {
                 throw new KafkaException("Topic is required");
             }
-
-            // 默认取第一个主键
-            final String pk = pkFields.get(0).getName();
             final KafkaClient kafkaClient = connectorInstance.getConnection();
-            final String finalTopic = topic; // 创建final变量供lambda表达式使用
+            final String finalTopic = topic; // 创建 final 变量供 lambda 表达式使用
 
             // 格式化消息
             List<Map> formattedData = kafkaConvertor.formatMessages(context, data, pkFields);
 
-            formattedData.forEach(row -> kafkaClient.send(finalTopic, String.valueOf(row.get(pk)), row));
+            formattedData.forEach(row -> kafkaClient.send(finalTopic, String.valueOf(row.get(pkField)), row));
             kafkaClient.producer.flush();
             logger.debug("----kafka wrote topic: {}, number: {}", finalTopic, formattedData.size());
             result.addSuccessData(formattedData);
@@ -237,9 +247,7 @@ public class KafkaConnector extends AbstractConnector implements ConnectorServic
 
     @Override
     public boolean supportsCreateTable() {
-        // Kafka 不支持创建表操作
         return false;
     }
-
 
 }

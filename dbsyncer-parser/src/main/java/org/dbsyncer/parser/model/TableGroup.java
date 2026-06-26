@@ -17,7 +17,6 @@ import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.model.*;
 import org.dbsyncer.sdk.spi.ConnectorService;
-import org.dbsyncer.sdk.util.PrimaryKeyUtil;
 import org.dbsyncer.storage.impl.SnowflakeIdWorker;
 
 import java.util.ArrayList;
@@ -59,10 +58,10 @@ public class TableGroup extends AbstractConfigModel {
     private String mappingId;
 
     // 数据源表
-    private Table sourceTable;
+    private MetaInfo sourceTable;
 
     // 目标源表
-    private Table targetTable;
+    private MetaInfo targetTable;
 
     // 字段映射关系
     private List<FieldMapping> fieldMapping = new ArrayList<>();
@@ -102,20 +101,20 @@ public class TableGroup extends AbstractConfigModel {
         return this;
     }
 
-    public Table getSourceTable() {
+    public MetaInfo getSourceTable() {
         return sourceTable;
     }
 
-    public TableGroup setSourceTable(Table sourceTable) {
+    public TableGroup setSourceTable(MetaInfo sourceTable) {
         this.sourceTable = sourceTable;
         return this;
     }
 
-    public Table getTargetTable() {
+    public MetaInfo getTargetTable() {
         return targetTable;
     }
 
-    public TableGroup setTargetTable(Table targetTable) {
+    public TableGroup setTargetTable(MetaInfo targetTable) {
         this.targetTable = targetTable;
         return this;
     }
@@ -260,6 +259,38 @@ public class TableGroup extends AbstractConfigModel {
     }
 
     /**
+     * 按源表主键顺序，从目标字段列表中解析出有序的主键 Field 对象。
+     * 用于在 context 初始化阶段一次性计算，避免 update/delete 时每条数据重复查找。
+     *
+     * @param targetFields 目标字段列表（已按 fieldMapping 组装）
+     * @return 有序主键 Field 列表，源表无主键或目标字段中找不到匹配时返回空列表
+     */
+    @JsonIgnore
+    public List<Field> resolveTargetPkFields(List<Field> targetFields) {
+        if (sourceTable == null || CollectionUtils.isEmpty(targetFields)) {
+            return Collections.emptyList();
+        }
+        List<String> primaryKeys = sourceTable.getPrimaryKeys();
+        if (CollectionUtils.isEmpty(primaryKeys)) {
+            return Collections.emptyList();
+        }
+        Map<String, Field> fieldByName = new HashMap<>(targetFields.size());
+        for (Field f : targetFields) {
+            if (f != null && f.getName() != null) {
+                fieldByName.put(f.getName().toLowerCase(), f);
+            }
+        }
+        List<Field> pkFields = new ArrayList<>(primaryKeys.size());
+        for (String pkName : primaryKeys) {
+            Field f = fieldByName.get(pkName.toLowerCase());
+            if (f != null) {
+                pkFields.add(f);
+            }
+        }
+        return pkFields;
+    }
+
+    /**
      * 添加主键（内部去重，不区分大小写）
      * @param name 字段名
      */
@@ -393,14 +424,16 @@ public class TableGroup extends AbstractConfigModel {
         // 基于 fieldMapping 构建同步用的源/目标表（按需组合，不缓存）
         List<Field> sourceFields = getSyncSourceFields();
         List<Field> targetFields = getSyncTargetFields();
-        Table sTable = sourceTable.clone().setColumn(new ArrayList<>(sourceFields));
-        Table tTable = targetTable.clone().setColumn(new ArrayList<>(targetFields));
-
+        MetaInfo sTable = sourceTable.clone().setColumn(new ArrayList<>(sourceFields));
+        MetaInfo tTable = targetTable.clone()
+            .setColumn(new ArrayList<>(targetFields))
+            .setPrimaryKeys(getTargetTablePrimaryKeys());
 
         // 如果 tableGroup.getFilter()空使用 mapping.getFilter()0
         List<Filter> filters = CollectionUtils.isEmpty(this.getFilter()) ? mapping.getFilter() : this.getFilter();
         // 初始化命令时不需要验证连接，避免触发 kafka 等连接器的连接检查
         // 连接验证应该在真正使用连接时进行（如 getTable、getMetaInfo、writeBatch 等）
+        
         final CommandConfig sourceConfig = new CommandConfig(sConnConfig.getConnectorType(), sTable,
                 connectorFactory.connect(sConnConfig, false), filters);
         final CommandConfig targetConfig = new CommandConfig(tConnConfig.getConnectorType(), tTable,
@@ -416,8 +449,7 @@ public class TableGroup extends AbstractConfigModel {
                 List<String> fieldList = sTable.getColumn().stream().map(Field::getName).collect(Collectors.toList());
                 fieldListSql = dbConnector.sqlTemplate.buildQuotedStringList(fieldList);
                 this.setCachedFieldListSql(fieldListSql);
-                List<String> primaryKeys = PrimaryKeyUtil.findTablePrimaryKeys(sTable);
-                this.setCachedPrimaryKeys(dbConnector.sqlTemplate.buildQuotedStringList(primaryKeys));
+                this.setCachedPrimaryKeys(dbConnector.sqlTemplate.buildQuotedStringList(sTable.getPrimaryKeys()));
             }
         }
         // 将缓存的字段列表设置到CommandConfig中

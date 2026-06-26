@@ -11,7 +11,7 @@ import org.dbsyncer.sdk.constant.ConnectorConstant;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.model.Table;
-import org.dbsyncer.sdk.util.PrimaryKeyUtil;
+import org.dbsyncer.sdk.plugin.PluginContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.Assert;
@@ -98,7 +98,7 @@ public abstract class AbstractDatabaseListener extends AbstractListener<Database
             MetaInfo tableMetaInfo = service.getMetaInfo(instance, tableName);
             List<Field> tableColumns = tableMetaInfo.getColumn();
             Assert.notEmpty(tableColumns, String.format("The column of table name '%s' is empty.", tableName));
-            List<Field> primaryFields = PrimaryKeyUtil.findPrimaryKeyFields(tableColumns);
+            List<Field> primaryFields = tableColumns.stream().filter(f -> f.isPk()).collect(Collectors.toList());
             Assert.notEmpty(primaryFields, String.format("主表 %s 缺少主键.", tableName));
             List<String> primaryKeys = primaryFields.stream().map(Field::getName).collect(Collectors.toList());
             Map<String, Integer> tablePKIndexMap = new HashMap<>(primaryKeys.size());

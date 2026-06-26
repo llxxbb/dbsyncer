@@ -41,9 +41,7 @@ public final class DeleteSql implements SqlParser {
     public String parse() {
         try {
             Delete delete = (Delete) CCJSqlParserUtil.parse(sql);
-            //替换表名
-            Table table = new Table();
-            table.setName(targetTableName);
+            Table table = new Table(targetTableName);
             delete.setTable(table);
             whereParse(delete.getWhere());
             return delete.toString();

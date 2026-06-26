@@ -56,13 +56,6 @@ public class Table {
     public Table() {
     }
 
-    public Table(String name) {
-        this(name, TableTypeEnum.TABLE.getCode());
-    }
-
-    public Table(String name, String type) {
-        this(name, type, null, null, null);
-    }
 
     public Table(String name, String type, List<Field> column, String sql, String indexType) {
         this.name = name;
@@ -71,6 +64,7 @@ public class Table {
         this.sql = sql;
         this.indexType = indexType;
     }
+
 
     public String getName() {
         return name;
@@ -102,24 +96,27 @@ public class Table {
         return sql;
     }
 
-    public void setSql(String sql) {
+    public Table setSql(String sql) {
         this.sql = sql;
+        return this;
     }
 
     public long getCount() {
         return count;
     }
 
-    public void setCount(long count) {
+    public Table setCount(long count) {
         this.count = count;
+        return this;
     }
 
     public String getIndexType() {
         return indexType;
     }
 
-    public void setIndexType(String indexType) {
+    public Table setIndexType(String indexType) {
         this.indexType = indexType;
+        return this;
     }
 
     /**
@@ -181,7 +178,7 @@ public class Table {
             clonedColumns = new ArrayList<>(column);
         }
         Table cloned = new Table(name, type, clonedColumns, sql, indexType);
-        cloned.columnMap = null; // 新对象独立构建缓存
+        cloned.columnMap = null;
         return cloned;
     }
 }

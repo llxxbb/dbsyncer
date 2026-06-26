@@ -4,6 +4,7 @@ import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.Plugin;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -38,6 +39,12 @@ public abstract class AbstractPluginContext extends AbstractBaseContext implemen
      * 目标字段
      */
     private List<Field> targetFields;
+
+    /**
+     * 预计算的主键字段列表（按主键顺序）
+     * 更新/删除等操作直接读取，避免每条数据重复查找
+     */
+    private List<Field> pkFields = Collections.emptyList();
 
     /**
      * 批量处理任务数
@@ -75,9 +82,14 @@ public abstract class AbstractPluginContext extends AbstractBaseContext implemen
     private Plugin plugin;
 
     /**
-     * 插件参数
+     * 插件参数（旧方式，保留兼容）
      */
     private String pluginExtInfo;
+    
+    /**
+     * 主键列表（新方式，直接 List，避免 JSON 解析）
+     */
+    private List<String> primaryKeys;
 
     private String traceId;
 
@@ -125,6 +137,16 @@ public abstract class AbstractPluginContext extends AbstractBaseContext implemen
 
     public void setTargetFields(List<Field> targetFields) {
         this.targetFields = targetFields;
+    }
+
+    @Override
+    public List<Field> getPkFields() {
+        return pkFields;
+    }
+
+    @Override
+    public void setPkFields(List<Field> pkFields) {
+        this.pkFields = pkFields == null ? Collections.<Field>emptyList() : pkFields;
     }
 
     @Override
@@ -190,7 +212,22 @@ public abstract class AbstractPluginContext extends AbstractBaseContext implemen
         this.plugin = plugin;
     }
 
+    /**
+     * 获取主键列表
+     */
     @Override
+    public List<String> getPrimaryKeys() {
+        return primaryKeys;
+    }
+
+    @Override
+    public void setPrimaryKeys(List<String> primaryKeys) {
+        this.primaryKeys = primaryKeys;
+    }
+
+    /**
+     * 获取插件参数（旧方式）
+     */
     public String getPluginExtInfo() {
         return pluginExtInfo;
     }

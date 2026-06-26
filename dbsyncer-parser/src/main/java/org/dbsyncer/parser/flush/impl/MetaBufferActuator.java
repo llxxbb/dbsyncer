@@ -32,7 +32,6 @@ import org.dbsyncer.sdk.listener.Listener;
 import org.dbsyncer.sdk.model.ChangedOffset;
 import org.dbsyncer.sdk.model.ConnectorConfig;
 import org.dbsyncer.sdk.model.Field;
-import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.sdk.util.RowConverter;
 import org.springframework.util.Assert;
@@ -376,9 +375,11 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         context.setTargetTableName(tableGroup.getTargetTable().getName());
         context.setTraceId(response.getTraceId());
         context.setEvent(response.getEvent());
+        context.setPrimaryKeys(tableGroup.getTargetTablePrimaryKeys());
         List<Field> targetFields = tableGroupPicker.getTargetFields();
         Assert.isTrue(targetFields != null && !targetFields.isEmpty(), "targetFields can not be empty");
         context.setTargetFields(targetFields);
+        context.setPkFields(tableGroup.resolveTargetPkFields(targetFields));
         context.setCommand(tableGroup.getCommand());
         context.setBatchSize(getBufferWriterCount());
         context.setSourceList(sourceDataList);
@@ -463,6 +464,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             context.setTargetTableName(tableGroup.getTargetTable().getName());
             context.setEvent(response.getEvent());
             context.setTraceId(response.getTraceId());
+            context.setPrimaryKeys(tableGroup.getTargetTablePrimaryKeys());
 
             // 5. 生成目标表执行SQL(支持异构数据库)
             ConnectorInstance tConnectorInstance = connectorFactory.connect(tConnConfig);

@@ -157,7 +157,7 @@ public class ConnectorFactory implements DisposableBean {
         if (!CollectionUtils.isEmpty(table)) {
             for (Table t : table) {
                 if (t.getName().equals(tableName)) {
-                    metaInfo.setTableType(t.getType());
+                    metaInfo.setType(t.getType());
                     metaInfo.setSql(t.getSql());
                     break;
                 }

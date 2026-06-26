@@ -8,73 +8,15 @@ import org.dbsyncer.common.util.NumberUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.sdk.SdkException;
 import org.dbsyncer.sdk.model.Field;
-import org.dbsyncer.sdk.model.Table;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.Types;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public abstract class PrimaryKeyUtil {
 
     private static final Logger logger = LoggerFactory.getLogger(PrimaryKeyUtil.class);
-
-    /**
-     * 返回主键名称
-     *
-     * @param table
-     * @return
-     */
-    public static List<String> findTablePrimaryKeys(Table table) {
-        if (null == table) {
-            throw new SdkException("The table is null.");
-        }
-
-        // 获取表同步的主键字段
-        List<String> primaryKeys = findPrimaryKeyFields(table.getColumn()).stream().map(Field::getName).collect(Collectors.toList());
-
-        // 如果存在表字段映射关系，没有配置主键则抛出异常提示
-        if (!CollectionUtils.isEmpty(table.getColumn()) && CollectionUtils.isEmpty(primaryKeys)) {
-            logger.warn("表 {} 缺少主键.", table.getName());
-            return primaryKeys;
-        }
-        return primaryKeys;
-    }
-
-    /**
-     * 返回主键属性字段集合
-     *
-     * @param fields
-     * @return
-     */
-    public static List<Field> findExistPrimaryKeyFields(List<Field> fields) {
-        List<Field> list = findPrimaryKeyFields(fields);
-        if (CollectionUtils.isEmpty(list)) {
-            throw new SdkException("主键为空");
-        }
-        return list;
-    }
-
-    /**
-     * 返回主键属性字段集合
-     *
-     * @param fields
-     * @return
-     */
-    public static List<Field> findPrimaryKeyFields(List<Field> fields) {
-        List<Field> list = new ArrayList<>();
-        if (!CollectionUtils.isEmpty(fields)) {
-            Set<String> mark = new HashSet<>();
-            fields.forEach(f -> {
-                if (f.isPk() && !mark.contains(f.nameIgnoreCase())) {
-                    list.add(f);
-                    mark.add(f.nameIgnoreCase());
-                }
-            });
-        }
-        return Collections.unmodifiableList(list);
-    }
 
     /**
      * 游标主键必须为数字类型，否则会导致分页失效
@@ -103,7 +45,7 @@ public abstract class PrimaryKeyUtil {
     }
 
     /**
-     * 是否支持游标类型(数字)
+     * 是否支持游标类型 (数字)
      *
      * @param type
      * @return

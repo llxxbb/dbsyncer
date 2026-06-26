@@ -1195,7 +1195,7 @@ public class MySQLToSQLServerDDLSyncIntegrationTest extends BaseDDLIntegrationTe
 
         // 创建标准化的 MetaInfo
         org.dbsyncer.sdk.model.MetaInfo standardizedMetaInfo = new org.dbsyncer.sdk.model.MetaInfo();
-        standardizedMetaInfo.setTableType(sourceMetaInfo.getTableType());
+        standardizedMetaInfo.setType(sourceMetaInfo.getType());
         standardizedMetaInfo.setSql(sourceMetaInfo.getSql());
         standardizedMetaInfo.setIndexType(sourceMetaInfo.getIndexType());
         standardizedMetaInfo.setPrimaryKeys(sourceMetaInfo.getPrimaryKeys());

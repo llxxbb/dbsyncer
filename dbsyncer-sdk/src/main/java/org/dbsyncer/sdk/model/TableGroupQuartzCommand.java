@@ -1,7 +1,6 @@
 package org.dbsyncer.sdk.model;
 
-import org.dbsyncer.sdk.util.PrimaryKeyUtil;
-
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -22,14 +21,14 @@ public class TableGroupQuartzCommand {
 
     private final List<String> primaryKeys;
 
-    public TableGroupQuartzCommand(Table table, List<Field> fields, Table targetTable, Map<String, String> command, Plugin plugin, String pluginExtInfo) {
+    public TableGroupQuartzCommand(MetaInfo table, List<Field> fields, Table targetTable, Map<String, String> command, Plugin plugin, String pluginExtInfo) {
         this.table = table;
         this.fields = fields;
         this.targetTable = targetTable;
         this.command = command;
         this.plugin = plugin;
         this.pluginExtInfo = pluginExtInfo;
-        this.primaryKeys = PrimaryKeyUtil.findTablePrimaryKeys(table);
+        this.primaryKeys = table.getPrimaryKeys() != null ? table.getPrimaryKeys() : Collections.emptyList();
     }
 
     public Table getTable() {
