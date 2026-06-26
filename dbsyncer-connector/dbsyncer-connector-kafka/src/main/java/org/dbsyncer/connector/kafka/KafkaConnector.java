@@ -21,12 +21,12 @@ import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.plugin.ReaderContext;
+import org.dbsyncer.sdk.plugin.SyncRow;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Kafka连接器实现
@@ -103,27 +103,27 @@ public class KafkaConnector extends AbstractConnector implements ConnectorServic
 
     @Override
     public Result writer(KafkaConnectorInstance connectorInstance, PluginContext context) {
-        List<Map> data = context.getTargetList();
-        if (CollectionUtils.isEmpty(data)) {
+        // 从 context 中获取 SyncRows（ADR 18：上下文感知的数据模型）
+        List<SyncRow> syncRows = context.getSyncRows();
+        if (CollectionUtils.isEmpty(syncRows)) {
             logger.error("writer data can not be empty.");
             throw new KafkaException("writer data can not be empty.");
         }
 
-        Result result = new Result();
-        // 从 context 中获取主键列表
-        List<String> primaryKeys = context.getPrimaryKeys();
-        if (primaryKeys == null || primaryKeys.isEmpty()) {
+        // 从第一个 SyncRow 的 context 中获取主键字段列表（预计算）
+        List<Field> pkFields = context.getPkFields();
+        if (CollectionUtils.isEmpty(pkFields)) {
             throw new KafkaException("Primary keys must be set");
         }
-        
-        // 获取主键字段用于 formatMessages
-        final String pkField = primaryKeys.get(0);
-        final List<Field> pkFields = primaryKeys.stream()
-            .filter(pn -> context.getTargetFields() != null)
-            .flatMap(pn -> context.getTargetFields().stream()
-                .filter(f -> f.getName().equalsIgnoreCase(pn)))
-            .collect(Collectors.toList());
-        
+        final String pkFieldName = pkFields.get(0).getName();
+
+        // 提取 Map 数据用于 formatMessages
+        List<Map> data = new ArrayList<>(syncRows.size());
+        for (SyncRow row : syncRows) {
+            data.add(row.getData());
+        }
+
+        Result result = new Result();
         try {
             // 从 command 中获取 topic 参数，如果没有则使用目标表名作为默认值
             String topic = context.getCommand().get("topic");
@@ -140,7 +140,7 @@ public class KafkaConnector extends AbstractConnector implements ConnectorServic
             // 格式化消息
             List<Map> formattedData = kafkaConvertor.formatMessages(context, data, pkFields);
 
-            formattedData.forEach(row -> kafkaClient.send(finalTopic, String.valueOf(row.get(pkField)), row));
+            formattedData.forEach(row -> kafkaClient.send(finalTopic, String.valueOf(row.get(pkFieldName)), row));
             kafkaClient.producer.flush();
             logger.debug("----kafka wrote topic: {}, number: {}", finalTopic, formattedData.size());
             result.addSuccessData(formattedData);

@@ -29,8 +29,8 @@ import org.dbsyncer.sdk.parser.ddl.converter.IRToTargetConverter;
 import org.dbsyncer.sdk.parser.ddl.converter.SourceToIRConverter;
 import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.plugin.ReaderContext;
+import org.dbsyncer.sdk.plugin.SyncRow;
 import org.dbsyncer.sdk.spi.ConnectorService;
-import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.util.DatabaseUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -365,13 +365,19 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
      */
     protected Result executeWriter(DatabaseConnectorInstance connectorInstance, PluginContext context,
             List<Field> fields) {
-        List<Map> data = context.getTargetList();
+        List<SyncRow> syncRows = context.getSyncRows();
 
         if (CollectionUtils.isEmpty(fields)) {
             throw new SdkException("writer fields can not be empty.");
         }
-        if (CollectionUtils.isEmpty(data)) {
+        if (CollectionUtils.isEmpty(syncRows)) {
             throw new SdkException("writer data can not be empty.");
+        }
+
+        // 兼容下游 batchRows 逻辑，从 SyncRow 中提取 Map
+        List<Map> data = new ArrayList<>(syncRows.size());
+        for (SyncRow row : syncRows) {
+            data.add(row.getData());
         }
 
         // 获取重试配置

@@ -18,16 +18,16 @@ import java.util.Map;
 public interface PluginContext extends BaseContext {
 
     /**
-     * 获取同步主键列表（按数据库主键顺序）
-     * @return 主键名称列表
+     * 获取同步数据列表
+     * @return 数据项列表，每项包含原始数据及其上下文
      */
-    List<String> getPrimaryKeys();
+    List<SyncRow> getSyncRows();
 
     /**
-     * 设置同步主键列表
-     * @param primaryKeys 主键名称列表
+     * 设置同步数据列表
+     * @param syncRows 数据项列表
      */
-    void setPrimaryKeys(List<String> primaryKeys);
+    void setSyncRows(List<SyncRow> syncRows);
 
     /**
      * 获取预计算的主键字段列表（按主键顺序）
@@ -133,4 +133,16 @@ public interface PluginContext extends BaseContext {
      * @throws CloneNotSupportedException
      */
     Object clone() throws CloneNotSupportedException;
+
+    /**
+     * 获取同步主键列表（按数据库主键顺序）
+     * @return 主键名称列表
+     */
+    List<String> getPrimaryKeys();
+
+    /**
+     * 设置同步主键列表
+     * @param primaryKeys 主键名称列表
+     */
+    void setPrimaryKeys(List<String> primaryKeys);
 }

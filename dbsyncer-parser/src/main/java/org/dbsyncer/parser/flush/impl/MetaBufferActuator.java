@@ -32,6 +32,7 @@ import org.dbsyncer.sdk.listener.Listener;
 import org.dbsyncer.sdk.model.ChangedOffset;
 import org.dbsyncer.sdk.model.ConnectorConfig;
 import org.dbsyncer.sdk.model.Field;
+import org.dbsyncer.sdk.plugin.SyncRow;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.sdk.util.RowConverter;
 import org.springframework.util.Assert;
@@ -394,6 +395,13 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         }
         try {
             pluginFactory.process(context, ProcessEnum.CONVERT);
+
+            // 封装 SyncRows（ADR 18：上下文感知的数据模型）
+            List<SyncRow> syncRows = new ArrayList<>(context.getTargetList().size());
+            for (Map row : context.getTargetList()) {
+                syncRows.add(new SyncRow(row, context));
+            }
+            context.setSyncRows(syncRows);
 
             // 4、批量执行同步（LogService 已全局设置，直接使用）
             result = connectorFactory.writeBatch(context);

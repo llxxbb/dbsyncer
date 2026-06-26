@@ -26,6 +26,7 @@ import org.dbsyncer.sdk.model.ConnectorConfig;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.plugin.AbstractPluginContext;
+import org.dbsyncer.sdk.plugin.SyncRow;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.sdk.util.PrimaryKeyUtil;
 import org.slf4j.Logger;
@@ -34,17 +35,12 @@ import org.springframework.jdbc.core.ArgumentPreparedStatementSetter;
 import org.springframework.jdbc.core.ColumnMapRowMapper;
 import org.springframework.stereotype.Component;
 
-import org.dbsyncer.sdk.model.Field;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
 import java.util.stream.Stream;
 
 /**
@@ -229,7 +225,14 @@ public class ParserComponentImpl implements ParserComponent {
         context.setTargetList(target);
         pluginFactory.process(context, ProcessEnum.CONVERT);
 
-        // 4、写入目标源
+        // 4、封装 SyncRows（ADR 18：上下文感知的数据模型）
+        List<SyncRow> syncRows = new ArrayList<>(target.size());
+        for (Map row : target) {
+            syncRows.add(new SyncRow(row, context));
+        }
+        context.setSyncRows(syncRows);
+
+        // 5、写入目标源
         Result result = connectorFactory.writeBatch(context);
 
         // 5、更新Meta统计信息
