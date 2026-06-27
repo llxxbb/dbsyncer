@@ -102,22 +102,19 @@ public class KafkaConnector extends AbstractConnector implements ConnectorServic
     }
 
     @Override
-    public Result writer(KafkaConnectorInstance connectorInstance, PluginContext context) {
-        // 从 context 中获取 SyncRows（ADR 18：上下文感知的数据模型）
-        List<SyncRow> syncRows = context.getSyncRows();
+    public Result writer(KafkaConnectorInstance connectorInstance, List<SyncRow> syncRows) {
         if (CollectionUtils.isEmpty(syncRows)) {
             logger.error("writer data can not be empty.");
             throw new KafkaException("writer data can not be empty.");
         }
 
-        // 从第一个 SyncRow 的 context 中获取主键字段列表（预计算）
+        PluginContext context = syncRows.get(0).getContext();
         List<Field> pkFields = context.getPkFields();
         if (CollectionUtils.isEmpty(pkFields)) {
             throw new KafkaException("Primary keys must be set");
         }
         final String pkFieldName = pkFields.get(0).getName();
 
-        // 提取 Map 数据用于 formatMessages
         List<Map> data = new ArrayList<>(syncRows.size());
         for (SyncRow row : syncRows) {
             data.add(row.getData());
@@ -125,19 +122,15 @@ public class KafkaConnector extends AbstractConnector implements ConnectorServic
 
         Result result = new Result();
         try {
-            // 从 command 中获取 topic 参数，如果没有则使用目标表名作为默认值
             String topic = context.getCommand().get("topic");
-
             topic = topic == null ? connectorInstance.getConfig().getTopic() : topic;
 
-            // 验证 topic 是否为空
             if (topic == null || topic.isEmpty()) {
                 throw new KafkaException("Topic is required");
             }
             final KafkaClient kafkaClient = connectorInstance.getConnection();
-            final String finalTopic = topic; // 创建 final 变量供 lambda 表达式使用
+            final String finalTopic = topic;
 
-            // 格式化消息
             List<Map> formattedData = kafkaConvertor.formatMessages(context, data, pkFields);
 
             formattedData.forEach(row -> kafkaClient.send(finalTopic, String.valueOf(row.get(pkFieldName)), row));
@@ -145,8 +138,7 @@ public class KafkaConnector extends AbstractConnector implements ConnectorServic
             logger.debug("----kafka wrote topic: {}, number: {}", finalTopic, formattedData.size());
             result.addSuccessData(formattedData);
         } catch (Exception e) {
-            // 记录错误数据
-            result.addFailData(context.getSourceList());  // 存储源数据，便于重试时直接使用
+            result.addFailData(context.getSourceList());
             result.error = e.getMessage();
             logger.error(e.getMessage(), e);
         }
@@ -169,27 +161,23 @@ public class KafkaConnector extends AbstractConnector implements ConnectorServic
     }
 
     @Override
-    public Result insert(KafkaConnectorInstance connectorInstance, PluginContext context) {
-        // INSERT 操作：使用所有字段
-        return writer(connectorInstance, context);
+    public Result insert(KafkaConnectorInstance connectorInstance, List<SyncRow> syncRows) {
+        return writer(connectorInstance, syncRows);
     }
 
     @Override
-    public Result update(KafkaConnectorInstance connectorInstance, PluginContext context) {
-        // INSERT 操作：使用所有字段
-        return writer(connectorInstance, context);
+    public Result update(KafkaConnectorInstance connectorInstance, List<SyncRow> syncRows) {
+        return writer(connectorInstance, syncRows);
     }
 
     @Override
-    public Result delete(KafkaConnectorInstance connectorInstance, PluginContext context) {
-        // INSERT 操作：使用所有字段
-        return writer(connectorInstance, context);
+    public Result delete(KafkaConnectorInstance connectorInstance, List<SyncRow> syncRows) {
+        return writer(connectorInstance, syncRows);
     }
 
     @Override
-    public Result upsert(KafkaConnectorInstance connectorInstance, PluginContext context) {
-        // INSERT 操作：使用所有字段
-        return writer(connectorInstance, context);
+    public Result upsert(KafkaConnectorInstance connectorInstance, List<SyncRow> syncRows) {
+        return writer(connectorInstance, syncRows);
     }
 
     @Override

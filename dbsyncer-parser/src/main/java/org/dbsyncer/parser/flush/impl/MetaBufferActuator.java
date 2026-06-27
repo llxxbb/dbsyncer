@@ -341,19 +341,19 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         ConnectorService sourceConnector = connectorFactory.getConnectorService(sourceConfig.getConnectorType());
         IncrementPluginContext context;
         List<Map> sourceDataList = new ArrayList<>();
+        List<SyncRow> targetDataList;
         try {
-            List<Map> targetDataList = tableGroupPicker.getPicker()
-                    .setSourceResolver(enableSchemaResolver ? sourceConnector.getSchemaResolver() : null)
-                    .pickTargetData(actualSourceFields, fieldIndexMap, enableFilter, response.getDataList(), sourceDataList);
-
-            // 2、参数转换
-            ConvertUtil.convert(tableGroup.getConvert(), targetDataList);
-
-            // 3、插件转换
+            // 先创建 context，以便 Picker 能将数据包装为 SyncRow
             context = new IncrementPluginContext();
-            context.setTargetList(targetDataList);
             context.setSourceConnectorInstance(connectorFactory.connect(sourceConfig));
             context.setTargetConnectorInstance(connectorFactory.connect(getConnectorConfig(mapping.getTargetConnectorId())));
+
+            targetDataList = tableGroupPicker.getPicker()
+                    .setSourceResolver(enableSchemaResolver ? sourceConnector.getSchemaResolver() : null)
+                    .pickTargetData(actualSourceFields, fieldIndexMap, enableFilter, response.getDataList(), sourceDataList, context);
+
+            // 2、参数转换（ConvertUtil 直接操作 SyncRow）
+            ConvertUtil.convert(tableGroup.getConvert(), targetDataList);
         } catch (Exception e) {
             String msg = String.format("异常！mappingId: %s，msg %s",
                     mapping.getId(), e.getMessage());
@@ -396,15 +396,8 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         try {
             pluginFactory.process(context, ProcessEnum.CONVERT);
 
-            // 封装 SyncRows（ADR 18：上下文感知的数据模型）
-            List<SyncRow> syncRows = new ArrayList<>(context.getTargetList().size());
-            for (Map row : context.getTargetList()) {
-                syncRows.add(new SyncRow(row, context));
-            }
-            context.setSyncRows(syncRows);
-
-            // 4、批量执行同步（LogService 已全局设置，直接使用）
-            result = connectorFactory.writeBatch(context);
+            // 4、批量执行同步（直接传递 syncRows，无需通过 context 中转）
+            result = connectorFactory.writeBatch(context, targetDataList);
 
             // 5、持久化同步结果
             result.setMappingId(mapping.getId());

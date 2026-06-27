@@ -212,28 +212,20 @@ public class ParserComponentImpl implements ParserComponent {
      * TableGroup专用的数据处理逻辑
      */
     private void processTableGroupDataBatch(String metaId, List<Map> source, TableGroup tableGroup,
-                                            AbstractPluginContext context, Picker picker, List<String> primaryKeys,
-                                            long[] lastSaveTime) throws Exception {
-        // 1、映射字段
-        List<Map> target = picker.pickTargetData(source);
+                                             AbstractPluginContext context, Picker picker, List<String> primaryKeys,
+                                             long[] lastSaveTime) throws Exception {
+        // 1、映射字段 + 封装为 SyncRow（Picker 返回的就是 SyncRow）
+        List<SyncRow> target = picker.pickTargetData(source, context);
 
         // 2、参数转换（增强：支持字段值生成和转换）
         ConvertUtil.convert(tableGroup.getConvert(), target);
 
         // 3、插件转换
         context.setSourceList(source);
-        context.setTargetList(target);
         pluginFactory.process(context, ProcessEnum.CONVERT);
 
-        // 4、封装 SyncRows（ADR 18：上下文感知的数据模型）
-        List<SyncRow> syncRows = new ArrayList<>(target.size());
-        for (Map row : target) {
-            syncRows.add(new SyncRow(row, context));
-        }
-        context.setSyncRows(syncRows);
-
-        // 5、写入目标源
-        Result result = connectorFactory.writeBatch(context);
+        // 4、写入目标源（直接传递 syncRows）
+        Result result = connectorFactory.writeBatch(context, target);
 
         // 5、更新Meta统计信息
         if (result != null) {

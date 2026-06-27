@@ -16,6 +16,7 @@ import org.dbsyncer.sdk.model.ConnectorConfig;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.plugin.PluginContext;
+import org.dbsyncer.sdk.plugin.SyncRow;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -204,7 +205,7 @@ public class ConnectorFactory implements DisposableBean {
     /**
      * 批量写入数据到目标源
      */
-    public Result writeBatch(PluginContext context) {
+    public Result writeBatch(PluginContext context, List<SyncRow> syncRows) {
         String event = context.getEvent();
         if (context.isForceUpdate() && ConnectorConstant.isInsert(event)) {
             event = ConnectorConstant.OPERTION_UPSERT;
@@ -212,13 +213,13 @@ public class ConnectorFactory implements DisposableBean {
         }
         switch (event) {
             case ConnectorConstant.OPERTION_INSERT:
-                return executeWriterOperation(context, (connector, instance, ctx) -> connector.insert(instance, ctx));
+                return executeWriterOperation(context, syncRows, (connector, instance, rows) -> connector.insert(instance, rows));
             case ConnectorConstant.OPERTION_UPDATE:
-                return executeWriterOperation(context, (connector, instance, ctx) -> connector.update(instance, ctx));
+                return executeWriterOperation(context, syncRows, (connector, instance, rows) -> connector.update(instance, rows));
             case ConnectorConstant.OPERTION_DELETE:
-                return executeWriterOperation(context, (connector, instance, ctx) -> connector.delete(instance, ctx));
+                return executeWriterOperation(context, syncRows, (connector, instance, rows) -> connector.delete(instance, rows));
             case ConnectorConstant.OPERTION_UPSERT:
-                return executeWriterOperation(context, (connector, instance, ctx) -> connector.upsert(instance, ctx));
+                return executeWriterOperation(context, syncRows, (connector, instance, rows) -> connector.upsert(instance, rows));
             default:
                 throw new RuntimeException("不支持的事件类型：" + event);
         }
@@ -227,7 +228,7 @@ public class ConnectorFactory implements DisposableBean {
     /**
      * 执行写入操作的通用方法
      */
-    private Result executeWriterOperation(PluginContext context, WriterOperation operation) {
+    private Result executeWriterOperation(PluginContext context, List<SyncRow> syncRows, WriterOperation operation) {
         ConnectorInstance targetInstance = context.getTargetConnectorInstance();
         Assert.notNull(targetInstance, "targetConnectorInstance can not null");
         ConnectorService targetConnector = getConnectorService(targetInstance.getConfig());
@@ -237,7 +238,7 @@ public class ConnectorFactory implements DisposableBean {
             try {
                 // 支持标准解析器
                 if (context.isEnableSchemaResolver() && targetConnector.getSchemaResolver() != null) {
-                    conn.convertProcessBeforeWriter(context, targetConnector.getSchemaResolver());
+                    conn.convertProcessBeforeWriter(context, syncRows, targetConnector.getSchemaResolver());
                 }
             } catch (Exception e) {
                 Result result = new Result();
@@ -245,13 +246,13 @@ public class ConnectorFactory implements DisposableBean {
                 result.addFailData(context.getSourceList());  // 存储源数据，便于重试时直接使用
                 if (context.isEnablePrintTraceInfo()) {
                     logger.error("traceId:{}, tableName:{}, event:{}, targetList:{}, result:{}", context.getTraceId(), context.getSourceTableName(),
-                            context.getEvent(), context.getTargetList(), JsonUtil.objToJson(result));
+                            context.getEvent(), context.getSourceList(), JsonUtil.objToJson(result));
                 }
                 return result;
             }
         }
 
-        Result result = operation.execute(targetConnector, targetInstance, context);
+        Result result = operation.execute(targetConnector, targetInstance, syncRows);
         if (context.isEnablePrintTraceInfo()) {
             logger.info("traceId:{}, tableName:{}, event:{}, result:{}", context.getTraceId(), context.getSourceTableName(),
                     context.getEvent(), JsonUtil.objToJson(result));
@@ -265,7 +266,7 @@ public class ConnectorFactory implements DisposableBean {
      */
     @FunctionalInterface
     private interface WriterOperation {
-        Result execute(ConnectorService connector, ConnectorInstance instance, PluginContext context);
+        Result execute(ConnectorService connector, ConnectorInstance instance, List<SyncRow> syncRows);
     }
 
     public Result writerDDL(ConnectorInstance connectorInstance, DDLConfig ddlConfig, org.dbsyncer.sdk.plugin.PluginContext context) {

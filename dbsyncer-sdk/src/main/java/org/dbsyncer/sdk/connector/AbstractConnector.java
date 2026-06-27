@@ -7,36 +7,35 @@ import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.sdk.SdkException;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.plugin.PluginContext;
+import org.dbsyncer.sdk.plugin.SyncRow;
 import org.dbsyncer.sdk.schema.SchemaResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Map;
+import java.util.List;
 
 public abstract class AbstractConnector {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     /**
-     * 转换字段值
-     *
-     * @param context
-     * @param targetResolver
+     * 写入前类型转换（通过 SyncRow 直接访问数据，无需再经 context 绕一圈）
      */
-    public void convertProcessBeforeWriter(PluginContext context, SchemaResolver targetResolver) {
-        if (CollectionUtils.isEmpty(context.getTargetFields()) || CollectionUtils.isEmpty(context.getTargetList())) {
+    public void convertProcessBeforeWriter(PluginContext context, List<SyncRow> syncRows, SchemaResolver targetResolver) {
+        if (CollectionUtils.isEmpty(context.getTargetFields()) || CollectionUtils.isEmpty(syncRows)) {
             return;
         }
 
-        for (Map row : context.getTargetList()) {
+        for (SyncRow row : syncRows) {
             for (Field f : context.getTargetFields()) {
                 if (null == f) {
                     continue;
                 }
                 try {
-                    row.computeIfPresent(f.getName(), (k, v) -> targetResolver.convert(v, f));
+                    row.getData().computeIfPresent(f.getName(), (k, v) -> targetResolver.convert(v, f));
                 } catch (Exception e) {
-                    logger.error(String.format("convert value error: (%s, %s, %s)", context.getTargetTableName(), f.getName(), row.get(f.getName())), e);
+                    logger.error(String.format("convert value error: (%s, %s, %s)",
+                            context.getTargetTableName(), f.getName(), row.getData().get(f.getName())), e);
                     throw new SdkException(e);
                 }
             }

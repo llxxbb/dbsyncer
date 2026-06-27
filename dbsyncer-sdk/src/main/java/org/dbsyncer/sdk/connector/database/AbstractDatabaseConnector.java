@@ -311,21 +311,19 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
     }
 
     @Override
-    public Result writer(DatabaseConnectorInstance connectorInstance, PluginContext context) {
-        // writer 方法只负责执行 SQL，不处理业务逻辑
-        return executeWriter(connectorInstance, context, context.getTargetFields());
+    public Result writer(DatabaseConnectorInstance connectorInstance, List<SyncRow> syncRows) {
+        return executeWriter(connectorInstance, syncRows, syncRows.get(0).getContext().getTargetFields());
     }
 
     @Override
-    public Result insert(DatabaseConnectorInstance connectorInstance, PluginContext context) {
-        // INSERT 操作：使用所有字段
-        List<Field> fields = new ArrayList<>(context.getTargetFields());
-        return executeWriter(connectorInstance, context, fields);
+    public Result insert(DatabaseConnectorInstance connectorInstance, List<SyncRow> syncRows) {
+        List<Field> fields = new ArrayList<>(syncRows.get(0).getContext().getTargetFields());
+        return executeWriter(connectorInstance, syncRows, fields);
     }
 
     @Override
-    public Result update(DatabaseConnectorInstance connectorInstance, PluginContext context) {
-        // UPDATE 操作：移除主键字段，只保留非主键字段 + 主键字段
+    public Result update(DatabaseConnectorInstance connectorInstance, List<SyncRow> syncRows) {
+        PluginContext context = syncRows.get(0).getContext();
         List<Field> fields = new ArrayList<>(context.getTargetFields());
         List<Field> pkFields = context.getPkFields();
         if (CollectionUtils.isEmpty(pkFields)) {
@@ -333,22 +331,21 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
         }
         removeFieldWithPk(fields, pkFields);
         fields.addAll(pkFields);
-        return executeWriter(connectorInstance, context, fields);
+        return executeWriter(connectorInstance, syncRows, fields);
     }
 
     @Override
-    public Result delete(DatabaseConnectorInstance connectorInstance, PluginContext context) {
-        // DELETE 操作：只使用主键字段
-        List<Field> pkFields = context.getPkFields();
+    public Result delete(DatabaseConnectorInstance connectorInstance, List<SyncRow> syncRows) {
+        List<Field> pkFields = syncRows.get(0).getContext().getPkFields();
         if (CollectionUtils.isEmpty(pkFields)) {
             throw new SdkException("Primary keys cannot be empty for DELETE operation");
         }
-        return executeWriter(connectorInstance, context, pkFields);
+        return executeWriter(connectorInstance, syncRows, pkFields);
     }
 
     @Override
-    public Result upsert(DatabaseConnectorInstance connectorInstance, PluginContext context) {
-        // UPSERT 操作：同 UPDATE 逻辑
+    public Result upsert(DatabaseConnectorInstance connectorInstance, List<SyncRow> syncRows) {
+        PluginContext context = syncRows.get(0).getContext();
         List<Field> fields = new ArrayList<>(context.getTargetFields());
         List<Field> pkFields = context.getPkFields();
         if (CollectionUtils.isEmpty(pkFields)) {
@@ -356,29 +353,21 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
         }
         removeFieldWithPk(fields, pkFields);
         fields.addAll(pkFields);
-        return executeWriter(connectorInstance, context, fields);
+        return executeWriter(connectorInstance, syncRows, fields);
     }
 
 
     /**
      * 执行写入操作（带重试支持）
      */
-    protected Result executeWriter(DatabaseConnectorInstance connectorInstance, PluginContext context,
-            List<Field> fields) {
-        List<SyncRow> syncRows = context.getSyncRows();
-
+    protected Result executeWriter(DatabaseConnectorInstance connectorInstance, List<SyncRow> syncRows, List<Field> fields) {
+        if (syncRows.isEmpty()) {
+            throw new SdkException("writer data can not be empty.");
+        }
         if (CollectionUtils.isEmpty(fields)) {
             throw new SdkException("writer fields can not be empty.");
         }
-        if (CollectionUtils.isEmpty(syncRows)) {
-            throw new SdkException("writer data can not be empty.");
-        }
-
-        // 兼容下游 batchRows 逻辑，从 SyncRow 中提取 Map
-        List<Map> data = new ArrayList<>(syncRows.size());
-        for (SyncRow row : syncRows) {
-            data.add(row.getData());
-        }
+        PluginContext context = syncRows.get(0).getContext();
 
         // 获取重试配置
         RetryConfig retryConfig = SpringContextUtil.getBean(RetryConfig.class);
@@ -386,12 +375,12 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
 
         try {
             return writerRetryInterceptor.execute(() -> {
-                int[] execute = doExecuteBatch(connectorInstance, context, fields, data);
+                int[] execute = doExecuteBatch(connectorInstance, fields, syncRows);
 
                 Result result = new Result();
                 for (int i = 0; i < execute.length; i++) {
                     if (execute[i] == 1 || execute[i] == -2) {
-                        result.getSuccessData().add(data.get(i));
+                        result.getSuccessData().add(syncRows.get(i).getData());
                     }
                 }
                 return result;
@@ -403,20 +392,25 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
 
     /**
      * 执行批次操作（子类可重写以使用自定义批量执行逻辑）
-     * 
+     *
      * @param connectorInstance 连接器实例
-     * @param context           插件上下文
      * @param fields            字段列表
-     * @param data              数据列表
+     * @param syncRows          同步数据列表（携带上下文）
      * @return execute[] 数组，表示每条记录的执行结果
      * @throws Exception 执行异常
      */
-    protected int[] doExecuteBatch(DatabaseConnectorInstance connectorInstance, PluginContext context,
-            List<Field> fields, List<Map> data) throws Exception {
+    protected int[] doExecuteBatch(DatabaseConnectorInstance connectorInstance,
+            List<Field> fields, List<SyncRow> syncRows) throws Exception {
+        PluginContext context = syncRows.get(0).getContext();
         String event = context.getEvent();
         String executeSql = context.getCommand().get(event);
-        return connectorInstance
-                .execute(databaseTemplate -> databaseTemplate.batchUpdate(executeSql, batchRows(fields, data)));
+        // 从 SyncRow 中提取数据用于参数绑定
+        List<Map> data = new ArrayList<>(syncRows.size());
+        for (SyncRow row : syncRows) {
+            data.add(row.getData());
+        }
+        return connectorInstance.execute(databaseTemplate ->
+                databaseTemplate.batchUpdate(executeSql, batchRows(fields, data)));
     }
 
     @Override

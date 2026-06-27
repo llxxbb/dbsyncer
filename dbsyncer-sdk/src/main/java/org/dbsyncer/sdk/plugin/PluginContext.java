@@ -18,18 +18,6 @@ import java.util.Map;
 public interface PluginContext extends BaseContext {
 
     /**
-     * 获取同步数据列表
-     * @return 数据项列表，每项包含原始数据及其上下文
-     */
-    List<SyncRow> getSyncRows();
-
-    /**
-     * 设置同步数据列表
-     * @param syncRows 数据项列表
-     */
-    void setSyncRows(List<SyncRow> syncRows);
-
-    /**
      * 获取预计算的主键字段列表（按主键顺序）
      * 初始化阶段由 ParserComponentImpl 根据 primaryKeys + targetFields 解析，
      * 后续 update/delete/upsert 等高频操作直接读取，避免重复查找。

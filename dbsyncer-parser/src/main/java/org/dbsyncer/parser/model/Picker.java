@@ -12,6 +12,8 @@ import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.schema.SchemaResolver;
 import org.dbsyncer.sdk.util.RowConverter;
 
+import org.dbsyncer.sdk.plugin.SyncRow;
+
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.*;
@@ -47,17 +49,17 @@ public class Picker {
         }
     }
 
-    public List<Map> pickTargetData(List<Map> source) {
-        List<Map> targetMapList = new ArrayList<>();
+    public List<SyncRow> pickTargetData(List<Map> source, org.dbsyncer.sdk.plugin.PluginContext context) {
+        List<SyncRow> targetList = new ArrayList<>(CollectionUtils.isEmpty(source) ? 0 : source.size());
         if (!CollectionUtils.isEmpty(source)) {
             Map<String, Object> target = null;
             for (Map row : source) {
                 target = new HashMap<>();
                 exchange(sFieldSize, tFieldSize, this.sourceFields, this.targetFields, row, target);
-                targetMapList.add(target);
+                targetList.add(new SyncRow(target, context));
             }
         }
-        return targetMapList;
+        return targetList;
     }
 
     /**
@@ -79,28 +81,27 @@ public class Picker {
      * @return 转换后的目标数据列表（Map格式，key为目标字段名，value为字段值）
      * @throws Exception 当没有数据通过过滤时抛出异常
      */
-    public List<Map> pickTargetData(List<Field> sourceOriginalFields, Map<String, Integer> fieldIndexMap,
-                                    boolean enableFilter, List<List<Object>> rows, List<Map> sourceMapList) throws Exception {
-        List<Map> targetMapList = new ArrayList<>();
+    public List<SyncRow> pickTargetData(List<Field> sourceOriginalFields, Map<String, Integer> fieldIndexMap,
+                                        boolean enableFilter, List<List<Object>> rows, List<Map> sourceMapList,
+                                        org.dbsyncer.sdk.plugin.PluginContext context) throws Exception {
+        List<SyncRow> targetList = new ArrayList<>();
         if (CollectionUtils.isEmpty(rows)) {
-            return targetMapList;
+            return targetList;
         }
-        // 使用 RowConverter 统一处理原始行 → Map 的格式转换
         List<Map<String, Object>> sourceMaps = RowConverter.toListOfMaps(sourceOriginalFields, fieldIndexMap, rows);
         for (Map<String, Object> source : sourceMaps) {
             Map<String, Object> target = new HashMap<>();
             exchange(sFieldSize, tFieldSize, this.sourceFields, this.targetFields, source, target);
-            // 根据条件过滤数据
             if (enableFilter && !filter(target)) {
                 continue;
             }
             sourceMapList.add(source);
-            targetMapList.add(target);
+            targetList.add(new SyncRow(target, context));
         }
-        if (targetMapList.isEmpty()) {
+        if (targetList.isEmpty()) {
             throw new Exception("数据提取失败");
         }
-        return targetMapList;
+        return targetList;
     }
 
     public List<Field> getSourceFields() {

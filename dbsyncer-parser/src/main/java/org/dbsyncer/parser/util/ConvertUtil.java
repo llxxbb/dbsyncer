@@ -24,9 +24,9 @@ public abstract class ConvertUtil {
     /**
      * 转换参数（批量处理）
      */
-    public static void convert(List<Convert> convert, List<Map> data) {
+    public static void convert(List<Convert> convert, List<org.dbsyncer.sdk.plugin.SyncRow> data) {
         if (!CollectionUtils.isEmpty(convert) && !CollectionUtils.isEmpty(data)) {
-            data.forEach(row -> convert(convert, row));
+            data.forEach(syncRow -> convert(convert, syncRow.getData()));
         }
     }
 

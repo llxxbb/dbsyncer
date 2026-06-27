@@ -19,6 +19,7 @@ import org.dbsyncer.sdk.parser.ddl.converter.IRToTargetConverter;
 import org.dbsyncer.sdk.parser.ddl.converter.SourceToIRConverter;
 import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.plugin.ReaderContext;
+import org.dbsyncer.sdk.plugin.SyncRow;
 import org.dbsyncer.sdk.schema.SchemaResolver;
 import org.dbsyncer.sdk.storage.StorageService;
 
@@ -137,53 +138,36 @@ public interface ConnectorService<I extends ConnectorInstance, C extends Connect
     /**
      * 批量写入目标源数据
      *
-     * @param connectorInstance
-     * @param context
-     * @return
+     * @param connectorInstance 连接器实例
+     * @param syncRows          同步数据列表（每条数据携带其元数据引用）
      */
-    Result writer(I connectorInstance, PluginContext context);
+    Result writer(I connectorInstance, List<SyncRow> syncRows);
 
     /**
      * 插入数据到目标源
-     *
-     * @param connectorInstance
-     * @param context
-     * @return
      */
-    default Result insert(I connectorInstance, PluginContext context) {
+    default Result insert(I connectorInstance, List<SyncRow> syncRows) {
         throw new SdkException("should overwrite his method");
     }
 
     /**
      * 插入或更新数据到目标源（处理主键冲突）
-     *
-     * @param connectorInstance
-     * @param context
-     * @return
      */
-    default Result upsert(I connectorInstance, PluginContext context) {
+    default Result upsert(I connectorInstance, List<SyncRow> syncRows) {
         throw new SdkException("should overwrite his method");
     }
 
     /**
      * 更新目标源数据
-     *
-     * @param connectorInstance
-     * @param context
-     * @return
      */
-    default Result update(I connectorInstance, PluginContext context) {
+    default Result update(I connectorInstance, List<SyncRow> syncRows) {
         throw new SdkException("should overwrite his method");
     }
 
     /**
      * 删除目标源数据
-     *
-     * @param connectorInstance
-     * @param context
-     * @return
      */
-    default Result delete(I connectorInstance, PluginContext context) {
+    default Result delete(I connectorInstance, List<SyncRow> syncRows) {
         throw new SdkException("should overwrite his method");
     }
 

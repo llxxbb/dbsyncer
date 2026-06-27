@@ -28,6 +28,7 @@ import org.dbsyncer.sdk.listener.Listener;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.model.Table;
+import org.dbsyncer.sdk.plugin.SyncRow;
 import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.plugin.ReaderContext;
 import org.dbsyncer.sdk.schema.SchemaResolver;
@@ -152,15 +153,15 @@ public class SqlServerConnector extends AbstractDatabaseConnector {
      * 重写 insert 方法，对 SQL Server 使用批量复制优化
      */
     @Override
-    public Result insert(DatabaseConnectorInstance connectorInstance, PluginContext context) {
+    public Result insert(DatabaseConnectorInstance connectorInstance, List<SyncRow> syncRows) {
         // 调用父类 executeWriter()，使用统一的 CT 删除异常处理（ADR 05）
-        return executeWriter(connectorInstance, context, context.getTargetFields());
+        return executeWriter(connectorInstance, syncRows, syncRows.get(0).getContext().getTargetFields());
     }
 
     @Override
-    public Result upsert(DatabaseConnectorInstance connectorInstance, PluginContext context) {
+    public Result upsert(DatabaseConnectorInstance connectorInstance, List<SyncRow> syncRows) {
         // 调用父类 executeWriter()，使用统一的 CT 删除异常处理（ADR 05）
-        return executeWriter(connectorInstance, context, context.getTargetFields());
+        return executeWriter(connectorInstance, syncRows, syncRows.get(0).getContext().getTargetFields());
     }
 
     /**
@@ -169,9 +170,15 @@ public class SqlServerConnector extends AbstractDatabaseConnector {
      * - UPDATE/DELETE：回退父类默认实现（JdbcTemplate.batchUpdate）
      */
     @Override
-    protected int[] doExecuteBatch(DatabaseConnectorInstance connectorInstance, PluginContext context,
-                                   List<Field> fields, List<Map> data) throws Exception {
+    protected int[] doExecuteBatch(DatabaseConnectorInstance connectorInstance,
+                                   List<Field> fields, List<SyncRow> syncRows) throws Exception {
+        PluginContext context = syncRows.get(0).getContext();
         String event = context.getEvent();
+        // 从 SyncRows 中提取 Map 数据供下游使用
+        List<Map> data = new ArrayList<>(syncRows.size());
+        for (SyncRow row : syncRows) {
+            data.add(row.getData());
+        }
         
         // 只对 INSERT 和 UPSERT 使用 SqlServerBulkCopyUtil
         if ("INSERT".equals(event) || "UPSERT".equals(event)) {
@@ -206,7 +213,7 @@ public class SqlServerConnector extends AbstractDatabaseConnector {
             });
         } else {
             // UPDATE 或 DELETE：回退到父类默认实现（JdbcTemplate.batchUpdate）
-            return super.doExecuteBatch(connectorInstance, context, fields, data);
+            return super.doExecuteBatch(connectorInstance, fields, syncRows);
         }
     }
     

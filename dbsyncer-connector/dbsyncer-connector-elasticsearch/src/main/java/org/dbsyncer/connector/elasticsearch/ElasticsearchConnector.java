@@ -28,6 +28,7 @@ import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.Filter;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.model.Table;
+import org.dbsyncer.sdk.plugin.SyncRow;
 import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.plugin.ReaderContext;
 import org.dbsyncer.sdk.spi.ConnectorService;
@@ -240,13 +241,21 @@ public final class ElasticsearchConnector extends AbstractConnector implements C
     }
 
     @Override
-    public Result writer(ESConnectorInstance connectorInstance, PluginContext context) {
-        List<Map> data = context.getTargetList();
-        final List<Map> sourceList = context.getSourceList();  // 获取源数据列表
-        if (CollectionUtils.isEmpty(data)) {
+    public Result writer(ESConnectorInstance connectorInstance, List<SyncRow> syncRows) {
+        if (CollectionUtils.isEmpty(syncRows)) {
             logger.error("writer data can not be empty.");
             throw new ElasticsearchException("writer data can not be empty.");
         }
+
+        PluginContext context = syncRows.get(0).getContext();
+        
+        // Extract data from SyncRow list
+        List<Map> data = new java.util.ArrayList<>(syncRows.size());
+        for (SyncRow row : syncRows) {
+            data.add(row.getData());
+        }
+
+        final List<Map> sourceList = context.getSourceList();  // 获取源数据列表
 
         Result result = new Result();
         List<String> primaryKeys = context.getPrimaryKeys();
@@ -429,27 +438,23 @@ public final class ElasticsearchConnector extends AbstractConnector implements C
     }
 
     @Override
-    public Result insert(ESConnectorInstance connectorInstance, PluginContext context) {
-        // INSERT 操作：使用所有字段
-        return writer(connectorInstance, context);
+    public Result insert(ESConnectorInstance connectorInstance, List<SyncRow> syncRows) {
+        return writer(connectorInstance, syncRows);
     }
 
     @Override
-    public Result update(ESConnectorInstance connectorInstance, PluginContext context) {
-        // INSERT 操作：使用所有字段
-        return writer(connectorInstance, context);
+    public Result update(ESConnectorInstance connectorInstance, List<SyncRow> syncRows) {
+        return writer(connectorInstance, syncRows);
     }
 
     @Override
-    public Result delete(ESConnectorInstance connectorInstance, PluginContext context) {
-        // INSERT 操作：使用所有字段
-        return writer(connectorInstance, context);
+    public Result delete(ESConnectorInstance connectorInstance, List<SyncRow> syncRows) {
+        return writer(connectorInstance, syncRows);
     }
 
     @Override
-    public Result upsert(ESConnectorInstance connectorInstance, PluginContext context) {
-        // INSERT 操作：使用所有字段
-        return writer(connectorInstance, context);
+    public Result upsert(ESConnectorInstance connectorInstance, List<SyncRow> syncRows) {
+        return writer(connectorInstance, syncRows);
     }
 
 

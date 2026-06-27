@@ -91,11 +91,6 @@ public abstract class AbstractPluginContext extends AbstractBaseContext implemen
      */
     private List<String> primaryKeys;
 
-    /**
-     * 同步数据列表（包含数据和上下文）
-     */
-    private List<SyncRow> syncRows;
-
     private String traceId;
 
     @Override
@@ -253,15 +248,5 @@ public abstract class AbstractPluginContext extends AbstractBaseContext implemen
     @Override
     public Object clone() throws CloneNotSupportedException {
         return super.clone();
-    }
-
-    @Override
-    public List<SyncRow> getSyncRows() {
-        return syncRows;
-    }
-
-    @Override
-    public void setSyncRows(List<SyncRow> syncRows) {
-        this.syncRows = syncRows;
     }
 }

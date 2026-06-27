@@ -24,6 +24,7 @@ import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.plugin.ReaderContext;
+import org.dbsyncer.sdk.plugin.SyncRow;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -177,12 +178,19 @@ public final class FileConnector extends AbstractConnector implements ConnectorS
     }
 
     @Override
-    public Result writer(FileConnectorInstance connectorInstance, PluginContext context) {
-        List<Map> data = context.getTargetList();
-        if (CollectionUtils.isEmpty(data)) {
+    public Result writer(FileConnectorInstance connectorInstance, List<SyncRow> syncRows) {
+        if (CollectionUtils.isEmpty(syncRows)) {
             logger.error("writer data can not be empty.");
             throw new FileException("writer data can not be empty.");
         }
+
+        // Extract data from SyncRow list
+        List<Map> data = new ArrayList<>(syncRows.size());
+        for (SyncRow row : syncRows) {
+            data.add(row.getData());
+        }
+
+        PluginContext context = syncRows.get(0).getContext();
 
         final String separator = new String(new char[]{connectorInstance.getConfig().getSeparator()});
 
@@ -241,26 +249,22 @@ public final class FileConnector extends AbstractConnector implements ConnectorS
     }
 
     @Override
-    public Result insert(FileConnectorInstance connectorInstance, PluginContext context) {
-        // INSERT 操作：使用所有字段
-        return writer(connectorInstance, context);
+    public Result insert(FileConnectorInstance connectorInstance, List<SyncRow> syncRows) {
+        return writer(connectorInstance, syncRows);
     }
 
     @Override
-    public Result update(FileConnectorInstance connectorInstance, PluginContext context) {
-        // INSERT 操作：使用所有字段
-        return writer(connectorInstance, context);
+    public Result update(FileConnectorInstance connectorInstance, List<SyncRow> syncRows) {
+        return writer(connectorInstance, syncRows);
     }
 
     @Override
-    public Result delete(FileConnectorInstance connectorInstance, PluginContext context) {
-        // INSERT 操作：使用所有字段
-        return writer(connectorInstance, context);
+    public Result delete(FileConnectorInstance connectorInstance, List<SyncRow> syncRows) {
+        return writer(connectorInstance, syncRows);
     }
 
     @Override
-    public Result upsert(FileConnectorInstance connectorInstance, PluginContext context) {
-        // INSERT 操作：使用所有字段
-        return writer(connectorInstance, context);
+    public Result upsert(FileConnectorInstance connectorInstance, List<SyncRow> syncRows) {
+        return writer(connectorInstance, syncRows);
     }
 }
