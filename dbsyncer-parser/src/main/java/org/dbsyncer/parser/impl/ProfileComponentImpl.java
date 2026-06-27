@@ -13,6 +13,8 @@ import org.dbsyncer.parser.enums.CommandEnum;
 import org.dbsyncer.parser.enums.ConvertEnum;
 import org.dbsyncer.parser.enums.GroupStrategyEnum;
 import org.dbsyncer.parser.model.*;
+import org.dbsyncer.sdk.model.*;
+import org.dbsyncer.sdk.model.ConfigModel;
 import org.dbsyncer.parser.service.TableGroupModelService;
 import org.dbsyncer.sdk.enums.FilterEnum;
 import org.dbsyncer.sdk.enums.OperationEnum;

@@ -1,4 +1,4 @@
-package org.dbsyncer.parser.model;
+package org.dbsyncer.sdk.model;
 
 import java.util.Collections;
 import java.util.List;

@@ -16,11 +16,17 @@ import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.manager.ManagerFactory;
 import org.dbsyncer.parser.*;
+import org.dbsyncer.parser.service.MappingModelService;
+import org.dbsyncer.parser.service.MetaService;
 import org.dbsyncer.plugin.model.NotifyType;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
-import org.dbsyncer.parser.enums.MetaEnum;
+import org.dbsyncer.sdk.enums.MetaEnum;
 import org.dbsyncer.parser.model.*;
+import org.dbsyncer.sdk.model.ConfigModel;
+import org.dbsyncer.sdk.model.Mapping;
+import org.dbsyncer.sdk.model.TableGroup;
+import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.enums.ModelEnum;
@@ -87,6 +93,12 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
     private LogService logService;
 
     @Resource
+    private MappingModelService mappingModelService;
+
+    @Resource
+    private MetaService metaService;
+
+    @Resource
     private org.dbsyncer.sdk.storage.StorageService storageService;
 
     @Override
@@ -99,7 +111,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
 
         // 创建并保存 Meta（必须在分组关联之前执行，确保 Mapping 和 Meta 的原子性）
         Mapping mapping = (Mapping) model;
-        Meta.create(mapping, snowflakeIdWorker, profileComponent);
+        metaService.createMeta(mapping.getId());
 
         // 如果有指定分组，将任务添加到对应分组
         String projectGroupId = params.get("projectGroupId");
@@ -145,7 +157,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
 
         String newName = (name != null && !name.trim().isEmpty()) ? name.trim() : mapping.getName() + "(复制)";
 
-        Mapping newMapping = mapping.copy(snowflakeIdWorker, newName, targetConnectorId);
+        Mapping newMapping = mappingModelService.copy(mapping, snowflakeIdWorker, newName, targetConnectorId);
         log(LogType.MappingLog.COPY, newMapping);
 
         submitMappingCountTask(newMapping);
@@ -159,7 +171,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         String metaSnapshot = params.get("metaSnapshot");
         synchronized (LOCK) {
             // 检查是否禁止编辑
-            mapping.assertDisableEdit();
+            mappingModelService.assertDisableEdit(mapping);
 
             // 在保存之前，检查所有已存在的表映射关系的目标表是否存在
             checkAllTargetTablesExist(mapping);
@@ -168,7 +180,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
             log(LogType.MappingLog.UPDATE, model);
 
             // 更新meta
-            mapping.updateMata(metaSnapshot);
+            mappingModelService.updateSnapshot(mapping, metaSnapshot);
         }
         submitMappingCountTask(mapping);
         return id;
@@ -307,7 +319,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         Mapping mapping = assertMappingExist(id);
 
         synchronized (LOCK) {
-            mapping.getMeta().assertNotRunning();
+            mappingModelService.getMeta(mapping).assertNotRunning();
 
             // 启动
             managerFactory.start(mapping);
@@ -321,7 +333,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
     public String stop(String id) throws Exception {
         Mapping mapping = assertMappingExist(id);
         synchronized (LOCK) {
-            if (!mapping.getMeta().isRunning()) {
+            if (!mappingModelService.getMeta(mapping).isRunning()) {
                 throw new BizException("驱动已停止.");
             }
             managerFactory.close(mapping);
@@ -355,7 +367,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         Assert.notNull(mapping, "The mapping id is invalid.");
 
         // 检查是否禁止编辑
-        mapping.assertDisableEdit();
+        mappingModelService.assertDisableEdit(mapping);
 
         updateConnectorTables(mapping.getSourceConnectorId());
         updateConnectorTables(mapping.getTargetConnectorId());

@@ -9,7 +9,7 @@ import org.dbsyncer.biz.vo.MappingJsonVo;
 import org.dbsyncer.biz.vo.MappingRelatedVo;
 import org.dbsyncer.biz.vo.MappingVo;
 import org.dbsyncer.biz.vo.RestResult;
-import org.dbsyncer.parser.model.TableGroup;
+import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.web.controller.BaseController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

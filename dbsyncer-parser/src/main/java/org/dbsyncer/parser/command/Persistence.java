@@ -3,7 +3,7 @@
  */
 package org.dbsyncer.parser.command;
 
-import org.dbsyncer.parser.ParserException;
+import org.dbsyncer.common.ParserException;
 
 /**
  * 序列化接口

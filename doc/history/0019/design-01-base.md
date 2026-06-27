@@ -1,63 +1,116 @@
-# ADR-0019 设计稿（初始版本）
+# ADR-0019 设计稿（修正版）
 
 ## 元信息
 
 | 字段 | 值 |
 |------|-----|
-| 版本 | base |
+| 版本 | v2（修正版） |
 | 作者 | @lixuebin |
 | 日期 | 2026-06-27 |
 | 关联 ADR | [ADR-0019](../../adr/0019-Model层贫血化重构.md) |
 
 ## 设计目标
 
-**Step 1（本期实施）**：通过接口解耦，消除 Model 间的直接依赖，让 SyncRow 成为数据流的"配置载体"，PluginContext 退化为"运行时控制器"。
+**Step 1（已完成）**：Model 贫血化，剥离 `ProfileComponent`/`ParserComponent` 依赖，持久化逻辑上移到 Service 层。
 
-**Step 2（后续实施）**：Model 完全贫血化，剥离 ProfileComponent 依赖，持久化逻辑上移到 Service 层。
+**Step 2（本期实施）**：Model 下移 sdk 模块，消除跨模块依赖障碍。
+
+**Step 3（后续实施）**：SyncRow 改持 Mapping/TableGroup，PluginContext 精简为纯 runtime。
+
+> **注：** 原方案中的"接口解耦（TableGroupConfig）"步骤已被废弃。因为 Model 贫血化完成后，可以直接将 Model 类下移到 sdk，SyncRow 直接持有 Mapping/TableGroup 对象本身，无需额外的接口抽象层。
 
 ---
 
 ## 技术方案
 
-### Step 1: 接口解耦
-
-#### 架构图
+### 总体架构（最终目标）
 
 ```
-┌─────────────────────────────────────────────────────┐
-│ sdk 模块                                          │
-├─────────────────────────────────────────────────────┤
-│                                                   │
-│  ┌─────────────┐      ┌───────────────────────┐   │
-│  │ SyncRow     │─────>│ TableGroupConfig      │   │
-│  │ - data      │      │ - getTargetFields()   │   │
-│  │ - mapping   │      │ - getPrimaryKeys()    │   │
-│  │ - tableGroup│      │ - getCommand()        │   │
-│  │             │      └───────────────────────┘   │
-│  └─────────────┘               ▲                 │
-│        │                       │ 实现            │
-│        ▼                       │                 │
-│  ┌─────────────┐      ┌───────────────────────┐   │
-│  │ PluginContext│      │ Mapping               │   │
-│  │ (运行时状态) │      │ TableGroup            │   │
-│  │ - event     │      └───────────────────────┘   │
-│  │ - traceId   │                                   │
-│  │ - pkFields  │                                   │
-│  └─────────────┘                                   │
-└─────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│ sdk 模块                                              │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ SyncRow                                        │   │
+│  │  - data: Map<String, Object>                   │   │
+│  │  - mapping: Mapping         ← sdk.model       │   │
+│  │  - tableGroup: TableGroup   ← sdk.model       │   │
+│  │  - context: PluginContext   ← 精简为 runtime   │   │
+│  └─────────────────────────────────────────────────┘   │
+│          │                                               │
+│          │ 持有                                         │
+│          ▼                                               │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ sdk.model  （纯数据载体，无持久化依赖）            │   │
+│  │  - ConfigModel                                   │   │
+│  │  - AbstractConfigModel                           │   │
+│  │  - Mapping                                       │   │
+│  │  - TableGroup                                    │   │
+│  │  - Meta                                         │   │
+│  │  - FieldMapping                                  │   │
+│  │  - Convert                                      │   │
+│  └─────────────────────────────────────────────────┘   │
+│                                                         │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ PluginContext（精简后）                          │   │
+│  │  - event              运行时操作类型             │   │
+│  │  - traceId            运行时 trace              │   │
+│  │  - pkFields           运行时预计算主键           │   │
+│  │  - sourceConnectorInstance                      │   │
+│  │  - targetConnectorInstance                      │   │
+│  │  (batchSize/forceUpdate/targetFields 等已移除)   │   │
+│  └─────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────┘
 ```
 
-#### 核心组件
+### Step 2: Model 下移 SDK
 
-**SyncRow 改造**
+#### 迁移依赖图
+
+```
+parser.model → sdk.model 迁移依赖关系：
+
+  FieldMapping (无依赖)
+  MetaEnum (无依赖)
+  SyncPhaseEnum (无依赖)
+  ConfigModel (仅依赖 ConfigConstant)
+       ↑
+  AbstractConfigModel (依赖 ConfigModel + Convert + Filter)
+       ↑
+  Mapping (依赖 AbstractConfigModel)
+  TableGroup (依赖 AbstractConfigModel + FieldMapping)
+  Meta (依赖 ConfigModel + MetaEnum + SyncPhaseEnum)
+  
+  同步迁移:
+  Convert → ConvertEnum + ParseResult → 全部移到 sdk
+  ParserException → 移到 common
+```
+
+#### 具体迁移策略
+
+| 优先级 | 类 | 迁移方式 |
+|--------|-----|---------|
+| P0 | `FieldMapping` | 直接复制到 sdk.model，无外部依赖 |
+| P0 | `MetaEnum`、`SyncPhaseEnum` | 直接复制到 sdk.enums |
+| P0 | `ConfigModel` | 直接复制到 sdk.model |
+| P0 | `ParserException` | 移到 common（供多方引用） |
+| P1 | `AbstractConfigModel` | 需 `Convert`→ 先移 Convert |
+| P1 | `Convert` + `ConvertEnum` + `ParseResult` | 同步迁移 |
+| P2 | `Mapping`、`TableGroup`、`Meta` | 依赖前置完成后迁移 |
+
+**注意：** parser 层的原有路径保留为"桥接类"（空的子类或 import 重定向），或在迁移完成后全局替换 import。
+
+### Step 3: SyncRow 改造 + PluginContext 精简
+
+#### SyncRow 改造
 
 ```java
 public class SyncRow {
     private Map<String, Object> data;
-    private Mapping mapping;           // 新增
-    private TableGroup tableGroup;     // 新增
+    private Mapping mapping;           // 新增（sdk.model）
+    private TableGroup tableGroup;     // 新增（sdk.model）
     private PluginContext context;     // 保留（运行时状态）
-    
+
     // 便捷方法
     public List<Field> getTargetFields() {
         return tableGroup.getTargetTable().getColumn();
@@ -69,42 +122,37 @@ public class SyncRow {
 }
 ```
 
-**PluginContext 精简**
+#### PluginContext 精简对照表
 
-| 属性 | 现状 | 改造 |
-|------|------|------|
-| batchSize | `context.getBatchSize()` | `mapping.getBatchNum()` |
-| forceUpdate | `context.isForceUpdate()` | `mapping.isForceUpdate()` |
-| sourceTableName | `context.getSourceTableName()` | `tableGroup.getSourceTable().getName()` |
-| targetTableName | `context.getTargetTableName()` | `tableGroup.getTargetTable().getName()` |
-| targetFields | `context.getTargetFields()` | `tableGroup.getTargetTable().getColumn()` |
+| 属性 | 现状 | 改造后来源 | 
+|------|------|-----------|
+| batchSize | `context.getBatchSize()` | **删除**，改用 `mapping.getBatchNum()` |
+| forceUpdate | `context.isForceUpdate()` | **删除**，改用 `mapping.isForceUpdate()` |
+| sourceTableName | `context.getSourceTableName()` | **删除**，改用 `tableGroup.getSourceTable().getName()` |
+| targetTableName | `context.getTargetTableName()` | **删除**，改用 `tableGroup.getTargetTable().getName()` |
+| targetFields | `context.getTargetFields()` | **删除**，改用 `tableGroup.getTargetTable().getColumn()` |
+| sourceList | `context.getSourceList()` | **删除**，数据由 `syncRow.getData()` 承载 |
+| targetList | `context.getTargetList()` | **删除**，同 sourceList |
 | **保留** | | |
 | event | `context.getEvent()` | 运行时状态（INSERT/UPDATE/DELETE） |
-| pkFields | `context.getPkFields()` | 运行时预计算 |
-| traceId | `context.getTraceId()` | 运行时 trace |
+| pkFields | `context.getPkFields()` | 运行时预计算的主键字段列表 |
+| traceId | `context.getTraceId()` | 运行时 trace 标识 |
+| sourceConnectorInstance | `context.getSourceConnectorInstance()` | 运行时源连接实例 |
+| targetConnectorInstance | `context.getTargetConnectorInstance()` | 运行时目标连接实例 |
 
-#### 接口签名（sdk 层）
-
-```java
-// Connector 接口改造
-public interface ConnectorService<I, C> {
-    // 之前
-    Result insert(I instance, PluginContext context, List<SyncRow> rows);
-    
-    // 之后（context 从 rows[0].getContext() 获取）
-    Result insert(I instance, List<SyncRow> rows);
-}
-```
-
-**Connector 内部访问方式**
+#### Connector 内部访问方式（改造后）
 
 ```java
 public Result insert(DatabaseConnectorInstance instance, List<SyncRow> rows) {
     SyncRow row = rows.get(0);
-    PluginContext context = row.getContext();      // 运行时状态
-    TableGroup tableGroup = row.getTableGroup();    // 配置信息
+    // 运行时状态
+    PluginContext context = row.getContext();
+    String event = context.getEvent();
     
+    // 配置信息（直接从 Model 获取）
+    TableGroup tableGroup = row.getTableGroup();
     List<Field> targetFields = tableGroup.getTargetTable().getColumn();
+    List<Field> pkFields = context.getPkFields();
     int batchSize = row.getMapping().getBatchNum();
     
     // 业务逻辑...
@@ -115,47 +163,37 @@ public Result insert(DatabaseConnectorInstance instance, List<SyncRow> rows) {
 
 ## 影响范围
 
-### 必须修改的模块
+### 各阶段影响
 
-| 模块 | 文件数 | 改动类型 |
-|------|--------|---------|
-| dbsyncer-sdk | 3 | 接口定义、SyncRow 改造 |
-| dbsyncer-connector-* | ~10 | Connector 实现适配 |
-| dbsyncer-parser | ~5 | 调用方适配 |
-| **总计** | **~18** | - |
-
-### 改造示例（AbstractDatabaseConnector）
-
-```java
-// 当前代码
-public Result insert(PluginContext context, List<SyncRow> rows) {
-    List<Field> targetFields = context.getTargetFields();  // ❌ 从 context 获取
-    int batchSize = context.getBatchSize();
-}
-
-// 重构后
-public Result insert(List<SyncRow> rows) {
-    SyncRow row = rows.get(0);
-    List<Field> targetFields = row.getTableGroup().getTargetTable().getColumn();  // ✅ 从 tableGroup 获取
-    int batchSize = row.getMapping().getBatchNum();
-}
-```
+| 阶段 | 模块 | 文件数 | 改动类型 |
+|------|------|--------|---------|
+| Step 1 ✅ | dbsyncer-parser | ~15 | Model 贫血化（已完成） |
+| Step 2 | dbsyncer-sdk + parser + common | ~20 | Model 类文件迁移 |
+| Step 3 | dbsyncer-sdk + connector 模块 | ~30 | SyncRow/PluginContext 改造 |
+| **总计** | | **~65** | |
 
 ---
 
 ## 风险点
 
-### 已知风险
+### Step 2 风险
 
-1. **接口签名变动影响面大**：所有 Connector 实现都需要调整
-   - **应对**：先改 1 个 Connector（如 MySQL）验证，再批量修改
+1. **Convert 迁移链过长**：`Convert` 依赖 `ConvertEnum`，`ConvertEnum` 依赖多个 Converter 实现
+   - **应对**：仅迁移 `ConvertEnum` 枚举定义，不迁移 Converter 实现（留在 parser）
 
-2. **PluginContext 生命周期混乱**：
-   - **应对**：明确 PluginContext 只存储运行时状态（event/traceId）
+2. **import 冲突**：parser 中大量代码 import 了 `org.dbsyncer.parser.model.*`
+   - **应对**：分两步——先复制类到 sdk，再全局替换 import（用 sed/grep 批量）
 
-3. **静态工厂方法改造**：
-   - `TableGroup.create(...)` 等静态方法需要调整参数
-   - **应对**：保留静态方法，但参数改为直接传入需要的值
+3. **SnowflakeIdWorker**：`Meta.create()` 中使用了 storage 模块的类型
+   - **应对**：将 `SnowflakeIdWorker` 移到 common 层，或改为调用方传入 ID
+
+### Step 3 风险
+
+1. **Connector 实现众多**：所有 Connector 都需要适配新的访问方式
+   - **应对**：先改 1 个验证（如 MySQL），再批量修改
+
+2. **PluginContext 引用广泛**：许多地方直接使用 `context.getBatchSize()` 等
+   - **应对**：grep 找出所有使用点，逐个替换
 
 ---
 
@@ -165,21 +203,28 @@ public Result insert(List<SyncRow> rows) {
 
 | 阶段 | 任务 | 工作量 | 验证点 |
 |------|------|--------|--------|
-| Phase 1 | SyncRow 改造 | 2h | 编译通过 |
-| Phase 2 | 1 个 Connector 改造（验证方案） | 1.5h | MySQL Connector 单测通过 |
-| Phase 3 | 批量 Connector 改造 | 2.5h | 全量编译通过 |
-| Phase 4 | Integration Test | 3h | 端到端测试通过 |
-| **总计** | | **9h** | - |
+| Step 1 | Model 贫血化 | 已完成 | `mvn compile -DskipTests` 通过 |
+| Step 2-1 | 无依赖类迁移（FieldMapping/ConfigModel/Enum） | 1h | 编译通过 |
+| Step 2-2 | Convert 依赖链迁移 | 1.5h | 编译通过 |
+| Step 2-3 | Mapping/TableGroup/Meta 迁移 | 2h | 编译通过 |
+| Step 2-4 | import 全局替换 + 旧路径清理 | 1h | 全量编译通过 |
+| Step 3-1 | SyncRow 改造 | 1h | 编译通过 |
+| Step 3-2 | PluginContext 精简 | 1h | 编译通过 |
+| Step 3-3 | Connector 适配 | 2h | 端到端测试通过 |
+| **总计** | | **~9.5h** | |
 
 ---
 
 ## 下一步
 
-1. ✅ 确认方案可行
-2. ⏳ 实施 Phase 1（SyncRow 改造）
-3. ⏳ 实施 Phase 2（MySQL Connector 验证）
+1. ✅ Step 1 已完成
+2. ⏳ Step 2-1：无依赖类迁移（FieldMapping/ConfigModel/Enum 移到 sdk）
+3. ⏳ Step 2-2：Convert 依赖链迁移
+4. ⏳ Step 2-3：Mapping/TableGroup/Meta 迁移
+5. ⏳ Step 2-4：import 全局替换
+6. ⏳ Step 3：SyncRow 改造 + PluginContext 精简 + Connector 适配
 
 ## 相关文档
 
-- [验证方案](verification-plan.md) - 24 个调用点的详细验证标准
-- [实施方案](design-02-plan.md) - 分阶段实施细节
+- [ADR-0019 正文](../../adr/0019-Model层贫血化重构.md)
+- [验证方案](verification-plan.md)

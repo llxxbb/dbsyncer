@@ -12,10 +12,11 @@ import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.parser.ParserComponent;
 import org.dbsyncer.parser.ProfileComponent;
-import org.dbsyncer.parser.model.ConfigModel;
-import org.dbsyncer.parser.model.FieldMapping;
-import org.dbsyncer.parser.model.Mapping;
-import org.dbsyncer.parser.model.TableGroup;
+import org.dbsyncer.parser.service.TableGroupModelService;
+import org.dbsyncer.sdk.model.ConfigModel;
+import org.dbsyncer.sdk.model.FieldMapping;
+import org.dbsyncer.sdk.model.Mapping;
+import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.parser.util.ConvertUtil;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.model.ConnectorConfig;
@@ -50,6 +51,9 @@ public class TableGroupChecker extends AbstractChecker {
     @Resource
     private ConnectorFactory connectorFactory;
 
+    @Resource
+    private TableGroupModelService tableGroupModelService;
+
     @Override
     public ConfigModel checkAddConfigModel(Map<String, String> params) throws Exception {
         logger.info("params:{}", params);
@@ -69,7 +73,7 @@ public class TableGroupChecker extends AbstractChecker {
         checkRepeatedTable(mappingId, sourceTable, targetTable, null);
 
         // 获取连接器信息
-        TableGroup tableGroup = TableGroup.create(mappingId, sourceTable, parserComponent, profileComponent);
+        TableGroup tableGroup = tableGroupModelService.create(mappingId, sourceTable);
         tableGroup.setSourceTable(getMetaInfo(mapping.getSourceConnectorId(), sourceTable, sourceTablePK));
         tableGroup.setTargetTable(getMetaInfo(mapping.getTargetConnectorId(), targetTable, targetTablePK));
 
@@ -79,7 +83,7 @@ public class TableGroupChecker extends AbstractChecker {
             tableGroup.setTargetTablePK(targetTablePK);
         } else {
             // 从源表元数据获取主键（通过查询数据库，保持主键顺序）
-            boolean initialized = tableGroup.initTargetTablePKFromSource(parserComponent, mapping.getSourceConnectorId(), sourceTable);
+            boolean initialized = tableGroupModelService.initTargetTablePKFromSource(tableGroup, mapping.getSourceConnectorId(), sourceTable);
             if (initialized) {
                 logger.info("目标表 {} 未提供主键配置，从源表元数据获取：{}", 
                     tableGroup.getTargetTable().getName(), 

@@ -2,7 +2,7 @@ package org.dbsyncer.parser.convert.handler;
 
 import org.dbsyncer.common.util.NumberUtil;
 import org.dbsyncer.common.util.StringUtil;
-import org.dbsyncer.parser.ParserException;
+import org.dbsyncer.common.ParserException;
 import org.dbsyncer.parser.convert.Handler;
 import org.springframework.util.Assert;
 
@@ -18,7 +18,7 @@ import java.util.Map;
 public class SubStrFirstHandler implements Handler {
 
     @Override
-    public Object handle(String args, Object value, Map<String, Object> sourceRow, Map<String, Object> context, java.util.List<org.dbsyncer.parser.model.Convert> converts) {
+    public Object handle(String args, Object value, Map<String, Object> sourceRow, Map<String, Object> context, java.util.List<org.dbsyncer.sdk.model.Convert> converts) {
         // converts 参数未使用
         // sourceRow 参数未使用
         // context 参数未使用

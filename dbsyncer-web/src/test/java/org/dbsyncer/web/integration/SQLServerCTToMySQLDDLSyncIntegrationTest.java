@@ -1,9 +1,9 @@
 package org.dbsyncer.web.integration;
 
-import org.dbsyncer.parser.enums.MetaEnum;
-import org.dbsyncer.parser.model.Mapping;
-import org.dbsyncer.parser.model.Meta;
-import org.dbsyncer.parser.model.TableGroup;
+import org.dbsyncer.sdk.enums.MetaEnum;
+import org.dbsyncer.sdk.model.Mapping;
+import org.dbsyncer.sdk.model.Meta;
+import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.config.DatabaseConfig;
 import org.dbsyncer.web.Application;
 import org.junit.*;
@@ -146,7 +146,7 @@ public class SQLServerCTToMySQLDDLSyncIntegrationTest extends BaseDDLIntegration
         try {
             if (mappingId != null) {
                 try {
-                    Meta meta = profileComponent.getMapping(mappingId).getMeta();
+                    Meta meta = profileComponent.getMeta(metaId);
                     if (meta != null && meta.isRunning()) {
                         mappingService.stop(mappingId);
                         waitForMappingStopped(mappingId, 5000);
@@ -156,10 +156,10 @@ public class SQLServerCTToMySQLDDLSyncIntegrationTest extends BaseDDLIntegration
                 }
 
                 try {
-                    Meta meta = profileComponent.getMapping(mappingId).getMeta();
+                    Meta meta = profileComponent.getMeta(metaId);
                     if (meta != null && meta.isRunning()) {
                         logger.warn("Mapping {} 状态仍为 RUNNING，强制设置为 READY", mappingId);
-                        meta.saveState(MetaEnum.READY);
+                        meta.saveState(MetaEnum.READY, "");
                     }
                 } catch (Exception e) {
                     logger.debug("设置 Mapping {} 状态失败: {}", mappingId, e.getMessage());
@@ -1071,7 +1071,7 @@ public class SQLServerCTToMySQLDDLSyncIntegrationTest extends BaseDDLIntegration
      */
     private void testDDLConversion(String sourceDDL, String expectedFieldName) throws Exception {
         // 检查 mapping 是否已经在运行，如果已经在运行就不需要再次启动
-        Meta meta = profileComponent.getMapping(mappingId).getMeta();
+        Meta meta = profileComponent.getMeta(metaId);
         if (meta == null || !meta.isRunning()) {
             mappingService.start(mappingId);
             Thread.sleep(2000);
@@ -1154,7 +1154,7 @@ public class SQLServerCTToMySQLDDLSyncIntegrationTest extends BaseDDLIntegration
      */
     private void prepareForDDLTest() throws Exception {
         // 确保 Mapping 已启动
-        Meta meta = profileComponent.getMapping(mappingId).getMeta();
+        Meta meta = profileComponent.getMeta(metaId);
         if (meta == null || !meta.isRunning()) {
             mappingService.start(mappingId);
             Thread.sleep(2000);
@@ -1317,7 +1317,7 @@ public class SQLServerCTToMySQLDDLSyncIntegrationTest extends BaseDDLIntegration
      */
     private void waitForMappingStopped(String mappingId, long timeoutMs) throws InterruptedException {
         try {
-            Meta meta = profileComponent.getMapping(mappingId).getMeta();
+            Meta meta = profileComponent.getMeta(profileComponent.getMapping(mappingId).getMetaId());
             if (meta == null) {
                 logger.debug("Mapping {} 的 Meta 不存在，认为已停止", mappingId);
                 return;

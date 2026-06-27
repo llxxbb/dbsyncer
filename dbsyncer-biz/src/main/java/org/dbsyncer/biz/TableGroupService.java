@@ -5,7 +5,7 @@ package org.dbsyncer.biz;
 
 import org.dbsyncer.biz.vo.FieldDiffFixVO;
 import org.dbsyncer.biz.vo.FieldDifferenceVO;
-import org.dbsyncer.parser.model.TableGroup;
+import org.dbsyncer.sdk.model.TableGroup;
 
 import java.util.List;
 import java.util.Map;

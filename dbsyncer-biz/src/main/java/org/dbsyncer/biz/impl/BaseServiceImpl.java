@@ -7,9 +7,9 @@ import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.parser.MessageService;
 import org.dbsyncer.parser.ProfileComponent;
-import org.dbsyncer.parser.model.ConfigModel;
-import org.dbsyncer.parser.model.Mapping;
-import org.dbsyncer.parser.model.TableGroup;
+import org.dbsyncer.sdk.model.ConfigModel;
+import org.dbsyncer.sdk.model.Mapping;
+import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.enums.ModelEnum;
 
 import javax.annotation.Resource;

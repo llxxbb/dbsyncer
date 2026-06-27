@@ -3,7 +3,7 @@
  */
 package org.dbsyncer.parser.strategy;
 
-import org.dbsyncer.parser.model.ConfigModel;
+import org.dbsyncer.sdk.model.ConfigModel;
 
 /**
  * @author AE86

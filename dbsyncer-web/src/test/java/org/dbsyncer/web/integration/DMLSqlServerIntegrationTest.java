@@ -221,8 +221,8 @@ public class DMLSqlServerIntegrationTest extends BaseDDLIntegrationTest {
         String testTargetTable = getTargetTableName();
 
         // 1. 重置 TableGroup 完成状态
-        List<org.dbsyncer.parser.model.TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
-        org.dbsyncer.parser.model.TableGroup tableGroup = tableGroups.get(0);
+        List<org.dbsyncer.sdk.model.TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
+        org.dbsyncer.sdk.model.TableGroup tableGroup = tableGroups.get(0);
         tableGroup.setFullCompleted(false);
         tableGroup.setCursors(null);
         profileComponent.editConfigModel(tableGroup);
@@ -294,8 +294,8 @@ public class DMLSqlServerIntegrationTest extends BaseDDLIntegrationTest {
         String testTargetTable = getTargetTableName();
 
         // 1. 重置 TableGroup 完成状态
-        List<org.dbsyncer.parser.model.TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
-        org.dbsyncer.parser.model.TableGroup tableGroup = tableGroups.get(0);
+        List<org.dbsyncer.sdk.model.TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
+        org.dbsyncer.sdk.model.TableGroup tableGroup = tableGroups.get(0);
         tableGroup.setFullCompleted(false);
         tableGroup.setCursors(null);
         profileComponent.editConfigModel(tableGroup);
@@ -397,8 +397,8 @@ public class DMLSqlServerIntegrationTest extends BaseDDLIntegrationTest {
         String testTargetTable = getTargetTableName();
 
         // 1. 重置 TableGroup 完成状态
-        List<org.dbsyncer.parser.model.TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
-        org.dbsyncer.parser.model.TableGroup tableGroup = tableGroups.get(0);
+        List<org.dbsyncer.sdk.model.TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
+        org.dbsyncer.sdk.model.TableGroup tableGroup = tableGroups.get(0);
         tableGroup.setFullCompleted(false);
         tableGroup.setCursors(null);
         profileComponent.editConfigModel(tableGroup);
@@ -504,8 +504,8 @@ public class DMLSqlServerIntegrationTest extends BaseDDLIntegrationTest {
 
         // 1. 重置 TableGroup 完成状态，确保全量同步会处理数据
         // 注意：字段映射已在 createMapping() 中通过 getInitialFieldMappings() 正确设置
-        List<org.dbsyncer.parser.model.TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
-        org.dbsyncer.parser.model.TableGroup tableGroup = tableGroups.get(0);
+        List<org.dbsyncer.sdk.model.TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
+        org.dbsyncer.sdk.model.TableGroup tableGroup = tableGroups.get(0);
         
         // 重置完成状态，确保全量同步会处理数据
         tableGroup.setFullCompleted(false);

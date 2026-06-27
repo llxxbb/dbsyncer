@@ -191,6 +191,7 @@ public final class FileConnector extends AbstractConnector implements ConnectorS
         }
 
         PluginContext context = syncRows.get(0).getContext();
+        List<Field> targetFields = syncRows.get(0).getTargetFields();
 
         final String separator = new String(new char[]{connectorInstance.getConfig().getSeparator()});
 
@@ -201,7 +202,7 @@ public final class FileConnector extends AbstractConnector implements ConnectorS
             output = new FileOutputStream(filePath, true);
             List<String> lines = data.stream().map(row -> {
                 List<String> array = new ArrayList<>();
-                context.getTargetFields().forEach(field -> {
+                targetFields.forEach(field -> {
                     Object o = row.get(field.getName());
                     array.add(null != o ? String.valueOf(o) : "");
                 });
@@ -209,7 +210,7 @@ public final class FileConnector extends AbstractConnector implements ConnectorS
             }).collect(Collectors.toList());
             IOUtils.writeLines(lines, System.lineSeparator(), output, "UTF-8");
         } catch (Exception e) {
-            result.addFailData(context.getSourceList());  // 存储源数据，便于重试时直接使用
+            result.addFailData(data);
             result.error = e.getMessage();
             logger.error(e.getMessage());
         } finally {

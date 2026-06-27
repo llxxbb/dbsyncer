@@ -10,10 +10,11 @@ import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.parser.ParserComponent;
 import org.dbsyncer.parser.ProfileComponent;
-import org.dbsyncer.parser.enums.MetaEnum;
-import org.dbsyncer.parser.model.Mapping;
-import org.dbsyncer.parser.model.Meta;
-import org.dbsyncer.parser.model.TableGroup;
+import org.dbsyncer.parser.service.MappingModelService;
+import org.dbsyncer.sdk.enums.MetaEnum;
+import org.dbsyncer.sdk.model.Mapping;
+import org.dbsyncer.sdk.model.Meta;
+import org.dbsyncer.sdk.model.TableGroup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -53,6 +54,9 @@ public final class FullPuller implements org.dbsyncer.manager.Puller, ProcessEve
 
     @Resource
     private LogService logService;
+
+    @Resource
+    private MappingModelService mappingModelService;
 
     @Override
     public void start(Mapping mapping) throws Exception {
@@ -107,7 +111,7 @@ public final class FullPuller implements org.dbsyncer.manager.Puller, ProcessEve
 
     @Override
     public void close(Mapping mapping) throws Exception {
-        mapping.resetMetaState();
+        mappingModelService.resetMetaState(mapping);
     }
 
     private void doTask(String metaId, Mapping mapping, List<TableGroup> list, Executor executor, Set<String> tableGroupIdsToSync) throws Exception {
@@ -190,9 +194,9 @@ public final class FullPuller implements org.dbsyncer.manager.Puller, ProcessEve
 
     private void flush(Meta meta) throws Exception {
         // 全量的过程中，有新数据则更新总数
-        long finished = meta.getSuccess().get() + meta.getFail().get();
-        if (meta.getTotal().get() < finished) {
-            meta.getTotal().set(finished);
+        long finished = meta.getSuccess() + meta.getFail();
+        if (meta.getTotal() < finished) {
+            meta.setTotal(finished);
         }
 
         long epochMilli = Instant.now().toEpochMilli();

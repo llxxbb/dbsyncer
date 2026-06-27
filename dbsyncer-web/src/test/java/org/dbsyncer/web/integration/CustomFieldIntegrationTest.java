@@ -221,11 +221,11 @@ public class CustomFieldIntegrationTest extends BaseDDLIntegrationTest {
         logger.info("目标表初始字段：{}", initialColumns);
 
         // 2. 修改现有 TableGroup，添加包含自定义字段的转换配置
-        List<org.dbsyncer.parser.model.TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
-        org.dbsyncer.parser.model.TableGroup tableGroup = tableGroups.get(0);
+        List<org.dbsyncer.sdk.model.TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
+        org.dbsyncer.sdk.model.TableGroup tableGroup = tableGroups.get(0);
         
         // 创建包含自定义字段元数据的转换配置
-        org.dbsyncer.parser.model.Convert customFieldConvert = new org.dbsyncer.parser.model.Convert();
+        org.dbsyncer.sdk.model.Convert customFieldConvert = new org.dbsyncer.sdk.model.Convert();
         customFieldConvert.setId("1");
         customFieldConvert.setName("CustomField1");
         customFieldConvert.setConvertName("固定值");
@@ -248,7 +248,7 @@ public class CustomFieldIntegrationTest extends BaseDDLIntegrationTest {
         customFieldConvert.setFieldMetadata(fieldMetadata);
         
         // 添加转换配置到 TableGroup
-        List<org.dbsyncer.parser.model.Convert> converts = tableGroup.getConvert();
+        List<org.dbsyncer.sdk.model.Convert> converts = tableGroup.getConvert();
         if (converts == null) {
             converts = new ArrayList<>();
         }
@@ -266,7 +266,7 @@ public class CustomFieldIntegrationTest extends BaseDDLIntegrationTest {
         
         // 重新构建 fieldMappings 参数（保持原有的映射）
         List<String> fieldMappingsList = new ArrayList<>();
-        for (org.dbsyncer.parser.model.FieldMapping fm : tableGroup.getFieldMapping()) {
+        for (org.dbsyncer.sdk.model.FieldMapping fm : tableGroup.getFieldMapping()) {
             if (fm.getSource() != null && fm.getTarget() != null) {
                 fieldMappingsList.add(fm.getSource() + "|" + fm.getTarget());
             }
@@ -312,11 +312,11 @@ public class CustomFieldIntegrationTest extends BaseDDLIntegrationTest {
         String testTargetTable = getTargetTableName();
         
         // 1. 首先创建一个自定义字段
-        List<org.dbsyncer.parser.model.TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
-        org.dbsyncer.parser.model.TableGroup tableGroup = tableGroups.get(0);
+        List<org.dbsyncer.sdk.model.TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
+        org.dbsyncer.sdk.model.TableGroup tableGroup = tableGroups.get(0);
         
         // 创建包含自定义字段元数据的转换配置
-        org.dbsyncer.parser.model.Convert customFieldConvert = new org.dbsyncer.parser.model.Convert();
+        org.dbsyncer.sdk.model.Convert customFieldConvert = new org.dbsyncer.sdk.model.Convert();
         customFieldConvert.setId("2");
         customFieldConvert.setName("ExistingCustomField");
         customFieldConvert.setConvertName("固定值");
@@ -339,7 +339,7 @@ public class CustomFieldIntegrationTest extends BaseDDLIntegrationTest {
         customFieldConvert.setFieldMetadata(fieldMetadata);
         
         // 添加转换配置到 TableGroup
-        List<org.dbsyncer.parser.model.Convert> converts = tableGroup.getConvert();
+        List<org.dbsyncer.sdk.model.Convert> converts = tableGroup.getConvert();
         if (converts == null) {
             converts = new ArrayList<>();
         }
@@ -357,7 +357,7 @@ public class CustomFieldIntegrationTest extends BaseDDLIntegrationTest {
         
         // 重新构建 fieldMappings 参数
         List<String> fieldMappingsList = new ArrayList<>();
-        for (org.dbsyncer.parser.model.FieldMapping fm : tableGroup.getFieldMapping()) {
+        for (org.dbsyncer.sdk.model.FieldMapping fm : tableGroup.getFieldMapping()) {
             if (fm.getSource() != null && fm.getTarget() != null) {
                 fieldMappingsList.add(fm.getSource() + "|" + fm.getTarget());
             }
@@ -396,10 +396,10 @@ public class CustomFieldIntegrationTest extends BaseDDLIntegrationTest {
         String testTargetTable = getTargetTableName();
         
         // 1. 创建包含多种类型自定义字段的配置
-        List<org.dbsyncer.parser.model.TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
-        org.dbsyncer.parser.model.TableGroup tableGroup = tableGroups.get(0);
+        List<org.dbsyncer.sdk.model.TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
+        org.dbsyncer.sdk.model.TableGroup tableGroup = tableGroups.get(0);
         
-        List<org.dbsyncer.parser.model.Convert> converts = tableGroup.getConvert();
+        List<org.dbsyncer.sdk.model.Convert> converts = tableGroup.getConvert();
         if (converts == null) {
             converts = new ArrayList<>();
         }
@@ -407,19 +407,19 @@ public class CustomFieldIntegrationTest extends BaseDDLIntegrationTest {
         // 创建不同类型的自定义字段
         
         // VARCHAR 字段（带长度）
-        org.dbsyncer.parser.model.Convert varcharField = createCustomFieldConvert(
+        org.dbsyncer.sdk.model.Convert varcharField = createCustomFieldConvert(
             "4", "CustomVarchar", "VARCHAR", java.sql.Types.VARCHAR, 200L, 0, true, "可变长字符串字段");
         
         // DECIMAL 字段（带精度）
-        org.dbsyncer.parser.model.Convert decimalField = createCustomFieldConvert(
+        org.dbsyncer.sdk.model.Convert decimalField = createCustomFieldConvert(
             "5", "CustomDecimal", "DECIMAL", java.sql.Types.DECIMAL, 10L, 2, true, "精确小数字段");
         
         // INTEGER 字段
-        org.dbsyncer.parser.model.Convert intField = createCustomFieldConvert(
+        org.dbsyncer.sdk.model.Convert intField = createCustomFieldConvert(
             "6", "CustomInteger", "INTEGER", java.sql.Types.INTEGER, 0L, 0, true, "整数字段");
         
         // DATE 字段
-        org.dbsyncer.parser.model.Convert dateField = createCustomFieldConvert(
+        org.dbsyncer.sdk.model.Convert dateField = createCustomFieldConvert(
             "7", "CustomDate", "DATE", java.sql.Types.DATE, 0L, 0, true, "日期字段");
         
         // 添加到转换配置
@@ -439,7 +439,7 @@ public class CustomFieldIntegrationTest extends BaseDDLIntegrationTest {
         
         // 重新构建 fieldMappings 参数
         List<String> fieldMappingsList = new ArrayList<>();
-        for (org.dbsyncer.parser.model.FieldMapping fm : tableGroup.getFieldMapping()) {
+        for (org.dbsyncer.sdk.model.FieldMapping fm : tableGroup.getFieldMapping()) {
             if (fm.getSource() != null && fm.getTarget() != null) {
                 fieldMappingsList.add(fm.getSource() + "|" + fm.getTarget());
             }
@@ -486,11 +486,11 @@ public class CustomFieldIntegrationTest extends BaseDDLIntegrationTest {
     /**
      * 创建自定义字段转换配置
      */
-    private org.dbsyncer.parser.model.Convert createCustomFieldConvert(
+    private org.dbsyncer.sdk.model.Convert createCustomFieldConvert(
             String id, String fieldName, String typeName, int typeCode, 
             long columnSize, int ratio, boolean nullable, String comment) {
         
-        org.dbsyncer.parser.model.Convert convert = new org.dbsyncer.parser.model.Convert();
+        org.dbsyncer.sdk.model.Convert convert = new org.dbsyncer.sdk.model.Convert();
         convert.setId(id);
         convert.setName(fieldName);
         convert.setConvertName("固定值");

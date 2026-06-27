@@ -4,10 +4,10 @@ import org.dbsyncer.manager.impl.FullIncrementPuller;
 import org.dbsyncer.manager.impl.FullPuller;
 import org.dbsyncer.parser.MessageService;
 import org.dbsyncer.parser.ProfileComponent;
-import org.dbsyncer.parser.enums.MetaEnum;
-import org.dbsyncer.parser.model.Mapping;
-import org.dbsyncer.parser.model.Meta;
-import org.dbsyncer.parser.model.TableGroup;
+import org.dbsyncer.sdk.enums.MetaEnum;
+import org.dbsyncer.sdk.model.Mapping;
+import org.dbsyncer.sdk.model.Meta;
+import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.plugin.model.NotifyType;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
@@ -49,7 +49,7 @@ public class ManagerFactory {
         // 标记运行中，使用 Meta 类的统一方法
         Meta meta = profileComponent.getMeta(mapping.getMetaId());
         meta.setBeginTime(Instant.now().toEpochMilli());
-        meta.saveState(MetaEnum.RUNNING);
+        meta.saveState(MetaEnum.RUNNING, "");
         
         mapping.setUpdateTime(Instant.now().toEpochMilli());
         profileComponent.editConfigModel(mapping);

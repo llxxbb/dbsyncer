@@ -4,9 +4,9 @@
 package org.dbsyncer.parser.convert.handler;
 
 import org.dbsyncer.common.util.AESUtil;
-import org.dbsyncer.parser.ParserException;
+import org.dbsyncer.common.ParserException;
 import org.dbsyncer.parser.convert.Handler;
-import org.dbsyncer.parser.model.Convert;
+import org.dbsyncer.sdk.model.Convert;
 
 import java.util.List;
 import java.util.Map;

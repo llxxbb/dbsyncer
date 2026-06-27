@@ -1,6 +1,6 @@
 package org.dbsyncer.web.integration;
 
-import org.dbsyncer.parser.model.TableGroup;
+import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.config.DatabaseConfig;
 import org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance;
 import org.dbsyncer.sdk.model.MetaInfo;
@@ -170,7 +170,7 @@ public class SqlServerCTBigTransactionIntegrationTest extends BaseDDLIntegration
 
         // Mapping 创建时已自动创建 TableGroup
         // 获取 Mapping 信息
-        org.dbsyncer.parser.model.Mapping mapping = profileComponent.getMapping(mappingId);
+        org.dbsyncer.sdk.model.Mapping mapping = profileComponent.getMapping(mappingId);
         Assert.assertNotNull("Mapping 不应为 null", mapping);
         
         // 获取 TableGroup 列表
@@ -210,7 +210,7 @@ public class SqlServerCTBigTransactionIntegrationTest extends BaseDDLIntegration
 
         // Mapping 创建时已自动创建 TableGroup
         // 获取 Mapping 信息
-        org.dbsyncer.parser.model.Mapping mapping = profileComponent.getMapping(mappingId);
+        org.dbsyncer.sdk.model.Mapping mapping = profileComponent.getMapping(mappingId);
         Assert.assertNotNull("Mapping 不应为 null", mapping);
         
         // 获取 TableGroup 列表
@@ -245,7 +245,7 @@ public class SqlServerCTBigTransactionIntegrationTest extends BaseDDLIntegration
 
         // Mapping 创建时已自动创建 TableGroup
         // 获取 Mapping 信息
-        org.dbsyncer.parser.model.Mapping mapping = profileComponent.getMapping(mappingId);
+        org.dbsyncer.sdk.model.Mapping mapping = profileComponent.getMapping(mappingId);
         Assert.assertNotNull("Mapping 不应为 null", mapping);
         
         // 获取 TableGroup 列表

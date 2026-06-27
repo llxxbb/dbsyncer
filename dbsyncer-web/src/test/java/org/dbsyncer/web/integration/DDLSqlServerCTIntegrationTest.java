@@ -1,7 +1,7 @@
 package org.dbsyncer.web.integration;
 
 import org.dbsyncer.connector.sqlserver.SqlServerConnector;
-import org.dbsyncer.parser.model.TableGroup;
+import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.config.DatabaseConfig;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.web.Application;

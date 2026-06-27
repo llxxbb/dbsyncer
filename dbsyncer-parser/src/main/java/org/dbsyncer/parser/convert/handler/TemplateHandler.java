@@ -2,8 +2,8 @@ package org.dbsyncer.parser.convert.handler;
 
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.convert.Handler;
-import org.dbsyncer.parser.model.Convert;
-import org.dbsyncer.parser.model.ParseResult;
+import org.dbsyncer.sdk.model.Convert;
+import org.dbsyncer.sdk.model.ParseResult;
 import org.dbsyncer.parser.util.ConvertUtil;
 import org.dbsyncer.parser.util.TemplateExecutor;
 import org.dbsyncer.parser.util.TemplateParser;

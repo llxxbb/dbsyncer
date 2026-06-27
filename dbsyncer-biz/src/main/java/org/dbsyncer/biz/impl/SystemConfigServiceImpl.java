@@ -14,7 +14,7 @@ import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
-import org.dbsyncer.parser.model.ConfigModel;
+import org.dbsyncer.sdk.model.ConfigModel;
 import org.dbsyncer.parser.model.SystemConfig;
 import org.dbsyncer.manager.impl.PreloadTemplate;
 import org.dbsyncer.common.enums.FileSuffixEnum;

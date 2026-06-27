@@ -14,9 +14,12 @@ import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.command.impl.PreloadCommand;
 import org.dbsyncer.parser.enums.CommandEnum;
 import org.dbsyncer.parser.enums.GroupStrategyEnum;
-import org.dbsyncer.parser.enums.MetaEnum;
+import org.dbsyncer.sdk.enums.MetaEnum;
 import org.dbsyncer.parser.impl.OperationTemplate;
 import org.dbsyncer.parser.model.*;
+import org.dbsyncer.sdk.model.ConfigModel;
+import org.dbsyncer.sdk.model.Meta;
+import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.plugin.PluginFactory;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.constant.ConfigConstant;
@@ -167,12 +170,7 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
                 }
                 if (null != model) {
                     operationTemplate.cache(model, commandEnum.getGroupStrategyEnum());
-                    // 如果 model 是 Meta 或 Mapping 则需要设置其 profileComponent 属性
-                    if (model instanceof Meta) {
-                        ((Meta) model).setProfileComponent(profileComponent);
-                    } else if (model instanceof Mapping) {
-                        ((Mapping) model).profileComponent = profileComponent;
-                    }
+
                 }
             });
             total += data.size();

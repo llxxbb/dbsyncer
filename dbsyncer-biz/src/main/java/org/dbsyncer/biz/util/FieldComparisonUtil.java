@@ -229,7 +229,7 @@ public final class FieldComparisonUtil {
      * @param targetFields 目标表实际字段列表
      * @return MAPPING_ONLY 差异列表
      */
-    public static List<FieldDiffItem> compareMappingWithTarget(List<org.dbsyncer.parser.model.FieldMapping> fieldMappings, List<Field> targetFields) {
+    public static List<FieldDiffItem> compareMappingWithTarget(List<org.dbsyncer.sdk.model.FieldMapping> fieldMappings, List<Field> targetFields) {
         List<FieldDiffItem> mappingOnlyFields = new ArrayList<>();
 
         if (CollectionUtils.isEmpty(fieldMappings) || CollectionUtils.isEmpty(targetFields)) {
@@ -237,7 +237,7 @@ public final class FieldComparisonUtil {
         }
 
         // ADR-0011: getTarget() 现在返回 String 字段名
-        for (org.dbsyncer.parser.model.FieldMapping fieldMapping : fieldMappings) {
+        for (org.dbsyncer.sdk.model.FieldMapping fieldMapping : fieldMappings) {
             String targetFieldName = fieldMapping.getTarget();
             if (StringUtil.isBlank(targetFieldName)) {
                 continue;

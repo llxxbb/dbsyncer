@@ -1,4 +1,4 @@
-package org.dbsyncer.parser.enums;
+package org.dbsyncer.sdk.enums;
 
 /**
  * 混合模式阶段枚举

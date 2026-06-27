@@ -1,7 +1,6 @@
-package org.dbsyncer.parser.model;
+package org.dbsyncer.sdk.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import org.dbsyncer.parser.enums.ConvertEnum;
 import org.dbsyncer.sdk.model.Field;
 
 /**
@@ -22,21 +21,16 @@ public class Convert {
 
     /**
      * 转换名称
-     * @see ConvertEnum
      */
     private String convertName;
 
     /**
      * 转换方式
-     *
-     * @see ConvertEnum
      */
     private String convertCode;
 
     /**
      * 转换参数
-     *
-     * @see ConvertEnum
      */
     private String args;
 

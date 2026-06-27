@@ -2,11 +2,11 @@ package org.dbsyncer.parser.util;
 
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.StringUtil;
-import org.dbsyncer.parser.ParserException;
+import org.dbsyncer.common.ParserException;
 import org.dbsyncer.parser.convert.Handler;
 import org.dbsyncer.parser.enums.ConvertEnum;
-import org.dbsyncer.parser.model.Convert;
-import org.dbsyncer.parser.model.ParseResult;
+import org.dbsyncer.sdk.model.Convert;
+import org.dbsyncer.sdk.model.ParseResult;
 
 import java.util.ArrayList;
 import java.util.HashMap;

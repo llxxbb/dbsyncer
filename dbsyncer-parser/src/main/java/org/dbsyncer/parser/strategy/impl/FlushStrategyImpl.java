@@ -9,10 +9,10 @@ import org.dbsyncer.parser.CacheService;
 import org.dbsyncer.parser.MessageService;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.flush.BufferActuator;
-import org.dbsyncer.parser.model.Meta;
+import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.parser.model.StorageRequest;
 import org.dbsyncer.parser.model.SystemConfig;
-import org.dbsyncer.parser.model.TableGroup;
+import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.parser.strategy.FlushStrategy;
 import org.dbsyncer.plugin.model.NotifyType;
 import org.dbsyncer.sdk.constant.ConfigConstant;
@@ -71,9 +71,10 @@ public final class FlushStrategyImpl implements FlushStrategy {
         // 为增量设置总数
         Meta meta = cacheService.get(metaId, Meta.class);
         if (meta != null) {
-            AtomicLong total = meta.getTotal();
-            total.getAndAdd(result.getFailData().size());
-            total.getAndAdd(result.getSuccessData().size());
+            long total = meta.getTotal();
+            total += result.getFailData().size();
+            total += result.getSuccessData().size();
+            meta.setTotal(total);
 
             // 更新 TableGroup 的增量同步数量
             updateTableGroupIncrementProgress(metaId, result);
@@ -188,8 +189,8 @@ public final class FlushStrategyImpl implements FlushStrategy {
      * @param writer 同步结果，包含成功和失败的数据
      */
     private void updateMetaCounts(Meta meta, Result writer) {
-        meta.getFail().getAndAdd(writer.getFailData().size());
-        meta.getSuccess().getAndAdd(writer.getSuccessData().size());
+        meta.setFail(meta.getFail() + writer.getFailData().size());
+        meta.setSuccess(meta.getSuccess() + writer.getSuccessData().size());
         meta.setUpdateTime(Instant.now().toEpochMilli());
     }
 

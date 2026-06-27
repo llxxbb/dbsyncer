@@ -1,7 +1,12 @@
 package org.dbsyncer.sdk.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.dbsyncer.common.util.CollectionUtils;
+
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 连接器详细信息（包含主键）
@@ -19,6 +24,13 @@ public class MetaInfo extends Table {
      */
     private List<String> primaryKeys;
 
+    /**
+     * 主键列的 Field 对象缓存（懒加载）
+     * 由 primaryKeys + column 计算得出，供 Connector update/delete/upsert 使用
+     */
+    @JsonIgnore
+    private transient List<Field> pkFields;
+
     public MetaInfo() {
         super();
     }
@@ -34,12 +46,28 @@ public class MetaInfo extends Table {
 
     public MetaInfo setPrimaryKeys(List<String> primaryKeys) {
         this.primaryKeys = primaryKeys;
+        this.pkFields = null;
         return this;
+    }
+
+    @JsonIgnore
+    public List<Field> getPkFields() {
+        if (pkFields == null) {
+            if (CollectionUtils.isEmpty(primaryKeys) || CollectionUtils.isEmpty(getColumn())) {
+                pkFields = Collections.emptyList();
+            } else {
+                pkFields = getColumn().stream()
+                        .filter(f -> f != null && primaryKeys.contains(f.getName()))
+                        .collect(Collectors.toList());
+            }
+        }
+        return pkFields;
     }
 
     @Override
     public MetaInfo setColumn(List<Field> column) {
         super.setColumn(column);
+        this.pkFields = null;
         return this;
     }
 

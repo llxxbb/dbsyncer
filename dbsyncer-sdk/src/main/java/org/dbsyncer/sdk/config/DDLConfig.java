@@ -12,7 +12,12 @@ public class DDLConfig {
     private String sql;
 
     private DDLOperationEnum ddlOperationEnum;
-    
+
+    /**
+     * DDL 源表名（供 writerDDL 使用，替代 PluginContext.getSourceTableName()）
+     */
+    private String sourceTableName;
+
     private List<String> addedFieldNames = new LinkedList<>();
 
     private List<String> modifiedFieldNames = new LinkedList<>();
@@ -35,6 +40,14 @@ public class DDLConfig {
 
     public void setDdlOperationEnum(DDLOperationEnum ddlOperationEnum) {
         this.ddlOperationEnum = ddlOperationEnum;
+    }
+
+    public String getSourceTableName() {
+        return sourceTableName;
+    }
+
+    public void setSourceTableName(String sourceTableName) {
+        this.sourceTableName = sourceTableName;
     }
 
     public List<String> getAddedFieldNames() {

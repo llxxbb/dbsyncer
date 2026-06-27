@@ -3,10 +3,10 @@
  */
 package org.dbsyncer.parser.service;
 
-import org.dbsyncer.parser.enums.MetaEnum;
-import org.dbsyncer.parser.enums.SyncPhaseEnum;
-import org.dbsyncer.parser.model.Meta;
-import org.dbsyncer.parser.model.TableGroup;
+import org.dbsyncer.sdk.enums.MetaEnum;
+import org.dbsyncer.sdk.enums.SyncPhaseEnum;
+import org.dbsyncer.sdk.model.Meta;
+import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.service.ModelPersistenceService;
 import org.springframework.stereotype.Service;
 

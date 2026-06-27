@@ -11,6 +11,8 @@ import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.parser.ParserComponent;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.model.*;
+import org.dbsyncer.sdk.model.*;
+import org.dbsyncer.sdk.model.ConfigModel;
 import org.dbsyncer.parser.strategy.FlushStrategy;
 import org.dbsyncer.parser.util.ConvertUtil;
 import org.dbsyncer.parser.util.PickerUtil;
@@ -120,15 +122,11 @@ public class ParserComponentImpl implements ParserComponent {
         final FullPluginContext context = new FullPluginContext();
         context.setSourceConnectorInstance(connectorFactory.connect(sConfig));
         context.setTargetConnectorInstance(connectorFactory.connect(tConfig));
-        context.setSourceTableName(group.getSourceTable().getName());
         context.setSourceTable(group.getSourceTable());
-        context.setTargetTableName(group.getTargetTable().getName());
         context.setEvent(ConnectorConstant.OPERTION_INSERT);
         context.setCommand(command);
-        context.setBatchSize(mapping.getBatchNum());
         context.setPlugin(group.getPlugin());
         context.setPluginExtInfo(group.getPluginExtInfo());
-        context.setForceUpdate(mapping.isForceUpdate());
         context.setPageSize(mapping.getReadNum());
         context.setEnableSchemaResolver(profileComponent.getSystemConfig().isEnableSchemaResolver());
         context.setCursors(tableGroup.getCursors());
@@ -137,8 +135,6 @@ public class ParserComponentImpl implements ParserComponent {
                 .getConnectorService(context.getSourceConnectorInstance().getConfig());
         Picker picker = new Picker(group);
         picker.setSourceResolver(context.isEnableSchemaResolver() ? sourceConnector.getSchemaResolver() : null);
-        context.setTargetFields(picker.getTargetFields());
-        context.setPkFields(group.resolveTargetPkFields(picker.getTargetFields()));
 
 
         // 0、插件前置处理
@@ -159,10 +155,11 @@ public class ParserComponentImpl implements ParserComponent {
 
         // 执行流式处理
         ((DatabaseConnectorInstance) context.getSourceConnectorInstance()).execute(databaseTemplate ->
-                executeTableGroupWithStreaming(metaId, tableGroup, context, picker, db, primaryKeys, querySql, databaseTemplate));
+                executeTableGroupWithStreaming(metaId, tableGroup, mapping, context, picker, db, primaryKeys, querySql, databaseTemplate));
     }
 
-    private Object executeTableGroupWithStreaming(String metaId, TableGroup tableGroup, AbstractPluginContext context,
+    private Object executeTableGroupWithStreaming(String metaId, TableGroup tableGroup, Mapping mapping,
+                                                  AbstractPluginContext context,
                                                   Picker picker, Database db, List<String> primaryKeys,
                                                   String querySql, DatabaseTemplate databaseTemplate) {
         // 获取流式处理的fetchSize
@@ -190,14 +187,14 @@ public class ParserComponentImpl implements ParserComponent {
                 batch.add(iterator.next());
 
                 // 达到批次大小时处理数据
-                if (batch.size() >= context.getBatchSize()) {
-                    processTableGroupDataBatch(metaId, batch, tableGroup, context, picker, primaryKeys, lastSaveTime);
+                if (batch.size() >= mapping.getBatchNum()) {
+                    processTableGroupDataBatch(metaId, batch, tableGroup, mapping, context, picker, primaryKeys, lastSaveTime);
                     batch = new ArrayList<>();
                 }
             }
             // 处理最后一批数据
             if (!batch.isEmpty()) {
-                processTableGroupDataBatch(metaId, batch, tableGroup, context, picker, primaryKeys, lastSaveTime);
+                processTableGroupDataBatch(metaId, batch, tableGroup, mapping, context, picker, primaryKeys, lastSaveTime);
             }
             // 标记流式处理完成，强制保存一次
             tableGroup.setFullCompleted(true);
@@ -211,21 +208,25 @@ public class ParserComponentImpl implements ParserComponent {
     /**
      * TableGroup专用的数据处理逻辑
      */
-    private void processTableGroupDataBatch(String metaId, List<Map> source, TableGroup tableGroup,
+    private void processTableGroupDataBatch(String metaId, List<Map> source, TableGroup tableGroup, Mapping mapping,
                                              AbstractPluginContext context, Picker picker, List<String> primaryKeys,
                                              long[] lastSaveTime) throws Exception {
         // 1、映射字段 + 封装为 SyncRow（Picker 返回的就是 SyncRow）
         List<SyncRow> target = picker.pickTargetData(source, context);
+        // 设置 Mapping/TableGroup 引用（Step 3: SyncRow 直接持有配置模型）
+        for (SyncRow row : target) {
+            row.setMapping(mapping);
+            row.setTableGroup(tableGroup);
+        }
 
         // 2、参数转换（增强：支持字段值生成和转换）
         ConvertUtil.convert(tableGroup.getConvert(), target);
 
         // 3、插件转换
-        context.setSourceList(source);
         pluginFactory.process(context, ProcessEnum.CONVERT);
 
         // 4、写入目标源（直接传递 syncRows）
-        Result result = connectorFactory.writeBatch(context, target);
+        Result result = connectorFactory.writeBatch(target);
 
         // 5、更新Meta统计信息
         if (result != null) {

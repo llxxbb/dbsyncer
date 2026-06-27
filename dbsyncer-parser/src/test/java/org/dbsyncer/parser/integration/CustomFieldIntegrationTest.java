@@ -1,10 +1,10 @@
 package org.dbsyncer.parser.integration;
 
 import org.dbsyncer.parser.enums.ConvertEnum;
-import org.dbsyncer.parser.model.Convert;
-import org.dbsyncer.parser.model.FieldMapping;
-import org.dbsyncer.parser.model.Mapping;
-import org.dbsyncer.parser.model.TableGroup;
+import org.dbsyncer.sdk.model.Convert;
+import org.dbsyncer.sdk.model.FieldMapping;
+import org.dbsyncer.sdk.model.Mapping;
+import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.parser.model.Picker;
 import org.dbsyncer.parser.util.ConvertUtil;
 import org.dbsyncer.parser.util.PickerUtil;

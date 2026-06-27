@@ -1,4 +1,4 @@
-package org.dbsyncer.parser;
+package org.dbsyncer.common;
 
 /**
  * @author AE86

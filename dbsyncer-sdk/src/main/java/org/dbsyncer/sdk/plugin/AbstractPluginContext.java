@@ -1,12 +1,7 @@
 package org.dbsyncer.sdk.plugin;
 
 import org.dbsyncer.sdk.connector.ConnectorInstance;
-import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.Plugin;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
 
 /**
  * @author AE86
@@ -21,40 +16,21 @@ public abstract class AbstractPluginContext extends AbstractBaseContext implemen
     private ConnectorInstance targetConnectorInstance;
 
     /**
-     * 数据源表
-     */
-    private String sourceTableName;
-
-    /**
-     * 目标源表
-     */
-    private String targetTableName;
-
-    /**
      * 同步事件（INSERT/UPDATE/DELETE）
      */
     private String event;
 
     /**
-     * 目标字段
+     * 插件
      */
-    private List<Field> targetFields;
+    private Plugin plugin;
 
     /**
-     * 预计算的主键字段列表（按主键顺序）
-     * 更新/删除等操作直接读取，避免每条数据重复查找
+     * 插件参数（旧方式，保留兼容）
      */
-    private List<Field> pkFields = Collections.emptyList();
+    private String pluginExtInfo;
 
-    /**
-     * 批量处理任务数
-     */
-    private int batchSize;
-
-    /**
-     * 是否覆盖更新
-     */
-    private boolean forceUpdate;
+    private String traceId;
 
     /**
      * 是否启用字段解析器
@@ -66,33 +42,6 @@ public abstract class AbstractPluginContext extends AbstractBaseContext implemen
      */
     private boolean enablePrintTraceInfo;
 
-    /**
-     * 数据源数据集合
-     */
-    private List<Map> sourceList;
-
-    /**
-     * 目标源源数据集合
-     */
-    private List<Map> targetList;
-
-    /**
-     * 插件
-     */
-    private Plugin plugin;
-
-    /**
-     * 插件参数（旧方式，保留兼容）
-     */
-    private String pluginExtInfo;
-    
-    /**
-     * 主键列表（新方式，直接 List，避免 JSON 解析）
-     */
-    private List<String> primaryKeys;
-
-    private String traceId;
-
     @Override
     public ConnectorInstance getTargetConnectorInstance() {
         return targetConnectorInstance;
@@ -100,24 +49,6 @@ public abstract class AbstractPluginContext extends AbstractBaseContext implemen
 
     public void setTargetConnectorInstance(ConnectorInstance targetConnectorInstance) {
         this.targetConnectorInstance = targetConnectorInstance;
-    }
-
-    @Override
-    public String getSourceTableName() {
-        return sourceTableName;
-    }
-
-    public void setSourceTableName(String sourceTableName) {
-        this.sourceTableName = sourceTableName;
-    }
-
-    @Override
-    public String getTargetTableName() {
-        return targetTableName;
-    }
-
-    public void setTargetTableName(String targetTableName) {
-        this.targetTableName = targetTableName;
     }
 
     @Override
@@ -131,40 +62,29 @@ public abstract class AbstractPluginContext extends AbstractBaseContext implemen
     }
 
     @Override
-    public List<Field> getTargetFields() {
-        return targetFields;
+    public Plugin getPlugin() {
+        return plugin;
     }
 
-    public void setTargetFields(List<Field> targetFields) {
-        this.targetFields = targetFields;
+    public void setPlugin(Plugin plugin) {
+        this.plugin = plugin;
     }
 
-    @Override
-    public List<Field> getPkFields() {
-        return pkFields;
+    public String getPluginExtInfo() {
+        return pluginExtInfo;
     }
 
-    @Override
-    public void setPkFields(List<Field> pkFields) {
-        this.pkFields = pkFields == null ? Collections.<Field>emptyList() : pkFields;
-    }
-
-    @Override
-    public int getBatchSize() {
-        return batchSize;
-    }
-
-    public void setBatchSize(int batchSize) {
-        this.batchSize = batchSize;
+    public void setPluginExtInfo(String pluginExtInfo) {
+        this.pluginExtInfo = pluginExtInfo;
     }
 
     @Override
-    public boolean isForceUpdate() {
-        return forceUpdate;
+    public String getTraceId() {
+        return traceId;
     }
 
-    public void setForceUpdate(boolean forceUpdate) {
-        this.forceUpdate = forceUpdate;
+    public void setTraceId(String traceId) {
+        this.traceId = traceId;
     }
 
     @Override
@@ -183,66 +103,6 @@ public abstract class AbstractPluginContext extends AbstractBaseContext implemen
 
     public void setEnablePrintTraceInfo(boolean enablePrintTraceInfo) {
         this.enablePrintTraceInfo = enablePrintTraceInfo;
-    }
-
-    @Override
-    public List<Map> getSourceList() {
-        return sourceList;
-    }
-
-    public void setSourceList(List<Map> sourceList) {
-        this.sourceList = sourceList;
-    }
-
-    @Override
-    public List<Map> getTargetList() {
-        return targetList;
-    }
-
-    public void setTargetList(List<Map> targetList) {
-        this.targetList = targetList;
-    }
-
-    @Override
-    public Plugin getPlugin() {
-        return plugin;
-    }
-
-    public void setPlugin(Plugin plugin) {
-        this.plugin = plugin;
-    }
-
-    /**
-     * 获取主键列表
-     */
-    @Override
-    public List<String> getPrimaryKeys() {
-        return primaryKeys;
-    }
-
-    @Override
-    public void setPrimaryKeys(List<String> primaryKeys) {
-        this.primaryKeys = primaryKeys;
-    }
-
-    /**
-     * 获取插件参数（旧方式）
-     */
-    public String getPluginExtInfo() {
-        return pluginExtInfo;
-    }
-
-    public void setPluginExtInfo(String pluginExtInfo) {
-        this.pluginExtInfo = pluginExtInfo;
-    }
-
-    @Override
-    public String getTraceId() {
-        return traceId;
-    }
-
-    public void setTraceId(String traceId) {
-        this.traceId = traceId;
     }
 
     @Override

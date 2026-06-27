@@ -1,8 +1,8 @@
 package org.dbsyncer.parser.util;
 
-import org.dbsyncer.parser.ParserException;
-import org.dbsyncer.parser.model.Convert;
-import org.dbsyncer.parser.model.ParseResult;
+import org.dbsyncer.common.ParserException;
+import org.dbsyncer.sdk.model.Convert;
+import org.dbsyncer.sdk.model.ParseResult;
 import org.junit.Test;
 
 import java.util.ArrayList;

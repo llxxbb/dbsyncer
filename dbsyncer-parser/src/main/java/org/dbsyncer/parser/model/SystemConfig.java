@@ -5,6 +5,7 @@
 package org.dbsyncer.parser.model;
 
 import org.dbsyncer.sdk.constant.ConfigConstant;
+import org.dbsyncer.sdk.model.ConfigModel;
 
 /**
  * 系统配置

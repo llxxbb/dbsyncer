@@ -14,9 +14,9 @@ import org.dbsyncer.common.util.*;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.flush.impl.BufferActuatorRouter;
 import org.dbsyncer.parser.flush.impl.MetaBufferActuator;
-import org.dbsyncer.parser.model.Meta;
+import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.parser.model.Picker;
-import org.dbsyncer.parser.model.TableGroup;
+import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.config.DDLConfig;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.constant.ConnectorConstant;
@@ -278,8 +278,8 @@ public class DataSyncServiceImpl implements DataSyncService {
             // 更新统计数据：减少失败数，增加成功数
             Meta meta = profileComponent.getMeta(metaId);
             if (meta != null) {
-                meta.getFail().decrementAndGet();
-                meta.getSuccess().incrementAndGet();
+                meta.setFail(meta.getFail() - 1);
+                meta.setSuccess(meta.getSuccess() + 1);
                 meta.setUpdateTime(Instant.now().toEpochMilli());
 
                 // 减少失败数，增加成功数

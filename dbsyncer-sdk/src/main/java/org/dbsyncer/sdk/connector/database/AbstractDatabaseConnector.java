@@ -312,20 +312,19 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
 
     @Override
     public Result writer(DatabaseConnectorInstance connectorInstance, List<SyncRow> syncRows) {
-        return executeWriter(connectorInstance, syncRows, syncRows.get(0).getContext().getTargetFields());
+        return executeWriter(connectorInstance, syncRows, syncRows.get(0).getTargetFields());
     }
 
     @Override
     public Result insert(DatabaseConnectorInstance connectorInstance, List<SyncRow> syncRows) {
-        List<Field> fields = new ArrayList<>(syncRows.get(0).getContext().getTargetFields());
+        List<Field> fields = new ArrayList<>(syncRows.get(0).getTargetFields());
         return executeWriter(connectorInstance, syncRows, fields);
     }
 
     @Override
     public Result update(DatabaseConnectorInstance connectorInstance, List<SyncRow> syncRows) {
-        PluginContext context = syncRows.get(0).getContext();
-        List<Field> fields = new ArrayList<>(context.getTargetFields());
-        List<Field> pkFields = context.getPkFields();
+        List<Field> fields = new ArrayList<>(syncRows.get(0).getTargetFields());
+        List<Field> pkFields = syncRows.get(0).getTableGroup().getTargetTable().getPkFields();
         if (CollectionUtils.isEmpty(pkFields)) {
             throw new SdkException("Primary keys cannot be empty for UPDATE operation");
         }
@@ -336,7 +335,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
 
     @Override
     public Result delete(DatabaseConnectorInstance connectorInstance, List<SyncRow> syncRows) {
-        List<Field> pkFields = syncRows.get(0).getContext().getPkFields();
+        List<Field> pkFields = syncRows.get(0).getTableGroup().getTargetTable().getPkFields();
         if (CollectionUtils.isEmpty(pkFields)) {
             throw new SdkException("Primary keys cannot be empty for DELETE operation");
         }
@@ -345,9 +344,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
 
     @Override
     public Result upsert(DatabaseConnectorInstance connectorInstance, List<SyncRow> syncRows) {
-        PluginContext context = syncRows.get(0).getContext();
-        List<Field> fields = new ArrayList<>(context.getTargetFields());
-        List<Field> pkFields = context.getPkFields();
+        List<Field> fields = new ArrayList<>(syncRows.get(0).getTargetFields());
+        List<Field> pkFields = syncRows.get(0).getTableGroup().getTargetTable().getPkFields();
         if (CollectionUtils.isEmpty(pkFields)) {
             throw new SdkException("Primary keys cannot be empty for UPSERT operation");
         }

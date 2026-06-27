@@ -4,6 +4,7 @@
 package org.dbsyncer.parser.model;
 
 import org.dbsyncer.sdk.model.Field;
+import org.dbsyncer.sdk.model.TableGroup;
 
 import java.util.List;
 

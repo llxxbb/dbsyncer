@@ -11,10 +11,11 @@ import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.ParserComponent;
-import org.dbsyncer.parser.model.ConfigModel;
+import org.dbsyncer.parser.service.TableGroupModelService;
+import org.dbsyncer.sdk.model.ConfigModel;
 import org.dbsyncer.parser.model.Connector;
-import org.dbsyncer.parser.model.Mapping;
-import org.dbsyncer.parser.model.TableGroup;
+import org.dbsyncer.sdk.model.Mapping;
+import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.config.ListenerConfig;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.enums.ListenerTypeEnum;
@@ -52,6 +53,9 @@ public class MappingChecker extends AbstractChecker {
     @Resource
     ConnectorFactory connectorFactory;
 
+    @Resource
+    private TableGroupModelService tableGroupModelService;
+
     @Override
     public ConfigModel checkAddConfigModel(Map<String, String> params) throws Exception {
         logger.info("params:{}", params);
@@ -67,7 +71,6 @@ public class MappingChecker extends AbstractChecker {
         validateConnectorExists(targetConnectorId, "目标连接器");
 
         Mapping mapping = new Mapping();
-        mapping.profileComponent = profileComponent;
         mapping.setName(name);
         mapping.setSourceConnectorId(sourceConnectorId);
         mapping.setTargetConnectorId(targetConnectorId);
@@ -180,7 +183,7 @@ public class MappingChecker extends AbstractChecker {
             // 更新 sql 配置
             for (TableGroup g : groupAll) {
                 // 初始化 TableGroup 的运行时组件
-                g.initTableGroup(parserComponent, profileComponent, connectorFactory);
+                tableGroupModelService.initTableGroup(g, mapping);
                 profileComponent.editConfigModel(g);
             }
         }
@@ -191,12 +194,12 @@ public class MappingChecker extends AbstractChecker {
      *
      * @param connectorId 连接器ID
      * @param connectorType 连接器类型描述（用于错误提示）
-     * @throws org.dbsyncer.parser.ParserException 如果连接器不存在
+     * @throws org.dbsyncer.common.ParserException 如果连接器不存在
      */
     private void validateConnectorExists(String connectorId, String connectorType) {
         Connector connector = profileComponent.getConnector(connectorId);
         if (connector == null) {
-            throw new org.dbsyncer.parser.ParserException(
+            throw new org.dbsyncer.common.ParserException(
                     String.format("%s不存在，connectorId: %s", connectorType, connectorId));
         }
     }

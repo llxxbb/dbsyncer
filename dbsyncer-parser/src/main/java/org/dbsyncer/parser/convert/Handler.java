@@ -1,6 +1,6 @@
 package org.dbsyncer.parser.convert;
 
-import org.dbsyncer.parser.model.Convert;
+import org.dbsyncer.sdk.model.Convert;
 
 import java.util.List;
 import java.util.Map;

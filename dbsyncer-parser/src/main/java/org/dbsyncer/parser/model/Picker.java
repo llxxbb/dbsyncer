@@ -8,6 +8,7 @@ import org.dbsyncer.sdk.enums.OperationEnum;
 import org.dbsyncer.sdk.filter.CompareFilter;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.Filter;
+import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.schema.SchemaResolver;
 import org.dbsyncer.sdk.util.RowConverter;

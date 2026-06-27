@@ -4,7 +4,7 @@
 package org.dbsyncer.biz;
 
 import org.dbsyncer.biz.vo.SystemConfigVo;
-import org.dbsyncer.parser.model.ConfigModel;
+import org.dbsyncer.sdk.model.ConfigModel;
 import org.dbsyncer.parser.model.SystemConfig;
 
 import java.io.File;

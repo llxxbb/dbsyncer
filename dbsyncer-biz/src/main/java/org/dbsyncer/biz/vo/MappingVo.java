@@ -1,6 +1,6 @@
 package org.dbsyncer.biz.vo;
 
-import org.dbsyncer.parser.model.Mapping;
+import org.dbsyncer.sdk.model.Mapping;
 
 /**
  * @author AE86

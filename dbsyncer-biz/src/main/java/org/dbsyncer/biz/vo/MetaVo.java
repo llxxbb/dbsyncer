@@ -1,6 +1,6 @@
 package org.dbsyncer.biz.vo;
 
-import org.dbsyncer.parser.model.Meta;
+import org.dbsyncer.sdk.model.Meta;
 
 /**
  * @author AE86

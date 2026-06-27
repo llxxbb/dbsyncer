@@ -1,7 +1,7 @@
 package org.dbsyncer.parser;
 
-import org.dbsyncer.parser.model.Mapping;
-import org.dbsyncer.parser.model.TableGroup;
+import org.dbsyncer.sdk.model.Mapping;
+import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.model.MetaInfo;
 
 import java.util.Map;

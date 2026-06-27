@@ -1,6 +1,6 @@
 package org.dbsyncer.biz.checker;
 
-import org.dbsyncer.parser.model.Mapping;
+import org.dbsyncer.sdk.model.Mapping;
 
 import java.util.Map;
 

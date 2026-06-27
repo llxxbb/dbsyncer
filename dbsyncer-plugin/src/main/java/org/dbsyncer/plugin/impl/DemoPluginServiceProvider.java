@@ -22,18 +22,17 @@ public final class DemoPluginServiceProvider implements PluginService {
 
     @Override
     public void postProcessBefore(PluginContext context) {
-        logger.info("插件正在处理同步，目标源表:{}", context.getTargetTableName());
+        logger.info("插件正在处理同步，事件:{}", context.getEvent());
     }
 
     @Override
     public void convert(PluginContext context) {
-        logger.info("插件正在处理{}，数据源表:{}，目标源表:{}，事件:{}，条数:{}", context.getModelEnum().getName(), context.getSourceTableName(), context.getTargetTableName(),
-                context.getEvent(), context.getTargetList().size());
+        logger.info("插件正在处理{}，事件:{}", context.getModelEnum().getName(), context.getEvent());
     }
 
     @Override
     public void postProcessAfter(PluginContext context) {
-        logger.info("插件正在处理同步成功的数据，目标源表:{}，事件:{}，条数:{}", context.getTargetTableName(), context.getEvent(), context.getTargetList().size());
+        logger.info("插件后置处理，事件:{}", context.getEvent());
     }
 
     @Override

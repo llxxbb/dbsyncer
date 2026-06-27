@@ -6,10 +6,10 @@ package org.dbsyncer.parser.service;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
-import org.dbsyncer.parser.ParserException;
-import org.dbsyncer.parser.model.Mapping;
-import org.dbsyncer.parser.model.Meta;
-import org.dbsyncer.parser.model.TableGroup;
+import org.dbsyncer.common.ParserException;
+import org.dbsyncer.sdk.model.Mapping;
+import org.dbsyncer.sdk.model.Meta;
+import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.service.ModelPersistenceService;
 import org.dbsyncer.storage.impl.SnowflakeIdWorker;
 import org.springframework.stereotype.Service;
@@ -119,7 +119,7 @@ public class MappingModelService {
         }
         persistenceService.save(null, newMapping);
 
-        Meta meta = Meta.create(newMapping, snowflakeIdWorker);
+        Meta meta = Meta.create(newMapping, String.valueOf(snowflakeIdWorker.nextId()));
         persistenceService.save(null, meta);
 
         List<Object> groupList = persistenceService.getAllTableGroups(mapping.getId());

@@ -109,7 +109,7 @@ public class KafkaConnector extends AbstractConnector implements ConnectorServic
         }
 
         PluginContext context = syncRows.get(0).getContext();
-        List<Field> pkFields = context.getPkFields();
+        List<Field> pkFields = syncRows.get(0).getTableGroup().getTargetTable().getPkFields();
         if (CollectionUtils.isEmpty(pkFields)) {
             throw new KafkaException("Primary keys must be set");
         }
@@ -131,14 +131,16 @@ public class KafkaConnector extends AbstractConnector implements ConnectorServic
             final KafkaClient kafkaClient = connectorInstance.getConnection();
             final String finalTopic = topic;
 
-            List<Map> formattedData = kafkaConvertor.formatMessages(context, data, pkFields);
+            String targetTableName = syncRows.get(0).getTargetFields() != null
+                    ? syncRows.get(0).getTableGroup().getTargetTable().getName() : "";
+            List<Map> formattedData = kafkaConvertor.formatMessages(context, data, pkFields, targetTableName);
 
             formattedData.forEach(row -> kafkaClient.send(finalTopic, String.valueOf(row.get(pkFieldName)), row));
             kafkaClient.producer.flush();
             logger.debug("----kafka wrote topic: {}, number: {}", finalTopic, formattedData.size());
             result.addSuccessData(formattedData);
         } catch (Exception e) {
-            result.addFailData(context.getSourceList());
+            result.addFailData(data);
             result.error = e.getMessage();
             logger.error(e.getMessage(), e);
         }
@@ -187,9 +189,9 @@ public class KafkaConnector extends AbstractConnector implements ConnectorServic
             String ddlSql = ddlConfig.getSql();
             assert ddlConfig != null && !StringUtil.isBlank(ddlSql);
 
-            // 从context中获取表名（与DML处理方式一致）
+            // 从DDLConfig中获取表名（替代已移除的 PluginContext.getSourceTableName()）
             assert context != null;
-            String tableName = context.getSourceTableName();
+            String tableName = ddlConfig.getSourceTableName();
 
             // 获取Topic名称（使用配置中的topic）
             KafkaConfig config = connectorInstance.getConfig();

@@ -5,9 +5,9 @@ package org.dbsyncer.biz.task;
 
 import org.dbsyncer.common.enums.DispatchTaskEnum;
 import org.dbsyncer.common.util.CollectionUtils;
-import org.dbsyncer.parser.model.Mapping;
-import org.dbsyncer.parser.model.Meta;
-import org.dbsyncer.parser.model.TableGroup;
+import org.dbsyncer.sdk.model.Mapping;
+import org.dbsyncer.sdk.model.Meta;
+import org.dbsyncer.sdk.model.TableGroup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,7 +45,7 @@ public class MappingCountTask extends AbstractCountTask {
 
         Meta meta = profileComponent.getMeta(mapping.getMetaId());
         if (CollectionUtils.isEmpty(groupAll)) {
-            meta.updateFullTotal();
+            meta.updateFullTotal(groupAll);
             return;
         }
         for (TableGroup tableGroup : groupAll) {
@@ -57,7 +57,7 @@ public class MappingCountTask extends AbstractCountTask {
             mapping = profileComponent.getMapping(mappingId);
             updateTableGroupCount(mapping, tableGroup);
         }
-        meta.updateFullTotal();
+        meta.updateFullTotal(groupAll);
         logger.info("完成统计:{}, {}张表", mapping.getName(), groupAll.size());
     }
 }

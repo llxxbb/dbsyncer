@@ -15,6 +15,8 @@ import org.dbsyncer.parser.ddl.DDLParser;
 import org.dbsyncer.parser.flush.AbstractBufferActuator;
 import org.dbsyncer.parser.flush.BufferRequest;
 import org.dbsyncer.parser.model.*;
+import org.dbsyncer.sdk.model.*;
+import org.dbsyncer.sdk.model.FieldMapping;
 import org.dbsyncer.parser.service.TableGroupModelService;
 import org.dbsyncer.parser.strategy.FlushStrategy;
 import org.dbsyncer.sdk.spi.LogService;
@@ -353,6 +355,11 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             targetDataList = tableGroupPicker.getPicker()
                     .setSourceResolver(enableSchemaResolver ? sourceConnector.getSchemaResolver() : null)
                     .pickTargetData(actualSourceFields, fieldIndexMap, enableFilter, response.getDataList(), sourceDataList, context);
+            // 设置 Mapping/TableGroup 引用（Step 3: SyncRow 直接持有配置模型）
+            for (SyncRow row : targetDataList) {
+                row.setMapping(mapping);
+                row.setTableGroup(tableGroup);
+            }
 
             // 2、参数转换（ConvertUtil 直接操作 SyncRow）
             ConvertUtil.convert(tableGroup.getConvert(), targetDataList);
@@ -374,21 +381,11 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             flushStrategy.flushIncrementData(mapping.getMetaId(), result, response.getEvent());
             return;
         }
-        context.setSourceTableName(tableGroup.getSourceTable().getName());
-        context.setTargetTableName(tableGroup.getTargetTable().getName());
         context.setTraceId(response.getTraceId());
         context.setEvent(response.getEvent());
-        context.setPrimaryKeys(tableGroup.getTargetTablePrimaryKeys());
-        List<Field> targetFields = tableGroupPicker.getTargetFields();
-        Assert.isTrue(targetFields != null && !targetFields.isEmpty(), "targetFields can not be empty");
-        context.setTargetFields(targetFields);
-        context.setPkFields(tableGroup.resolveTargetPkFields(targetFields));
         context.setCommand(tableGroup.getCommand());
-        context.setBatchSize(getBufferWriterCount());
-        context.setSourceList(sourceDataList);
         context.setPlugin(tableGroup.getPlugin());
         context.setPluginExtInfo(tableGroup.getPluginExtInfo());
-        context.setForceUpdate(mapping.isForceUpdate());
         context.setEnableSchemaResolver(enableSchemaResolver);
         context.setEnablePrintTraceInfo(StringUtil.isNotBlank(response.getTraceId()));
         // 设置Mapping参数
@@ -399,12 +396,12 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             pluginFactory.process(context, ProcessEnum.CONVERT);
 
             // 4、批量执行同步（直接传递 syncRows，无需通过 context 中转）
-            result = connectorFactory.writeBatch(context, targetDataList);
+            result = connectorFactory.writeBatch(targetDataList);
 
             // 5、持久化同步结果
             result.setMappingId(mapping.getId());
             result.setTableGroupId(tableGroup.getId());
-            result.setTargetTableGroupName(context.getTargetTableName());
+            result.setTargetTableGroupName(tableGroup.getTargetTable().getName());
 
             // 6、执行后置处理
             pluginFactory.process(context, ProcessEnum.AFTER);
@@ -420,7 +417,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             result.error = e.getMessage();
             result.setMappingId(mapping.getId());
             result.setTableGroupId(tableGroup.getId());
-            result.setTargetTableGroupName(context.getTargetTableName());
+            result.setTargetTableGroupName(tableGroup.getTargetTable().getName());
             result.addFailData(sourceDataList);  // 存储源数据，便于重试时直接使用
         }
         flushStrategy.flushIncrementData(mapping.getMetaId(), result, response.getEvent());
@@ -463,11 +460,9 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             ConnectorConfig sConnConfig = getConnectorConfig(mapping.getSourceConnectorId());
             context.setSourceConnectorInstance(connectorFactory.connect(sConnConfig));
             context.setTargetConnectorInstance(connectorFactory.connect(tConnConfig));
-            context.setSourceTableName(tableGroup.getSourceTable().getName());
-            context.setTargetTableName(tableGroup.getTargetTable().getName());
             context.setEvent(response.getEvent());
             context.setTraceId(response.getTraceId());
-            context.setPrimaryKeys(tableGroup.getTargetTablePrimaryKeys());
+            targetDDLConfig.setSourceTableName(tableGroup.getSourceTable().getName());
 
             // 5. 生成目标表执行SQL(支持异构数据库)
             ConnectorInstance tConnectorInstance = connectorFactory.connect(tConnConfig);

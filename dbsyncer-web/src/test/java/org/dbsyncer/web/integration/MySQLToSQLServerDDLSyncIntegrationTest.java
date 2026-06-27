@@ -1,7 +1,7 @@
 package org.dbsyncer.web.integration;
 
-import org.dbsyncer.parser.model.Meta;
-import org.dbsyncer.parser.model.TableGroup;
+import org.dbsyncer.sdk.model.Meta;
+import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.config.DatabaseConfig;
 import org.dbsyncer.web.Application;
 import org.junit.After;
@@ -1017,7 +1017,7 @@ public class MySQLToSQLServerDDLSyncIntegrationTest extends BaseDDLIntegrationTe
                 org.dbsyncer.sdk.model.Field targetField = targetFieldMap.get(sourceFieldName);
                 if (targetField != null) {
                     org.dbsyncer.sdk.model.Field sourceField = sourceFieldMap.get(sourceFieldName);
-                    tableGroup.getFieldMapping().add(new org.dbsyncer.parser.model.FieldMapping(sourceField, targetField));
+                    tableGroup.getFieldMapping().add(new org.dbsyncer.sdk.model.FieldMapping(sourceField, targetField));
                     logger.info("添加新字段映射: {} -> {}", sourceFieldName, sourceFieldName);
                 }
             }
@@ -1033,7 +1033,7 @@ public class MySQLToSQLServerDDLSyncIntegrationTest extends BaseDDLIntegrationTe
      */
     private void testDDLConversion(String sourceDDL, String expectedFieldName) throws Exception {
         // 确保Mapping已启动（如果未运行则启动，避免重复启动）
-        Meta meta = profileComponent.getMapping(mappingId).getMeta();
+        Meta meta = profileComponent.getMeta(metaId);
         if (meta == null || !meta.isRunning()) {
             mappingService.start(mappingId);
             Thread.sleep(2000);

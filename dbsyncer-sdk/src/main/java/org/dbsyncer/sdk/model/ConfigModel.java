@@ -1,12 +1,7 @@
-package org.dbsyncer.parser.model;
+package org.dbsyncer.sdk.model;
 
 import org.dbsyncer.sdk.constant.ConfigConstant;
 
-/**
- * @author AE86
- * @version 1.0.0
- * @date 2019/11/16 23:16
- */
 public class ConfigModel {
 
     private String id;

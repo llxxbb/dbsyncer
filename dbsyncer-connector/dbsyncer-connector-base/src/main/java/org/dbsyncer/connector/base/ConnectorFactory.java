@@ -27,6 +27,7 @@ import org.springframework.util.Assert;
 import javax.annotation.PostConstruct;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * 连接器工厂
@@ -205,21 +206,26 @@ public class ConnectorFactory implements DisposableBean {
     /**
      * 批量写入数据到目标源
      */
-    public Result writeBatch(PluginContext context, List<SyncRow> syncRows) {
-        String event = context.getEvent();
-        if (context.isForceUpdate() && ConnectorConstant.isInsert(event)) {
+    public Result writeBatch(List<SyncRow> syncRows) {
+        if (CollectionUtils.isEmpty(syncRows)) {
+            return new Result();
+        }
+        PluginContext ctx = syncRows.get(0).getContext();
+        String event = ctx.getEvent();
+        boolean forceUpdate = syncRows.get(0).getMapping().isForceUpdate();
+        if (forceUpdate && ConnectorConstant.isInsert(event)) {
             event = ConnectorConstant.OPERTION_UPSERT;
-            context.setEvent(event);
+            ctx.setEvent(event);
         }
         switch (event) {
             case ConnectorConstant.OPERTION_INSERT:
-                return executeWriterOperation(context, syncRows, (connector, instance, rows) -> connector.insert(instance, rows));
+                return executeWriterOperation(syncRows, (connector, instance, rows) -> connector.insert(instance, rows));
             case ConnectorConstant.OPERTION_UPDATE:
-                return executeWriterOperation(context, syncRows, (connector, instance, rows) -> connector.update(instance, rows));
+                return executeWriterOperation(syncRows, (connector, instance, rows) -> connector.update(instance, rows));
             case ConnectorConstant.OPERTION_DELETE:
-                return executeWriterOperation(context, syncRows, (connector, instance, rows) -> connector.delete(instance, rows));
+                return executeWriterOperation(syncRows, (connector, instance, rows) -> connector.delete(instance, rows));
             case ConnectorConstant.OPERTION_UPSERT:
-                return executeWriterOperation(context, syncRows, (connector, instance, rows) -> connector.upsert(instance, rows));
+                return executeWriterOperation(syncRows, (connector, instance, rows) -> connector.upsert(instance, rows));
             default:
                 throw new RuntimeException("不支持的事件类型：" + event);
         }
@@ -228,34 +234,41 @@ public class ConnectorFactory implements DisposableBean {
     /**
      * 执行写入操作的通用方法
      */
-    private Result executeWriterOperation(PluginContext context, List<SyncRow> syncRows, WriterOperation operation) {
-        ConnectorInstance targetInstance = context.getTargetConnectorInstance();
+    private Result executeWriterOperation(List<SyncRow> syncRows, WriterOperation operation) {
+        PluginContext ctx = syncRows.get(0).getContext();
+        ConnectorInstance targetInstance = ctx.getTargetConnectorInstance();
         Assert.notNull(targetInstance, "targetConnectorInstance can not null");
         ConnectorService targetConnector = getConnectorService(targetInstance.getConfig());
+
+        // 从 SyncRow 获取配置元数据
+        SyncRow firstRow = syncRows.get(0);
+        String tableName = firstRow.getTableGroup() != null
+                ? firstRow.getTableGroup().getSourceTable().getName() : "";
+        List<Map> sourceDataList = syncRows.stream().map(SyncRow::getData).collect(Collectors.toList());
 
         if (targetConnector instanceof AbstractConnector) {
             AbstractConnector conn = (AbstractConnector) targetConnector;
             try {
                 // 支持标准解析器
-                if (context.isEnableSchemaResolver() && targetConnector.getSchemaResolver() != null) {
-                    conn.convertProcessBeforeWriter(context, syncRows, targetConnector.getSchemaResolver());
+                if (ctx.isEnableSchemaResolver() && targetConnector.getSchemaResolver() != null) {
+                    conn.convertProcessBeforeWriter(syncRows, targetConnector.getSchemaResolver());
                 }
             } catch (Exception e) {
                 Result result = new Result();
                 result.error = e.getMessage();
-                result.addFailData(context.getSourceList());  // 存储源数据，便于重试时直接使用
-                if (context.isEnablePrintTraceInfo()) {
-                    logger.error("traceId:{}, tableName:{}, event:{}, targetList:{}, result:{}", context.getTraceId(), context.getSourceTableName(),
-                            context.getEvent(), context.getSourceList(), JsonUtil.objToJson(result));
+                result.addFailData(sourceDataList);
+                if (ctx.isEnablePrintTraceInfo()) {
+                    logger.error("traceId:{}, tableName:{}, event:{}, sourceDataList:{}, result:{}", ctx.getTraceId(), tableName,
+                            ctx.getEvent(), sourceDataList, JsonUtil.objToJson(result));
                 }
                 return result;
             }
         }
 
         Result result = operation.execute(targetConnector, targetInstance, syncRows);
-        if (context.isEnablePrintTraceInfo()) {
-            logger.info("traceId:{}, tableName:{}, event:{}, result:{}", context.getTraceId(), context.getSourceTableName(),
-                    context.getEvent(), JsonUtil.objToJson(result));
+        if (ctx.isEnablePrintTraceInfo()) {
+            logger.info("traceId:{}, tableName:{}, event:{}, result:{}", ctx.getTraceId(), tableName,
+                    ctx.getEvent(), JsonUtil.objToJson(result));
         }
         Assert.notNull(result, "Connector writer batch result can not null");
         return result;

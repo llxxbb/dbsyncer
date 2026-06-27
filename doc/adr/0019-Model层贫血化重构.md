@@ -24,107 +24,112 @@
 
 ## 决策
 
-采用**两步走方案**：
+采用**三步走方案**：
 
-### Step 1: 接口解耦（低风险，优先级高）
-
-在 sdk 层定义 `TableGroupConfig` 接口，TableGroup 实现该接口。SyncRow 持有接口引用而非具体实现。
-
-**核心设计：**
-```java
-// sdk 层定义接口
-public interface TableGroupConfig {
-    List<Field> getTargetFields();
-    List<String> getPrimaryKeys();
-    List<Field> resolvePkFields(List<Field> targetFields);
-    Map<String, String> getCommand();
-    Plugin getPlugin();
-    String getPluginExtInfo();
-}
-
-// parser 层实现接口
-public class TableGroup implements TableGroupConfig {
-    // 已有方法，直接实现接口
-}
-```
-
-**收益：**
-- SyncRow 直接持有配置，无需经过 PluginContext 传递
-- PluginContext 从 16 个属性精简到 9 个
-- 消除了 `batchSize`、`forceUpdate`、`targetFields`、`sourceTableName` 等冗余属性
-- 配置信息从 SyncRow → 接口直接获取，职责清晰
-
-**工作量：** ~50 个文件，每个 < 10 行改动，总计约 6.5 小时
-
-### Step 2: Model 完全贫血化（中风险，优先级中）
+### ✅ Step 1（已完成）：Model 贫血化
 
 移除 Model 中的 ProfileComponent 依赖，提取持久化/查询逻辑到 Service 层。
 
-**核心改造点：**
+**改造内容：**
 
-| Model | ProfileComponent 调用 | 迁移方案 |
-|-------|---------------------|---------|
-| Meta | `editConfigModel(this)` ×7 | 新增 `MetaService.incrementSuccess()` 等 |
-| Meta | `getTableGroupAll(id)` | 通过参数传入或 Service 查询 |
-| TableGroup | `parserComponent.getMetaInfo()` | Service 层查询后通过参数传入 |
-| Mapping | `getMeta(id)` | 通过参数传入或 Service 查询 |
-| 静态工厂 | `Meta.create(...)` 内的持久化 | 拆分为 `create()` + Service 的 `save()` |
+| Model | 改造 |
+|-------|------|
+| Meta | 移除 `ProfileComponent` 字段，方法不再持久化，由 `MetaService` 封装 |
+| Mapping | 移除 `ProfileComponent` 字段，方法迁移到 `MappingModelService` |
+| TableGroup | 移除 `ProfileComponent`/`ParserComponent` 字段，方法迁移到 `TableGroupModelService` |
 
-**改造示例：**
+**新建 Service：**
+- `MetaService`（dbsyncer-parser）
+- `MappingModelService`（dbsyncer-parser）
+- `TableGroupModelService`（dbsyncer-parser）
+- `ModelPersistenceService`（dbsyncer-sdk 接口 + dbsyncer-parser 实现）
 
+**验证：** `mvn compile -DskipTests` 全模块通过，3 个集成测试通过。
+
+### Step 2: Model 下移 SDK
+
+将 Model 类从 parser 整体下移到 sdk，使得 SyncRow 可以直接持有 Mapping/TableGroup。
+
+**迁移清单：**
+
+| 类 | 源位置 | 目标位置 | 依赖处理 |
+|----|--------|---------|---------|
+| `ConfigModel` | parser.model | sdk.model | 仅依赖 `ConfigConstant`（已在 sdk） |
+| `AbstractConfigModel` | parser.model | sdk.model | `List<Convert>` → `Convert` 需同步下移 |
+| `FieldMapping` | parser.model | sdk.model | 无 parser 依赖，可直接迁移 |
+| `Mapping` | parser.model | sdk.model | 依赖 `AbstractConfigModel` |
+| `TableGroup` | parser.model | sdk.model | 依赖 `AbstractConfigModel`、`FieldMapping` |
+| `Meta` | parser.model | sdk.model | 依赖 `ConfigModel`、`MetaEnum`、`SyncPhaseEnum` |
+| `Convert` | parser.model | sdk.model | 需同步迁移 `ConvertEnum`、`ParseResult` |
+| `MetaEnum` | parser.enums | sdk.enums | 纯枚举，无依赖 |
+| `SyncPhaseEnum` | parser.enums | sdk.enums | 纯枚举，无依赖 |
+| `ParserException` | parser | common | 供多方引用，移到 common 层 |
+
+**额外依赖处理：**
+- `SnowflakeIdWorker`：`Meta.create()` 中使用 → 改为调用方传入 ID 或移到 common
+- `org.apache.logging.log4j.util.Strings`：`TableGroup.hasError()` 使用 → 替换为 `StringUtil`（已在 sdk 类路径）
+
+### Step 3: SyncRow 改持 Mapping/TableGroup + PluginContext 精简
+
+Model 下移到 sdk 后，SyncRow 直接持有 Mapping/TableGroup 对象。
+
+**改造前：**
 ```java
-// 当前（Model 承担持久化）
-public class Meta extends ConfigModel {
-    @Transient
-    private ProfileComponent profileComponent;
-    
-    public void incrementSuccess() {
-        this.success++;
-        profileComponent.editConfigModel(this);  // ❌ 直接持久化
-    }
+public class SyncRow {
+    private Map<String, Object> data;
+    private PluginContext context;  // 包含配置 + runtime 信息
 }
-
-// 重构后（Model 纯业务逻辑 + Service 持久化）
-public class Meta extends ConfigModel {
-    public void incrementSuccess() {
-        this.success++;  // 只负责业务逻辑
-    }
-}
-
-public class MetaService {
-    @Resource
-    private ProfileComponent profileComponent;
-    
-    @Transactional
-    public void incrementSuccess(String metaId) {
-        Meta meta = profileComponent.getMeta(metaId);
-        meta.incrementSuccess();
-        profileComponent.editConfigModel(meta);  // ✅ Service 负责持久化
-    }
-}
+// Connector 获取配置需通过 context:
+context.getBatchSize()       // 实际来自 mapping
+context.getTargetFields()    // 实际来自 tableGroup
+context.isForceUpdate()      // 实际来自 mapping
 ```
 
-**收益：**
-- Model 可下移到 sdk 模块
-- SyncRow 可直接持有 Mapping/TableGroup，无需接口抽象
-- 架构清晰，符合 DDD 贫血模型原则
+**改造后：**
+```java
+public class SyncRow {
+    private Map<String, Object> data;
+    private Mapping mapping;        // 配置来源：batchNum、forceUpdate 等
+    private TableGroup tableGroup;  // 配置来源：fieldMapping、command 等
+    private PluginContext context;  // 仅保留 runtime 状态
+}
+// Connector 直接从 SyncRow 获取配置:
+syncRow.getMapping().getBatchNum()
+syncRow.getTableGroup().getTargetFields()
+```
 
-**工作量：** ~12 个核心文件，~3-5 小时，中低风险
+**PluginContext 精简：** 去掉以下冗余字段（由 Mapping/TableGroup 提供）：
+- `batchSize` → `mapping.getBatchNum()`
+- `forceUpdate` → `mapping.isForceUpdate()`
+- `targetFields` → `tableGroup.getTargetFields()`
+- `sourceTableName` → `tableGroup.getSourceTable().getName()`
+- `targetTableName` → `tableGroup.getTargetTable().getName()`
+- `sourceList` → `syncRow.getData()` 已承载
+
+保留的 runtime 字段：
+- `event`（INSERT/UPDATE/DELETE）
+- `traceId`
+- `pkFields`
+- `sourceConnectorInstance`
+- `targetConnectorInstance`
+
+**收益：** SyncRow 成为自包含的数据单元，connector 无需通过 PluginContext 间接获取配置，PluginContext 职责单一。
 
 ## 影响
 
 - **技术影响**：
-  - Step 1 后：架构清晰度提升，模块间耦合降低
-  - Step 2 后：Model 可完全下移，为未来多模块拆分奠基
-  - 性能无显著变化，内存占用略降
+  - Step 1（已完成）：Model 贫血化，架构清晰
+  - Step 2：Model 下移 sdk，消除 SyncRow 跨模块引用的根本障碍
+  - Step 3：SyncRow 自包含，PluginContext 职责单一
+  - 性能无显著变化
 - **团队影响**：
   - 需要理解 Model 贫血化思想
   - Service 层职责增加，需要注意事务边界
   - 单元测试可独立进行，无需 mock ProfileComponent
 - **时间影响**：
-  - Step 1：约 6.5 小时（约 1 天）
-  - Step 2：约 3-5 小时（约 0.5-1 天）
-  - 建议先完成 Step 1 验证后再进行 Step 2
+  - Step 1：已完成
+  - Step 2：约 4-6 小时（~1 天）
+  - Step 3：约 2-3 小时（~0.5 天）
 
 ## 变更历史
 

@@ -1,6 +1,6 @@
 package org.dbsyncer.parser.util;
 
-import org.dbsyncer.parser.model.ParseResult;
+import org.dbsyncer.sdk.model.ParseResult;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

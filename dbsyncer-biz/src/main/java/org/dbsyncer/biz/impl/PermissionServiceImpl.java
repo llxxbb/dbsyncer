@@ -10,7 +10,7 @@ import org.dbsyncer.biz.enums.UserRoleEnum;
 import org.dbsyncer.biz.vo.MappingVo;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.model.ProjectGroup;
-import org.dbsyncer.parser.model.TableGroup;
+import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.parser.model.UserGroup;
 import org.dbsyncer.parser.model.UserInfo;
 import org.slf4j.Logger;

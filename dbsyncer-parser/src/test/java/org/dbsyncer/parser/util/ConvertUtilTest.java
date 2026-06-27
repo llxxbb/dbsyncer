@@ -1,7 +1,7 @@
 package org.dbsyncer.parser.util;
 
 import org.dbsyncer.parser.enums.ConvertEnum;
-import org.dbsyncer.parser.model.Convert;
+import org.dbsyncer.sdk.model.Convert;
 import org.junit.Before;
 import org.junit.Test;
 

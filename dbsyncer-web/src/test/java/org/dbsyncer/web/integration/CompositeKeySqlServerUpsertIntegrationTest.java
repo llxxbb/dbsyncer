@@ -149,8 +149,8 @@ public class CompositeKeySqlServerUpsertIntegrationTest extends BaseDDLIntegrati
         mappingId = createMapping();
 
         // 重置 TableGroup 状态
-        List<org.dbsyncer.parser.model.TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
-        org.dbsyncer.parser.model.TableGroup tableGroup = tableGroups.get(0);
+        List<org.dbsyncer.sdk.model.TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
+        org.dbsyncer.sdk.model.TableGroup tableGroup = tableGroups.get(0);
         tableGroup.setFullCompleted(false);
         tableGroup.setCursors(null);
         profileComponent.editConfigModel(tableGroup);

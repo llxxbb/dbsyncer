@@ -36,14 +36,13 @@ public class KafkaConvertor {
      * @param pkFields 主键字段列表
      * @return 格式化后的数据
      */
-    public List<Map> formatMessages(PluginContext context, List<Map> data, List<Field> pkFields) {
+    public List<Map> formatMessages(PluginContext context, List<Map> data, List<Field> pkFields, String targetTableName) {
         List<Map> formattedData = new ArrayList<>();
 
         // 获取元数据信息
         String dataSourceType = context.getSourceConnectorInstance().getConfig().getConnectorType();
         String sourceAddress = getSourceAddressFromSource(context);
         String sourceDBName = getSourceDBNameFromSource(context);
-        String targetTableName = context.getTargetTableName();
         String event = context.getEvent();
         long timestamp = System.currentTimeMillis();
 

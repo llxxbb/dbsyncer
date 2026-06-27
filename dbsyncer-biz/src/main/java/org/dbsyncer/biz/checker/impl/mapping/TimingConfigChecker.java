@@ -4,7 +4,7 @@ import org.dbsyncer.biz.checker.MappingConfigChecker;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.sdk.config.ListenerConfig;
 import org.dbsyncer.sdk.enums.ListenerTypeEnum;
-import org.dbsyncer.parser.model.Mapping;
+import org.dbsyncer.sdk.model.Mapping;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 

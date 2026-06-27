@@ -2,12 +2,12 @@ package org.dbsyncer.parser.consumer;
 
 import org.dbsyncer.parser.MessageService;
 import org.dbsyncer.parser.ProfileComponent;
-import org.dbsyncer.parser.model.Mapping;
+import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.spi.LogService;
-import org.dbsyncer.parser.enums.MetaEnum;
+import org.dbsyncer.sdk.enums.MetaEnum;
 import org.dbsyncer.parser.flush.impl.BufferActuatorRouter;
-import org.dbsyncer.parser.model.Meta;
-import org.dbsyncer.parser.model.TableGroup;
+import org.dbsyncer.sdk.model.Meta;
+import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.plugin.PluginFactory;
 import org.dbsyncer.plugin.enums.ProcessEnum;
 import org.dbsyncer.plugin.model.NotifyType;

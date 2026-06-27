@@ -26,6 +26,15 @@ import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.parser.ParserComponent;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.model.*;
+import org.dbsyncer.parser.service.MappingModelService;
+import org.dbsyncer.sdk.model.Mapping;
+import org.dbsyncer.sdk.model.TableGroup;
+import org.dbsyncer.sdk.model.Meta;
+import org.dbsyncer.parser.service.MetaService;
+import org.dbsyncer.parser.service.TableGroupModelService;
+import org.dbsyncer.sdk.model.ConfigModel;
+import org.dbsyncer.sdk.model.Convert;
+import org.dbsyncer.sdk.model.FieldMapping;
 import org.dbsyncer.sdk.config.DDLConfig;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
@@ -80,12 +89,21 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
     @Resource
     private ManagerFactory managerFactory;
 
+    @Resource
+    private TableGroupModelService tableGroupModelService;
+
+    @Resource
+    private MappingModelService mappingModelService;
+
+    @Resource
+    private MetaService metaService;
+
     @Override
     public String add(Map<String, String> params) throws Exception {
         String mappingId = params.get("mappingId");
         Mapping mapping = profileComponent.getMapping(mappingId);
         // 检查是否禁止编辑
-        mapping.assertDisableEdit();
+        mappingModelService.assertDisableEdit(mapping);
 
         synchronized (LOCK) {
             // table1, table2
@@ -141,7 +159,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
                     profileComponent.editTableGroup(model);
                     // 初始化 TableGroup（设置运行时组件并初始化 command）
                     model.isInit = false;
-                    model.initTableGroup(parserComponent, profileComponent, connectorFactory);
+                    tableGroupModelService.initTableGroup(model, mapping);
                     list.add(id);
                 } catch (PrimaryKeyRequiredException e) {
                     // 如果数据表没有主键，则跳过该表并记录日志
@@ -169,7 +187,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         Assert.notNull(tableGroup, "Can not find tableGroup.");
         Mapping mapping = profileComponent.getMapping(tableGroup.getMappingId());
         // 检查是否禁止编辑
-        mapping.assertDisableEdit();
+        mappingModelService.assertDisableEdit(mapping);
 
         // 【新增】先检查目标表是否存在（复用已有的 TargetTableNotExistsException 逻辑）
         Map<String, String> missing = this.checkTargetTableExists(
@@ -192,7 +210,9 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         TableGroup model = (TableGroup) tableGroupChecker.checkEditConfigModel(params);
 
         // 比较主键是否变化（旧模型 vs 新参数）
-        boolean hasPkDifference = tableGroup.primaryKeyChanged(params.get("targetTablePK"));
+        String existingPk = tableGroup.getTargetTablePK();
+        String newPk = params.get("targetTablePK");
+        boolean hasPkDifference = !StringUtil.equals(existingPk, newPk);
 
         // 如果有差异且未确认，返回差异信息（不执行保存）
         if (hasPkDifference && !"true".equals(confirmParam) && !skipPrimaryKeyDDL) {
@@ -252,7 +272,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         profileComponent.editTableGroup(model);
         // 初始化 TableGroup（设置运行时组件并初始化 command）
         model.isInit = false;
-        model.initTableGroup(parserComponent, profileComponent, connectorFactory);
+        tableGroupModelService.initTableGroup(model, mapping);
         List<String> list = new ArrayList<>();
         list.add(model.getId());
         submitTableGroupCountTask(mapping, list);
@@ -276,7 +296,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
 
         Mapping mapping = profileComponent.getMapping(tableGroup.getMappingId());
         // 检查是否禁止编辑
-        mapping.assertDisableEdit();
+        mappingModelService.assertDisableEdit(mapping);
 
         tableGroupChecker.refreshTableFields(tableGroup);
         return profileComponent.editTableGroup(tableGroup);
@@ -288,7 +308,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         Assert.hasText(ids, "TableGroup ids can not be null");
         Mapping mapping = profileComponent.getMapping(mappingId);
         // 检查是否禁止编辑
-        mapping.assertDisableEdit();
+        mappingModelService.assertDisableEdit(mapping);
 
         // 批量删除表
         Stream.of(StringUtil.split(ids, ",")).parallel().forEach(id -> {
@@ -547,7 +567,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         tableGroup.getTargetTable().setColumn(targetMetaInfo.getColumn());
 
         // 重新初始化 command
-        tableGroup.initCommand(mapping, connectorFactory);
+        tableGroupModelService.initCommand(tableGroup, mapping);
     }
 
     /**
@@ -673,7 +693,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
             Set<String> resetTableGroupIds = tableGroupsToReset.stream()
                     .map(TableGroup::getId)
                     .collect(java.util.stream.Collectors.toSet());
-            meta.partialClear(resetTableGroupIds);
+            metaService.partialClear(meta, resetTableGroupIds);
 
             mapping.setUpdateTime(java.time.Instant.now().toEpochMilli());
             profileComponent.editConfigModel(mapping);
@@ -792,7 +812,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         result.setLengthMismatched(comparison.getLengthMismatched());
 
         // 检测 MAPPING_ONLY：mapping 配置了 target 字段但目标表实际不存在
-        List<org.dbsyncer.parser.model.FieldMapping> fieldMappings = tableGroup.getFieldMapping();
+        List<org.dbsyncer.sdk.model.FieldMapping> fieldMappings = tableGroup.getFieldMapping();
         List<FieldDiffItem> mappingOnlyFields = FieldComparisonUtil.compareMappingWithTarget(fieldMappings, targetFields);
         result.setMappingOnlyFields(mappingOnlyFields);
 
@@ -822,7 +842,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         Mapping mapping = profileComponent.getMapping(tableGroup.getMappingId());
         Assert.notNull(mapping, "Mapping 不存在");
 
-        mapping.assertDisableEdit();
+        mappingModelService.assertDisableEdit(mapping);
 
         FieldDifferenceVO diffVO = getFieldDifference(id);
 
@@ -896,7 +916,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         Mapping mapping = profileComponent.getMapping(tableGroup.getMappingId());
         Assert.notNull(mapping, "Mapping 不存在");
 
-        mapping.assertDisableEdit();
+        mappingModelService.assertDisableEdit(mapping);
 
         Meta meta = profileComponent.getMeta(mapping.getMetaId());
         if (meta != null) {
@@ -1237,15 +1257,15 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
      * @param targetFieldName Target 字段名称
      */
     private void removeFieldMappingByTargetName(TableGroup tableGroup, String targetFieldName) {
-        List<org.dbsyncer.parser.model.FieldMapping> fieldMappings = tableGroup.getFieldMapping();
+        List<org.dbsyncer.sdk.model.FieldMapping> fieldMappings = tableGroup.getFieldMapping();
         if (CollectionUtils.isEmpty(fieldMappings)) {
             return;
         }
 
         // ADR-0011: getTarget() 现在返回 String 字段名
-        java.util.Iterator<org.dbsyncer.parser.model.FieldMapping> iterator = fieldMappings.iterator();
+        java.util.Iterator<org.dbsyncer.sdk.model.FieldMapping> iterator = fieldMappings.iterator();
         while (iterator.hasNext()) {
-            org.dbsyncer.parser.model.FieldMapping fieldMapping = iterator.next();
+            org.dbsyncer.sdk.model.FieldMapping fieldMapping = iterator.next();
             if (fieldMapping != null && fieldMapping.matchesTarget(targetFieldName)) {
                 iterator.remove();
             }
