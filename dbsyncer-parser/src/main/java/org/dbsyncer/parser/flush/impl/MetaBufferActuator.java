@@ -15,6 +15,7 @@ import org.dbsyncer.parser.ddl.DDLParser;
 import org.dbsyncer.parser.flush.AbstractBufferActuator;
 import org.dbsyncer.parser.flush.BufferRequest;
 import org.dbsyncer.parser.model.*;
+import org.dbsyncer.parser.service.TableGroupModelService;
 import org.dbsyncer.parser.strategy.FlushStrategy;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
@@ -63,6 +64,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
     private DDLParser ddlParser;
     private TableGroupContext tableGroupContext;
     private LogService logService;
+    private TableGroupModelService tableGroupModelService;
 
     /**
      * 初始化时设置全局 LogService（一次设置，长期使用）
@@ -494,7 +496,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
                     tableGroup.getFieldMapping() != null ? tableGroup.getFieldMapping().size() : 0);
 
             // 9.更新执行命令
-            tableGroup.initCommand(mapping, connectorFactory);
+            tableGroupModelService.initCommand(tableGroup, mapping);
 
             // 10.持久化存储 & 更新缓存配置
             profileComponent.editTableGroup(tableGroup);
@@ -613,6 +615,10 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
 
     public void setFlushStrategy(FlushStrategy flushStrategy) {
         this.flushStrategy = flushStrategy;
+    }
+
+    public void setTableGroupModelService(TableGroupModelService tableGroupModelService) {
+        this.tableGroupModelService = tableGroupModelService;
     }
 
     public void setDdlParser(DDLParser ddlParser) {

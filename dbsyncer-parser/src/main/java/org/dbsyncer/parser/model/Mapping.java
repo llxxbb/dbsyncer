@@ -1,17 +1,11 @@
 package org.dbsyncer.parser.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import org.dbsyncer.common.util.CollectionUtils;
-import org.dbsyncer.common.util.JsonUtil;
-import org.dbsyncer.parser.ParserException;
-import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.sdk.config.ListenerConfig;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.enums.ModelEnum;
 import org.dbsyncer.sdk.model.Field;
-import org.dbsyncer.storage.impl.SnowflakeIdWorker;
 
-import java.time.Instant;
 import java.util.List;
 
 /**
@@ -72,9 +66,6 @@ public class Mapping extends AbstractConfigModel {
 
     // 禁止编辑（任务启动后设置为 true，重置后设置为 false）
     private boolean disableEdit = false;
-
-    @JsonIgnore
-    public ProfileComponent profileComponent;
 
 
     public String getSourceConnectorId() {
@@ -192,70 +183,18 @@ public class Mapping extends AbstractConfigModel {
     }
 
     /**
-     * 检查是否禁止编辑
+     * 检查是否禁止编辑（仅在 Mapping 状态检查中使用）
+     * 
+     * <p>ADR-0019: 此方法不再直接访问 Meta，调用方应通过
+     * MappingModelService.assertDisableEdit(Mapping) 完成完整检查。
      *
-     * @throws ParserException 如果任务处于运行中，抛出异常
+     * @deprecated 使用 MappingModelService#assertDisableEdit(Mapping) 代替
      */
+    @Deprecated
     @JsonIgnore
     public void assertDisableEdit() {
-        Meta meta = getMeta();
-        if (meta != null && meta.isRunning()) {
-            throw new ParserException("任务【运行中】就不允许编辑了。如需编辑请【停止】任务。");
-        }
+        throw new UnsupportedOperationException("请通过 MappingModelService.assertDisableEdit(Mapping) 替代");
     }
 
-    @JsonIgnore
-    public Meta getMeta() {
-        return profileComponent.getMeta(this.metaId);
-    }
 
-    @JsonIgnore
-    public void resetMetaState() throws Exception {
-        Meta meta = profileComponent.getMeta(getMetaId());
-        meta.resetState();
-    }
-
-    @JsonIgnore
-    public void updateMata(String metaSnapshot) throws Exception {
-        Meta meta = profileComponent.getMeta(getMetaId());
-        meta.updateSnapshot(metaSnapshot);
-        profileComponent.editConfigModel(this);
-
-    }
-
-    @JsonIgnore
-    public Mapping copy(SnowflakeIdWorker snowflakeIdWorker) throws Exception {
-        return copy(snowflakeIdWorker, this.getName() + "(复制)", null);
-    }
-
-    @JsonIgnore
-    public Mapping copy(SnowflakeIdWorker snowflakeIdWorker, String newName, String targetConnectorId) throws Exception {
-        String json = JsonUtil.objToJson(this);
-        Mapping newMapping = JsonUtil.jsonToObj(json, Mapping.class);
-        newMapping.profileComponent = profileComponent;
-        newMapping.setName(newName);
-        String newId = String.valueOf(snowflakeIdWorker.nextId());
-        newMapping.setId(newId);
-        newMapping.setUpdateTime(Instant.now().toEpochMilli());
-        newMapping.setDisableEdit(false);
-        if (targetConnectorId != null && !targetConnectorId.isEmpty()) {
-            newMapping.setTargetConnectorId(targetConnectorId);
-        }
-        profileComponent.addConfigModel(newMapping);
-        Meta.create(newMapping, snowflakeIdWorker, profileComponent);
-
-        List<TableGroup> groupList = profileComponent.getTableGroupAll(this.getId());
-        if (CollectionUtils.isEmpty(groupList)) {
-            return newMapping;
-        }
-        groupList.forEach(tableGroup -> {
-            try {
-                tableGroup.copy(newId, snowflakeIdWorker);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        });
-
-        return newMapping;
-    }
 }

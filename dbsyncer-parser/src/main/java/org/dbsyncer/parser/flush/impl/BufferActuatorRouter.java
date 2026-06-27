@@ -12,6 +12,7 @@ import org.dbsyncer.parser.TableGroupContext;
 import org.dbsyncer.parser.ddl.DDLParser;
 import org.dbsyncer.parser.model.TableGroup;
 import org.dbsyncer.parser.model.WriterRequest;
+import org.dbsyncer.parser.service.TableGroupModelService;
 import org.dbsyncer.parser.strategy.FlushStrategy;
 import org.dbsyncer.plugin.PluginFactory;
 import org.dbsyncer.sdk.listener.ChangedEvent;
@@ -64,6 +65,9 @@ public final class BufferActuatorRouter implements DisposableBean {
 
     @Resource
     private LogService logService;
+
+    @Resource
+    private TableGroupModelService tableGroupModelService;
 
     @Resource
     private ScheduledTaskService scheduledTaskService;
@@ -160,6 +164,7 @@ public final class BufferActuatorRouter implements DisposableBean {
         actuator.setDdlParser(ddlParser);
         actuator.setTableGroupContext(tableGroupContext);
         actuator.setLogService(logService);
+        actuator.setTableGroupModelService(tableGroupModelService);
         // 注入 AbstractBufferActuator 需要的依赖
         actuator.setScheduledTaskService(scheduledTaskService);
         actuator.setTimeRegistry(timeRegistry);

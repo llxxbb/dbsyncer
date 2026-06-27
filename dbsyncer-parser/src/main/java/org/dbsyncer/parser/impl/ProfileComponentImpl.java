@@ -13,6 +13,7 @@ import org.dbsyncer.parser.enums.CommandEnum;
 import org.dbsyncer.parser.enums.ConvertEnum;
 import org.dbsyncer.parser.enums.GroupStrategyEnum;
 import org.dbsyncer.parser.model.*;
+import org.dbsyncer.parser.service.TableGroupModelService;
 import org.dbsyncer.sdk.enums.FilterEnum;
 import org.dbsyncer.sdk.enums.OperationEnum;
 import org.dbsyncer.sdk.enums.QuartzFilterEnum;
@@ -53,6 +54,9 @@ public class ProfileComponentImpl implements ProfileComponent {
 
     @Resource
     private ProfileComponent profileComponent;
+
+    @Resource
+    private TableGroupModelService tableGroupModelService;
 
     @Override
     public Connector parseConnector(String json) {
@@ -169,8 +173,11 @@ public class ProfileComponentImpl implements ProfileComponent {
         TableGroup temp = new TableGroup().setMappingId(mappingId);
         List<TableGroup> tableGroups = operationTemplate.queryAll(new QueryConfig<>(temp, GroupStrategyEnum.TABLE));
         for (TableGroup t : tableGroups){
-            t.initTableGroup(parserComponent, profileComponent, connectorFactory);
-            t.migrateVersion();
+            Mapping mapping = profileComponent.getMapping(mappingId);
+            if (mapping != null) {
+                tableGroupModelService.initTableGroup(t, mapping);
+                tableGroupModelService.migrateVersion(t, mapping);
+            }
         }
         return tableGroups;
     }

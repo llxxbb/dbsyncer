@@ -50,7 +50,6 @@ public final class PreloadCommand implements Command {
     @Override
     public Mapping parseMapping() {
         Mapping mapping = profileComponent.parseObject(json, Mapping.class);
-        mapping.profileComponent = profileComponent;
         return mapping;
     }
 

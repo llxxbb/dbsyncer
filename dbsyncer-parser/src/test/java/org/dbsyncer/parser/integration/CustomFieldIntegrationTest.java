@@ -11,6 +11,7 @@ import org.dbsyncer.parser.util.PickerUtil;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.model.Table;
+import org.dbsyncer.sdk.plugin.SyncRow;
 import org.junit.Before;
 import org.junit.Test;
 import static org.junit.Assert.*;
@@ -177,26 +178,28 @@ public class CustomFieldIntegrationTest {
         Picker picker = new Picker(mergedGroup);
 
         // 4. 执行字段映射
-        List<Map> targetData = picker.pickTargetData(sourceData);
+        List<SyncRow> targetSyncRows = picker.pickTargetData(sourceData, null);
 
         // 5. 执行转换（自定义字段处理）
-        ConvertUtil.convert(tableGroup.getConvert(), targetData);
+        ConvertUtil.convert(tableGroup.getConvert(), targetSyncRows);
 
         // 6. 验证结果
-        assertEquals(1, targetData.size());
-        Map<String, Object> result = targetData.get(0);
+        // 从 SyncRow 中提取数据 Map
+        List<Map> targetData = targetSyncRows.stream()
+                .map(SyncRow::getData)
+                .collect(java.util.stream.Collectors.toList());
 
         // 验证基础字段映射
-        assertEquals("John", result.get("first_name"));
-        assertEquals("Doe", result.get("last_name"));
-        assertEquals(30, result.get("calculated_age"));
+        assertEquals("John", targetData.get(0).get("first_name"));
+        assertEquals("Doe", targetData.get(0).get("last_name"));
+        assertEquals(30, targetData.get(0).get("calculated_age"));
 
         // 验证自定义字段
-        assertEquals("John Doe", result.get("full_name")); // 表达式转换
-        assertEquals("BATCH_001", result.get("sync_batch_id")); // 固定值转换
-        assertEquals("ACTIVE", result.get("status")); // 默认值转换
-        assertNotNull(result.get("created_time")); // UUID转换，应生成非空值
-        assertTrue(isValidUUID(result.get("created_time").toString())); // 验证UUID格式
+        assertEquals("John Doe", targetData.get(0).get("full_name")); // 表达式转换
+        assertEquals("BATCH_001", targetData.get(0).get("sync_batch_id")); // 固定值转换
+        assertEquals("ACTIVE", targetData.get(0).get("status")); // 默认值转换
+        assertNotNull(targetData.get(0).get("created_time")); // UUID转换，应生成非空值
+        assertTrue(isValidUUID(targetData.get(0).get("created_time").toString())); // 验证UUID格式
     }
 
     @Test
@@ -228,12 +231,16 @@ public class CustomFieldIntegrationTest {
         Picker picker = new Picker(mergedGroup);
 
         // 4. 执行字段映射
-        List<Map> targetData = picker.pickTargetData(sourceData);
+        List<SyncRow> targetSyncRows = picker.pickTargetData(sourceData, null);
 
         // 5. 执行转换（自定义字段处理）
-        ConvertUtil.convert(tableGroup.getConvert(), targetData);
+        ConvertUtil.convert(tableGroup.getConvert(), targetSyncRows);
 
         // 6. 验证结果
+        List<Map> targetData = targetSyncRows.stream()
+                .map(SyncRow::getData)
+                .collect(java.util.stream.Collectors.toList());
+
         assertEquals(2, targetData.size());
 
         // 验证第一条记录
@@ -274,12 +281,16 @@ public class CustomFieldIntegrationTest {
         Picker picker = new Picker(mergedGroup);
 
         // 执行字段映射
-        List<Map> targetData = picker.pickTargetData(edgeCaseData);
+        List<SyncRow> targetSyncRows = picker.pickTargetData(edgeCaseData, null);
 
         // 执行转换
-        ConvertUtil.convert(tableGroup.getConvert(), targetData);
+        ConvertUtil.convert(tableGroup.getConvert(), targetSyncRows);
 
         // 验证结果
+        List<Map> targetData = targetSyncRows.stream()
+                .map(SyncRow::getData)
+                .collect(java.util.stream.Collectors.toList());
+
         assertEquals(1, targetData.size());
         Map<String, Object> result = targetData.get(0);
 

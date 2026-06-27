@@ -6,18 +6,12 @@ package org.dbsyncer.parser.model;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.logging.log4j.util.Strings;
 import org.dbsyncer.common.util.CollectionUtils;
-import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.StringUtil;
-import org.dbsyncer.connector.base.ConnectorFactory;
-import org.dbsyncer.parser.ParserComponent;
-import org.dbsyncer.parser.ProfileComponent;
-import org.dbsyncer.sdk.SdkException;
-import org.dbsyncer.sdk.config.CommandConfig;
-import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
 import org.dbsyncer.sdk.constant.ConfigConstant;
-import org.dbsyncer.sdk.model.*;
-import org.dbsyncer.sdk.spi.ConnectorService;
-import org.dbsyncer.storage.impl.SnowflakeIdWorker;
+import org.dbsyncer.sdk.model.Field;
+import org.dbsyncer.sdk.model.Filter;
+import org.dbsyncer.sdk.model.MetaInfo;
+import org.dbsyncer.sdk.model.Table;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -45,11 +39,6 @@ public class TableGroup extends AbstractConfigModel {
     public int currentVersion;
     @JsonIgnore
     public boolean isInit = false;
-
-    @JsonIgnore
-    public ParserComponent parserComponent;
-    @JsonIgnore
-    public ProfileComponent profileComponent;
 
     // 排序索引
     private int index;
@@ -339,33 +328,6 @@ public class TableGroup extends AbstractConfigModel {
         return false;
     }
 
-    /**
-     * 从源表元数据初始化目标表主键配置
-     * 原则：主键顺序应该从数据库元数据查询获取，而不是从 Field.isPk 标记推断
-     * 
-     * @param parserComponent 解析器组件
-     * @param connectorId 源连接器 ID
-     * @param tableName 源表名
-     * @return 是否成功设置主键配置
-     */
-    @JsonIgnore
-    public boolean initTargetTablePKFromSource(ParserComponent parserComponent, String connectorId, String tableName) {
-        if (StringUtil.isNotBlank(this.targetTablePK)) {
-            // 已有配置，不需要初始化
-            return true;
-        }
-        try {
-            MetaInfo metaInfo = parserComponent.getMetaInfo(connectorId, tableName);
-            if (metaInfo != null && !CollectionUtils.isEmpty(metaInfo.getPrimaryKeys())) {
-                this.targetTablePK = String.join(",", metaInfo.getPrimaryKeys());
-                return true;
-            }
-        } catch (Exception e) {
-            // 静默失败
-        }
-        return false;
-    }
-
     public Map<String, String> getCommand() {
         return command;
     }
@@ -391,76 +353,6 @@ public class TableGroup extends AbstractConfigModel {
     public TableGroup setCachedPrimaryKeys(String cachedPrimaryKeys) {
         this.cachedPrimaryKeys = cachedPrimaryKeys;
         return this;
-    }
-
-    @JsonIgnore
-    public void initTableGroup(ParserComponent parserComponent, ProfileComponent profileComponent, ConnectorFactory connectorFactory) throws Exception {
-        if (isInit) return;
-        this.parserComponent = parserComponent;
-        this.profileComponent = profileComponent;
-        Mapping mapping = profileComponent.getMapping(mappingId);
-        initCommand(mapping, connectorFactory);
-        // 如果estimatedTotal为0，则设置为sourceTable.getCount()
-        if (this.estimatedTotal == 0 && this.sourceTable != null && this.sourceTable.getCount() > 0) {
-            this.estimatedTotal = this.sourceTable.getCount();
-            profileComponent.editConfigModel(this);
-        }
-        isInit = true;
-    }
-
-    @JsonIgnore
-    public void initCommand(Mapping mapping, ConnectorFactory connectorFactory) throws Exception {
-        ConnectorConfig sConnConfig = profileComponent.getConnector(mapping.getSourceConnectorId()).getConfig();
-        ConnectorConfig tConnConfig = profileComponent.getConnector(mapping.getTargetConnectorId()).getConfig();
-        // 关键修复：fieldMapping 不能为空，重置任务不应该操作 fieldMapping
-        if (CollectionUtils.isEmpty(this.getFieldMapping())) {
-            throw new SdkException(String.format(
-                    "字段映射为空！表组ID=%s, 表组名=%s, 源表=%s, 目标表=%s。请在添加或编辑表组时配置字段映射关系。",
-                    this.getId(), this.getName(),
-                    this.sourceTable != null ? this.sourceTable.getName() : "null",
-                    this.targetTable != null ? this.targetTable.getName() : "null"));
-        }
-
-        // 基于 fieldMapping 构建同步用的源/目标表（按需组合，不缓存）
-        List<Field> sourceFields = getSyncSourceFields();
-        List<Field> targetFields = getSyncTargetFields();
-        MetaInfo sTable = sourceTable.clone().setColumn(new ArrayList<>(sourceFields));
-        MetaInfo tTable = targetTable.clone()
-            .setColumn(new ArrayList<>(targetFields))
-            .setPrimaryKeys(getTargetTablePrimaryKeys());
-
-        // 如果 tableGroup.getFilter()空使用 mapping.getFilter()0
-        List<Filter> filters = CollectionUtils.isEmpty(this.getFilter()) ? mapping.getFilter() : this.getFilter();
-        // 初始化命令时不需要验证连接，避免触发 kafka 等连接器的连接检查
-        // 连接验证应该在真正使用连接时进行（如 getTable、getMetaInfo、writeBatch 等）
-        
-        final CommandConfig sourceConfig = new CommandConfig(sConnConfig.getConnectorType(), sTable,
-                connectorFactory.connect(sConnConfig, false), filters);
-        final CommandConfig targetConfig = new CommandConfig(tConnConfig.getConnectorType(), tTable,
-                connectorFactory.connect(tConnConfig, false), null);
-
-        // 预构建字段列表SQL片段并缓存
-        String fieldListSql = this.getCachedFieldListSql();
-        if (StringUtil.isBlank(fieldListSql)) {
-            ConnectorService connectorService = connectorFactory.getConnectorService(sConnConfig);
-            // 使用SQL模板的引号方法
-            if (connectorService instanceof AbstractDatabaseConnector) {
-                AbstractDatabaseConnector dbConnector = (AbstractDatabaseConnector) connectorService;
-                List<String> fieldList = sTable.getColumn().stream().map(Field::getName).collect(Collectors.toList());
-                fieldListSql = dbConnector.sqlTemplate.buildQuotedStringList(fieldList);
-                this.setCachedFieldListSql(fieldListSql);
-                this.setCachedPrimaryKeys(dbConnector.sqlTemplate.buildQuotedStringList(sTable.getPrimaryKeys()));
-            }
-        }
-        // 将缓存的字段列表设置到CommandConfig中
-        sourceConfig.setCachedFieldListSql(fieldListSql);
-
-        // 将缓存的主键列表设置到CommandConfig中
-        sourceConfig.setCachedPrimaryKeys(this.getCachedPrimaryKeys());
-
-        // 获取连接器同步参数
-        Map<String, String> commandGenerated = connectorFactory.getCommand(sourceConfig, targetConfig);
-        this.command = commandGenerated;
     }
 
     // 新增字段 - 流式处理状态管理
@@ -631,50 +523,4 @@ public class TableGroup extends AbstractConfigModel {
         this.lastBatchCount = 0;
     }
 
-    @JsonIgnore
-    public static TableGroup create(String mappingId, String sourceTable, ParserComponent parserComponent, ProfileComponent profileComponent) {
-        TableGroup tableGroup = new TableGroup();
-        tableGroup.setName(mappingId + ":" + sourceTable);
-        tableGroup.currentVersion = TableGroup.Version;
-        tableGroup.parserComponent = parserComponent;
-        tableGroup.profileComponent = profileComponent;
-        tableGroup.setMappingId(mappingId);
-        return tableGroup;
-    }
-
-    @JsonIgnore
-    public TableGroup copy(String mappingId, SnowflakeIdWorker snowflakeIdWorker) throws Exception {
-        String tableGroupJson = JsonUtil.objToJson(this);
-        TableGroup newTableGroup = JsonUtil.jsonToObj(tableGroupJson, TableGroup.class);
-        newTableGroup.clear();
-        newTableGroup.setId(String.valueOf(snowflakeIdWorker.nextId()));
-        newTableGroup.setMappingId(mappingId);
-        newTableGroup.setName(mappingId + ":" + newTableGroup.getSourceTable().getName());
-
-        profileComponent.addTableGroup(newTableGroup);
-        return newTableGroup;
-    }
-
-    /**
-     * 版本迁移：从 version 1 升级到 version 2
-     * 自动构建 targetTablePK 字段
-     */
-    public void migrateVersion() throws Exception {
-        if (this.currentVersion == Version) return;
-
-        if (currentVersion < Version) {
-            // 原则：目标表是源表的复制，主键配置应从源表获取
-            // 注意：不能从 sourceTable.getColumn().filter(Field::isPk) 获取，因为 Field 列表顺序不代表主键顺序
-            if (sourceTable != null && profileComponent != null && mappingId != null) {
-                // 从元数据获取有序主键列表（通过查询数据库）
-                Mapping mapping = profileComponent.getMapping(mappingId);
-                assert mapping != null;
-                initTargetTablePKFromSource(parserComponent, mapping.getSourceConnectorId(), sourceTable.getName());
-            }
-        }
-
-        // 升级版本号
-        this.currentVersion = Version;
-        this.profileComponent.editTableGroup(this);
-    }
 }

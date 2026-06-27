@@ -9,6 +9,7 @@ import net.sf.jsqlparser.statement.alter.AlterOperation;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
+import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.ddl.AlterStrategy;
 import org.dbsyncer.parser.ddl.DDLParser;
 import org.dbsyncer.parser.ddl.alter.AddStrategy;
@@ -56,6 +57,9 @@ public class DDLParserImpl implements DDLParser {
     @Resource
     private ConnectorFactory connectorFactory;
 
+    @Resource
+    private ProfileComponent profileComponent;
+
     @PostConstruct
     private void init() {
         STRATEGIES.putIfAbsent(AlterOperation.MODIFY, new ModifyStrategy());
@@ -80,10 +84,10 @@ public class DDLParserImpl implements DDLParser {
         Alter alter = (Alter) statement;
 
         // 统一获取源和目标连接器配置
-        Mapping mapping = tableGroup.profileComponent.getMapping(tableGroup.getMappingId());
-        ConnectorConfig sourceConnectorConfig = tableGroup.profileComponent
+        Mapping mapping = profileComponent.getMapping(tableGroup.getMappingId());
+        ConnectorConfig sourceConnectorConfig = profileComponent
                 .getConnector(mapping.getSourceConnectorId()).getConfig();
-        ConnectorConfig targetConnectorConfig = tableGroup.profileComponent
+        ConnectorConfig targetConnectorConfig = profileComponent
                 .getConnector(mapping.getTargetConnectorId()).getConfig();
         String sourceConnectorType = sourceConnectorConfig.getConnectorType();
         String targetConnectorType = targetConnectorConfig.getConnectorType();
@@ -245,10 +249,10 @@ public class DDLParserImpl implements DDLParser {
      */
     private void refreshTableColumns(TableGroup tableGroup) {
         try {
-            Mapping mapping = tableGroup.profileComponent.getMapping(tableGroup.getMappingId());
-            ConnectorConfig sourceConfig = tableGroup.profileComponent
+            Mapping mapping = profileComponent.getMapping(tableGroup.getMappingId());
+            ConnectorConfig sourceConfig = profileComponent
                     .getConnector(mapping.getSourceConnectorId()).getConfig();
-            ConnectorConfig targetConfig = tableGroup.profileComponent
+            ConnectorConfig targetConfig = profileComponent
                     .getConnector(mapping.getTargetConnectorId()).getConfig();
 
             ConnectorInstance sourceInstance = connectorFactory.connect(sourceConfig);
