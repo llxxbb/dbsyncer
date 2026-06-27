@@ -21,7 +21,6 @@ import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.parser.util.PickerUtil;
-import org.dbsyncer.plugin.PluginFactory;
 import org.dbsyncer.sdk.config.ListenerConfig;
 import org.dbsyncer.sdk.enums.ListenerTypeEnum;
 import org.dbsyncer.sdk.listener.AbstractListener;
@@ -75,9 +74,6 @@ public final class IncrementPuller implements Puller {
 
     @Resource
     private ProfileComponent profileComponent;
-
-    @Resource
-    private PluginFactory pluginFactory;
 
     @Resource
     private LogService logService;
@@ -190,7 +186,6 @@ public final class IncrementPuller implements Puller {
         ParserConsumer consumer = new ParserConsumer(
             bufferActuatorRouter, 
             profileComponent, 
-            pluginFactory, 
             logService, 
             meta.getId(), 
             list, 
@@ -207,7 +202,7 @@ public final class IncrementPuller implements Puller {
                 final Picker picker = new Picker(group);
                 List<Field> fields = picker.getSourceFields();
                 Assert.notEmpty(fields, "表字段映射关系不能为空：" + group.getSourceTable().getName() + " > " + group.getTargetTable().getName());
-                return new TableGroupQuartzCommand(t.getSourceTable(), fields, t.getTargetTable(), t.getCommand(), group.getPlugin(), group.getPluginExtInfo());
+                return new TableGroupQuartzCommand(t.getSourceTable(), fields, t.getTargetTable(), t.getCommand());
             }).collect(Collectors.toList());
             quartzListener.setCommands(quartzCommands);
         }

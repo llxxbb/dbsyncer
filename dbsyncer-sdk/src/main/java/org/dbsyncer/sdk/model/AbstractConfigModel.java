@@ -13,10 +13,6 @@ public abstract class AbstractConfigModel extends ConfigModel {
 
     private List<Convert> convert = new ArrayList<>();
 
-    private Plugin plugin;
-
-    private String pluginExtInfo;
-
     public Map<String, String> getParams() {
         return params;
     }
@@ -40,21 +36,5 @@ public abstract class AbstractConfigModel extends ConfigModel {
 
     public void setConvert(List<Convert> convert) {
         this.convert = convert;
-    }
-
-    public Plugin getPlugin() {
-        return plugin;
-    }
-
-    public void setPlugin(Plugin plugin) {
-        this.plugin = plugin;
-    }
-
-    public String getPluginExtInfo() {
-        return pluginExtInfo;
-    }
-
-    public void setPluginExtInfo(String pluginExtInfo) {
-        this.pluginExtInfo = pluginExtInfo;
     }
 }

@@ -1,6 +1,4 @@
-package org.dbsyncer.plugin;
-
-import org.dbsyncer.plugin.model.NotifyMessage;
+package org.dbsyncer.sdk.notify;
 
 /**
  * 通知服务（同步异常、连接器异常、应用异常等消息）

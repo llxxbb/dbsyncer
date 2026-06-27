@@ -1,8 +1,8 @@
-package org.dbsyncer.plugin.config;
+package org.dbsyncer.parser.notify;
 
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.StringUtil;
-import org.dbsyncer.plugin.model.NotifyType;
+import org.dbsyncer.sdk.notify.NotifyType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.ConfigurationProperties;

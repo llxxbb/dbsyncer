@@ -53,11 +53,6 @@ public abstract class PickerUtil {
         group.setFilter(CollectionUtils.isEmpty(tableGroup.getFilter()) ? mapping.getFilter() : tableGroup.getFilter());
         // 转换配置(默认使用全局)
         group.setConvert(CollectionUtils.isEmpty(tableGroup.getConvert()) ? mapping.getConvert() : tableGroup.getConvert());
-        // 插件配置(默认使用全局)
-        group.setPlugin(null == tableGroup.getPlugin() ? mapping.getPlugin() : tableGroup.getPlugin());
-        // 插件参数(默认使用全局)
-        group.setPluginExtInfo(StringUtil.isBlank(tableGroup.getPluginExtInfo()) ? mapping.getPluginExtInfo() : tableGroup.getPluginExtInfo());
-
         // 合并增量配置/过滤条件/转换配置字段
         appendFieldMapping(mapping, group);
         return group;

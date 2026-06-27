@@ -1,6 +1,6 @@
 package org.dbsyncer.parser;
 
-import org.dbsyncer.plugin.model.NotifyType;
+import org.dbsyncer.sdk.notify.NotifyType;
 
 public interface MessageService {
 

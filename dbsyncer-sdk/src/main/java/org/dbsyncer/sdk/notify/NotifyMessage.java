@@ -1,4 +1,4 @@
-package org.dbsyncer.plugin.model;
+package org.dbsyncer.sdk.notify;
 
 import java.util.List;
 

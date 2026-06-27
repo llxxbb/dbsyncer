@@ -4,10 +4,9 @@ import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.MessageService;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.model.UserConfig;
-import org.dbsyncer.plugin.model.NotifyMessage;
-import org.dbsyncer.plugin.model.NotifyType;
-import org.slf4j.LoggerFactory;
-import org.dbsyncer.plugin.NotifyService;
+import org.dbsyncer.sdk.notify.NotifyMessage;
+import org.dbsyncer.sdk.notify.NotifyType;
+import org.dbsyncer.sdk.notify.NotifyService;
 import org.springframework.stereotype.Component;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
 public class MessageServiceImpl implements MessageService {

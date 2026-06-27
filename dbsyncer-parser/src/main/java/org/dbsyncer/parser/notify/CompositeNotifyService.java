@@ -1,8 +1,7 @@
-package org.dbsyncer.plugin.impl;
+package org.dbsyncer.parser.notify;
 
-import org.dbsyncer.plugin.NotifyService;
-import org.dbsyncer.plugin.config.NotifyConfig;
-import org.dbsyncer.plugin.model.NotifyMessage;
+import org.dbsyncer.sdk.notify.NotifyMessage;
+import org.dbsyncer.sdk.notify.NotifyService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

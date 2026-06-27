@@ -14,7 +14,7 @@ import org.dbsyncer.parser.model.StorageRequest;
 import org.dbsyncer.parser.model.SystemConfig;
 import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.parser.strategy.FlushStrategy;
-import org.dbsyncer.plugin.model.NotifyType;
+import org.dbsyncer.sdk.notify.NotifyType;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.storage.enums.StorageDataStatusEnum;

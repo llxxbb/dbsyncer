@@ -125,9 +125,6 @@ public abstract class AbstractQuartzListener extends AbstractListener implements
         context.setSourceTable(table);
         context.setCommand(point.getCommand());
         context.setPageSize(READ_NUM);
-        context.setPlugin(cmd.getPlugin());
-        context.setPluginExtInfo(cmd.getPluginExtInfo());
-        changeEventBefore(context);
         while (running) {
             context.setArgs(point.getArgs());
             context.setCursors(cursors);

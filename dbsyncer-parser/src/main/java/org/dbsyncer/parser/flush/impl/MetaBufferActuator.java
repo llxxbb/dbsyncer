@@ -22,9 +22,7 @@ import org.dbsyncer.parser.strategy.FlushStrategy;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.parser.util.ConvertUtil;
-import org.dbsyncer.plugin.PluginFactory;
-import org.dbsyncer.plugin.enums.ProcessEnum;
-import org.dbsyncer.plugin.impl.IncrementPluginContext;
+import org.dbsyncer.sdk.plugin.AbstractPluginContext;
 import org.dbsyncer.sdk.config.DDLConfig;
 import org.dbsyncer.sdk.config.ListenerConfig;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
@@ -61,7 +59,6 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
     private GeneralBufferConfig generalBufferConfig;
     private Executor generalExecutor;
     private ConnectorFactory connectorFactory;
-    private PluginFactory pluginFactory;
     private FlushStrategy flushStrategy;
     private DDLParser ddlParser;
     private TableGroupContext tableGroupContext;
@@ -343,12 +340,12 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         boolean enableSchemaResolver = profileComponent.getSystemConfig().isEnableSchemaResolver();
         ConnectorConfig sourceConfig = getConnectorConfig(mapping.getSourceConnectorId());
         ConnectorService sourceConnector = connectorFactory.getConnectorService(sourceConfig.getConnectorType());
-        IncrementPluginContext context;
+        AbstractPluginContext context;
         List<Map> sourceDataList = new ArrayList<>();
         List<SyncRow> targetDataList;
         try {
             // 先创建 context，以便 Picker 能将数据包装为 SyncRow
-            context = new IncrementPluginContext();
+            context = new AbstractPluginContext();
             context.setSourceConnectorInstance(connectorFactory.connect(sourceConfig));
             context.setTargetConnectorInstance(connectorFactory.connect(getConnectorConfig(mapping.getTargetConnectorId())));
 
@@ -381,20 +378,9 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             flushStrategy.flushIncrementData(mapping.getMetaId(), result, response.getEvent());
             return;
         }
-        context.setTraceId(response.getTraceId());
         context.setEvent(response.getEvent());
-        context.setCommand(tableGroup.getCommand());
-        context.setPlugin(tableGroup.getPlugin());
-        context.setPluginExtInfo(tableGroup.getPluginExtInfo());
-        context.setEnableSchemaResolver(enableSchemaResolver);
         context.setEnablePrintTraceInfo(StringUtil.isNotBlank(response.getTraceId()));
-        // 设置Mapping参数
-        if (mapping.getParams() != null) {
-            context.getCommand().putAll(mapping.getParams());
-        }
         try {
-            pluginFactory.process(context, ProcessEnum.CONVERT);
-
             // 4、批量执行同步（直接传递 syncRows，无需通过 context 中转）
             result = connectorFactory.writeBatch(targetDataList);
 
@@ -402,11 +388,6 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             result.setMappingId(mapping.getId());
             result.setTableGroupId(tableGroup.getId());
             result.setTargetTableGroupName(tableGroup.getTargetTable().getName());
-
-            // 6、执行后置处理
-            pluginFactory.process(context, ProcessEnum.AFTER);
-            // 生产不使用下面的代码，用于生成错误数据
-        //    throw new RuntimeException("just test");
         } catch (Exception e) {
             logger.error("process batch data error:", e);
             // 只在重试场景下设置重试标识
@@ -456,7 +437,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             }
 
             // 4. 创建PluginContext（类似DML处理方式，用于传递源连接器信息）
-            IncrementPluginContext context = new IncrementPluginContext();
+            AbstractPluginContext context = new AbstractPluginContext();
             ConnectorConfig sConnConfig = getConnectorConfig(mapping.getSourceConnectorId());
             context.setSourceConnectorInstance(connectorFactory.connect(sConnConfig));
             context.setTargetConnectorInstance(connectorFactory.connect(tConnConfig));
@@ -602,10 +583,6 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
 
     public void setConnectorFactory(ConnectorFactory connectorFactory) {
         this.connectorFactory = connectorFactory;
-    }
-
-    public void setPluginFactory(PluginFactory pluginFactory) {
-        this.pluginFactory = pluginFactory;
     }
 
     public void setFlushStrategy(FlushStrategy flushStrategy) {

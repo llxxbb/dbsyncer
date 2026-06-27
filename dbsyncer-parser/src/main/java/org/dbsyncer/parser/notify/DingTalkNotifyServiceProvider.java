@@ -1,11 +1,10 @@
-package org.dbsyncer.plugin.impl;
+package org.dbsyncer.parser.notify;
 
 import okhttp3.*;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.StringUtil;
-import org.dbsyncer.plugin.NotifyService;
-import org.dbsyncer.plugin.config.NotifyConfig;
-import org.dbsyncer.plugin.model.NotifyMessage;
+import org.dbsyncer.sdk.notify.NotifyMessage;
+import org.dbsyncer.sdk.notify.NotifyService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -36,30 +35,30 @@ public class DingTalkNotifyServiceProvider implements NotifyService {
     @Override
     public void sendMessage(NotifyMessage msg) {
         if (msg == null || StringUtil.isBlank(msg.getContent())) return;
-        
+
         NotifyConfig.DingTalkConfig cfg = notifyConfig.getDingtalk();
         if (!cfg.shouldNotify(msg.getType()) || StringUtil.isBlank(cfg.getWebhookUrl())) return;
 
         // 添加发送时间到内容
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
         String contentWithTime = "**发送时间：** " + timestamp + "\n\n" + msg.getContent();
-        
+
         try {
             Map<String, Object> markdown = new HashMap<>();
             markdown.put("title", "DBSyncer");
             markdown.put("text", contentWithTime);
-            
+
             Map<String, Object> payload = new HashMap<>();
             payload.put("msgtype", "markdown");
             payload.put("markdown", markdown);
-            
+
             String body = JsonUtil.objToJson(payload);
-            
+
             Response response = HTTP_CLIENT.newCall(new Request.Builder()
                     .url(cfg.getWebhookUrl())
                     .post(RequestBody.create(MediaType.parse("application/json; charset=utf-8"), body))
                     .build()).execute();
-            
+
             logger.debug("DingTalk response: {}", response.isSuccessful() ? response.body() : "error");
             response.close();
         } catch (Exception e) {

@@ -17,7 +17,6 @@
         <module>dbsyncer-connector</module>
         <module>dbsyncer-manager</module>
         <module>dbsyncer-parser</module>
-        <module>dbsyncer-plugin</module>
         <module>dbsyncer-sdk</module>
         <module>dbsyncer-storage</module>
         <module>dbsyncer-web</module>

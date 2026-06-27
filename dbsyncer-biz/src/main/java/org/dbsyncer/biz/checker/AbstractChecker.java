@@ -12,8 +12,7 @@ import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.sdk.model.AbstractConfigModel;
 import org.dbsyncer.sdk.model.ConfigModel;
 import org.dbsyncer.sdk.model.Convert;
-import org.dbsyncer.plugin.PluginFactory;
-import org.dbsyncer.sdk.model.Plugin;
+
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,9 +35,6 @@ public abstract class AbstractChecker implements Checker {
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     private static final String SYMBOL = "***";
-
-    @Resource
-    private PluginFactory pluginFactory;
 
     @Resource
     protected SnowflakeIdWorker snowflakeIdWorker;
@@ -91,23 +87,7 @@ public abstract class AbstractChecker implements Checker {
             model.setConvert(convert);
         }
 
-        // 插件配置
-        String pluginId = params.get("pluginId");
-        Plugin plugin = null;
-        if (StringUtil.isNotBlank(pluginId)) {
-            List<Plugin> plugins = pluginFactory.getPluginAll();
-            if (!CollectionUtils.isEmpty(plugins)) {
-                for (Plugin p : plugins) {
-                    if (StringUtil.equals(pluginFactory.createPluginId(p.getClassName(), p.getVersion()), pluginId)) {
-                        plugin = p;
-                        break;
-                    }
-                }
-            }
-        }
-        model.setPlugin(plugin);
-        // 插件参数
-        model.setPluginExtInfo(plugin != null ? params.get("pluginExtInfo") : null);
+        // 插件配置已移除
     }
 
     /**

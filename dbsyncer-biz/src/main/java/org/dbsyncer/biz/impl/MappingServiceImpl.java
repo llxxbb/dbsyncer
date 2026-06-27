@@ -18,7 +18,7 @@ import org.dbsyncer.manager.ManagerFactory;
 import org.dbsyncer.parser.*;
 import org.dbsyncer.parser.service.MappingModelService;
 import org.dbsyncer.parser.service.MetaService;
-import org.dbsyncer.plugin.model.NotifyType;
+import org.dbsyncer.sdk.notify.NotifyType;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.enums.MetaEnum;

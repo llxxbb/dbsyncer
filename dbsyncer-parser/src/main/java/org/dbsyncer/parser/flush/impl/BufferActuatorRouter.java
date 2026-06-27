@@ -14,7 +14,7 @@ import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.parser.model.WriterRequest;
 import org.dbsyncer.parser.service.TableGroupModelService;
 import org.dbsyncer.parser.strategy.FlushStrategy;
-import org.dbsyncer.plugin.PluginFactory;
+
 import org.dbsyncer.sdk.listener.ChangedEvent;
 import org.dbsyncer.sdk.spi.LogService;
 import org.springframework.beans.factory.DisposableBean;
@@ -50,9 +50,6 @@ public final class BufferActuatorRouter implements DisposableBean {
 
     @Resource
     private ConnectorFactory connectorFactory;
-
-    @Resource
-    private PluginFactory pluginFactory;
 
     @Resource
     private FlushStrategy flushStrategy;
@@ -159,7 +156,6 @@ public final class BufferActuatorRouter implements DisposableBean {
         actuator.setGeneralExecutor(generalExecutor);
         actuator.setConnectorFactory(connectorFactory);
         actuator.setProfileComponent(profileComponent);
-        actuator.setPluginFactory(pluginFactory);
         actuator.setFlushStrategy(flushStrategy);
         actuator.setDdlParser(ddlParser);
         actuator.setTableGroupContext(tableGroupContext);

@@ -8,9 +8,7 @@ import org.dbsyncer.sdk.enums.MetaEnum;
 import org.dbsyncer.parser.flush.impl.BufferActuatorRouter;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.sdk.model.TableGroup;
-import org.dbsyncer.plugin.PluginFactory;
-import org.dbsyncer.plugin.enums.ProcessEnum;
-import org.dbsyncer.plugin.model.NotifyType;
+import org.dbsyncer.sdk.notify.NotifyType;
 import org.dbsyncer.sdk.listener.ChangedEvent;
 import org.dbsyncer.sdk.listener.QuartzListenerContext;
 import org.dbsyncer.sdk.listener.Watcher;
@@ -34,16 +32,14 @@ public final class ParserConsumer implements Watcher {
     
     private final BufferActuatorRouter bufferActuatorRouter;
     private final ProfileComponent profileComponent;
-    private final PluginFactory pluginFactory;
     private final LogService logService;
     private final MessageService messageService;
     private final String metaId;
     private final Runnable onClose;
 
-    public ParserConsumer(BufferActuatorRouter bufferActuatorRouter, ProfileComponent profileComponent, PluginFactory pluginFactory, LogService logService, String metaId, List<TableGroup> tableGroups, MessageService messageService, Runnable onClose) {
+    public ParserConsumer(BufferActuatorRouter bufferActuatorRouter, ProfileComponent profileComponent, LogService logService, String metaId, List<TableGroup> tableGroups, MessageService messageService, Runnable onClose) {
         this.bufferActuatorRouter = bufferActuatorRouter;
         this.profileComponent = profileComponent;
-        this.pluginFactory = pluginFactory;
         this.logService = logService;
         this.metaId = metaId;
         this.messageService = messageService;
@@ -54,7 +50,7 @@ public final class ParserConsumer implements Watcher {
 
     @Override
     public void changeEventBefore(QuartzListenerContext context) {
-        pluginFactory.process(context, ProcessEnum.BEFORE);
+        // 插件系统已移除，前置处理为空
     }
 
     @Override

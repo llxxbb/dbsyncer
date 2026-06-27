@@ -16,9 +16,7 @@ import org.dbsyncer.sdk.model.ConfigModel;
 import org.dbsyncer.parser.strategy.FlushStrategy;
 import org.dbsyncer.parser.util.ConvertUtil;
 import org.dbsyncer.parser.util.PickerUtil;
-import org.dbsyncer.plugin.PluginFactory;
-import org.dbsyncer.plugin.enums.ProcessEnum;
-import org.dbsyncer.plugin.impl.FullPluginContext;
+
 import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.connector.database.Database;
 import org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance;
@@ -57,9 +55,6 @@ public class ParserComponentImpl implements ParserComponent {
 
     @Resource
     private ConnectorFactory connectorFactory;
-
-    @Resource
-    private PluginFactory pluginFactory;
 
     @Resource
     private FlushStrategy flushStrategy;
@@ -119,14 +114,12 @@ public class ParserComponentImpl implements ParserComponent {
 
         List<String> primaryKeys = group.getSourceTable().getPrimaryKeys();
 
-        final FullPluginContext context = new FullPluginContext();
+        final AbstractPluginContext context = new AbstractPluginContext();
         context.setSourceConnectorInstance(connectorFactory.connect(sConfig));
         context.setTargetConnectorInstance(connectorFactory.connect(tConfig));
         context.setSourceTable(group.getSourceTable());
         context.setEvent(ConnectorConstant.OPERTION_INSERT);
         context.setCommand(command);
-        context.setPlugin(group.getPlugin());
-        context.setPluginExtInfo(group.getPluginExtInfo());
         context.setPageSize(mapping.getReadNum());
         context.setEnableSchemaResolver(profileComponent.getSystemConfig().isEnableSchemaResolver());
         context.setCursors(tableGroup.getCursors());
@@ -135,10 +128,6 @@ public class ParserComponentImpl implements ParserComponent {
                 .getConnectorService(context.getSourceConnectorInstance().getConfig());
         Picker picker = new Picker(group);
         picker.setSourceResolver(context.isEnableSchemaResolver() ? sourceConnector.getSchemaResolver() : null);
-
-
-        // 0、插件前置处理
-        pluginFactory.process(context, ProcessEnum.BEFORE);
 
         // 根据是否支持cursor选择不同的SQL
         boolean supportedCursor = null != tableGroup.getCursors();
@@ -222,13 +211,10 @@ public class ParserComponentImpl implements ParserComponent {
         // 2、参数转换（增强：支持字段值生成和转换）
         ConvertUtil.convert(tableGroup.getConvert(), target);
 
-        // 3、插件转换
-        pluginFactory.process(context, ProcessEnum.CONVERT);
-
-        // 4、写入目标源（直接传递 syncRows）
+        // 3、写入目标源（直接传递 syncRows）
         Result result = connectorFactory.writeBatch(target);
 
-        // 5、更新Meta统计信息
+        // 4、更新Meta统计信息
         if (result != null) {
             result.setMappingId(profileComponent.getMeta(metaId).getMappingId());
             result.setTargetTableGroupName(tableGroup.getName());
@@ -241,8 +227,7 @@ public class ParserComponentImpl implements ParserComponent {
         tableGroup.setCursors(newCursors);
         saveTableGroupIfNeeded(tableGroup, lastSaveTime);
 
-        // 同步完成后通知插件做后置处理
-        pluginFactory.process(context, ProcessEnum.AFTER);
+        // 同步完成后无需后置处理
     }
 
     /**

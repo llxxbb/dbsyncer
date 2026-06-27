@@ -20,7 +20,7 @@ import org.dbsyncer.parser.model.*;
 import org.dbsyncer.sdk.model.ConfigModel;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.sdk.model.Mapping;
-import org.dbsyncer.plugin.PluginFactory;
+
 import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.enums.StorageEnum;
@@ -62,9 +62,6 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
 
     @Resource
     private ConnectorFactory connectorFactory;
-
-    @Resource
-    private PluginFactory pluginFactory;
 
     @Resource
     private StorageService storageService;

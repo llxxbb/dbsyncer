@@ -15,19 +15,13 @@ public class TableGroupQuartzCommand {
 
     private final Map<String, String> command;
 
-    private final Plugin plugin;
-
-    private final String pluginExtInfo;
-
     private final List<String> primaryKeys;
 
-    public TableGroupQuartzCommand(MetaInfo table, List<Field> fields, Table targetTable, Map<String, String> command, Plugin plugin, String pluginExtInfo) {
+    public TableGroupQuartzCommand(MetaInfo table, List<Field> fields, Table targetTable, Map<String, String> command) {
         this.table = table;
         this.fields = fields;
         this.targetTable = targetTable;
         this.command = command;
-        this.plugin = plugin;
-        this.pluginExtInfo = pluginExtInfo;
         this.primaryKeys = table.getPrimaryKeys() != null ? table.getPrimaryKeys() : Collections.emptyList();
     }
 
@@ -49,14 +43,6 @@ public class TableGroupQuartzCommand {
 
     public Map<String, String> getCommand() {
         return command;
-    }
-
-    public Plugin getPlugin() {
-        return plugin;
-    }
-
-    public String getPluginExtInfo() {
-        return pluginExtInfo;
     }
 
     public List<Object> getChangedRow(Map<String, Object> row) {

@@ -11,13 +11,6 @@
     <artifactId>dbsyncer-parser</artifactId>
 
     <dependencies>
-        <!-- Plugin 插件服务 -->
-        <dependency>
-            <groupId>org.ghi</groupId>
-            <artifactId>dbsyncer-plugin</artifactId>
-            <version>${project.parent.version}</version>
-        </dependency>
-
         <!-- Storage 存储服务 -->
         <dependency>
             <groupId>org.ghi</groupId>
@@ -38,6 +31,25 @@
             <artifactId>dbsyncer-connector-sqlserver</artifactId>
             <version>${project.parent.version}</version>
             <scope>test</scope>
+        </dependency>
+
+        <!-- Mail（通知服务） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- OkHttp for DingTalk webhook -->
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>3.14.9</version>
         </dependency>
 
         <!-- antlr4-runtime -->
