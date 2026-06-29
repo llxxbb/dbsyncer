@@ -12,7 +12,6 @@ import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.SdkException;
 import org.dbsyncer.sdk.config.CommandConfig;
 import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
-import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.model.ConnectorConfig;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.Filter;
@@ -24,7 +23,6 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -32,9 +30,12 @@ import java.util.stream.Collectors;
 /**
  * TableGroup 模型服务
  * 
- * <p>封装 TableGroup 的持久化和业务逻辑，替代原来 TableGroup 类中对 ProfileComponent/ParserComponent 的直接依赖。
+ * <p>
+ * 封装 TableGroup 的持久化和业务逻辑，替代原来 TableGroup 类中对 ProfileComponent/ParserComponent
+ * 的直接依赖。
  * 
- * <p>ADR-0019: Model 层贫血化重构的一部分，将 TableGroup 的持久化逻辑从 Model 层转移到 Service 层。
+ * <p>
+ * ADR-0019: Model 层贫血化重构的一部分，将 TableGroup 的持久化逻辑从 Model 层转移到 Service 层。
  * 
  * @author opencode
  * @version 1.0.0
@@ -57,7 +58,8 @@ public class TableGroupModelService {
      * @throws Exception 初始化异常
      */
     public void initTableGroup(TableGroup tableGroup, Mapping mapping) throws Exception {
-        if (tableGroup.isInit) return;
+        if (tableGroup.isInit)
+            return;
 
         initCommand(tableGroup, mapping);
 
@@ -91,33 +93,18 @@ public class TableGroupModelService {
                     tableGroup.getTargetTable() != null ? tableGroup.getTargetTable().getName() : "null"));
         }
 
-        // 修复源主键缺失（兼容旧数据 / 前端未传场景）
-        // 回退到数据库元数据
-        if (tableGroup.getSourceTable() != null
-                && CollectionUtils.isEmpty(tableGroup.getSourceTable().getPrimaryKeys())) {
-            try {
-                MetaInfo freshMeta = connectorFactory.getMetaInfo(
-                        connectorFactory.connect(sConnConfig),
-                        tableGroup.getSourceTable().getName());
-                if (freshMeta != null && !CollectionUtils.isEmpty(freshMeta.getPrimaryKeys())) {
-                    tableGroup.getSourceTable().setPrimaryKeys(freshMeta.getPrimaryKeys());
-                }
-            } catch (Exception e) {
-                // 静默失败，交给下游抛出明确错误
-            }
-        }
-
         // 基于 fieldMapping 构建同步用的源/目标表
         List<Field> sourceFields = tableGroup.getSyncSourceFields();
         List<Field> targetFields = tableGroup.getSyncTargetFields();
         MetaInfo sTable = tableGroup.getSourceTable().clone().setColumn(new ArrayList<>(sourceFields));
 
         MetaInfo tTable = tableGroup.getTargetTable().clone()
-            .setColumn(new ArrayList<>(targetFields))
-            .setPrimaryKeys(tableGroup.getTargetTable().getPrimaryKeys());
+                .setColumn(new ArrayList<>(targetFields))
+                .setPrimaryKeys(tableGroup.getTargetTable().getPrimaryKeys());
 
         // 如果 tableGroup.getFilter() 为空使用 mapping.getFilter()
-        List<Filter> filters = CollectionUtils.isEmpty(tableGroup.getFilter()) ? mapping.getFilter() : tableGroup.getFilter();
+        List<Filter> filters = CollectionUtils.isEmpty(tableGroup.getFilter()) ? mapping.getFilter()
+                : tableGroup.getFilter();
 
         final CommandConfig sourceConfig = new CommandConfig(sConnConfig.getConnectorType(), sTable,
                 connectorFactory.connect(sConnConfig, false), filters);
@@ -146,7 +133,7 @@ public class TableGroupModelService {
     /**
      * 从源表元数据初始化目标表主键配置
      * 
-     * @param tableGroup 需要初始化主键的 TableGroup 对象
+     * @param tableGroup  需要初始化主键的 TableGroup 对象
      * @param connectorId 源连接器 ID
      * @param tableName   源表名
      * @return 是否成功设置主键配置
@@ -185,14 +172,14 @@ public class TableGroupModelService {
     /**
      * 复制 TableGroup
      * 
-     * @param tableGroup      需要复制的 TableGroup 对象
-     * @param newMappingId    新的 Mapping ID
+     * @param tableGroup        需要复制的 TableGroup 对象
+     * @param newMappingId      新的 Mapping ID
      * @param snowflakeIdWorker ID 生成器
      * @return 复制后的新 TableGroup 对象
      * @throws Exception 异常
      */
     public TableGroup copy(TableGroup tableGroup, String newMappingId,
-                           SnowflakeIdWorker snowflakeIdWorker) throws Exception {
+            SnowflakeIdWorker snowflakeIdWorker) throws Exception {
         String tableGroupJson = JsonUtil.objToJson(tableGroup);
         TableGroup newTableGroup = JsonUtil.jsonToObj(tableGroupJson, TableGroup.class);
         newTableGroup.clear();
@@ -212,7 +199,8 @@ public class TableGroupModelService {
      * @throws Exception 异常
      */
     public void migrateVersion(TableGroup tableGroup, Mapping mapping) throws Exception {
-        if (tableGroup.currentVersion == TableGroup.Version) return;
+        if (tableGroup.currentVersion == TableGroup.Version)
+            return;
 
         if (tableGroup.currentVersion < TableGroup.Version) {
             if (tableGroup.getSourceTable() != null && mapping != null) {
@@ -221,36 +209,21 @@ public class TableGroupModelService {
 
                 // 修复 sourceTable.primaryKeys 缺失（ADR-0017 前旧数据没有该字段）
                 if (CollectionUtils.isEmpty(tableGroup.getSourceTable().getPrimaryKeys())) {
-                    try {
-                        MetaInfo freshMeta = persistenceService.getTableMetaInfo(connectorId, tableName);
-                        if (freshMeta != null && !CollectionUtils.isEmpty(freshMeta.getPrimaryKeys())) {
-                            tableGroup.getSourceTable().setPrimaryKeys(freshMeta.getPrimaryKeys());
-                        }
-                    } catch (Exception e) {
-                        // 静默失败
-                    }
+                    MetaInfo freshMeta = persistenceService.getTableMetaInfo(connectorId, tableName);
+                    tableGroup.setSourceTable(freshMeta);
                 }
 
-                initTargetTablePKFromSource(tableGroup, connectorId, tableName);
+                // Version 6→7: 修复 targetTable.primaryKeys（targetTablePK 字段已移除）
+                if (tableGroup.getTargetTable() != null
+                        && CollectionUtils.isEmpty(tableGroup.getTargetTable().getPrimaryKeys())) {
+                    MetaInfo targetMeta = persistenceService.getTableMetaInfo(
+                            mapping.getTargetConnectorId(), tableGroup.getTargetTable().getName());
+                    tableGroup.setTargetTable(targetMeta);
+                }
             }
         }
 
         tableGroup.currentVersion = TableGroup.Version;
         persistenceService.save(tableGroup.getId(), tableGroup);
-    }
-
-    /**
-     * 批量初始化 TableGroup（initTableGroup + migrateVersion）
-     * 
-     * @param tableGroups TableGroup 列表
-     * @param mapping     关联的 Mapping 对象
-     * @throws Exception 异常
-     */
-    public void initAll(List<TableGroup> tableGroups, Mapping mapping) throws Exception {
-        if (CollectionUtils.isEmpty(tableGroups)) return;
-        for (TableGroup t : tableGroups) {
-            initTableGroup(t, mapping);
-            migrateVersion(t, mapping);
-        }
     }
 }
