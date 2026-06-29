@@ -130,29 +130,6 @@ public class TableGroupModelService {
         tableGroup.setCommand(commandGenerated);
     }
 
-    /**
-     * 从源表元数据初始化目标表主键配置
-     * 
-     * @param tableGroup  需要初始化主键的 TableGroup 对象
-     * @param connectorId 源连接器 ID
-     * @param tableName   源表名
-     * @return 是否成功设置主键配置
-     */
-    public boolean initTargetTablePKFromSource(TableGroup tableGroup, String connectorId, String tableName) {
-        if (!CollectionUtils.isEmpty(tableGroup.getTargetTable().getPrimaryKeys())) {
-            return true;
-        }
-        try {
-            MetaInfo metaInfo = persistenceService.getTableMetaInfo(connectorId, tableName);
-            if (metaInfo != null && !CollectionUtils.isEmpty(metaInfo.getPrimaryKeys())) {
-                tableGroup.getTargetTable().setPrimaryKeys(metaInfo.getPrimaryKeys());
-                return true;
-            }
-        } catch (Exception e) {
-            // 静默失败
-        }
-        return false;
-    }
 
     /**
      * 创建新的 TableGroup 对象
