@@ -4,10 +4,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.sdk.constant.ConfigConstant;
-import org.dbsyncer.sdk.model.Field;
-import org.dbsyncer.sdk.model.Filter;
-import org.dbsyncer.sdk.model.MetaInfo;
-import org.dbsyncer.sdk.model.Table;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -44,9 +40,6 @@ public class TableGroup extends AbstractConfigModel {
     private MetaInfo sourceTable;
     private MetaInfo targetTable;
     private List<FieldMapping> fieldMapping = new ArrayList<>();
-    private List<String> sourceTablePrimaryKeys;
-    private List<String> targetTablePrimaryKeys;
-    private String targetTablePK;
     private Object[] cursors;
 
     // 同步信息
@@ -184,30 +177,6 @@ public class TableGroup extends AbstractConfigModel {
 
     public void setFieldMapping(List<FieldMapping> fieldMapping) {
         this.fieldMapping = fieldMapping;
-    }
-
-    public List<String> getSourceTablePrimaryKeys() {
-        return sourceTablePrimaryKeys;
-    }
-
-    public void setSourceTablePrimaryKeys(List<String> sourceTablePrimaryKeys) {
-        this.sourceTablePrimaryKeys = sourceTablePrimaryKeys;
-    }
-
-    public List<String> getTargetTablePrimaryKeys() {
-        return targetTablePrimaryKeys;
-    }
-
-    public void setTargetTablePrimaryKeys(List<String> targetTablePrimaryKeys) {
-        this.targetTablePrimaryKeys = targetTablePrimaryKeys;
-    }
-
-    public String getTargetTablePK() {
-        return targetTablePK;
-    }
-
-    public void setTargetTablePK(String targetTablePK) {
-        this.targetTablePK = targetTablePK;
     }
 
     public Object[] getCursors() {

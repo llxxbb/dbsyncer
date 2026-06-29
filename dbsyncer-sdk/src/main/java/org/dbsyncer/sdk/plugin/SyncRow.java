@@ -69,6 +69,6 @@ public class SyncRow {
     }
 
     public List<String> getPrimaryKeys() {
-        return tableGroup != null ? tableGroup.getTargetTablePrimaryKeys() : null;
+        return tableGroup != null ? tableGroup.getTargetTable().getPrimaryKeys() : null;
     }
 }

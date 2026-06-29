@@ -12,6 +12,7 @@ import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.SdkException;
 import org.dbsyncer.sdk.config.CommandConfig;
 import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
+import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.model.ConnectorConfig;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.Filter;
@@ -90,13 +91,30 @@ public class TableGroupModelService {
                     tableGroup.getTargetTable() != null ? tableGroup.getTargetTable().getName() : "null"));
         }
 
+        // 修复源主键缺失（兼容旧数据 / 前端未传场景）
+        // 回退到数据库元数据
+        if (tableGroup.getSourceTable() != null
+                && CollectionUtils.isEmpty(tableGroup.getSourceTable().getPrimaryKeys())) {
+            try {
+                MetaInfo freshMeta = connectorFactory.getMetaInfo(
+                        connectorFactory.connect(sConnConfig),
+                        tableGroup.getSourceTable().getName());
+                if (freshMeta != null && !CollectionUtils.isEmpty(freshMeta.getPrimaryKeys())) {
+                    tableGroup.getSourceTable().setPrimaryKeys(freshMeta.getPrimaryKeys());
+                }
+            } catch (Exception e) {
+                // 静默失败，交给下游抛出明确错误
+            }
+        }
+
         // 基于 fieldMapping 构建同步用的源/目标表
         List<Field> sourceFields = tableGroup.getSyncSourceFields();
         List<Field> targetFields = tableGroup.getSyncTargetFields();
         MetaInfo sTable = tableGroup.getSourceTable().clone().setColumn(new ArrayList<>(sourceFields));
+
         MetaInfo tTable = tableGroup.getTargetTable().clone()
             .setColumn(new ArrayList<>(targetFields))
-            .setPrimaryKeys(tableGroup.getTargetTablePrimaryKeys());
+            .setPrimaryKeys(tableGroup.getTargetTable().getPrimaryKeys());
 
         // 如果 tableGroup.getFilter() 为空使用 mapping.getFilter()
         List<Filter> filters = CollectionUtils.isEmpty(tableGroup.getFilter()) ? mapping.getFilter() : tableGroup.getFilter();
@@ -134,13 +152,13 @@ public class TableGroupModelService {
      * @return 是否成功设置主键配置
      */
     public boolean initTargetTablePKFromSource(TableGroup tableGroup, String connectorId, String tableName) {
-        if (StringUtil.isNotBlank(tableGroup.getTargetTablePK())) {
+        if (!CollectionUtils.isEmpty(tableGroup.getTargetTable().getPrimaryKeys())) {
             return true;
         }
         try {
             MetaInfo metaInfo = persistenceService.getTableMetaInfo(connectorId, tableName);
             if (metaInfo != null && !CollectionUtils.isEmpty(metaInfo.getPrimaryKeys())) {
-                tableGroup.setTargetTablePK(String.join(",", metaInfo.getPrimaryKeys()));
+                tableGroup.getTargetTable().setPrimaryKeys(metaInfo.getPrimaryKeys());
                 return true;
             }
         } catch (Exception e) {
@@ -200,6 +218,19 @@ public class TableGroupModelService {
             if (tableGroup.getSourceTable() != null && mapping != null) {
                 String connectorId = mapping.getSourceConnectorId();
                 String tableName = tableGroup.getSourceTable().getName();
+
+                // 修复 sourceTable.primaryKeys 缺失（ADR-0017 前旧数据没有该字段）
+                if (CollectionUtils.isEmpty(tableGroup.getSourceTable().getPrimaryKeys())) {
+                    try {
+                        MetaInfo freshMeta = persistenceService.getTableMetaInfo(connectorId, tableName);
+                        if (freshMeta != null && !CollectionUtils.isEmpty(freshMeta.getPrimaryKeys())) {
+                            tableGroup.getSourceTable().setPrimaryKeys(freshMeta.getPrimaryKeys());
+                        }
+                    } catch (Exception e) {
+                        // 静默失败
+                    }
+                }
+
                 initTargetTablePKFromSource(tableGroup, connectorId, tableName);
             }
         }

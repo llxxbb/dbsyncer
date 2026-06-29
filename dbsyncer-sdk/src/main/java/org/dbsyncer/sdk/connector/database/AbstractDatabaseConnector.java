@@ -224,9 +224,11 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
             }
             return fields;
         });
-        return new MetaInfo()
+        MetaInfo result = new MetaInfo()
                 .setColumn(enhanceFields(connectorInstance, fields, tableNamePattern))
                 .setPrimaryKeys(primaryKeys);
+        result.setName(tableNamePattern);
+        return result;
     }
 
     /**
@@ -617,7 +619,9 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
         } finally {
             tables.clear();
         }
-        return new MetaInfo().setColumn(fields);
+        MetaInfo dqlMeta = new MetaInfo().setColumn(fields);
+        dqlMeta.setName(tableName);
+        return dqlMeta;
     }
 
     /**

@@ -79,9 +79,6 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
         // Load configModels
         Arrays.stream(CommandEnum.values()).filter(commandEnum -> commandEnum.isPreload()).forEach(commandEnum -> execute(commandEnum));
 
-        // Load plugins
-        pluginFactory.loadPlugins();
-
         // Load connectorInstances
         loadConnectorInstance();
 

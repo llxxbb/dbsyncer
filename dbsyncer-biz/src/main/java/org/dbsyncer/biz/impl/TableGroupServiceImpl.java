@@ -204,19 +204,19 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         boolean skipPrimaryKeyDDL = "true".equals(params.get("skipPrimaryKeyDDL"));
 
         // 保存旧主键信息
-        List<String> oldPrimaryKeys = tableGroup.getTargetTablePrimaryKeys();
+        List<String> oldPrimaryKeys = tableGroup.getTargetTable().getPrimaryKeys();
 
         // 校验配置（内部会自动去重主键）
         TableGroup model = (TableGroup) tableGroupChecker.checkEditConfigModel(params);
 
         // 比较主键是否变化（旧模型 vs 新参数）
-        String existingPk = tableGroup.getTargetTablePK();
+        String oldPkStr = !CollectionUtils.isEmpty(oldPrimaryKeys) ? String.join(",", oldPrimaryKeys) : null;
         String newPk = params.get("targetTablePK");
-        boolean hasPkDifference = !StringUtil.equals(existingPk, newPk);
+        boolean hasPkDifference = !StringUtil.equals(oldPkStr, newPk);
 
         // 如果有差异且未确认，返回差异信息（不执行保存）
         if (hasPkDifference && !"true".equals(confirmParam) && !skipPrimaryKeyDDL) {
-            List<String> newPrimaryKeys = model.getTargetTablePrimaryKeys();
+            List<String> newPrimaryKeys = model.getTargetTable().getPrimaryKeys();
             PrimaryKeyDifferenceVO diff = new PrimaryKeyDifferenceVO();
             diff.setHasDifference(true);
             diff.setConfiguredPKs(newPrimaryKeys);
@@ -260,7 +260,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
             Connector targetConnector = profileComponent.getConnector(mapping.getTargetConnectorId());
             if (targetConnector != null) {
                 try {
-                    alterPrimaryKey(model, targetConnector, oldPrimaryKeys, model.getTargetTablePrimaryKeys());
+                    alterPrimaryKey(model, targetConnector, oldPrimaryKeys, model.getTargetTable().getPrimaryKeys());
                 } catch (Exception e) {
                     throw new RuntimeException("修改主键约束失败：" + e.getMessage(), e);
                 }
@@ -398,7 +398,8 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
             targetTableName = tableGroup.getTargetTable().getName();
         }
         if (StringUtil.isBlank(targetTablePK)) {
-            targetTablePK = tableGroup.getTargetTablePK();
+            List<String> pks = tableGroup.getTargetTable().getPrimaryKeys();
+            targetTablePK = !CollectionUtils.isEmpty(pks) ? String.join(",", pks) : null;
         }
 
         // 检查表是否存在

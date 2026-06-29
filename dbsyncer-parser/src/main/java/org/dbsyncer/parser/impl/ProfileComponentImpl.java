@@ -177,8 +177,8 @@ public class ProfileComponentImpl implements ProfileComponent {
         for (TableGroup t : tableGroups){
             Mapping mapping = profileComponent.getMapping(mappingId);
             if (mapping != null) {
-                tableGroupModelService.initTableGroup(t, mapping);
                 tableGroupModelService.migrateVersion(t, mapping);
+                tableGroupModelService.initTableGroup(t, mapping);
             }
         }
         return tableGroups;

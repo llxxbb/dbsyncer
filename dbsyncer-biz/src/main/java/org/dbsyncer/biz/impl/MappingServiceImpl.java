@@ -111,7 +111,9 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
 
         // 创建并保存 Meta（必须在分组关联之前执行，确保 Mapping 和 Meta 的原子性）
         Mapping mapping = (Mapping) model;
-        metaService.createMeta(mapping.getId());
+        Meta meta = metaService.createMeta(mapping.getId());
+        mapping.setMetaId(meta.getId());
+        profileComponent.editConfigModel(mapping);
 
         // 如果有指定分组，将任务添加到对应分组
         String projectGroupId = params.get("projectGroupId");

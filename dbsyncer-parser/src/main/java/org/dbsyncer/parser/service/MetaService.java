@@ -3,9 +3,11 @@
  */
 package org.dbsyncer.parser.service;
 
+import org.dbsyncer.storage.impl.SnowflakeIdWorker;
 import org.dbsyncer.sdk.enums.MetaEnum;
 import org.dbsyncer.sdk.enums.SyncPhaseEnum;
 import org.dbsyncer.sdk.model.Meta;
+import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.service.ModelPersistenceService;
 import org.springframework.stereotype.Service;
@@ -38,6 +40,9 @@ public class MetaService {
 
     @Resource
     private ModelPersistenceService persistenceService;
+
+    @Resource
+    private SnowflakeIdWorker snowflakeIdWorker;
 
     /**
      * 还原 Meta 状态
@@ -196,6 +201,16 @@ public class MetaService {
      * @throws Exception 持久化异常
      */
     public Meta createMeta(Meta meta) throws Exception {
+        if (org.dbsyncer.common.util.StringUtil.isBlank(meta.getId())) {
+            meta.setId(String.valueOf(snowflakeIdWorker.nextId()));
+        }
+        if (meta.getName() == null) {
+            meta.setName(meta.getType() != null ? meta.getType() : ConfigConstant.META);
+        }
+        if (meta.getCreateTime() == null) {
+            meta.setCreateTime(System.currentTimeMillis());
+        }
+        meta.setUpdateTime(System.currentTimeMillis());
         String id = persistenceService.save(null, meta);
         meta.setId(id);
         return meta;

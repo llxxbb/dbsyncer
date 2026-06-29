@@ -65,7 +65,6 @@ public class TableGroupChecker extends AbstractChecker {
         Assert.hasText(mappingId, "tableGroup mappingId is empty.");
         Assert.hasText(sourceTable, "tableGroup sourceTable is empty.");
         Assert.hasText(targetTable, "tableGroup targetTable is empty.");
-        Assert.hasText(sourceTablePK, "tableGroup sourceTablePK is empty.");
         Mapping mapping = profileComponent.getMapping(mappingId);
         Assert.notNull(mapping, "mapping can not be null.");
 
@@ -77,23 +76,10 @@ public class TableGroupChecker extends AbstractChecker {
         tableGroup.setSourceTable(getMetaInfo(mapping.getSourceConnectorId(), sourceTable, sourceTablePK));
         tableGroup.setTargetTable(getMetaInfo(mapping.getTargetConnectorId(), targetTable, targetTablePK));
 
-        // 保存主键配置到 tableGroup
-        // 原则：主键顺序应该从数据库元数据查询获取，而不是从 Field.isPk 标记推断
-        if (StringUtil.isNotBlank(targetTablePK)) {
-            tableGroup.setTargetTablePK(targetTablePK);
-        } else {
-            // 从源表元数据获取主键（通过查询数据库，保持主键顺序）
-            boolean initialized = tableGroupModelService.initTargetTablePKFromSource(tableGroup, mapping.getSourceConnectorId(), sourceTable);
-            if (initialized) {
-                logger.info("目标表 {} 未提供主键配置，从源表元数据获取：{}", 
-                    tableGroup.getTargetTable().getName(), 
-                    tableGroup.getSourceTable().getName(), 
-                    tableGroup.getTargetTablePK());
-            }
-        }
-        // 修改基本配置
-        this.modifyConfigModel(tableGroup, params);
+        // 统一应用主键配置（源主键 + 目标主键 + 回退逻辑）
+        applyPrimaryKeyConfig(tableGroup, mapping, params.get("sourceTablePK"), targetTablePK);
 
+        this.modifyConfigModel(tableGroup, params);
 
         // 验证转换器规则：每个字段必须有且仅有一个根转换器
         ConvertUtil.validateFieldConverterRule(tableGroup.getConvert());
@@ -114,42 +100,70 @@ public class TableGroupChecker extends AbstractChecker {
         // 处理目标表变化（前端已感应并提交，后端直接使用）
         String newTargetTableName = params.get("targetTable");
         String newTargetTablePK = params.get("targetTablePK");
-        
+
         // 前置验证：如果修改目标表，必须提供主键配置
         if (StringUtil.isNotBlank(newTargetTableName) && StringUtil.isBlank(newTargetTablePK)) {
             throw new BizException("目标表，主键不能为空");
         }
-        
-        // 应用目标表配置
+
+        // 应用目标表变化（仅更新 MetaInfo，主键配置由 applyPrimaryKeyConfig 统一处理）
         if (StringUtil.isNotBlank(newTargetTableName) && StringUtil.isNotBlank(newTargetTablePK)) {
-            // 检查是否与其他表映射冲突
             checkRepeatedTable(mapping.getId(), tableGroup.getSourceTable().getName(), newTargetTableName, id);
-            
-            // 直接使用前端提供的主键配置
-            MetaInfo newTargetTable = getMetaInfo(mapping.getTargetConnectorId(), newTargetTableName, newTargetTablePK);
-            tableGroup.setTargetTable(newTargetTable);
-            tableGroup.setTargetTablePK(newTargetTablePK);
+            tableGroup.setTargetTable(getMetaInfo(mapping.getTargetConnectorId(), newTargetTableName, newTargetTablePK));
         } else if (StringUtil.isNotBlank(newTargetTablePK)) {
-            // 只修改主键配置（不修改目标表名称）
-            MetaInfo newTargetTable = getMetaInfo(mapping.getTargetConnectorId(), tableGroup.getTargetTable().getName(), newTargetTablePK);
-            tableGroup.setTargetTable(newTargetTable);
-            tableGroup.setTargetTablePK(newTargetTablePK);
+            tableGroup.setTargetTable(getMetaInfo(mapping.getTargetConnectorId(), tableGroup.getTargetTable().getName(), newTargetTablePK));
         }
+
+        // 统一应用主键配置（源主键 + 目标主键 + 回退逻辑）
+        applyPrimaryKeyConfig(tableGroup, mapping, params.get("sourceTablePK"), params.get("targetTablePK"));
 
         // 修改基本配置
         this.modifyConfigModel(tableGroup, params);
 
-        // 修改高级配置：过滤条件/转换配置/插件配置
+        // 修改高级配置：过滤条件/转换配置
         this.modifySuperConfigModel(tableGroup, params);
-
-        // 【修改】setFieldMapping 移到 edit()/add() 的 DDL 之后调用
-        // 原因：自定义字段在 DDL 执行前不存在于数据库元数据中，
-        // 在 DDL 之后调用可以自然获取到所有字段（含自定义字段）
 
         // 验证转换器规则：每个字段必须有且仅有一个根转换器
         ConvertUtil.validateFieldConverterRule(tableGroup.getConvert());
 
         return tableGroup;
+    }
+
+    /**
+     * 统一应用主键配置：源主键与目标主键。
+     *
+     * <p>优先级：
+     * <ul>
+     *   <li>传入的 PK 字符串优先（覆盖 MetaInfo.metaInfo.primaryKeys）</li>
+     *   <li>不传时回退到 MetaInfo.primaryKeys（数据库元数据中已解析）</li>
+     *   <li>目标主键再回退到源主键映射</li>
+     * </ul>
+     *
+     * @param tableGroup    待配置的 TableGroup
+     * @param mapping       关联的 Mapping（用于获取源连接器 ID）
+     * @param sourceTablePK 用户传入的源主键逗号分隔字符串，可为空
+     * @param targetTablePK 用户传入的目标主键逗号分隔字符串，可为空
+     */
+    private void applyPrimaryKeyConfig(TableGroup tableGroup, Mapping mapping,
+                                        String sourceTablePK, String targetTablePK) throws Exception {
+        // 源主键：传入优先，否则沿用数据库元数据（已由 getMetaInfo 填充到 sourceTable.primaryKeys）
+        if (StringUtil.isNotBlank(sourceTablePK)) {
+            tableGroup.getSourceTable().setPrimaryKeys(Arrays.asList(sourceTablePK.split(",")));
+        }
+
+        // 目标主键：传入优先，否则从源表自动同步
+        if (StringUtil.isNotBlank(targetTablePK)) {
+            tableGroup.getTargetTable().setPrimaryKeys(Arrays.asList(targetTablePK.split(",")));
+        } else if (CollectionUtils.isEmpty(tableGroup.getTargetTable().getPrimaryKeys())) {
+            boolean initialized = tableGroupModelService.initTargetTablePKFromSource(
+                    tableGroup, mapping.getSourceConnectorId(), tableGroup.getSourceTable().getName());
+            if (initialized) {
+                logger.info("目标表 {} 未提供主键配置，从源表元数据获取：{}",
+                        tableGroup.getTargetTable().getName(),
+                        tableGroup.getSourceTable().getName(),
+                        tableGroup.getTargetTable().getPrimaryKeys());
+            }
+        }
     }
 
     /**
@@ -170,7 +184,7 @@ public class TableGroupChecker extends AbstractChecker {
     /**
      * 刷新表字段（从数据库重新获取列信息）
      * - 源表：使用数据库 KEY_SEQ 最新主键顺序（不传 primaryKeyStr）
-     * - 目标表：保留用户配置的主键顺序（从 tableGroup.getTargetTablePK() 获取）
+     * - 目标表：保留用户配置的主键顺序
      */
     public void refreshTableFields(TableGroup tableGroup) throws Exception {
         Mapping mapping = profileComponent.getMapping(tableGroup.getMappingId());
@@ -181,8 +195,10 @@ public class TableGroupChecker extends AbstractChecker {
             parserComponent.getMetaInfo(mapping.getSourceConnectorId(), tableGroup.getSourceTable().getName()));
 
         // 目标表：从数据库重新获取元数据，主键保留用户配置
+        List<String> existingPks = tableGroup.getTargetTable().getPrimaryKeys();
+        String pkStr = !CollectionUtils.isEmpty(existingPks) ? String.join(",", existingPks) : null;
         tableGroup.setTargetTable(
-            getMetaInfo(mapping.getTargetConnectorId(), tableGroup.getTargetTable().getName(), tableGroup.getTargetTablePK()));
+            getMetaInfo(mapping.getTargetConnectorId(), tableGroup.getTargetTable().getName(), pkStr));
     }
 
     private MetaInfo getMetaInfo(String connectorId, String tableName, String primaryKeyStr) throws Exception {

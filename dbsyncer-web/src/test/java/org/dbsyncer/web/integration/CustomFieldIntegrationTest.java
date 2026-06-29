@@ -262,7 +262,7 @@ public class CustomFieldIntegrationTest extends BaseDDLIntegrationTest {
         editParams.put("sourceTable", tableGroup.getSourceTable().getName());
         editParams.put("targetTable", tableGroup.getTargetTable().getName());
         // 编辑是全量的，必须补全 targetTablePK
-        editParams.put("targetTablePK", tableGroup.getTargetTablePK());
+        editParams.put("targetTablePK", String.join(",", tableGroup.getTargetTable().getPrimaryKeys()));
         
         // 重新构建 fieldMappings 参数（保持原有的映射）
         List<String> fieldMappingsList = new ArrayList<>();
@@ -353,7 +353,7 @@ public class CustomFieldIntegrationTest extends BaseDDLIntegrationTest {
         editParams.put("sourceTable", tableGroup.getSourceTable().getName());
         editParams.put("targetTable", tableGroup.getTargetTable().getName());
         // 编辑是全量的，必须补全 targetTablePK
-        editParams.put("targetTablePK", tableGroup.getTargetTablePK());
+        editParams.put("targetTablePK", String.join(",", tableGroup.getTargetTable().getPrimaryKeys()));
         
         // 重新构建 fieldMappings 参数
         List<String> fieldMappingsList = new ArrayList<>();
@@ -435,7 +435,7 @@ public class CustomFieldIntegrationTest extends BaseDDLIntegrationTest {
         editParams.put("sourceTable", tableGroup.getSourceTable().getName());
         editParams.put("targetTable", tableGroup.getTargetTable().getName());
         // 编辑是全量的，必须补全 targetTablePK
-        editParams.put("targetTablePK", tableGroup.getTargetTablePK());
+        editParams.put("targetTablePK", String.join(",", tableGroup.getTargetTable().getPrimaryKeys()));
         
         // 重新构建 fieldMappings 参数
         List<String> fieldMappingsList = new ArrayList<>();

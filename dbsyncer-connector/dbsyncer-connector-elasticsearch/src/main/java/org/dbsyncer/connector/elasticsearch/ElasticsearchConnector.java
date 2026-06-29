@@ -258,7 +258,7 @@ public final class ElasticsearchConnector extends AbstractConnector implements C
         final List<Map> sourceList = data;  // 使用 SyncRow 数据作为源数据
 
         Result result = new Result();
-        List<String> primaryKeys = syncRows.get(0).getTableGroup().getTargetTablePrimaryKeys();
+        List<String> primaryKeys = syncRows.get(0).getTableGroup().getTargetTable().getPrimaryKeys();
         final String pk = primaryKeys != null && !primaryKeys.isEmpty() ? primaryKeys.get(0) : null;
         if (pk == null) {
             logger.warn("Elasticsearch writer missing primary key, will use first field as ID");

@@ -193,7 +193,7 @@
                                                 <td>[[${f?.source}]]</td>
                                                 <td>[[${f?.target}]]</td>
                                                 <td class="pk-status-cell">
-                                                    <i th:if="${#strings.contains(tableGroup?.targetTablePK, f?.target)}" title="后端主键（已保存）" class="fa fa-key fa-fw fa-rotate-90 text-warning backend-pk-icon"></i>
+                                                    <i th:if="${#lists.contains(tableGroup?.targetTable?.primaryKeys ?: {}, f?.target)}" title="后端主键（已保存）" class="fa fa-key fa-fw fa-rotate-90 text-warning backend-pk-icon"></i>
                                                     <span class="temp-pk-container"></span>
                                                 </td>
                                                 <td><input type="checkbox" class="fieldMappingDeleteCheckbox" /></td>
@@ -213,8 +213,8 @@
                                         <input name="id" class="form-control" type="text" th:value="${tableGroup?.id}"/>
                                         <input id="fieldMapping" name="fieldMapping" class="form-control" type="text"/>
                                         <input id="targetTablePK" name="targetTablePK" class="form-control" type="text" 
-                                               th:value="${tableGroup?.targetTablePK}"
-                                               th:attr="data-backend-pk=${tableGroup?.targetTablePK}"/>
+                                               th:value="${#strings.listJoin(tableGroup?.targetTable?.primaryKeys, ',')}"
+                                               th:attr="data-backend-pk=${#strings.listJoin(tableGroup?.targetTable?.primaryKeys, ',')}"/>
                                     </div>
                                 </div>
                             </div>
