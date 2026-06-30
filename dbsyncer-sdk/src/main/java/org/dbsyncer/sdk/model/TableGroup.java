@@ -36,6 +36,7 @@ public class TableGroup extends AbstractConfigModel {
     @JsonIgnore
     private transient String cachedPrimaryKeys;
 
+    @JsonIgnore
     private Map<String, String> command = new HashMap<>();
     private MetaInfo sourceTable;
     private MetaInfo targetTable;
@@ -147,10 +148,12 @@ public class TableGroup extends AbstractConfigModel {
         return this;
     }
 
+    @JsonIgnore
     public Map<String, String> getCommand() {
         return command;
     }
 
+    @JsonIgnore
     public void setCommand(Map<String, String> command) {
         this.command = command;
     }

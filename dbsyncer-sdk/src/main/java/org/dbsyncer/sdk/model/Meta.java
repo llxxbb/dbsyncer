@@ -30,6 +30,7 @@ public class Meta extends ConfigModel {
     private volatile long fullFail;
     private volatile long incrementSuccess;
     private volatile long incrementFail;
+    @JsonIgnore
     private Listener listener;
     private Map<String, String> snapshot;
     private Map<String, String> tableGroupCountMap;
@@ -52,10 +53,12 @@ public class Meta extends ConfigModel {
         this.state = MetaEnum.READY.getCode();
     }
 
+    @JsonIgnore
     public boolean isRunning() {
         return MetaEnum.isRunning(state);
     }
 
+    @JsonIgnore
     public void assertNotRunning() {
         if (isRunning()) {
             throw new ParserException("任务【运行中】就不允许编辑了。如需编辑请【停止】任务。");
@@ -201,6 +204,7 @@ public class Meta extends ConfigModel {
     }
 
     // 跟踪需要持久化的 TableGroup（增量场景）
+    @JsonIgnore
     private transient Set<String> changedTableGroupIds;
 
     @JsonIgnore
@@ -223,6 +227,7 @@ public class Meta extends ConfigModel {
         getChangedTableGroupIds().add(tableGroupId);
     }
 
+    @JsonIgnore
     public static Meta create(Mapping mapping, String newId) throws Exception {
         Meta meta = new Meta();
         meta.setId(newId);
