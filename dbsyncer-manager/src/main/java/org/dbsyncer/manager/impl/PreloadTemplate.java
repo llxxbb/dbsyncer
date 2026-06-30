@@ -74,6 +74,10 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
 
     private boolean preloadCompleted;
 
+    public PreloadTemplate() {
+        logger.info("----PreloadTemplate init----");
+    }
+
     @Override
     public void onApplicationEvent(ContextRefreshedEvent event) {
         // Load configModels

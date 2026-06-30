@@ -14,15 +14,17 @@ import org.dbsyncer.parser.enums.ConvertEnum;
 import org.dbsyncer.parser.enums.GroupStrategyEnum;
 import org.dbsyncer.parser.model.*;
 import org.dbsyncer.sdk.model.*;
-import org.dbsyncer.sdk.model.ConfigModel;
 import org.dbsyncer.parser.service.TableGroupModelService;
 import org.dbsyncer.sdk.enums.FilterEnum;
 import org.dbsyncer.sdk.enums.OperationEnum;
 import org.dbsyncer.sdk.enums.QuartzFilterEnum;
 import org.dbsyncer.sdk.constant.ConfigConstant;
-import org.dbsyncer.sdk.model.ConnectorConfig;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.storage.enums.StorageDataStatusEnum;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 
@@ -40,7 +42,11 @@ import java.util.stream.Collectors;
  * @Date 2023-11-13 21:16
  */
 @Component
+@DependsOn("preloadTemplate")
 public class ProfileComponentImpl implements ProfileComponent {
+
+    private final Logger logger = LoggerFactory.getLogger(getClass());
+
 
     @Resource
     private OperationTemplate operationTemplate;
@@ -59,6 +65,10 @@ public class ProfileComponentImpl implements ProfileComponent {
 
     @Resource
     private TableGroupModelService tableGroupModelService;
+
+    public ProfileComponentImpl() {
+        logger.info("----ProfileComponentImpl init----");
+    }   
 
     @Override
     public Connector parseConnector(String json) {
