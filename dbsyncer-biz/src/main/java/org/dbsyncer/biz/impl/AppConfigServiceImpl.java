@@ -9,6 +9,8 @@ import org.dbsyncer.biz.vo.VersionVo;
 import org.dbsyncer.common.config.AppConfig;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.model.SystemConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
@@ -21,13 +23,20 @@ import javax.annotation.Resource;
 @Component
 public class AppConfigServiceImpl implements AppConfigService {
 
+    private final Logger logger = LoggerFactory.getLogger(getClass());
+
     @Resource
     private AppConfig appConfig;
 
-    @Resource
     private SystemConfigService systemConfigService;
 
     public static final String WATERMARK_USERNAME = "${username}";
+
+    public AppConfigServiceImpl(SystemConfigService systemConfigService) throws Exception {
+        this.systemConfigService = systemConfigService; 
+        systemConfigService.getSystemConfig();
+        logger.info("----AppConfigServiceImpl init----");
+    }
 
     @Override
     public VersionVo getVersionInfo(String username) throws Exception {

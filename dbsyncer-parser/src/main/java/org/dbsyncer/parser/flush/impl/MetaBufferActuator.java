@@ -16,7 +16,6 @@ import org.dbsyncer.parser.flush.AbstractBufferActuator;
 import org.dbsyncer.parser.flush.BufferRequest;
 import org.dbsyncer.parser.model.*;
 import org.dbsyncer.sdk.model.*;
-import org.dbsyncer.sdk.model.FieldMapping;
 import org.dbsyncer.parser.service.TableGroupModelService;
 import org.dbsyncer.parser.strategy.FlushStrategy;
 import org.dbsyncer.sdk.spi.LogService;
