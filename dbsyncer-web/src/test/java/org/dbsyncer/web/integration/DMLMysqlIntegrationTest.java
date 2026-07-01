@@ -1,6 +1,7 @@
 package org.dbsyncer.web.integration;
 
 import org.dbsyncer.sdk.config.DatabaseConfig;
+import org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance;
 import org.dbsyncer.web.Application;
 import org.junit.*;
 import org.junit.runner.RunWith;
@@ -247,8 +248,8 @@ public class DMLMysqlIntegrationTest extends BaseDDLIntegrationTest {
             testSourceTable, testId, sourceData.get("UserName"), 
             sourceData.get("Age"), sourceData.get("Email"));
         
-        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance sourceInstance = 
-            new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(sourceConfig);
+        DatabaseConnectorInstance sourceInstance = 
+            new DatabaseConnectorInstance(sourceConfig);
         sourceInstance.execute(databaseTemplate -> {
             databaseTemplate.execute(insertSourceSql);
             return null;
@@ -288,12 +289,12 @@ public class DMLMysqlIntegrationTest extends BaseDDLIntegrationTest {
         tableGroup.setCursors(null);
         profileComponent.editConfigModel(tableGroup);
 
-        // 2. 配置 Mapping
+        // 2. 配置 Mapping（启用 forceUpdate，这样 INSERT 转换为 UPSERT 以覆盖已有数据）
         Map<String, String> editParams = new HashMap<>();
         editParams.put("id", mappingId);
         editParams.put("model", "full");
         editParams.put("incrementStrategy", "Log");
-        editParams.put("forceUpdate", "false");
+        editParams.put("forceUpdate", "true");
         editParams.put("enableDDL", "true");
         editParams.put("enableInsert", "true");
         editParams.put("enableUpdate", "true");
@@ -308,8 +309,8 @@ public class DMLMysqlIntegrationTest extends BaseDDLIntegrationTest {
             "INSERT INTO %s (ID, UserName, Age, Email) VALUES (%d, '%s', %d, '%s')",
             testSourceTable, testId, userName, 25, "old@example.com");
         
-        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance sourceInstance = 
-            new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(sourceConfig);
+        DatabaseConnectorInstance sourceInstance = 
+            new DatabaseConnectorInstance(sourceConfig);
         sourceInstance.execute(databaseTemplate -> {
             databaseTemplate.execute(insertSourceSql);
             return null;
@@ -319,8 +320,8 @@ public class DMLMysqlIntegrationTest extends BaseDDLIntegrationTest {
             "INSERT INTO %s (ID, UserName, Age, Email) VALUES (%d, '%s', %d, '%s')",
             testTargetTable, testId, userName, 25, "old@example.com");
         
-        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance targetInstance = 
-            new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(targetConfig);
+        DatabaseConnectorInstance targetInstance = 
+            new DatabaseConnectorInstance(targetConfig);
         targetInstance.execute(databaseTemplate -> {
             databaseTemplate.execute(insertTargetSql);
             return null;
@@ -400,8 +401,8 @@ public class DMLMysqlIntegrationTest extends BaseDDLIntegrationTest {
             "INSERT INTO %s (ID, UserName, Age, Email) VALUES (%d, '%s', %d, '%s')",
             testSourceTable, testId, userName, 30, "delete@example.com");
         
-        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance sourceInstance = 
-            new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(sourceConfig);
+        DatabaseConnectorInstance sourceInstance = 
+            new DatabaseConnectorInstance(sourceConfig);
         sourceInstance.execute(databaseTemplate -> {
             databaseTemplate.execute(insertSourceSql);
             return null;
@@ -492,8 +493,8 @@ public class DMLMysqlIntegrationTest extends BaseDDLIntegrationTest {
             testSourceTable, testId, sourceData.get("UserName"), 
             sourceData.get("Age"), sourceData.get("Email"));
         
-        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance sourceInstance = 
-            new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(sourceConfig);
+        DatabaseConnectorInstance sourceInstance = 
+            new DatabaseConnectorInstance(sourceConfig);
         sourceInstance.execute(databaseTemplate -> {
             databaseTemplate.execute(insertSourceSql);
             return null;
@@ -512,8 +513,8 @@ public class DMLMysqlIntegrationTest extends BaseDDLIntegrationTest {
             testTargetTable, testId, targetData.get("UserName"), 
             targetData.get("Age"), targetData.get("Email"));
         
-        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance targetInstance = 
-            new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(targetConfig);
+        DatabaseConnectorInstance targetInstance = 
+            new DatabaseConnectorInstance(targetConfig);
         targetInstance.execute(databaseTemplate -> {
             databaseTemplate.execute(insertTargetSql);
             return null;
@@ -565,8 +566,8 @@ public class DMLMysqlIntegrationTest extends BaseDDLIntegrationTest {
      * 查询表数据（返回第一行数据）
      */
     private Map<String, Object> queryTableData(String sql, DatabaseConfig config) throws Exception {
-        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance instance = 
-            new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(config);
+        DatabaseConnectorInstance instance = 
+            new DatabaseConnectorInstance(config);
         return instance.execute(databaseTemplate -> {
             return databaseTemplate.query(sql, (java.sql.ResultSet rs) -> {
                 Map<String, Object> data = new HashMap<>();

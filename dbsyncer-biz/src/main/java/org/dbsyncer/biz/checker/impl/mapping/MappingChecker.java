@@ -107,8 +107,12 @@ public class MappingChecker extends AbstractChecker {
         // 全量配置
         mapping.setReadNum(NumberUtil.toInt(params.get("readNum"), mapping.getReadNum()));
         mapping.setBatchNum(NumberUtil.toInt(params.get("batchNum"), mapping.getBatchNum()));
+        String forceUpdate = params.get("forceUpdate");
         mapping.setThreadNum(NumberUtil.toInt(params.get("threadNum"), mapping.getThreadNum()));
-        mapping.setForceUpdate(StringUtil.isNotBlank(params.get("forceUpdate")));
+        if (params.containsKey("forceUpdate")) {
+            mapping.setForceUpdate(
+                    StringUtil.isBlank(forceUpdate) ? mapping.isForceUpdate() : Boolean.parseBoolean(forceUpdate));
+        }
 
         // 增量配置(日志/定时)
         String incrementStrategy = params.get("incrementStrategy");
@@ -192,7 +196,7 @@ public class MappingChecker extends AbstractChecker {
     /**
      * 验证连接器是否存在
      *
-     * @param connectorId 连接器ID
+     * @param connectorId   连接器ID
      * @param connectorType 连接器类型描述（用于错误提示）
      * @throws org.dbsyncer.common.ParserException 如果连接器不存在
      */
