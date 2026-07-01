@@ -188,7 +188,7 @@ public class SqlServerConnector extends AbstractDatabaseConnector {
                 if (schemaName == null || schemaName.trim().isEmpty()) {
                     schemaName = "dbo";
                 }
-                boolean enableIdentityInsert = Boolean.parseBoolean(context.getCommand().get(MARK_HAS_IDENTITY));
+                boolean enableIdentityInsert = Boolean.parseBoolean(syncRows.get(0).getTableGroup().getCommand().get(MARK_HAS_IDENTITY));
                 String tableName = syncRows.get(0).getTableGroup().getTargetTable().getName();
                 
                 if ("INSERT".equals(event)) {

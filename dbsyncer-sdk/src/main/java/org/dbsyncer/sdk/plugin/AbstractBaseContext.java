@@ -7,7 +7,6 @@ import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.model.Table;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * @Author 穿云
@@ -20,11 +19,6 @@ public abstract class AbstractBaseContext implements BaseContext, ReaderContext 
      * 数据源连接实例
      */
     private ConnectorInstance sourceConnectorInstance;
-
-    /**
-     * 执行命令
-     */
-    private Map<String, String> command;
 
     private Table sourceTable;
 
@@ -44,16 +38,6 @@ public abstract class AbstractBaseContext implements BaseContext, ReaderContext 
     @Override
     public void setSourceConnectorInstance(ConnectorInstance sourceConnectorInstance) {
         this.sourceConnectorInstance = sourceConnectorInstance;
-    }
-
-    @Override
-    public Map<String, String> getCommand() {
-        return command;
-    }
-
-    @Override
-    public void setCommand(Map<String, String> command) {
-        this.command = command;
     }
 
     @Override

@@ -47,7 +47,8 @@ import java.util.stream.Collectors;
  * @Version 1.0.0
  * @Date 2022-05-05 23:19
  */
-public final class FileConnector extends AbstractConnector implements ConnectorService<FileConnectorInstance, FileConfig> {
+public final class FileConnector extends AbstractConnector
+        implements ConnectorService<FileConnectorInstance, FileConfig> {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -60,7 +61,6 @@ public final class FileConnector extends AbstractConnector implements ConnectorS
     public String getConnectorType() {
         return "File";
     }
-
 
     @Override
     public Class<FileConfig> getConfigClass() {
@@ -114,7 +114,9 @@ public final class FileConnector extends AbstractConnector implements ConnectorS
 
     @Override
     public List<Table> getTable(FileConnectorInstance connectorInstance) {
-        return connectorInstance.getFileSchemaList().stream().map(fileSchema -> new Table(fileSchema.getFileName(), null, null, null, null)).collect(Collectors.toList());
+        return connectorInstance.getFileSchemaList().stream()
+                .map(fileSchema -> new Table(fileSchema.getFileName(), null, null, null, null))
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -144,37 +146,40 @@ public final class FileConnector extends AbstractConnector implements ConnectorS
 
     @Override
     public Result reader(FileConnectorInstance connectorInstance, ReaderContext context) {
-        List<Map<String, Object>> list = new ArrayList<>();
-        FileReader reader = null;
-        try {
-            FileConfig fileConfig = connectorInstance.getConfig();
-            FileSchema fileSchema = connectorInstance.getFileSchema(context.getCommand().get(FILE_NAME));
-            final List<Field> fields = fileSchema.getFields();
-            Assert.notEmpty(fields, "The fields of file schema is empty.");
-            final char separator = fileConfig.getSeparator();
+        throw new UnsupportedOperationException(
+                "File reader temporarily disabled, pending adapter for TableGroup.getCommand()");
+        // List<Map<String, Object>> list = new ArrayList<>();
+        // FileReader reader = null;
+        // try {
+        // FileConfig fileConfig = connectorInstance.getConfig();
+        // FileSchema fileSchema =
+        // connectorInstance.getFileSchema(context.getCommand().get(FILE_NAME));
+        // final List<Field> fields = fileSchema.getFields();
+        // Assert.notEmpty(fields, "The fields of file schema is empty.");
+        // final char separator = fileConfig.getSeparator();
 
-            reader = new FileReader(context.getCommand().get(FILE_PATH));
-            LineIterator lineIterator = IOUtils.lineIterator(reader);
-            int from = (context.getPageIndex() - 1) * context.getPageSize();
-            int to = from + context.getPageSize();
-            AtomicLong count = new AtomicLong();
-            while (lineIterator.hasNext()) {
-                if (count.get() >= from && count.get() < to) {
-                    list.add(fileResolver.parseMap(fields, separator, lineIterator.next()));
-                } else {
-                    lineIterator.next();
-                }
-                count.addAndGet(1);
-                if (count.get() >= to) {
-                    break;
-                }
-            }
-        } catch (IOException e) {
-            throw new FileException(e.getCause());
-        } finally {
-            IOUtils.closeQuietly(reader);
-        }
-        return new Result(list);
+        // reader = new FileReader(context.getCommand().get(FILE_PATH));
+        // LineIterator lineIterator = IOUtils.lineIterator(reader);
+        // int from = (context.getPageIndex() - 1) * context.getPageSize();
+        // int to = from + context.getPageSize();
+        // AtomicLong count = new AtomicLong();
+        // while (lineIterator.hasNext()) {
+        // if (count.get() >= from && count.get() < to) {
+        // list.add(fileResolver.parseMap(fields, separator, lineIterator.next()));
+        // } else {
+        // lineIterator.next();
+        // }
+        // count.addAndGet(1);
+        // if (count.get() >= to) {
+        // break;
+        // }
+        // }
+        // } catch (IOException e) {
+        // throw new FileException(e.getCause());
+        // } finally {
+        // IOUtils.closeQuietly(reader);
+        // }
+        // return new Result(list);
     }
 
     @Override
@@ -193,12 +198,13 @@ public final class FileConnector extends AbstractConnector implements ConnectorS
         PluginContext context = syncRows.get(0).getContext();
         List<Field> targetFields = syncRows.get(0).getTargetFields();
 
-        final String separator = new String(new char[]{connectorInstance.getConfig().getSeparator()});
+        final String separator = new String(new char[] { connectorInstance.getConfig().getSeparator() });
 
         Result result = new Result();
         OutputStream output = null;
         try {
-            final String filePath = connectorInstance.getFilePath(context.getCommand().get(FILE_NAME));
+            final String filePath = connectorInstance
+                    .getFilePath(syncRows.get(0).getTableGroup().getCommand().get(FILE_NAME));
             output = new FileOutputStream(filePath, true);
             List<String> lines = data.stream().map(row -> {
                 List<String> array = new ArrayList<>();

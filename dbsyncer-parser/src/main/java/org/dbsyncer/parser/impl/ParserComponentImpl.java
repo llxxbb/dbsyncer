@@ -119,7 +119,6 @@ public class ParserComponentImpl implements ParserComponent {
         context.setTargetConnectorInstance(connectorFactory.connect(tConfig));
         context.setSourceTable(group.getSourceTable());
         context.setEvent(ConnectorConstant.OPERTION_INSERT);
-        context.setCommand(command);
         context.setPageSize(mapping.getReadNum());
         context.setEnableSchemaResolver(profileComponent.getSystemConfig().isEnableSchemaResolver());
         context.setCursors(tableGroup.getCursors());
@@ -133,9 +132,9 @@ public class ParserComponentImpl implements ParserComponent {
         boolean supportedCursor = null != tableGroup.getCursors();
         String querySql;
         if (supportedCursor) {
-            querySql = context.getCommand().get(ConnectorConstant.OPERTION_QUERY_CURSOR);
+            querySql = command.get(ConnectorConstant.OPERTION_QUERY_CURSOR);
         } else {
-            querySql = context.getCommand().get(ConnectorConstant.OPERTION_QUERY_STREAM);
+            querySql = command.get(ConnectorConstant.OPERTION_QUERY_STREAM);
         }
 
         // 流式处理模式

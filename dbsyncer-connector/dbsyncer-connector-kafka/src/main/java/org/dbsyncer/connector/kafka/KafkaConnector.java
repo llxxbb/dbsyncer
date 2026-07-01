@@ -122,7 +122,7 @@ public class KafkaConnector extends AbstractConnector implements ConnectorServic
 
         Result result = new Result();
         try {
-            String topic = context.getCommand().get("topic");
+            String topic = syncRows.get(0).getTableGroup().getCommand().get("topic");
             topic = topic == null ? connectorInstance.getConfig().getTopic() : topic;
 
             if (topic == null || topic.isEmpty()) {

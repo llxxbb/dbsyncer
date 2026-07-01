@@ -208,36 +208,37 @@ public final class ElasticsearchConnector extends AbstractConnector implements C
 
     @Override
     public Result reader(ESConnectorInstance connectorInstance, ReaderContext context) {
-        SearchSourceBuilder builder = new SearchSourceBuilder();
-        genSearchSourceBuilder(builder, context.getCommand());
-        builder.timeout(TimeValue.timeValueSeconds(connectorInstance.getConfig().getTimeoutSeconds()));
-        // 深度分页：使用 cursor 进行深度分页，不需要显式设置 sort，因为 cursor 已包含排序值
-        // if (!CollectionUtils.isEmpty(context.getCursors())) {/* 排序已在 cursor 中设置 */}
-        if (!CollectionUtils.isEmpty(context.getCursors())) {
-            builder.from(0);
-            builder.searchAfter(context.getCursors());
-        } else {
-            builder.from((context.getPageIndex() - 1) * context.getPageSize());
-        }
-        builder.size(Math.min(context.getPageSize(), 10000));
+        throw new UnsupportedOperationException("ES reader temporarily disabled, pending adapter for TableGroup.getCommand()");
+        // SearchSourceBuilder builder = new SearchSourceBuilder();
+        // genSearchSourceBuilder(builder, context.getCommand());
+        // builder.timeout(TimeValue.timeValueSeconds(connectorInstance.getConfig().getTimeoutSeconds()));
+        // // 深度分页：使用 cursor 进行深度分页，不需要显式设置 sort，因为 cursor 已包含排序值
+        // // if (!CollectionUtils.isEmpty(context.getCursors())) {/* 排序已在 cursor 中设置 */}
+        // if (!CollectionUtils.isEmpty(context.getCursors())) {
+        //     builder.from(0);
+        //     builder.searchAfter(context.getCursors());
+        // } else {
+        //     builder.from((context.getPageIndex() - 1) * context.getPageSize());
+        // }
+        // builder.size(Math.min(context.getPageSize(), 10000));
 
-        try {
-            SearchRequest rq = new SearchRequest(new String[]{context.getCommand().get(_SOURCE_INDEX)}, builder);
-            SearchResponse searchResponse = connectorInstance.getConnection().searchWithVersion(rq, RequestOptions.DEFAULT);
-            SearchHits hits = searchResponse.getHits();
-            SearchHit[] searchHits = hits.getHits();
-            List<Map<String, Object>> list = new ArrayList<>();
-            for (SearchHit hit : searchHits) {
-                list.add(hit.getSourceAsMap());
-            }
-            if (searchResponse.getInternalResponse().timedOut()) {
-                throw new ElasticsearchException("search timeout:" + searchResponse.getTook().getMillis() + "ms, pageIndex:" + context.getPageIndex() + ", pageSize:" + context.getPageSize());
-            }
-            return new Result(list);
-        } catch (IOException e) {
-            logger.error(e.getMessage());
-            throw new ElasticsearchException(e.getMessage());
-        }
+        // try {
+        //     SearchRequest rq = new SearchRequest(new String[]{context.getCommand().get(_SOURCE_INDEX)}, builder);
+        //     SearchResponse searchResponse = connectorInstance.getConnection().searchWithVersion(rq, RequestOptions.DEFAULT);
+        //     SearchHits hits = searchResponse.getHits();
+        //     SearchHit[] searchHits = hits.getHits();
+        //     List<Map<String, Object>> list = new ArrayList<>();
+        //     for (SearchHit hit : searchHits) {
+        //         list.add(hit.getSourceAsMap());
+        //     }
+        //     if (searchResponse.getInternalResponse().timedOut()) {
+        //         throw new ElasticsearchException("search timeout:" + searchResponse.getTook().getMillis() + "ms, pageIndex:" + context.getPageIndex() + ", pageSize:" + context.getPageSize());
+        //     }
+        //     return new Result(list);
+        // } catch (IOException e) {
+        //     logger.error(e.getMessage());
+        //     throw new ElasticsearchException(e.getMessage());
+        // }
     }
 
     @Override
@@ -266,8 +267,8 @@ public final class ElasticsearchConnector extends AbstractConnector implements C
         }
         try {
             final BulkRequest request = new BulkRequest();
-            final String indexName = context.getCommand().get(_TARGET_INDEX);
-            final String type = context.getCommand().get(_TYPE);
+            final String indexName = syncRows.get(0).getTableGroup().getCommand().get(_TARGET_INDEX);
+            final String type = syncRows.get(0).getTableGroup().getCommand().get(_TYPE);
             data.forEach(row -> addRequest(request, indexName, type, context.getEvent(), String.valueOf(row.get(pk)), row));
 
             BulkResponse response = connectorInstance.getConnection().bulkWithVersion(request, RequestOptions.DEFAULT);

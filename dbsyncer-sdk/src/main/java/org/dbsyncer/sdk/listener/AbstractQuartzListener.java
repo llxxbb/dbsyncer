@@ -123,7 +123,6 @@ public abstract class AbstractQuartzListener extends AbstractListener implements
         context.setSourceConnectorInstance(connectorInstance);
         context.setTargetConnectorInstance(targetConnectorInstance);
         context.setSourceTable(table);
-        context.setCommand(point.getCommand());
         context.setPageSize(READ_NUM);
         while (running) {
             context.setArgs(point.getArgs());

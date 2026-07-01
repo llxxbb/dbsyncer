@@ -347,12 +347,6 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
     @Override
     public Result upsert(DatabaseConnectorInstance connectorInstance, List<SyncRow> syncRows) {
         List<Field> fields = new ArrayList<>(syncRows.get(0).getTargetFields());
-        List<Field> pkFields = syncRows.get(0).getTableGroup().getTargetTable().getPkFields();
-        if (CollectionUtils.isEmpty(pkFields)) {
-            throw new SdkException("Primary keys cannot be empty for UPSERT operation");
-        }
-        removeFieldWithPk(fields, pkFields);
-        fields.addAll(pkFields);
         return executeWriter(connectorInstance, syncRows, fields);
     }
 
@@ -367,8 +361,6 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
         if (CollectionUtils.isEmpty(fields)) {
             throw new SdkException("writer fields can not be empty.");
         }
-        PluginContext context = syncRows.get(0).getContext();
-
         // 获取重试配置
         RetryConfig retryConfig = SpringContextUtil.getBean(RetryConfig.class);
         RetryPolicy policy = retryConfig != null ? retryConfig.getGlobal() : new RetryPolicy();
@@ -401,9 +393,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
      */
     protected int[] doExecuteBatch(DatabaseConnectorInstance connectorInstance,
             List<Field> fields, List<SyncRow> syncRows) throws Exception {
-        PluginContext context = syncRows.get(0).getContext();
-        String event = context.getEvent();
-        String executeSql = context.getCommand().get(event);
+        String event = syncRows.get(0).getContext().getEvent();
+        String executeSql = syncRows.get(0).getTableGroup().getCommand().get(event);
         // 从 SyncRow 中提取数据用于参数绑定
         List<Map> data = new ArrayList<>(syncRows.size());
         for (SyncRow row : syncRows) {
