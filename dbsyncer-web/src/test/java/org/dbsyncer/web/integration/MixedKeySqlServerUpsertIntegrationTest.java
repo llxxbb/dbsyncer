@@ -34,7 +34,7 @@ import static org.junit.Assert.*;
 public class MixedKeySqlServerUpsertIntegrationTest extends BaseDDLIntegrationTest {
 
     static {
-        System.setProperty("sqlserver.ct.poll.interval.ms", "100");
+        System.setProperty("sqlserver.ct.poll.interval.ms", "500");
     }
 
     @BeforeClass
@@ -98,6 +98,19 @@ public class MixedKeySqlServerUpsertIntegrationTest extends BaseDDLIntegrationTe
     @Before
     public void setUp() throws Exception {
         logger.info("开始测试：混合主键 UPSERT");
+        cleanupResidualTestMappings();
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        try {
+            if (mappingId != null) {
+                mappingService.stop(mappingId);
+            }
+        } catch (Exception e) {
+            logger.warn("停止测试 mapping 失败（可能已停止）: {}", e.getMessage());
+        }
+        cleanupResidualTestMappings();
     }
 
     @Override
@@ -154,37 +167,10 @@ public class MixedKeySqlServerUpsertIntegrationTest extends BaseDDLIntegrationTe
     public void testUpsertMixedKey() throws Exception {
         logger.info("测试混合主键 UPSERT - 验证 WHERE 条件完整性...");
 
-        // 创建连接器和映射
+        // 创建连接器和映射（包含完整的 site_id 配置）
         sourceConnectorId = createConnector(getSourceConnectorName(), sourceConfig, true);
         targetConnectorId = createConnector(getTargetConnectorName(), targetConfig, false);
-
-        // 创建映射：只映射 id, name, age，不映射 site_id
-        Map<String, String> params = new HashMap<>();
-        params.put("name", "混合主键测试映射");
-        params.put("sourceConnectorId", sourceConnectorId);
-        params.put("targetConnectorId", targetConnectorId);
-        params.put("model", "increment");
-        params.put("incrementStrategy", "Log");
-        params.put("enableDDL", "true");
-        params.put("enableInsert", "true");
-        params.put("enableUpdate", "true");
-        params.put("enableDelete", "true");
-        mappingId = mappingService.add(params);
-
-        // 创建 TableGroup，只映射 id->id
-        Map<String, String> tableGroupParams = new HashMap<>();
-        tableGroupParams.put("mappingId", mappingId);
-        tableGroupParams.put("sourceTable", "mixed_t1");
-        tableGroupParams.put("targetTable", "mixed_t2");
-        tableGroupParams.put("fieldMappings", "id,id|name,name|age,age");
-        tableGroupService.add(tableGroupParams);
-
-        // 重置 TableGroup 状态
-        List<org.dbsyncer.sdk.model.TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
-        org.dbsyncer.sdk.model.TableGroup tableGroup = tableGroups.get(0);
-        tableGroup.setFullCompleted(false);
-        tableGroup.setCursors(null);
-        profileComponent.editConfigModel(tableGroup);
+        mappingId = createMapping();
 
         // 启动同步监听
         mappingService.start(mappingId);
@@ -205,18 +191,14 @@ public class MixedKeySqlServerUpsertIntegrationTest extends BaseDDLIntegrationTe
         // 验证初始数据
         Map<String, Object> alice = queryRow("mixed_t2", "[id]=1", targetConfig);
         assertNotNull("Alice 应存在", alice);
-        assertEquals("Alice Age 应为 25", 25L, alice.get("age"));
+        assertEquals("Alice Age 应为 25", 25, alice.get("age"));
 
         Map<String, Object> bob = queryRow("mixed_t2", "[id]=2", targetConfig);
         assertNotNull("Bob 应存在", bob);
-        assertEquals("Bob Age 应为 30", 30L, bob.get("age"));
+        assertEquals("Bob Age 应为 30", 30, bob.get("age"));
 
         // 更新 Alice 的 Age 为 26
         updateRow("mixed_t1", 1, "Alice", 26, sourceConfig);
-        Thread.sleep(3000);
-
-        // 再次启动同步
-        mappingService.start(mappingId);
         Thread.sleep(3000);
 
         // 验证：只有 Alice 被更新，Bob 不变（核心验证点）
@@ -225,42 +207,63 @@ public class MixedKeySqlServerUpsertIntegrationTest extends BaseDDLIntegrationTe
 
         alice = queryRow("mixed_t2", "[id]=1", targetConfig);
         assertNotNull("Alice 应存在", alice);
-        assertEquals("Alice Age 应为 26", 26L, alice.get("age"));
+        assertEquals("Alice Age 应为 26", 26, alice.get("age"));
 
         bob = queryRow("mixed_t2", "[id]=2", targetConfig);
         assertNotNull("Bob 应存在", bob);
-        assertEquals("Bob Age 应保持 30", 30L, bob.get("age"));
+        assertEquals("Bob Age 应保持 30", 30, bob.get("age"));
 
         logger.info("✅ 测试通过：只有 Alice 被更新，Bob 不受影响！");
     }
 
+    @Override
     protected String createMapping() throws Exception {
-        Map<String, String> p = new HashMap<>();
-        p.put("name", getMappingName());
-        p.put("sourceConnectorId", sourceConnectorId);
-        p.put("targetConnectorId", targetConnectorId);
-        p.put("model", "increment");
-        p.put("incrementStrategy", getIncrementStrategy());
-        p.put("enableDDL", "true");
-        p.put("enableInsert", "true");
-        p.put("enableUpdate", "true");
-        p.put("enableDelete", "true");
-        mappingId = mappingService.add(p);
-        p.put("id", mappingId);
-        mappingService.edit(p);
+        Map<String, String> params = new HashMap<>();
+        params.put("name", getMappingName());
+        params.put("sourceConnectorId", sourceConnectorId);
+        params.put("targetConnectorId", targetConnectorId);
+        params.put("model", "increment");
+        params.put("incrementStrategy", getIncrementStrategy());
+        params.put("enableDDL", "true");
+        params.put("enableInsert", "true");
+        params.put("enableUpdate", "true");
+        params.put("enableDelete", "true");
+        mappingId = mappingService.add(params);
+
         Map<String, String> tableGroupParams = new HashMap<>();
         tableGroupParams.put("mappingId", mappingId);
         tableGroupParams.put("sourceTable", getSourceTableName());
         tableGroupParams.put("targetTable", getTargetTableName());
-        tableGroupParams.put("fieldMappings", String.join(",", getInitialFieldMappings()));
         tableGroupService.add(tableGroupParams);
+
+        List<org.dbsyncer.sdk.model.TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
+        if (!tableGroups.isEmpty()) {
+            org.dbsyncer.sdk.model.TableGroup tableGroup = tableGroups.get(0);
+
+            org.dbsyncer.sdk.model.Field siteIdField = tableGroup.getTargetTable().findColumnByName("site_id");
+            java.util.List<org.dbsyncer.sdk.model.FieldMapping> fieldMappings = new java.util.ArrayList<>(tableGroup.getFieldMapping());
+            fieldMappings.add(new org.dbsyncer.sdk.model.FieldMapping((org.dbsyncer.sdk.model.Field) null, siteIdField));
+            tableGroup.setFieldMapping(fieldMappings);
+
+            org.dbsyncer.sdk.model.Convert siteIdConvert = new org.dbsyncer.sdk.model.Convert();
+            siteIdConvert.setName("site_id");
+            siteIdConvert.setConvertCode("FIXED");
+            siteIdConvert.setArgs("5");
+            siteIdConvert.setRoot(true);
+            tableGroup.setConvert(java.util.Collections.singletonList(siteIdConvert));
+
+            tableGroup.isInit = false;
+            profileComponent.editConfigModel(tableGroup);
+        }
         return mappingId;
     }
 
     private void insertRow(String table, int id, String name, int age, DatabaseConfig cfg) throws Exception {
         new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(cfg)
                 .execute(t -> {
+                    t.execute("SET IDENTITY_INSERT " + table + " ON");
                     t.execute(String.format("INSERT INTO %s (id, name, age) VALUES (%d, '%s', %d)", table, id, name, age));
+                    t.execute("SET IDENTITY_INSERT " + table + " OFF");
                     return null;
                 });
     }

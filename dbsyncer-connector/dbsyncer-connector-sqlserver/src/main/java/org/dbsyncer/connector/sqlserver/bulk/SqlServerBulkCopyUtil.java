@@ -198,6 +198,8 @@ public class SqlServerBulkCopyUtil {
 
         // 构建参数化的批量插入 SQL
         String sql = sqlTemplate.buildBatchInsertSql(schemaTable, fields, batchData.size());
+        logger.debug("SQL: {}", sql);
+
         
         // 执行批量插入
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
@@ -388,6 +390,7 @@ public class SqlServerBulkCopyUtil {
 
         // 构建 MERGE 语句
         String sql = sqlTemplate.buildBatchUpsertSql(schemaTable, fields, batchData.size(), primaryKeys);
+        logger.debug("SQL: {}", sql);
         
         // 执行批量 UPSERT
         try (PreparedStatement ps = connection.prepareStatement(sql)) {

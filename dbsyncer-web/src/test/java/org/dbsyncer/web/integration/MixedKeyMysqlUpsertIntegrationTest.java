@@ -1,6 +1,11 @@
 package org.dbsyncer.web.integration;
 
 import org.dbsyncer.sdk.config.DatabaseConfig;
+import org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance;
+import org.dbsyncer.sdk.model.Convert;
+import org.dbsyncer.sdk.model.Field;
+import org.dbsyncer.sdk.model.FieldMapping;
+import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.web.Application;
 import org.junit.*;
 import org.junit.runner.RunWith;
@@ -24,7 +29,7 @@ import static org.junit.Assert.*;
  * 1. 源表主键：id (单主键)
  * 2. 目标表主键：(id, site_id) 复合主键
  * 3. site_id 是目标端自有字段，不存在于源表
- * 4. 为 site_id 添加固定值转换器：固定值 = 5
+ * 4. site_id 必须同时加入 fieldMapping（使 SQL 包含该列）和 FIXED 转换器（提供固定值 5）
  * 
  * 测试目的：验证 UPSERT WHERE 条件是否包含所有主键列（包括 site_id）
  * 如果 WHERE 条件缺失 site_id，会导致多行被误更新！
@@ -95,6 +100,19 @@ public class MixedKeyMysqlUpsertIntegrationTest extends BaseDDLIntegrationTest {
     @Before
     public void setUp() throws Exception {
         logger.info("开始测试：混合主键 UPSERT");
+        cleanupResidualTestMappings();
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        try {
+            if (mappingId != null) {
+                mappingService.stop(mappingId);
+            }
+        } catch (Exception e) {
+            logger.warn("停止测试 mapping 失败（可能已停止）: {}", e.getMessage());
+        }
+        cleanupResidualTestMappings();
     }
 
     @Override
@@ -151,37 +169,10 @@ public class MixedKeyMysqlUpsertIntegrationTest extends BaseDDLIntegrationTest {
     public void testUpsertMixedKey() throws Exception {
         logger.info("测试混合主键 UPSERT - 验证 WHERE 条件完整性...");
 
-        // 创建连接器和映射
+        // 创建连接器和映射（包含完整的 site_id 配置）
         sourceConnectorId = createConnector(getSourceConnectorName(), sourceConfig, true);
         targetConnectorId = createConnector(getTargetConnectorName(), targetConfig, false);
-
-        // 创建映射：只映射 id, name, age，不映射 site_id
-        Map<String, String> params = new HashMap<>();
-        params.put("name", "混合主键测试映射");
-        params.put("sourceConnectorId", sourceConnectorId);
-        params.put("targetConnectorId", targetConnectorId);
-        params.put("model", "increment");
-        params.put("incrementStrategy", "Log");
-        params.put("enableDDL", "true");
-        params.put("enableInsert", "true");
-        params.put("enableUpdate", "true");
-        params.put("enableDelete", "true");
-        mappingId = mappingService.add(params);
-
-        // 创建 TableGroup，只映射 id->id
-        Map<String, String> tableGroupParams = new HashMap<>();
-        tableGroupParams.put("mappingId", mappingId);
-        tableGroupParams.put("sourceTable", "mixed_t1");
-        tableGroupParams.put("targetTable", "mixed_t2");
-        tableGroupParams.put("fieldMappings", "id,id|name,name|age,age");
-        tableGroupService.add(tableGroupParams);
-
-        // 重置 TableGroup 状态
-        List<org.dbsyncer.sdk.model.TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
-        org.dbsyncer.sdk.model.TableGroup tableGroup = tableGroups.get(0);
-        tableGroup.setFullCompleted(false);
-        tableGroup.setCursors(null);
-        profileComponent.editConfigModel(tableGroup);
+        mappingId = createMapping();
 
         // 启动同步监听
         mappingService.start(mappingId);
@@ -210,10 +201,6 @@ public class MixedKeyMysqlUpsertIntegrationTest extends BaseDDLIntegrationTest {
 
         // 更新 Alice 的 Age 为 26
         updateRow("mixed_t1", 1, "Alice", 26, sourceConfig);
-        Thread.sleep(2000);
-
-        // 再次启动同步
-        mappingService.start(mappingId);
         Thread.sleep(3000);
 
         // 验证：只有 Alice 被更新，Bob 不变（核心验证点）
@@ -231,31 +218,50 @@ public class MixedKeyMysqlUpsertIntegrationTest extends BaseDDLIntegrationTest {
         logger.info("✅ 测试通过：只有 Alice 被更新，Bob 不受影响！");
     }
 
+    @Override
     protected String createMapping() throws Exception {
-        Map<String, String> p = new HashMap<>();
-        p.put("name", getMappingName());
-        p.put("sourceConnectorId", sourceConnectorId);
-        p.put("targetConnectorId", targetConnectorId);
-        p.put("model", "increment");
-        p.put("incrementStrategy", getIncrementStrategy());
-        p.put("enableDDL", "true");
-        p.put("enableInsert", "true");
-        p.put("enableUpdate", "true");
-        p.put("enableDelete", "true");
-        mappingId = mappingService.add(p);
-        p.put("id", mappingId);
-        mappingService.edit(p);
+        Map<String, String> params = new HashMap<>();
+        params.put("name", getMappingName());
+        params.put("sourceConnectorId", sourceConnectorId);
+        params.put("targetConnectorId", targetConnectorId);
+        params.put("model", "increment");
+        params.put("incrementStrategy", getIncrementStrategy());
+        params.put("enableDDL", "true");
+        params.put("enableInsert", "true");
+        params.put("enableUpdate", "true");
+        params.put("enableDelete", "true");
+        mappingId = mappingService.add(params);
+
         Map<String, String> tableGroupParams = new HashMap<>();
         tableGroupParams.put("mappingId", mappingId);
         tableGroupParams.put("sourceTable", getSourceTableName());
         tableGroupParams.put("targetTable", getTargetTableName());
-        tableGroupParams.put("fieldMappings", String.join(",", getInitialFieldMappings()));
         tableGroupService.add(tableGroupParams);
+
+        List<TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
+        if (!tableGroups.isEmpty()) {
+            TableGroup tableGroup = tableGroups.get(0);
+
+            Field siteIdField = tableGroup.getTargetTable().findColumnByName("site_id");
+            java.util.List<FieldMapping> fieldMappings = new java.util.ArrayList<>(tableGroup.getFieldMapping());
+            fieldMappings.add(new FieldMapping((Field) null, siteIdField));
+            tableGroup.setFieldMapping(fieldMappings);
+
+            Convert siteIdConvert = new Convert();
+            siteIdConvert.setName("site_id");
+            siteIdConvert.setConvertCode("FIXED");
+            siteIdConvert.setArgs("5");
+            siteIdConvert.setRoot(true);
+            tableGroup.setConvert(java.util.Collections.singletonList(siteIdConvert));
+
+            tableGroup.isInit = false;
+            profileComponent.editConfigModel(tableGroup);
+        }
         return mappingId;
     }
 
     private void insertRow(String table, int id, String name, int age, DatabaseConfig cfg) throws Exception {
-        new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(cfg)
+        new DatabaseConnectorInstance(cfg)
                 .execute(t -> {
                     t.execute(String.format("INSERT INTO %s (id, name, age) VALUES (%d, '%s', %d)", table, id, name, age));
                     return null;
@@ -263,7 +269,7 @@ public class MixedKeyMysqlUpsertIntegrationTest extends BaseDDLIntegrationTest {
     }
 
     private void updateRow(String table, int id, String name, int age, DatabaseConfig cfg) throws Exception {
-        new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(cfg)
+        new DatabaseConnectorInstance(cfg)
                 .execute(t -> {
                     t.execute(String.format("UPDATE %s SET age=%d WHERE id=%d", table, age, id));
                     return null;
@@ -271,12 +277,12 @@ public class MixedKeyMysqlUpsertIntegrationTest extends BaseDDLIntegrationTest {
     }
 
     private long countRows(String table, DatabaseConfig cfg) throws Exception {
-        return (Long) new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(cfg)
+        return (Long) new DatabaseConnectorInstance(cfg)
                 .execute(t -> t.queryForObject("SELECT COUNT(*) FROM " + table, Long.class));
     }
 
     private Map<String, Object> queryRow(String table, String where, DatabaseConfig cfg) throws Exception {
-        return (Map<String, Object>) new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(cfg)
+        return (Map<String, Object>) new DatabaseConnectorInstance(cfg)
                 .execute(t -> {
                     List<Map<String, Object>> r = t.queryForList("SELECT * FROM " + table + " WHERE " + where + " LIMIT 1");
                     return r.isEmpty() ? null : r.get(0);

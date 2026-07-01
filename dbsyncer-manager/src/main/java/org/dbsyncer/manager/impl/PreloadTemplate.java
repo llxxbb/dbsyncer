@@ -211,8 +211,7 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
                 generalExecutor.execute(() -> {
                     try {
                         connectorFactory.disconnect(connector.getConfig());
-                        ConnectorInstance connectorInstance = connectorFactory.connect(connector.getConfig());
-                        logger.info("Completed connection {} {}", connector.getConfig().getConnectorType(), connectorInstance.getServiceUrl());
+                        connectorFactory.connect(connector.getConfig());
                     } catch (Exception e) {
                         logger.error("连接配置异常", e);
                         logService.log(LogType.ConnectorLog.FAILED, e.getMessage());
