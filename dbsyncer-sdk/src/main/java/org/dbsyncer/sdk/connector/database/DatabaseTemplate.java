@@ -587,7 +587,9 @@ public class DatabaseTemplate implements JdbcOperations {
             ps = psc.createPreparedStatement(connection);
             applyStatementSettings(ps);
             T result = action.doInPreparedStatement(ps);
-            handleWarnings(ps);
+            if (closeResources) {
+                handleWarnings(ps);
+            }
             return result;
         } catch (SQLException ex) {
             // Release Connection early, to avoid potential connection pool deadlock

@@ -35,7 +35,7 @@ public class MySQLToSqlServerDMLIntegrationTest extends BaseDDLIntegrationTest {
 
     static {
         // 测试环境减少 CT 轮询间隔到 1 秒，加速 DDL 同步检测
-        System.setProperty("sqlserver.ct.poll.interval.ms", "100");
+        System.setProperty("sqlserver.ct.poll.interval.ms", "500");
     }
 
     private static DatabaseConfig mysqlConfig;
