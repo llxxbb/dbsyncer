@@ -108,10 +108,6 @@ public class ParserComponentImpl implements ParserComponent {
         ConnectorConfig tConfig = getConnectorConfig(targetConnectorId);
         TableGroup group = PickerUtil.mergeTableGroupConfig(mapping, tableGroup);
         Map<String, String> command = group.getCommand();
-        // append mapping param to command
-        if (mapping.getParams() != null)
-            command.putAll(mapping.getParams());
-
         List<String> primaryKeys = group.getSourceTable().getPrimaryKeys();
 
         final AbstractPluginContext context = new AbstractPluginContext();

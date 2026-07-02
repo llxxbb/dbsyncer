@@ -26,6 +26,8 @@ public class DDLConfig {
 
     private Map<String, String> changedFieldNames = new LinkedHashMap<>();
     
+    private Map<String, String> params = new LinkedHashMap<>();
+    
     public String getSql() {
         return sql;
     }
@@ -80,5 +82,13 @@ public class DDLConfig {
 
     public void setChangedFieldNames(Map<String, String> changedFieldNames) {
         this.changedFieldNames = changedFieldNames;
+    }
+    
+    public Map<String, String> getParams() {
+        return params;
+    }
+    
+    public void setParams(Map<String, String> params) {
+        this.params = params;
     }
 }

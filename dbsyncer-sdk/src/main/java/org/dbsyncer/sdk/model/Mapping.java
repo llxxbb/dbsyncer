@@ -3,7 +3,6 @@ package org.dbsyncer.sdk.model;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.dbsyncer.sdk.config.ListenerConfig;
 import org.dbsyncer.sdk.constant.ConfigConstant;
-import org.dbsyncer.sdk.enums.ModelEnum;
 
 import java.util.List;
 
@@ -15,7 +14,9 @@ public class Mapping extends AbstractConfigModel {
 
     private String sourceConnectorId;
     private String targetConnectorId;
+    @JsonIgnore
     private List<Field> sourceColumn;
+    @JsonIgnore
     private List<Field> targetColumn;
     private String model;
     private ListenerConfig listener;
@@ -44,18 +45,22 @@ public class Mapping extends AbstractConfigModel {
         this.targetConnectorId = targetConnectorId;
     }
 
+    @JsonIgnore
     public List<Field> getSourceColumn() {
         return sourceColumn;
     }
 
+    @JsonIgnore
     public void setSourceColumn(List<Field> sourceColumn) {
         this.sourceColumn = sourceColumn;
     }
 
+    @JsonIgnore
     public List<Field> getTargetColumn() {
         return targetColumn;
     }
 
+    @JsonIgnore
     public void setTargetColumn(List<Field> targetColumn) {
         this.targetColumn = targetColumn;
     }

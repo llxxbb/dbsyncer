@@ -29,9 +29,6 @@ import org.dbsyncer.sdk.enums.ChangedEventTypeEnum;
 import org.dbsyncer.sdk.enums.DDLOperationEnum;
 import org.dbsyncer.sdk.listener.ChangedEvent;
 import org.dbsyncer.sdk.listener.Listener;
-import org.dbsyncer.sdk.model.ChangedOffset;
-import org.dbsyncer.sdk.model.ConnectorConfig;
-import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.plugin.SyncRow;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.sdk.util.RowConverter;
@@ -136,12 +133,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
                 // DDL 处理：更新 fieldMapping 并强制刷新缓存
                 // 1. 先处理 DDL，更新 TableGroup 的 fieldMapping
                 List<TableGroup> updatedTableGroups = pickers.stream().map(picker -> {
-                    TableGroup tableGroup = null;
-                    try {
-                        tableGroup = profileComponent.getTableGroup(picker.getTableGroup().getId());
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
+                    TableGroup tableGroup = picker.getTableGroup();
                     parseDDl(response, mapping, tableGroup);
                     return tableGroup;
                 }).collect(Collectors.toList());
@@ -421,8 +413,11 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             ConnectorConfig tConnConfig = getConnectorConfig(mapping.getTargetConnectorId());
             String tConnType = tConnConfig.getConnectorType();
             ConnectorService connectorService = connectorFactory.getConnectorService(tConnType);
-            // 传递源和目标连接器类型信息给DDL解析器
+            // 传递源和目标连接器类型信息给 DDL 解析器
             DDLConfig targetDDLConfig = ddlParser.parse(connectorService, tableGroup, response.getSql());
+            
+            // 复制 tableGroup 的 params 到 DDLConfig，这样 writerDDL 可以访问 mapping 配置的 topic
+            ddlParser.copyParamsToDDLConfig(tableGroup, targetDDLConfig);
 
             // 3. 根据操作类型检查细粒度配置
             DDLOperationEnum operation = targetDDLConfig.getDdlOperationEnum();

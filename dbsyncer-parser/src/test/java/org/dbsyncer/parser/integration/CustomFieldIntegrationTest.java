@@ -309,6 +309,94 @@ public class CustomFieldIntegrationTest {
         assertNotNull(result.get("created_time"));
     }
 
+    @Test
+    public void testKafkaTargetWithEmptyTargetColumns() {
+        // 复现 bug：以 Kafka 等无 Schema 连接器为目标端时，
+        // targetTable.getColumn() 为空，原本会导致非 converter 字段丢失。
+        // 预期：SyncRow 应包含所有 fieldMapping 字段（包括非 converter 字段）。
+
+        // 重新初始化一个 TableGroup，目标表列列表为空（模拟 Kafka 场景）
+        TableGroup kafkaGroup = new TableGroup();
+        kafkaGroup.setConvert(new ArrayList<>());
+
+        // 源表：有完整列定义
+        MetaInfo sourceTable = new MetaInfo();
+        List<Field> sourceColumns = new ArrayList<>();
+        String[] srcNames = {"col_a", "col_b", "col_c", "col_d", "col_e"};
+        for (String name : srcNames) {
+            Field f = new Field();
+            f.setName(name);
+            f.setTypeName("VARCHAR");
+            sourceColumns.add(f);
+        }
+        sourceTable.setColumn(sourceColumns);
+
+        // 目标表：空列列表（Kafka 行为）
+        MetaInfo targetTable = new MetaInfo();
+        targetTable.setColumn(new ArrayList<>());
+
+        kafkaGroup.setSourceTable(sourceTable);
+        kafkaGroup.setTargetTable(targetTable);
+
+        // 5 个字段映射
+        List<FieldMapping> fieldMappings = new ArrayList<>();
+        fieldMappings.add(new FieldMapping("col_a", "tgt_a"));
+        fieldMappings.add(new FieldMapping("col_b", "tgt_b"));
+        fieldMappings.add(new FieldMapping("col_c", "tgt_c"));
+        fieldMappings.add(new FieldMapping("col_d", "tgt_d"));
+        fieldMappings.add(new FieldMapping("col_e", "tgt_e"));
+        kafkaGroup.setFieldMapping(fieldMappings);
+
+        // 仅为 2 个字段配置 converter
+        List<Convert> converts = new ArrayList<>();
+        Convert convA = new Convert();
+        convA.setName("tgt_a");
+        convA.setConvertCode(ConvertEnum.FIXED.getCode());
+        convA.setArgs("FIXED_VALUE");
+        convA.setRoot(true);
+        converts.add(convA);
+
+        Convert convB = new Convert();
+        convB.setName("tgt_b");
+        convB.setConvertCode(ConvertEnum.DEFAULT.getCode());
+        convB.setArgs("DEFAULT_VALUE");
+        convB.setRoot(true);
+        converts.add(convB);
+        kafkaGroup.setConvert(converts);
+
+        ConvertUtil.validateFieldConverterRule(converts);
+
+        // 准备源数据
+        List<Map> sourceData = new ArrayList<>();
+        Map<String, Object> record = new HashMap<>();
+        record.put("col_a", "raw_a");
+        record.put("col_b", "raw_b");
+        record.put("col_c", "raw_c");
+        record.put("col_d", "raw_d");
+        record.put("col_e", "raw_e");
+        sourceData.add(record);
+
+        // 合并配置 + 创建 Picker + 执行映射
+        TableGroup merged = PickerUtil.mergeTableGroupConfig(mapping, kafkaGroup);
+        Picker picker = new Picker(merged);
+        List<SyncRow> rows = picker.pickTargetData(sourceData, null);
+
+        // 执行 converter
+        ConvertUtil.convert(merged.getConvert(), rows);
+
+        // 验证结果
+        assertEquals("应生成 1 条 SyncRow", 1, rows.size());
+        Map<String, Object> data = rows.get(0).getData();
+
+        // 所有 5 个字段都应该存在（之前 bug 只保留了 converter 定义的 2 个字段）
+        assertEquals("字段数应与 fieldMapping 数一致", 5, data.size());
+        assertEquals("FIXED_VALUE", data.get("tgt_a"));   // FIXED converter 覆盖
+        assertEquals("raw_b", data.get("tgt_b"));         // DEFAULT converter：值非空时保留原值
+        assertEquals("raw_c", data.get("tgt_c"));         // 非 converter 字段
+        assertEquals("raw_d", data.get("tgt_d"));         // 非 converter 字段
+        assertEquals("raw_e", data.get("tgt_e"));         // 非 converter 字段
+    }
+
     private boolean isValidUUID(String uuid) {
         try {
             // 尝试解析标准UUID格式（带连字符）

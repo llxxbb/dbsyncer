@@ -88,6 +88,13 @@ public class TableGroup extends AbstractConfigModel {
                 Field field = targetTable.findColumnByName(m.getTargetName());
                 if (field != null) {
                     result.add(field);
+                } else if (StringUtil.isNotBlank(m.getTargetName())) {
+                    // 目标表未定义该字段（如 Kafka 等无 Schema 的目标端），
+                    // 使用 fieldMapping 的 targetName 创建占位 Field，
+                    // 保证 SyncRow 包含所有映射字段，避免非 converter 字段丢失
+                    Field placeholder = new Field();
+                    placeholder.setName(m.getTargetName());
+                    result.add(placeholder);
                 }
             }
         }

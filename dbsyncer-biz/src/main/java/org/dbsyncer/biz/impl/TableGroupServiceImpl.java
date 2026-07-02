@@ -32,9 +32,7 @@ import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.parser.service.MetaService;
 import org.dbsyncer.parser.service.TableGroupModelService;
-import org.dbsyncer.sdk.model.ConfigModel;
 import org.dbsyncer.sdk.model.Convert;
-import org.dbsyncer.sdk.model.FieldMapping;
 import org.dbsyncer.sdk.config.DDLConfig;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
@@ -150,12 +148,6 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
                     } // end if customFields
                     // 目标表主键检查（DDL 之后，自定义主键字段已存在）
                     // 从目标表 MetaInfo 获取主键（数据库定义顺序）
-                    MetaInfo targetMetaInfo = model.getTargetTable();
-                    List<String> targetTablePrimaryKeys = targetMetaInfo != null ? targetMetaInfo.getPrimaryKeys() : Collections.emptyList();
-                    if (CollectionUtils.isEmpty(targetTablePrimaryKeys)) {
-                        throw new PrimaryKeyRequiredException(String.format("目标表 %s 缺少主键，无法进行数据同步。", model.getTargetTable().getName()));
-                    }
-                    // 【新增】持久化（包含完整的字段映射）
                     profileComponent.editTableGroup(model);
                     // 初始化 TableGroup（设置运行时组件并初始化 command）
                     model.isInit = false;
@@ -878,9 +870,6 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
         List<FieldDiffFixItem> items = new ArrayList<>();
         List<String> sqlStatements = new ArrayList<>();
         boolean hasDropOperation = false;
-
-        Map<String, Field> sourceFieldMap = null;
-        Map<String, Field> targetFieldMap = null;
 
         // MAPPING_ONLY 优先处理
         processMappingOnlyFields(diffVO.getMappingOnlyFields(), tableGroup, items);

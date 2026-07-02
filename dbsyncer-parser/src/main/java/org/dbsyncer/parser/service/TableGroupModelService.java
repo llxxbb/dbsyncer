@@ -3,6 +3,7 @@
  */
 package org.dbsyncer.parser.service;
 
+import org.apache.commons.lang3.StringUtils;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.StringUtil;
@@ -130,7 +131,6 @@ public class TableGroupModelService {
         tableGroup.setCommand(commandGenerated);
     }
 
-
     /**
      * 创建新的 TableGroup 对象
      * 
@@ -180,7 +180,7 @@ public class TableGroupModelService {
             return;
 
         if (tableGroup.currentVersion < TableGroup.Version) {
-            if (tableGroup.getSourceTable() != null && mapping != null) {
+            if (tableGroup.getSourceTable() != null) {
                 String connectorId = mapping.getSourceConnectorId();
                 String tableName = tableGroup.getSourceTable().getName();
 
@@ -189,15 +189,11 @@ public class TableGroupModelService {
                     MetaInfo freshMeta = persistenceService.getTableMetaInfo(connectorId, tableName);
                     tableGroup.setSourceTable(freshMeta);
                 }
-
-                // Version 6→7: 修复 targetTable.primaryKeys（targetTablePK 字段已移除）
-                if (tableGroup.getTargetTable() != null
-                        && CollectionUtils.isEmpty(tableGroup.getTargetTable().getPrimaryKeys())) {
-                    MetaInfo targetMeta = persistenceService.getTableMetaInfo(
-                            mapping.getTargetConnectorId(), tableGroup.getTargetTable().getName());
-                    tableGroup.setTargetTable(targetMeta);
-                }
             }
+            if (tableGroup.getTargetTable() == null || StringUtils.isEmpty(tableGroup.getTargetTable().getName())) {
+                MetaInfo table = tableGroup.getSourceTable().clone();
+                tableGroup.setTargetTable(table);
+            } 
         }
 
         tableGroup.currentVersion = TableGroup.Version;

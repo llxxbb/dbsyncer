@@ -88,7 +88,9 @@ public class KafkaConnector extends AbstractConnector implements ConnectorServic
     public MetaInfo getMetaInfo(KafkaConnectorInstance connectorInstance, String tableName) {
         // Kafka 作为目标连接器时，字段结构由源表决定，这里返回空的字段列表
         // 避免后续使用时出现 NullPointerException
-        return new MetaInfo().setColumn(new ArrayList<>());
+        MetaInfo metaInfo = new MetaInfo().setColumn(new ArrayList<>());
+        metaInfo.setName(tableName);
+        return metaInfo;
     }
 
     @Override
@@ -119,8 +121,8 @@ public class KafkaConnector extends AbstractConnector implements ConnectorServic
 
         Result result = new Result();
         try {
-            String topic = syncRows.get(0).getTableGroup().getCommand().get("topic");
-            topic = topic == null ? connectorInstance.getConfig().getTopic() : topic;
+            String topic = syncRows.get(0).getTableGroup().getParams()
+                .getOrDefault("topic", connectorInstance.getConfig().getTopic());
 
             if (topic == null || topic.isEmpty()) {
                 throw new KafkaException("Topic is required");
@@ -185,15 +187,20 @@ public class KafkaConnector extends AbstractConnector implements ConnectorServic
             String ddlSql = ddlConfig.getSql();
             assert ddlConfig != null && !StringUtil.isBlank(ddlSql);
 
-            // 从DDLConfig中获取表名（替代已移除的 PluginContext.getSourceTableName()）
+            // 从 DDLConfig 中获取表名（替代已移除的 PluginContext.getSourceTableName()）
             assert context != null;
             String tableName = ddlConfig.getSourceTableName();
 
-            // 获取Topic名称（使用配置中的topic）
-            KafkaConfig config = connectorInstance.getConfig();
-            String topic = config.getTopic();
+            // 获取 Topic 名称（优先使用 DDLConfig params 中的 topic，其次使用连接器配置）
+            String topic = null;
+            if (ddlConfig.getParams() != null && !ddlConfig.getParams().isEmpty()) {
+                topic = ddlConfig.getParams().get("topic");
+            }
+            if (topic == null || topic.isEmpty()) {
+                topic = connectorInstance.getConfig().getTopic();
+            }
             if (StringUtil.isBlank(topic)) {
-                throw new KafkaException("Topic配置不能为空");
+                throw new KafkaException("Topic 配置不能为空");
             }
 
             // 从context中获取源连接器信息（类似DML处理方式）
