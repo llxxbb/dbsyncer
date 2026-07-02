@@ -322,7 +322,7 @@ public class SqlServerToMySQLDMLIntegrationTest extends BaseDDLIntegrationTest {
         editParams.put("id", mappingId);
         editParams.put("model", "full");
         editParams.put("incrementStrategy", "Log");
-        editParams.put("forceUpdate", "false");
+        editParams.put("forceUpdate", "true");
         editParams.put("enableDDL", "true");
         editParams.put("enableInsert", "true");
         editParams.put("enableUpdate", "true");

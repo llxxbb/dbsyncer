@@ -32,6 +32,7 @@ import org.dbsyncer.sdk.plugin.ReaderContext;
 import org.dbsyncer.sdk.plugin.SyncRow;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.sdk.util.DatabaseUtil;
+import org.dbsyncer.sdk.util.PrimaryKeyUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -135,7 +136,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
             List<SqlTable> sqlTables = cfg.getSqlTables();
             List<Table> tables = new ArrayList<>();
             if (!CollectionUtils.isEmpty(sqlTables)) {
-                sqlTables.forEach(s -> tables.add(new Table(s.getSqlName(), TableTypeEnum.TABLE.getCode(), Collections.EMPTY_LIST, s.getSql(), null)));
+                sqlTables.forEach(s -> tables.add(new Table(s.getSqlName(), TableTypeEnum.TABLE.getCode(),
+                        Collections.EMPTY_LIST, s.getSql(), null)));
             }
             return tables;
         }
@@ -350,11 +352,11 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
         return executeWriter(connectorInstance, syncRows, fields);
     }
 
-
     /**
      * 执行写入操作（带重试支持）
      */
-    protected Result executeWriter(DatabaseConnectorInstance connectorInstance, List<SyncRow> syncRows, List<Field> fields) {
+    protected Result executeWriter(DatabaseConnectorInstance connectorInstance, List<SyncRow> syncRows,
+            List<Field> fields) {
         if (syncRows.isEmpty()) {
             throw new SdkException("writer data can not be empty.");
         }
@@ -400,8 +402,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
         for (SyncRow row : syncRows) {
             data.add(row.getData());
         }
-        return connectorInstance.execute(databaseTemplate ->
-                databaseTemplate.batchUpdate(executeSql, batchRows(fields, data)));
+        return connectorInstance
+                .execute(databaseTemplate -> databaseTemplate.batchUpdate(executeSql, batchRows(fields, data)));
     }
 
     @Override
@@ -424,7 +426,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
      * @param commandConfig 命令配置
      * @return SQL命令映射
      */
-        protected Map<String, String> buildSourceCommands(CommandConfig commandConfig) {
+    protected Map<String, String> buildSourceCommands(CommandConfig commandConfig) {
         // DQL 模式：直接使用用户自定义的 SQL
         if (isDql) {
             String queryFilterSql = getQueryFilterSql(commandConfig);
@@ -473,24 +475,9 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
         map.put(ConnectorConstant.OPERTION_QUERY_STREAM, streamingSql);
 
         // 构建游标查询SQL
-        List<String> primaryKeys = commandConfig.getTable().getPrimaryKeys();
-        if (!CollectionUtils.isEmpty(primaryKeys) && !CollectionUtils.isEmpty(commandConfig.getTable().getColumn())) {
-            Map<String, Integer> pkTypes = new HashMap<>();
-            for (String pkName : primaryKeys) {
-                Field f = commandConfig.getTable().findColumnByName(pkName);
-                if (f != null) {
-                    pkTypes.put(f.getName(), f.getType());
-                }
-            }
-            if (!CollectionUtils.isEmpty(pkTypes)) {
-                boolean isCursorSupported = pkTypes.values().stream()
-                    .allMatch(t -> t == Types.NUMERIC || t == Types.BIGINT || t == Types.INTEGER || 
-                        t == Types.TINYINT || t == Types.SMALLINT);
-                if (isCursorSupported) {
-                    String cursorSql = sqlTemplate.buildQueryCursorSql(buildContext);
-                    map.put(ConnectorConstant.OPERTION_QUERY_CURSOR, cursorSql);
-                }
-            }
+        if (PrimaryKeyUtil.isSupportedCursor(commandConfig.getTable().getColumn())) {
+            String cursorSql = sqlTemplate.buildQueryCursorSql(buildContext);
+            map.put(ConnectorConstant.OPERTION_QUERY_CURSOR, cursorSql);
         }
 
         // 构建计数SQL
@@ -856,6 +843,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
     private static class KeySeqName {
         final int keySeq;
         final String name;
+
         KeySeqName(int keySeq, String name) {
             this.keySeq = keySeq;
             this.name = name;
@@ -955,26 +943,5 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
      */
     public boolean supportsFieldDifference() {
         return false;
-    }
-
-    /**
-     * 检查主键是否支持游标（必须为数字类型）
-     * @param columns 字段列表
-     * @return 是否支持游标
-     */
-    protected boolean supportsCursor(List<Field> columns) {
-        if (columns == null || columns.isEmpty()) {
-            return false;
-        }
-        for (Field f : columns) {
-            if (f.isPk()) {
-                int type = f.getType();
-                if (type != Types.NUMERIC && type != Types.BIGINT && type != Types.INTEGER && 
-                    type != Types.TINYINT && type != Types.SMALLINT) {
-                    return false;
-                }
-            }
-        }
-        return true;
     }
 }

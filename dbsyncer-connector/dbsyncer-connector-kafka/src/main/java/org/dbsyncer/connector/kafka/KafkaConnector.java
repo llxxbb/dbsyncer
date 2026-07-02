@@ -109,10 +109,7 @@ public class KafkaConnector extends AbstractConnector implements ConnectorServic
         }
 
         PluginContext context = syncRows.get(0).getContext();
-        List<Field> pkFields = syncRows.get(0).getTableGroup().getTargetTable().getPkFields();
-        if (CollectionUtils.isEmpty(pkFields)) {
-            throw new KafkaException("Primary keys must be set");
-        }
+        List<Field> pkFields = syncRows.get(0).getTableGroup().getSourceTable().getPkFields();
         final String pkFieldName = pkFields.get(0).getName();
 
         List<Map> data = new ArrayList<>(syncRows.size());
@@ -131,9 +128,8 @@ public class KafkaConnector extends AbstractConnector implements ConnectorServic
             final KafkaClient kafkaClient = connectorInstance.getConnection();
             final String finalTopic = topic;
 
-            String targetTableName = syncRows.get(0).getTargetFields() != null
-                    ? syncRows.get(0).getTableGroup().getTargetTable().getName() : "";
-            List<Map> formattedData = kafkaConvertor.formatMessages(context, data, pkFields, targetTableName);
+            String sourceTableName = syncRows.get(0).getTableGroup().getSourceTable().getName();
+            List<Map> formattedData = kafkaConvertor.formatMessages(context, data, pkFields, sourceTableName);
 
             formattedData.forEach(row -> kafkaClient.send(finalTopic, String.valueOf(row.get(pkFieldName)), row));
             kafkaClient.producer.flush();
