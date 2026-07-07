@@ -1,9 +1,8 @@
 package org.dbsyncer.common.retry;
 
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.List;
 
 /**
  * 统一重试拦截器
@@ -11,7 +10,9 @@ import java.util.List;
  */
 public class RetryInterceptor {
 
-    private static final Logger logger = LoggerFactory.getLogger(RetryInterceptor.class);
+    private static final Logger logger = LoggerFactory.getLogger(
+        RetryInterceptor.class
+    );
 
     /**
      * 执行操作并支持重试（允许操作抛出 Exception）
@@ -22,7 +23,8 @@ public class RetryInterceptor {
      * @return 操作结果
      * @throws Exception 重试耗尽后抛出原始异常
      */
-    public <T> T execute(ThrowingSupplier<T> operation, RetryPolicy policy) throws Exception {
+    public <T> T execute(ThrowingSupplier<T> operation, RetryPolicy policy)
+        throws Exception {
         return execute(operation, policy, null);
     }
 
@@ -43,7 +45,11 @@ public class RetryInterceptor {
      * </ul>
      * <p><strong>设计理念</strong>：避免在正常路径上添加任何检查逻辑，仅在异常发生时才进入重试决策流程。</p>
      */
-    public <T> T execute(ThrowingSupplier<T> operation, RetryPolicy policy, String mappingId) throws Exception {
+    public <T> T execute(
+        ThrowingSupplier<T> operation,
+        RetryPolicy policy,
+        String mappingId
+    ) throws Exception {
         if (policy.isDisable()) {
             return operation.get();
         }
@@ -61,21 +67,27 @@ public class RetryInterceptor {
                 // 【核心】异常路径：进入重试决策
                 lastException = e;
                 String message = e.getMessage();
-                
-                // 次数约束检查（仅在异常时执行）
-                if (attempt >= policy.getMaxAttempts()) {
+
+                // 次数约束检查（仅在异常时执行，且仅在非 MAX_DURATION 模式下）
+                TerminationMode mode = policy.getTerminationMode();
+                if (
+                    mode != TerminationMode.MAX_DURATION &&
+                    attempt >= policy.getMaxAttempts()
+                ) {
                     throw e;
                 }
-                
-                // 耗时约束检查（仅在异常时执行）
-                TerminationMode mode = policy.getTerminationMode();
-                if (mode == TerminationMode.MAX_DURATION) {
+
+                // 耗时约束检查（仅在异常时执行，且仅在非 MAX_ATTEMPTS 模式下）
+                if (mode != TerminationMode.MAX_ATTEMPTS) {
                     long maxDuration = policy.getMaxDurationMs();
-                    if (maxDuration > 0 && (System.currentTimeMillis() - startMs) >= maxDuration) {
+                    if (
+                        maxDuration > 0 &&
+                        System.currentTimeMillis() - startMs >= maxDuration
+                    ) {
                         throw e;
                     }
                 }
-                
+
                 // 判断是否应该重试
                 if (!shouldRetry(e, policy, message)) {
                     throw e;
@@ -86,51 +98,28 @@ public class RetryInterceptor {
                 lastMatchedKeyword = findMatchedKeyword(message, policy);
 
                 String id = mappingId != null ? mappingId : "-";
-                logger.warn("触发重试 | mappingId={} | 第{}/{}次 | 间隔={}ms | 关键字={} | 异常={}",
-                        id, attempt, getMaxAttemptsDisplay(policy), interval,
-                        lastMatchedKeyword != null ? lastMatchedKeyword : "无条件",
-                        message);
+                logger.warn(
+                    "触发重试 | mappingId={} | 第{}/{}次 | 间隔={}ms | 关键字={} | 异常={}",
+                    id,
+                    attempt,
+                    getMaxAttemptsDisplay(policy),
+                    interval,
+                    lastMatchedKeyword != null ? lastMatchedKeyword : "无条件",
+                    message
+                );
 
+                // 如果 sleep 被中断，立即抛出 lastException，避免继续循环
                 if (sleep(interval)) {
-                    break;
+                    logger.error(
+                        "重试被中断 | mappingId={} | 尝试次数={} | 最终异常={}",
+                        id,
+                        attempt,
+                        lastException.getMessage()
+                    );
+                    throw lastException;
                 }
             }
         }
-
-        String id = mappingId != null ? mappingId : "-";
-        logger.error("重试耗尽 | mappingId={} | 最大重试次数={} | 最终异常={} | 触发关键字={}",
-                id, getMaxAttemptsDisplay(policy), lastException.getMessage(), lastMatchedKeyword);
-        throw lastException;
-    }
-
-    /**
-     * 判断次数是否已达上限
-     */
-    private boolean isAttemptLimitReached(RetryPolicy policy, int attempt) {
-        TerminationMode mode = policy.getTerminationMode();
-        // MAX_DURATION 模式完全忽略 maxAttempts
-        if (mode == TerminationMode.MAX_DURATION) {
-            return false;
-        }
-        return attempt >= policy.getMaxAttempts();
-    }
-
-    /**
-     * 判断总耗时是否已超限
-     */
-    private boolean isDurationExceeded(RetryPolicy policy, long startMs, int attempt) {
-        if (attempt == 0) {
-            return false;  // 首次执行不检查
-        }
-        TerminationMode mode = policy.getTerminationMode();
-        if (mode == TerminationMode.MAX_ATTEMPTS) {
-            return false;  // MAX_ATTEMPTS 模式完全忽略 maxDuration
-        }
-        long maxDuration = policy.getMaxDurationMs();
-        if (maxDuration <= 0) {
-            return false;
-        }
-        return (System.currentTimeMillis() - startMs) >= maxDuration;
     }
 
     /**
@@ -139,7 +128,7 @@ public class RetryInterceptor {
     private int getMaxAttemptsDisplay(RetryPolicy policy) {
         TerminationMode mode = policy.getTerminationMode();
         if (mode == TerminationMode.MAX_DURATION) {
-            return -1;  // 表示不限次数
+            return -1; // 表示不限次数
         }
         return policy.getMaxAttempts();
     }
@@ -154,7 +143,11 @@ public class RetryInterceptor {
      * 2. 处理：检查是否启用关键字匹配模式
      * 3. 返回：返回重试决策结果
      */
-    private boolean shouldRetry(Exception e, RetryPolicy policy, String message) {
+    private boolean shouldRetry(
+        Exception e,
+        RetryPolicy policy,
+        String message
+    ) {
         // 验证 1：检查排除关键字（命中则立即抛出，不重试）
         if (policy.isExcludeKeywordMatch(message)) {
             return false;
@@ -182,7 +175,7 @@ public class RetryInterceptor {
         if (message == null) {
             return null;
         }
-        
+
         // 处理 1：优先检查排除关键字
         List<String> excludeKeywords = policy.getExcludeKeywords();
         if (excludeKeywords != null && !excludeKeywords.isEmpty()) {
@@ -193,7 +186,7 @@ public class RetryInterceptor {
                 }
             }
         }
-        
+
         // 处理 2：再检查重试关键字
         List<String> keywords = policy.getKeywords();
         if (keywords == null || keywords.isEmpty()) {

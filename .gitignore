@@ -16,3 +16,5 @@ velocity.log.1
 target/
 log.txt
 *.zip
+**/target
+**/.factorypath

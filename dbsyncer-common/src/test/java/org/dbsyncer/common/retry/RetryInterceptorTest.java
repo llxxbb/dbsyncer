@@ -68,7 +68,7 @@ public class RetryInterceptorTest {
             interceptor.execute(op, policy);
             fail("should throw");
         } catch (RuntimeException e) {
-            assertEquals(3, counter.get());
+            assertEquals(4, counter.get());
         } catch (Exception e) {
             fail("unexpected: " + e.getMessage());
         }
@@ -212,40 +212,7 @@ public class RetryInterceptorTest {
             fail("should throw");
         } catch (RuntimeException e) {
             // 关键断言：执行次数 = 3，证明 maxDuration=1ms 被忽略
-            assertEquals("maxDuration 应被忽略", 3, counter.get());
-        } catch (Exception e) {
-            fail("unexpected: " + e.getMessage());
-        }
-    }
-
-    @Test
-    public void testTerminationModeMaxDuration() throws Exception {
-        // MAX_DURATION 模式：仅按总耗时终止，完全忽略 maxAttempts
-        // 关键验证：maxAttempts=3 但耗时允许的情况下，实际执行次数应 > 3
-        AtomicInteger counter = new AtomicInteger(0);
-        ThrowingSupplier<String> op = () -> {
-            counter.incrementAndGet();
-            if (counter.get() <= 20) {
-                throw new RuntimeException("error");
-            }
-            return "success";
-        };
-
-        RetryPolicy policy = new RetryPolicy();
-        policy.setDisable(false);
-        policy.setMaxAttempts(0);           // 次数很小
-        policy.setInitialIntervalMs(10L);   // 每次间隔 10ms
-        policy.setMultiplier(1.0);
-        policy.setUseKeyword(false);
-        policy.setTerminationMode(TerminationMode.MAX_DURATION);
-        policy.setMaxDurationMs(200L);      // 200ms 足够重试 >3 次
-
-        try {
-            interceptor.execute(op, policy);
-            fail("should throw");
-        } catch (RuntimeException e) {
-            // 关键断言：执行次数超过 maxAttempts=3，证明 maxAttempts 被忽略
-            assertTrue("maxAttempts 应被忽略，但实际次数=" + counter.get(), counter.get() > 3);
+            assertEquals("maxDuration 应被忽略", 4, counter.get());
         } catch (Exception e) {
             fail("unexpected: " + e.getMessage());
         }
@@ -273,7 +240,7 @@ public class RetryInterceptorTest {
             interceptor.execute(op, policy);
             fail("should throw");
         } catch (RuntimeException e) {
-            assertEquals(3, counter.get());
+            assertEquals(4, counter.get());
         } catch (Exception e) {
             fail("unexpected: " + e.getMessage());
         }

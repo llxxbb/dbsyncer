@@ -1,0 +1,23 @@
+// Project-local debug tasks
+//
+// For more documentation on how to configure debug tasks,
+// see: https://zed.dev/docs/debugger
+[
+    {
+        "label": "Launch Debugger",
+        "adapter": "Java",
+        "request": "launch",
+        "mainClass": "org.dbsyncer.web.Application",
+        "stopOnEntry": true,
+        // "args": [
+        //     "exec:java",
+        //     "-Dexec.mainClass=org.dbsyncer.web.Application",
+        //     "-Dexec.classpathScope=runtime"
+        // ],
+        "build": {
+            "command": "mvn",
+            "args": ["install", "-pl", "dbsyncer-web", "-am", "-DskipTests"]
+        },
+        "cwd": "$ZED_WORKTREE_ROOT"
+    }
+]
