@@ -48,11 +48,11 @@ public class StorageSupportConfiguration {
         if (environment instanceof AbstractEnvironment) {
             AbstractEnvironment ae = (AbstractEnvironment) environment;
             MutablePropertySources propertySources = ae.getPropertySources();
-            
+
             // 先收集所有 application 相关的属性源，分为 default 和 profile 两类
             List<PropertySource<?>> defaultSources = new ArrayList<>();
             List<PropertySource<?>> profileSources = new ArrayList<>();
-            
+
             for (PropertySource<?> propertySource : propertySources) {
                 String name = propertySource.getName();
                 if (!name.contains("application")) {
@@ -65,7 +65,7 @@ public class StorageSupportConfiguration {
                     defaultSources.add(propertySource);
                 }
             }
-            
+
             // 先处理 default 配置，再处理 profile 配置，确保 profile 覆盖 default
             for (PropertySource<?> propertySource : defaultSources) {
                 Map<String, OriginTrackedValue> props = (Map<String, OriginTrackedValue>) propertySource.getSource();
@@ -75,7 +75,7 @@ public class StorageSupportConfiguration {
                     }
                 });
             }
-            
+
             for (PropertySource<?> propertySource : profileSources) {
                 Map<String, OriginTrackedValue> props = (Map<String, OriginTrackedValue>) propertySource.getSource();
                 props.forEach((k, v) -> {

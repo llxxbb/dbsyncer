@@ -12,6 +12,7 @@ import org.dbsyncer.parser.model.StorageResponse;
 import org.dbsyncer.sdk.enums.StorageEnum;
 import org.dbsyncer.sdk.storage.StorageService;
 import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Lazy;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
@@ -32,6 +33,7 @@ public final class StorageBufferActuator extends AbstractBufferActuator<StorageR
     @Resource
     private StorageConfig storageConfig;
 
+    @Lazy
     @Resource
     private StorageService storageService;
 

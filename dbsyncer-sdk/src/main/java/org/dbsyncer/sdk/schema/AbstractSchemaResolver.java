@@ -56,7 +56,7 @@ public abstract class AbstractSchemaResolver implements SchemaResolver {
     }
 
     protected DataType getDataType(Field field) {
-        return mapping.get(field.getTypeName());
+        return mappi       ng.get(field.getTypeName());
     }
 
     /**
