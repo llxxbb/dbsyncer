@@ -218,7 +218,7 @@
                                                     </td>
 
                                                     <!-- 同步类型 -->
-                                                    <td th:text="${m?.meta?.model}"></td>
+                                                    <td th:text="${T(org.dbsyncer.sdk.enums.ModelEnum).getModelName(m?.model)}"></td>
 
                                                     <!-- 操作 -->
                                                     <td>
@@ -292,7 +292,7 @@
                                                 <div style="display: flex; align-items: center; margin: 4px 0; padding-left: 14px;">
                                                     <img src="/img/Arrow.png" style="width: 24px; height: 24px; margin-right: 8px; opacity: 0.6;" alt="箭头">
                                                     <span style="font-size: 13px; font-weight: bold; color: #000000;">
-                                                        <span th:text="${m?.meta?.model}"></span>
+                                                        <span th:text="${T(org.dbsyncer.sdk.enums.ModelEnum).getModelName(m?.model)}"></span>
                                                     </span>
                                                 </div>
                                                 

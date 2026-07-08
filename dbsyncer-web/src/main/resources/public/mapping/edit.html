@@ -172,7 +172,7 @@
 
                             <div class="col-md-2">
                                 <div  class="text-left" id ="metaModel">
-<!--                                    <p>[[${mapping?.meta?.model}]]同步</p>-->
+                                    <p>[[${T(org.dbsyncer.sdk.enums.ModelEnum).getModelName(mapping?.model)}]]同步</p>
                                     <p>总数:</p>
                                     <span class="highlight-number total-color">[[${total}]]</span>
                                 </div>

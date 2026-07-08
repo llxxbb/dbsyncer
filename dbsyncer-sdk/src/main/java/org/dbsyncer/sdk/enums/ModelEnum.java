@@ -15,21 +15,20 @@ import org.dbsyncer.sdk.SdkException;
  */
 public enum ModelEnum {
 
-    /**
-     * 全量
-     */
     FULL("full", "全量"),
-    /**
-     * 增量
-     */
     INCREMENT("increment", "增量"),
-    /**
-     * 全量+增量
-     */
-    FULL_INCREMENT("fullIncrement", "混合");  // 新增混合模式
+    FULL_INCREMENT("fullIncrement", "混合");
 
     private final String code;
     private final String name;
+
+    private static final java.util.Map<String, ModelEnum> CODE_NAME_MAP = new java.util.HashMap<>();
+
+    static {
+        for (ModelEnum e : ModelEnum.values()) {
+            CODE_NAME_MAP.put(e.code, e);
+        }
+    }
 
     ModelEnum(String code, String name) {
         this.code = code;
@@ -37,11 +36,8 @@ public enum ModelEnum {
     }
 
     public static ModelEnum getModelEnum(String code) throws SdkException {
-        for (ModelEnum e : ModelEnum.values()) {
-            if (StringUtil.equals(code, e.getCode())) {
-                return e;
-            }
-        }
+        ModelEnum e = CODE_NAME_MAP.get(code);
+        if (e != null) return e;
         throw new SdkException(String.format("Model code \"%s\" does not exist.", code));
     }
 
@@ -49,6 +45,11 @@ public enum ModelEnum {
         return StringUtil.equals(FULL.getCode(), model);
     }
     
+    public static String getModelName(String code) {
+        ModelEnum e = CODE_NAME_MAP.get(code);
+        return e != null ? e.name : code;
+    }
+
     public String getCode() {
         return code;
     }
