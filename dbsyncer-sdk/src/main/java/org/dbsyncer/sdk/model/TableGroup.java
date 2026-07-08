@@ -21,7 +21,7 @@ public class TableGroup extends AbstractConfigModel {
     }
 
     @JsonIgnore
-    public static final int Version = 7;
+    public static final int Version = 8;
     public int currentVersion;
     @JsonIgnore
     public boolean isInit = false;

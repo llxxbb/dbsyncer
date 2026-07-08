@@ -13,6 +13,7 @@ import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.storage.StorageService;
 import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Lazy;
 import org.dbsyncer.storage.impl.SnowflakeIdWorker;
 
 import javax.annotation.Resource;
@@ -29,6 +30,7 @@ import java.util.concurrent.Executor;
 @Component
 public class LogServiceImpl implements LogService {
 
+    @Lazy
     @Resource
     private StorageService storageService;
 

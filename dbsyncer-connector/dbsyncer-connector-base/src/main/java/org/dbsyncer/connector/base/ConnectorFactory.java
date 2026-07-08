@@ -18,6 +18,8 @@ import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.plugin.SyncRow;
 import org.dbsyncer.sdk.spi.ConnectorService;
+import org.dbsyncer.sdk.spi.LogService;
+import org.dbsyncer.sdk.spi.LogType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
@@ -25,6 +27,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 
 import javax.annotation.PostConstruct;
+import javax.annotation.Resource;
+
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -46,6 +50,9 @@ public class ConnectorFactory implements DisposableBean {
     private final Map<String, ConnectorService> service = new ConcurrentHashMap<>();
 
     private final Set<String> connectorTypes = new HashSet<>();
+
+    @Resource
+    private LogService logService;
 
     @PostConstruct
     private void init() {
@@ -257,10 +264,9 @@ public class ConnectorFactory implements DisposableBean {
                 Result result = new Result();
                 result.error = e.getMessage();
                 result.addFailData(sourceDataList);
-                if (ctx.isEnablePrintTraceInfo()) {
-                    logger.error("traceId:{}, tableName:{}, event:{}, sourceDataList:{}, result:{}", ctx.getTraceId(), tableName,
-                            ctx.getEvent(), sourceDataList, JsonUtil.objToJson(result));
-                }
+                logger.error("traceId:{}, tableName:{}, event:{}", ctx.getTraceId(), tableName,
+                            ctx.getEvent(), e);
+                logService.log(firstRow.getMapping(), LogType.SYNC,  e.getMessage() +  e.getStackTrace().toString());
                 return result;
             }
         }

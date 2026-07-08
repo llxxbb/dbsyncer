@@ -193,7 +193,12 @@ public class TableGroupModelService {
             if (tableGroup.getTargetTable() == null || StringUtils.isEmpty(tableGroup.getTargetTable().getName())) {
                 MetaInfo table = tableGroup.getSourceTable().clone();
                 tableGroup.setTargetTable(table);
-            } 
+            } else {
+                String connectorId = mapping.getTargetConnectorId();
+                String tableName = tableGroup.getTargetTable().getName();
+                MetaInfo freshMeta = persistenceService.getTableMetaInfo(connectorId, tableName);
+                tableGroup.setTargetTable(freshMeta);
+            }
         }
 
         tableGroup.currentVersion = TableGroup.Version;
