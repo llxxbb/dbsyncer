@@ -1952,6 +1952,9 @@ $(function() {
         if (target === '#mappingErrorQueue') {
             initErrorQueue();
         }
+        if (target === '#mappingLog' && currentMappingId) {
+            doQueryLog(1);
+        }
     });
 });
 // 批量转换配置功能
@@ -2508,49 +2511,58 @@ function escapeHtml(str) {
     return div.innerHTML;
 }
 
+function loadLogTypeOptions() {
+    doGetter('/monitor/getLogTypes', {}, function (data) {
+        if (data.success === true) {
+            var $select = $('#logTypeFilter');
+            $select.find('option').not(':first').remove();
+            data.resultValue.forEach(function (item) {
+                $select.append('<option value="' + item.code + '">' + item.name + '</option>');
+            });
+        }
+    });
+}
+
+var currentMappingId = null;
+
+function doQueryLog(pageNum, append) {
+    if (!currentMappingId) return;
+    var logType = $('#logTypeFilter').val();
+    var logLevel = $('#logLevelFilter').val();
+    doGetter('/monitor/queryLog', {
+        id: currentMappingId,
+        type: logType,
+        logLevel: logLevel,
+        pageNum: pageNum || 1,
+        pageSize: 10
+    }, function (data) {
+        if (data.success === true) {
+            if (append) {
+                refreshLogList(data.resultValue, true);
+            } else {
+                refreshLogList(data.resultValue);
+            }
+        } else {
+            bootGrowl(data.resultValue, "danger");
+        }
+    });
+}
+
 // Log 查询功能
 function bindMappingLogEvent(mappingId) {
     console.log('绑定日志查询事件，mappingId:', mappingId);
     
+    currentMappingId = mappingId;
+
     // 查询日志
     $('#queryLogBtn').click(function () {
-        var keyword = $('#searchLogKeyword').val();
-        var logType = $('#logTypeFilter').val();
-        var logLevel = $('#logLevelFilter').val();
-        
-        doGetter('/monitor/queryLog', {
-            modelId: mappingId,
-            logType: logType,
-            logLevel: logLevel,
-            json: keyword,
-            pageNum: 1,
-            pageSize: 10
-        }, function (data) {
-            if (data.success === true) {
-                refreshLogList(data.resultValue);
-            } else {
-                bootGrowl(data.resultValue, "danger");
-            }
-        });
+        doQueryLog(1);
     });
     
     // 显示更多
     $('#queryLogMore').click(function () {
         var num = parseInt($(this).attr('num'));
-        var keyword = $('#searchLogKeyword').val();
-        var logType = $('#logTypeFilter').val();
-        var logLevel = $('#logLevelFilter').val();
-        
-        showMore($(this), '/monitor/queryLog', {
-            modelId: mappingId,
-            logType: logType,
-            logLevel: logLevel,
-            json: keyword,
-            pageNum: num + 1,
-            pageSize: 10
-        }, function (resultValue) {
-            refreshLogList(resultValue, true);
-        });
+        doQueryLog(num + 1, true);
     });
     
     // 清空日志
@@ -2564,7 +2576,7 @@ function bindMappingLogEvent(mappingId) {
                 label: '确定',
                 action: function (dialog) {
                     doPoster('/monitor/clearLog', {
-                        modelId: mappingId
+                        id: mappingId
                     }, function (data) {
                         if (data.success === true) {
                             bootGrowl('清空日志成功!', "success");
@@ -2583,6 +2595,18 @@ function bindMappingLogEvent(mappingId) {
             }]
         });
     });
+}
+
+function formatDate(time) {
+    return new Date(time).toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    }).replace(/\//g, '-');
 }
 
 function refreshLogList(resultValue, append) {
@@ -2606,7 +2630,7 @@ function showLog($logList, arr, append) {
         for (var i = 0; i < size; i++) {
             html += '<tr>';
             html += '<td>' + (start + i + 1) + '</td>';
-            html += '<td>' + (arr[i].modelType || arr[i].type || '-') + '</td>';
+            html += '<td>' + (arr[i].logType || '-') + '</td>';
             html += '<td>' + (arr[i].logLevel || '-') + '</td>';
             html += '<td>' + (arr[i].json || '') + '</td>';
             html += '<td>' + formatDate(arr[i].createTime) + '</td>';
@@ -2620,13 +2644,9 @@ function showLog($logList, arr, append) {
 $(function () {
     var mappingIdField = $('input[name="mappingId"], #mappingId, #id');
     var mappingId = mappingIdField.val();
-    
-    if (mappingId) {
-        console.log('页面初始化，发现 mappingId:', mappingId);
-        bindMappingLogEvent(mappingId);
-    } else {
-        console.log('页面初始化，未找到 mappingId 字段');
-    }
+
+    loadLogTypeOptions();
+    bindMappingLogEvent(mappingId);
 });
 
 //*********************************** 数据源详情 结束位置***********************************//

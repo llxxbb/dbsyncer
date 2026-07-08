@@ -39,10 +39,12 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import org.dbsyncer.sdk.spi.LogType;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 @Controller
 @RequestMapping("/monitor")
@@ -90,7 +92,6 @@ public class MonitorController extends BaseController {
         model.put("storageDataStatus", monitorService.getStorageDataStatusEnumAll());
         model.put("dataStatus", NumberUtil.toInt(params.get("dataStatus"), -1));
         model.put("pagingData", monitorService.queryData(params));
-        model.put("pagingLog", monitorService.queryLog(params));
         return "monitor/monitor.html";
     }
 
@@ -137,7 +138,6 @@ public class MonitorController extends BaseController {
 
     @GetMapping("/queryLog")
     @ResponseBody
-    @PreAuthorize("hasRole('admin')")
     public RestResult queryLog(HttpServletRequest request) {
         try {
             Map<String, String> params = getParams(request);
@@ -229,6 +229,20 @@ public class MonitorController extends BaseController {
             logger.error(e.getLocalizedMessage(), e);
             return RestResult.restFail(e.getMessage());
         }
+    }
+
+    @ResponseBody
+    @GetMapping("/getLogTypes")
+    @PreAuthorize("hasRole('admin')")
+    public RestResult getLogTypes() {
+        List<Map<String, String>> list = new ArrayList<>();
+        for (LogType logType : LogType.values()) {
+            Map<String, String> item = new HashMap<>();
+            item.put("code", logType.name());
+            item.put("name", logType.getType());
+            list.add(item);
+        }
+        return RestResult.restSuccess(list);
     }
 
     /**

@@ -20,7 +20,7 @@ public enum LogType {
     // 任务
     START("启动"),
     STOP("停止"),
-    CLEAR("清空同步数据"),
+    CLEAR("清空"),
     RESET("重置"),
     CONFIG("配置"),
 

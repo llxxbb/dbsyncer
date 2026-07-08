@@ -248,7 +248,7 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob {
         String json = params.get(ConfigConstant.CONFIG_MODEL_JSON);
         
         Query query = new Query(pageNum, pageSize);
-        query.addFilter(ConfigConstant.CONFIG_MODEL_ID, modelId, false);
+        query.addFilter(ConfigConstant.LOG_MODEL_ID, modelId, false);
         if (StringUtil.isNotBlank(type)) {
             query.addFilter(ConfigConstant.CONFIG_MODEL_TYPE, type, false);
         }
@@ -273,7 +273,7 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob {
         Assert.hasText(modelId, "modelId 是必填参数");
         
         Query query = new Query();
-        query.addFilter(ConfigConstant.CONFIG_MODEL_ID, modelId, false);
+        query.addFilter(ConfigConstant.LOG_MODEL_ID, modelId, false);
         query.setType(StorageEnum.LOG);
         storageService.delete(query);
         return "清空日志成功";

@@ -331,7 +331,7 @@ public class MappingServiceImpl implements MappingService {
             // 启动
             managerFactory.start(mapping);
 
-            this.logService.log(mapping, LogType.UPDATE, LogLevel.INFO, LogType.UPDATE.getType() + ":" + mapping.getName());
+            this.logService.log(mapping, LogType.START, LogLevel.INFO, LogType.UPDATE.getType() + ":" + mapping.getName());
         }
         return "驱动启动成功";
     }
@@ -352,10 +352,9 @@ public class MappingServiceImpl implements MappingService {
                 profileComponent.editConfigModel(tableGroup);
             }
 
-            this.logService.log(mapping, LogType.UPDATE, LogLevel.INFO, LogType.UPDATE.getType() + ":" + mapping.getName());
+            this.logService.log(mapping, LogType.STOP, LogLevel.INFO, LogType.STOP.getType() + ":" + mapping.getName());
 
             // 发送关闭驱动通知消息
-            String model = ModelEnum.getModelEnum(mapping.getModel()).getName();
             String mappingId = mapping.getId();
             
             StringBuilder msg = new StringBuilder();
