@@ -2365,13 +2365,16 @@ function addConvertToSingleTableGroup(tableGroup, convertConfig, targetFieldName
     // 前端构造：提交参数
     var params = {
         'id': tableGroup.id,
+        'targetTable': (tableGroup.targetTable && tableGroup.targetTable.name) ? tableGroup.targetTable.name : '',
         'fieldMapping': JSON.stringify(fieldMappingData),
         'convert': JSON.stringify(converts)
     };
     
     // 设置为主键：将新字段追加到 targetTablePK（去重，不区分大小写）
     if (setTempPK) {
-        var pkArray = (tableGroup.targetTablePK || "").split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s; });
+        // 从 targetTable.primaryKeys 获取现有主键数组
+        var existingPKs = (tableGroup.targetTable && tableGroup.targetTable.primaryKeys) ? tableGroup.targetTable.primaryKeys : [];
+        var pkArray = existingPKs.map(function(s) { return typeof s === 'string' ? s.trim() : ''; }).filter(function(s) { return s; });
         // 不区分大小写检查是否已存在
         var exists = pkArray.some(function(pk) { return pk.toLowerCase() === targetFieldName.toLowerCase(); });
         if (!exists) {
@@ -2380,7 +2383,9 @@ function addConvertToSingleTableGroup(tableGroup, convertConfig, targetFieldName
         params['targetTablePK'] = pkArray.join(',');
         params['confirmPrimaryKeyChange'] = 'true';
     } else {
-        params['targetTablePK'] = tableGroup.targetTablePK || "";
+        // 不设置主键时，也需要传递当前主键，避免被覆盖
+        var existingPKs = (tableGroup.targetTable && tableGroup.targetTable.primaryKeys) ? tableGroup.targetTable.primaryKeys : [];
+        params['targetTablePK'] = existingPKs.filter(function(s) { return s; }).join(',');
     }
     
     // 调用现有后端接口保存

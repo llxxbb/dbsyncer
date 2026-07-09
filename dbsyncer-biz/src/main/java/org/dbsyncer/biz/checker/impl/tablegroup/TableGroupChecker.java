@@ -97,24 +97,16 @@ public class TableGroupChecker extends AbstractChecker {
         // 处理目标表变化（前端已感应并提交，后端直接使用）
         String newTargetTableName = params.get("targetTable");
         String newTargetTablePK = params.get("targetTablePK");
+        Assert.notNull(newTargetTableName, "targetTable can not be null.");
+        Assert.notNull(newTargetTablePK, "targetTablePK can not be null.");
 
-        // 前置验证：如果修改目标表，必须提供主键配置
-        if (StringUtil.isNotBlank(newTargetTableName) && StringUtil.isBlank(newTargetTablePK)) {
-            throw new BizException("目标表，主键不能为空");
-        }
 
         // 应用目标表变化（仅更新 MetaInfo，主键配置由 applyPrimaryKeyConfig 统一处理）
-        if (StringUtil.isNotBlank(newTargetTableName) && StringUtil.isNotBlank(newTargetTablePK)) {
-            checkRepeatedTable(mapping.getId(), tableGroup.getSourceTable().getName(), newTargetTableName, id);
-        }
-        if (StringUtil.isNotBlank(newTargetTablePK)) {
-            tableGroup.setTargetTable(getMetaInfo(mapping.getTargetConnectorId(), newTargetTableName, newTargetTablePK));
-        }
+        checkRepeatedTable(mapping.getId(), tableGroup.getSourceTable().getName(), newTargetTableName, id);
+        tableGroup.setTargetTable(getMetaInfo(mapping.getTargetConnectorId(), newTargetTableName, newTargetTablePK));
 
         // 修改基本配置
         this.modifyConfigModel(tableGroup, params);
-
-        // 修改高级配置：过滤条件/转换配置
         this.modifySuperConfigModel(tableGroup, params);
 
         // 验证转换器规则：每个字段必须有且仅有一个根转换器
