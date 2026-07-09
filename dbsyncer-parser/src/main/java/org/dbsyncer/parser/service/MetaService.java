@@ -52,7 +52,7 @@ public class MetaService {
      */
     public void clear(Meta meta) throws Exception {
         meta.clear();
-        persistenceService.save(null, meta);
+        persistenceService.save(meta.getId(), meta);
     }
 
     /**
@@ -64,7 +64,7 @@ public class MetaService {
      */
     public void clear(Meta meta, String model) throws Exception {
         meta.clear(model);
-        persistenceService.save(null, meta);
+        persistenceService.save(meta.getId(), meta);
     }
 
     /**
@@ -80,7 +80,7 @@ public class MetaService {
         List<TableGroup> allTableGroups = DefaultModelPersistenceService.castToListTableGroup(allTableGroupsRaw);
         
         meta.partialClear(resetTableGroupIds, allTableGroups);
-        persistenceService.save(null, meta);
+        persistenceService.save(meta.getId(), meta);
     }
 
     /**
@@ -102,7 +102,7 @@ public class MetaService {
         List<TableGroup> allTableGroups = DefaultModelPersistenceService.castToListTableGroup(allTableGroupsRaw);
         
         meta.updateFullTotal(allTableGroups);
-        persistenceService.save(null, meta);
+        persistenceService.save(meta.getId(), meta);
     }
 
     /**
@@ -118,7 +118,7 @@ public class MetaService {
             meta.getSnapshot().putAll(snapshot);
             meta.setUpdateTime(java.time.Instant.now().toEpochMilli());
         }
-        persistenceService.save(null, meta);
+        persistenceService.save(meta.getId(), meta);
     }
 
     /**
@@ -130,7 +130,7 @@ public class MetaService {
      */
     public void updateSyncPhase(Meta meta, SyncPhaseEnum phase) throws Exception {
         meta.updateSyncPhase(phase);
-        persistenceService.save(null, meta);
+        persistenceService.save(meta.getId(), meta);
     }
 
     /**
@@ -142,7 +142,7 @@ public class MetaService {
      */
     public void recordIncrementStartPoint(Meta meta, Map<String, String> position) throws Exception {
         meta.recordIncrementStartPoint(position);
-        persistenceService.save(null, meta);
+        persistenceService.save(meta.getId(), meta);
     }
 
     /**
@@ -155,7 +155,7 @@ public class MetaService {
      */
     public void saveState(Meta meta, MetaEnum state, String errorMessage) throws Exception {
         meta.saveState(state, errorMessage);
-        persistenceService.save(null, meta);
+        persistenceService.save(meta.getId(), meta);
     }
 
     /**
@@ -177,7 +177,7 @@ public class MetaService {
      */
     public void resetState(Meta meta) throws Exception {
         meta.resetState();
-        persistenceService.save(null, meta);
+        persistenceService.save(meta.getId(), meta);
     }
 
     /**
