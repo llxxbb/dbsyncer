@@ -206,19 +206,22 @@ public class TableGroupServiceImpl implements TableGroupService {
         TableGroup model = (TableGroup) tableGroupChecker.checkEditConfigModel(params);
 
         // 比较主键是否变化（旧模型 vs 新参数）
-        String oldPkStr = !CollectionUtils.isEmpty(oldPrimaryKeys) ? String.join(",", oldPrimaryKeys) : null;
-        String newPk = params.get("targetTablePK");
+        String oldPkStr = !CollectionUtils.isEmpty(oldPrimaryKeys) ? String.join(",", oldPrimaryKeys) : "";
+        String newPk = StringUtil.isNotBlank(params.get("targetTablePK")) ? params.get("targetTablePK") : "";
         boolean hasPkDifference = !StringUtil.equals(oldPkStr, newPk);
 
         // 如果有差异且未确认，返回差异信息（不执行保存）
         if (hasPkDifference && !"true".equals(confirmParam) && !skipPrimaryKeyDDL) {
-            List<String> newPrimaryKeys = model.getTargetTable().getPrimaryKeys();
+            List<String> newPrimaryKeys = CollectionUtils.isEmpty(model.getTargetTable().getPrimaryKeys())
+                    ? Collections.emptyList() : model.getTargetTable().getPrimaryKeys();
+            List<String> safeOldPrimaryKeys = CollectionUtils.isEmpty(oldPrimaryKeys)
+                    ? Collections.emptyList() : oldPrimaryKeys;
             PrimaryKeyDifferenceVO diff = new PrimaryKeyDifferenceVO();
             diff.setHasDifference(true);
             diff.setConfiguredPKs(newPrimaryKeys);
-            diff.setActualPKs(oldPrimaryKeys);
-            diff.setAddedPKs(findPrimaryKeyDiff(newPrimaryKeys, oldPrimaryKeys));
-            diff.setRemovedPKs(findPrimaryKeyDiff(oldPrimaryKeys, newPrimaryKeys));
+            diff.setActualPKs(safeOldPrimaryKeys);
+            diff.setAddedPKs(findPrimaryKeyDiff(newPrimaryKeys, safeOldPrimaryKeys));
+            diff.setRemovedPKs(findPrimaryKeyDiff(safeOldPrimaryKeys, newPrimaryKeys));
             diff.setTableName(tableGroup.getTargetTable().getName());
             throw new PrimaryKeyDifferenceException(diff);
         }
@@ -280,6 +283,12 @@ public class TableGroupServiceImpl implements TableGroupService {
     }
 
     private List<String> findPrimaryKeyDiff(List<String> sourceList, List<String> targetList) {
+        if (CollectionUtils.isEmpty(sourceList)) {
+            return new ArrayList<>();
+        }
+        if (CollectionUtils.isEmpty(targetList)) {
+            return new ArrayList<>(sourceList);
+        }
         return sourceList.stream()
                 .filter(pk -> targetList.stream().noneMatch(pk::equalsIgnoreCase))
                 .collect(Collectors.toList());

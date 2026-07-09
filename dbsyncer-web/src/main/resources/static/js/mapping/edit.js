@@ -374,7 +374,7 @@ function updateTargetTableName(tableGroupId, newTableName, targetTablePK, $icon)
     var params = {
         'id': tableGroupId,
         'targetTable': newTableName,
-        'targetTablePK': targetTablePK
+        'targetTablePK': targetTablePK || ''
     };
     
     // 缓存重命名参数，供 createTargetTable 后 retrySubmitMapping 重试使用
