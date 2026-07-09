@@ -3,6 +3,7 @@
  */
 package org.dbsyncer.connector.base;
 
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.dbsyncer.common.model.Result;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
@@ -266,7 +267,7 @@ public class ConnectorFactory implements DisposableBean {
                 result.addFailData(sourceDataList);
                 logger.error("traceId:{}, tableName:{}, event:{}", ctx.getTraceId(), tableName,
                             ctx.getEvent(), e);
-                logService.log(firstRow.getMapping(), LogType.SYNC,  e.getMessage() +  e.getStackTrace().toString());
+                logService.log(firstRow.getMapping(), LogType.SYNC,  e.getMessage() +  ExceptionUtils.getStackTrace(e));
                 return result;
             }
         }

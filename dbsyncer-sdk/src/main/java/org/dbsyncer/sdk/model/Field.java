@@ -100,20 +100,20 @@ public class Field {
 
     public Field(String name, String typeName, int type) {
         this.name = name;
-        this.typeName = typeName.toUpperCase();
+        this.typeName = typeName != null ? typeName.toUpperCase() : null;
         this.type = type;
     }
 
     public Field(String name, String typeName, int type, boolean pk) {
         this.name = name;
-        this.typeName = typeName.toUpperCase();
+        this.typeName = typeName != null ? typeName.toUpperCase() : null;
         this.type = type;
         this.pk = pk;
     }
 
     public Field(String name, String typeName, int type, boolean pk, long columnSize, int ratio) {
         this.name = name;
-        this.typeName = typeName.toUpperCase();
+        this.typeName = typeName != null ? typeName.toUpperCase() : null;
         this.type = type;
         this.pk = pk;
         this.columnSize = columnSize;
@@ -122,7 +122,7 @@ public class Field {
 
     public Field(String name, String typeName, int type, boolean pk, long columnSize, int ratio, Integer srid) {
         this.name = name;
-        this.typeName = typeName.toUpperCase();
+        this.typeName = typeName != null ? typeName.toUpperCase() : null;
         this.type = type;
         this.pk = pk;
         this.columnSize = columnSize;
@@ -143,7 +143,7 @@ public class Field {
     }
 
     public void setTypeName(String typeName) {
-        this.typeName = typeName.toUpperCase();
+        this.typeName = typeName != null ? typeName.toUpperCase() : null;
     }
 
     public int getType() {

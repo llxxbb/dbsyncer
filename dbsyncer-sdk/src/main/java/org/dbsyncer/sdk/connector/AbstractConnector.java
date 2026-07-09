@@ -36,6 +36,9 @@ public abstract class AbstractConnector {
                 if (null == f) {
                     continue;
                 }
+                if (null == f.getTypeName()) {
+                    continue;
+                }
                 try {
                     row.getData().computeIfPresent(f.getName(), (k, v) -> targetResolver.convert(v, f));
                 } catch (Exception e) {
