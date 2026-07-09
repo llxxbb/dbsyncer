@@ -13,3 +13,4 @@ $(function () {
         $pluginExtInfo.removeClass("hidden");
     }
 })
+//# sourceURL=/js/mapping/editPlugin.js

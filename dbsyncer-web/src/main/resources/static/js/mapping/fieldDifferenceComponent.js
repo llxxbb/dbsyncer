@@ -342,3 +342,5 @@ FieldDifferenceComponent.removeAllMappingOnly = function() {
         }
     });
 };
+
+//# sourceURL=/js/mapping/fieldDifferenceComponent.js

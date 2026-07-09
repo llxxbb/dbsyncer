@@ -68,3 +68,5 @@ $(function() {
     // 绑定增量点配置修改事件
     bindMappingMetaSnapshotModifyClick();
 });
+
+//# sourceURL=/js/mapping/editIncrement.js
