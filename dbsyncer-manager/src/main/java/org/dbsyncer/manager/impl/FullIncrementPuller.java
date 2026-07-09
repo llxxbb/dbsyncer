@@ -120,15 +120,11 @@ public final class FullIncrementPuller implements Puller {
                 }
 
             } catch (Exception e) {
-                // 异常驱动：直接更新Meta状态为ERROR并记录错误信息
-                try {
-                    meta.saveState(MetaEnum.ERROR, e.getMessage());
-                } catch (Exception ex) {
-                    throw new RuntimeException(ex);
-                }
                 logger.error("混合同步异常，已更新Meta状态为ERROR: {}", metaId, e);
                 // 在logService中记录异常信息
                 logService.log(mapping, LogType.START, LogLevel.ERROR, String.format("启动异常：mappingId=%s, metaId=%s, 错误信息=%s", mapping.getId(), metaId, e.getMessage()));
+                // 异常驱动：直接更新Meta状态为ERROR并记录错误信息
+                meta.saveState(MetaEnum.ERROR, e.getMessage());
             }
         });
 

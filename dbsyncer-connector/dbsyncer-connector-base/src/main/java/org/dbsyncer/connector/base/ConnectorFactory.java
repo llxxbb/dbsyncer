@@ -19,6 +19,7 @@ import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.plugin.SyncRow;
 import org.dbsyncer.sdk.spi.ConnectorService;
+import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.slf4j.Logger;
@@ -267,7 +268,7 @@ public class ConnectorFactory implements DisposableBean {
                 result.addFailData(sourceDataList);
                 logger.error("traceId:{}, tableName:{}, event:{}", ctx.getTraceId(), tableName,
                             ctx.getEvent(), e);
-                logService.log(firstRow.getMapping(), LogType.SYNC,  e.getMessage() +  ExceptionUtils.getStackTrace(e));
+                logService.log(firstRow.getMapping(), LogType.SYNC, LogLevel.ERROR, e.getMessage() +  ExceptionUtils.getStackTrace(e));
                 return result;
             }
         }

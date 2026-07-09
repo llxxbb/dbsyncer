@@ -3,9 +3,11 @@
  */
 package org.dbsyncer.manager.impl;
 
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.dbsyncer.common.ProcessEvent;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.connector.base.ConnectorFactory;
+import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.parser.ParserComponent;
@@ -79,29 +81,14 @@ public final class FullPuller implements org.dbsyncer.manager.Puller, ProcessEve
                 doTask(metaId, mapping, list, executor, tableGroupIdsToSync);
             } catch (Exception e) {
                 // 记录运行时异常状态和异常信息
-                try {
-                    meta.saveState(MetaEnum.ERROR, e.getMessage());
-                } catch (Exception ex) {
-                    throw new RuntimeException(ex);
-                }
                 logger.error(e.getMessage(), e);
-                logService.log(mapping, LogType.DELETE, String.format("混合同步异常|增量同步异常|全量同步异常|Puller 启动失败：mappingId=%s, metaId=%s, 错误信息=%s", mapping.getId(), metaId, e.getMessage()));
+                logService.log(mapping, LogType.START, LogLevel.ERROR,String.format("Puller 启动失败, 错误信息=%s",  ExceptionUtils.getStackTrace(e)));
+                meta.saveState(MetaEnum.ERROR, e.getMessage());
             } finally {
-                try {
-                    executor.shutdown();
-                } catch (Exception e) {
-                    logService.log(mapping, LogType.DELETE, String.format("混合同步异常|增量同步异常|全量同步异常|Puller 启动失败：mappingId=%s, metaId=%s, 错误信息=%s", mapping.getId(), metaId, e.getMessage()));
-                }
-
-                // 清除task引用
-                if (meta.getPhaseHandler() == null && !meta.isError()) {
-                    try {
-                        meta.resetState();
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                }
-                logger.info("结束全量同步：{}, {}", metaId, mapping.getName());
+                logger.info("mappingId：{}, mappingName：{}", mapping.getId(), mapping.getName());
+                logService.log(mapping, LogType.STOP, "结束全量同步");
+                executor.shutdown();
+                meta.resetState();
             }
         });
         worker.setName("full-worker-" + mapping.getId());
@@ -135,7 +122,8 @@ public final class FullPuller implements org.dbsyncer.manager.Puller, ProcessEve
                     // 直接使用TableGroup的cursor进行流式处理
                     parserComponent.executeTableGroup(metaId, tableGroup, mapping);
                 } catch (Exception e) {
-                    logger.error("TableGroup {} 处理失败", tableGroup.getIndex(), e);
+                    logger.error("TableGroup {} 处理失败", tableGroup.getTargetTable().getName(), e);
+                    logService.log(mapping, LogType.START, LogLevel.ERROR, String.format("targetTable %s 处理失败, 错误信息=%s", tableGroup.getTargetTable().getName(), ExceptionUtils.getStackTrace(e)));
 
                     // 记录TableGroup的错误状态
                     tableGroup.setErrorMessage(e.getMessage());
@@ -144,7 +132,6 @@ public final class FullPuller implements org.dbsyncer.manager.Puller, ProcessEve
                         meta.saveState(MetaEnum.ERROR, e.getMessage());
                     } catch (Exception ignored) {
                     }
-                    logService.log(mapping, LogType.DELETE, String.format("混合同步异常|增量同步异常|全量同步异常|Puller 启动失败：mappingId=%s, metaId=%s, 错误信息=%s", mapping.getId(), metaId, e.getMessage()));
                 }
             }, executor);
 
