@@ -92,6 +92,7 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
     private volatile PacketChannel channel;
     private volatile boolean connected;
     private volatile boolean connectedError;
+    private volatile boolean binlogPositionReset;
     private Thread worker;
     private Thread keepAlive;
     private String workerThreadName;
@@ -792,10 +793,33 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
 
     private void notifyException(Exception e) {
         if (connected) {
+            if (e instanceof ServerException && isBogusDataError((ServerException) e)) {
+                logger.warn("检测到 MySQL 重启导致 binlog 位置无效 (bogus data, 错误码 1236)，将重置位置重新同步");
+                resetBinlogPosition();
+            }
             logger.error(e.getMessage(), e);
             lifecycleListeners.forEach(listener -> listener.onException(this, e));
             connectedError = true;
         }
+    }
+
+    private boolean isBogusDataError(ServerException e) {
+        return e.getErrorCode() == 1236
+                && e.getMessage() != null
+                && e.getMessage().contains("bogus data");
+    }
+
+    private void resetBinlogPosition() {
+        this.binlogFilename = null;
+        this.binlogPosition = 4;
+        this.binlogPositionReset = true;
+        if (tableMapEventByTableId != null) {
+            tableMapEventByTableId.clear();
+        }
+    }
+
+    public boolean isBinlogPositionReset() {
+        return binlogPositionReset;
     }
 
     @Override

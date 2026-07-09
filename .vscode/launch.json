@@ -18,6 +18,20 @@
             "request": "launch",
             "mainClass": "${file}",
             "console": "integratedTerminal"   // 关键配置
+        },
+        {
+            "name": "Attach Chrome against localhost (WSL)",
+            "type": "chrome",
+            "request": "attach",
+            "port": 9222,
+            "webRoot": "${workspaceFolder}/dbsyncer-web/src/main/resources",
+            "pathMapping": {
+                "/js": "${webRoot}/static/js",
+                "/css": "${webRoot}/static/css",
+                "/img": "${webRoot}/static/img",
+                "/plugins": "${webRoot}/static/plugins",
+                "/": "${webRoot}/public"
+            }
         }
     ]
 }

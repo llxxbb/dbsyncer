@@ -182,22 +182,21 @@ public class MySQLListener extends AbstractDatabaseListener {
             if (!client.isConnected()) {
                 return;
             }
-            /**
-             * e:
-             * case1> Due to the automatic expiration and deletion mechanism of MySQL binlog files, the binlog file cannot be found.
-             * case2> Got fatal error 1236 from master when reading data from binary log.
-             * case3> Log event entry exceeded max_allowed_packet; Increase max_allowed_packet on master.
-             */
             if (e instanceof ServerException) {
                 ServerException serverException = (ServerException) e;
                 if (serverException.getErrorCode() == 1236) {
+                    String msg = e.getMessage();
+                    if (msg != null && msg.contains("bogus data")) {
+                        logger.warn("MySQL 重启导致 binlog 无效，BinaryLogRemoteClient 已自动重置位置，由 keepalive 线程重连恢复: {}", msg);
+                        tableColumnNames.clear();
+                        return;
+                    }
                     logger.error(e.getMessage());
                     errorEvent(new MySQLException(e.getMessage()));
                     close();
                     return;
                 }
             }
-            // 记录详细的异常信息，包括binlog位置
             String errorMsg = String.format("MySQL binlog监听异常，binlog: %s:%s, error: %s",
                     client.getBinlogFilename(), client.getBinlogPosition(), e.getMessage());
             logger.error(errorMsg, e);
