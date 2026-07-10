@@ -11,6 +11,7 @@ import org.dbsyncer.sdk.model.Filter;
 import org.dbsyncer.sdk.model.Table;
 import org.springframework.beans.BeanUtils;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +46,14 @@ public abstract class PickerUtil {
         }
         if (tableGroup.getTargetTable() != null) {
             group.setTargetTable(tableGroup.getTargetTable().clone());
+        }
+
+        // 深拷贝fieldMapping列表，避免appendFieldMapping修改原始tableGroup的fieldMapping
+        // 问题：BeanUtils.copyProperties是浅拷贝，fieldMapping列表引用会被共享
+        // appendFieldMapping中新增的字段映射（如转换配置的自定义字段）会修改原始列表，
+        // 导致原始tableGroup的fieldMapping与command（SQL）不一致，引发参数数量不匹配的异常
+        if (tableGroup.getFieldMapping() != null) {
+            group.setFieldMapping(new ArrayList<>(tableGroup.getFieldMapping()));
         }
 
         // 参数配置(默认使用全局)

@@ -86,7 +86,7 @@ public class TableGroupChecker extends AbstractChecker {
 
     @Override
     public ConfigModel checkEditConfigModel(Map<String, String> params) throws Exception {
-        logger.info("params:{}", params);
+        logger.debug("params:{}", params);
         Assert.notEmpty(params, "TableGroupChecker check params is null.");
         String id = params.get(ConfigConstant.CONFIG_MODEL_ID);
         TableGroup tableGroup = profileComponent.getTableGroup(id);
@@ -203,6 +203,7 @@ public class TableGroupChecker extends AbstractChecker {
         }
 
         List<FieldMapping> list = new ArrayList<>();
+        Set<String> addedTargetNames = new HashSet<>();
         Map<String, Object> row = null;
         Field s = null;
         Field t = null;
@@ -217,7 +218,7 @@ public class TableGroupChecker extends AbstractChecker {
             }
             // 用源字段信息作为目标字段信息，但需要进行类型标准化和转换
             if (null == t) {
-                // 获取源连接器和目标连接器的SchemaResolver
+                // 获取源连接器和目标连接器的 SchemaResolver
                 Mapping mapping = profileComponent.getMapping(tableGroup.getMappingId());
                 ConnectorConfig sourceConnectorConfig = getConnectorConfig(mapping.getSourceConnectorId());
                 ConnectorConfig targetConnectorConfig = getConnectorConfig(mapping.getTargetConnectorId());
@@ -226,10 +227,10 @@ public class TableGroupChecker extends AbstractChecker {
                 SchemaResolver sourceSchemaResolver = sourceConnectorService.getSchemaResolver();
                 SchemaResolver targetSchemaResolver = targetConnectorService.getSchemaResolver();
 
-                // 1. 先用源连接器将源字段标准化为Java标准类型
+                // 1. 先用源连接器将源字段标准化为 Java 标准类型
                 Field standardField = sourceSchemaResolver.toStandardType(s);
 
-                // 2. 再用目标连接器将Java标准类型转换为目标数据库类型
+                // 2. 再用目标连接器将 Java 标准类型转换为目标数据库类型
                 if (null == targetSchemaResolver) // 如下游是 kafka
                     t = standardField;
                 else
@@ -238,6 +239,15 @@ public class TableGroupChecker extends AbstractChecker {
 
             if (null != t) {
                 t.setPk((Boolean) row.get("pk"));
+            }
+            // 【修复】去重：使用目标字段名（不区分大小写）作为 key，避免重复添加
+            if (StringUtil.isNotBlank(targetName)) {
+                String key = targetName.toLowerCase();
+                if (addedTargetNames.contains(key)) {
+                    // 重复的目标字段，跳过
+                    continue;
+                }
+                addedTargetNames.add(key);
             }
             list.add(new FieldMapping(s, t));
         }

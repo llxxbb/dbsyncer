@@ -331,7 +331,7 @@ public class MappingServiceImpl implements MappingService {
             // 启动
             managerFactory.start(mapping);
 
-            this.logService.log(mapping, LogType.START, LogLevel.INFO, LogType.UPDATE.getType() + ":" + mapping.getName());
+            this.logService.log(mapping, LogType.START, LogLevel.INFO, "启动同步任务");
         }
         return "驱动启动成功";
     }
