@@ -18,13 +18,12 @@ public enum LogType {
     COPY("复制"),
 
     // 任务
+    CONFIG("配置"),
+    INIT("初始化"),
     START("启动"),
     STOP("停止"),
     CLEAR("清空"),
     RESET("重置"),
-    CONFIG("配置"),
-
-    // 连接器
     CONNECT("建立连接"),
     SYNC("同步"),
 
@@ -33,7 +32,8 @@ public enum LogType {
     ACTIVATE("激活"),
     
     IMPORT("导入"),
-    EXPORT("导出");
+    EXPORT("导出"), 
+;
 
     private final String type;
 

@@ -8,6 +8,7 @@ import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
+import org.dbsyncer.parser.impl.LogServiceImpl;
 import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.SdkException;
@@ -19,6 +20,9 @@ import org.dbsyncer.sdk.model.Filter;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.service.ModelPersistenceService;
 import org.dbsyncer.sdk.spi.ConnectorService;
+import org.dbsyncer.sdk.spi.LogLevel;
+import org.dbsyncer.sdk.spi.LogService;
+import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.storage.impl.SnowflakeIdWorker;
 import org.springframework.stereotype.Service;
 
@@ -50,6 +54,9 @@ public class TableGroupModelService {
 
     @Resource
     private ConnectorFactory connectorFactory;
+
+    @Resource
+    private LogService logService;
 
     /**
      * 初始化 TableGroup
@@ -87,11 +94,9 @@ public class TableGroupModelService {
 
         // 关键修复：fieldMapping 不能为空
         if (CollectionUtils.isEmpty(tableGroup.getFieldMapping())) {
-            throw new SdkException(String.format(
-                    "字段映射为空！表组ID=%s, 表组名=%s, 源表=%s, 目标表=%s。请在添加或编辑表组时配置字段映射关系。",
-                    tableGroup.getId(), tableGroup.getName(),
-                    tableGroup.getSourceTable() != null ? tableGroup.getSourceTable().getName() : "null",
-                    tableGroup.getTargetTable() != null ? tableGroup.getTargetTable().getName() : "null"));
+            // 不能抛异常，否则界面上的任务无法进入。
+            logService.log(mapping, LogType.INIT, LogLevel.ERROR, "[字段映射]不能为空");
+            return;
         }
 
         // 基于 fieldMapping 构建同步用的源/目标表
