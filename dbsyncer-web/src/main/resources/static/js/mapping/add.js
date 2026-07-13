@@ -67,3 +67,5 @@ $(function () {
         backIndexPage();
     });
 })
+
+//# sourceURL=/js/mapping/add.js

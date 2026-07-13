@@ -8,25 +8,69 @@
   "requirements": [
     {
       "id": 1,
-      "title": "创建独立 HTML 页面",
-      "description": "创建异常任务.html 页面，仅显示异常任务（state==ERROR 或 fail>0），支持列表/卡片两种视图",
+      "title": "菜单权限控制",
+      "description": "导航栏中的异常任务菜单仅对 admin 角色可见",
       "verifyMethods": [
         {
           "type": "code",
-          "criteria": "在 public/shared/目录创建 task-card.html 公共片段，在异常任务.html 中创建列表/卡片视图",
+          "criteria": "nav.html 中添加权限判断，仅 admin 角色显示异常任务菜单",
+          "file": "dbsyncer-web/src/main/resources/public/nav.html",
+          "code": "<li th:if='${currentUser?.roleCode eq 'admin'}'><a href='javascript:void(0);' url='/abnormalTasks'...>异常任务监控</a></li>"
+        },
+        {
+          "type": "test",
+          "criteria": "admin 账号登录后显示异常任务菜单，普通用户不显示",
+          "file": "e2e/test/abnormalTasks - 权限控制.spec.js",
+          "code": "test('admin 可见，普通用户不显示')",
+          "description": "验证前端菜单权限控制生效"
+        }
+      ],
+      "status": "pending",
+      "notes": "前端菜单权限控制"
+    },
+    {
+      "id": 2,
+      "title": "访问权限控制",
+      "description": "后端接口仅允许 admin 角色调用，非 admin 返回无权限错误",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "IndexController.getAbnormalTasks() 中权限验证，仅 admin 可访问",
+          "file": "dbsyncer-web/src/main/java/org/dbsyncer/web/controller/index/IndexController.java",
+          "code": "if (!permissionService.isAdmin(currentUsername)) { return RestResult.restFail('无权限访问'); }"
+        },
+        {
+          "type": "test",
+          "criteria": "admin 账号可访问接口，普通用户访问返回 403 无权限错误",
+          "file": "unit/test/abnormalTasks - 权限验证.spec.js",
+          "code": "test('admin 可访问，普通用户返回 403')",
+          "description": "验证后端权限控制生效"
+        }
+      ],
+      "status": "pending",
+      "notes": "后端接口权限控制"
+    },
+    {
+      "id": 3,
+      "title": "创建独立 HTML 页面",
+      "description": "创建abnormalTasks.html 页面，仅显示abnormalTasks（state==ERROR 或 fail>0），支持列表/卡片两种视图",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "在 public/shared/目录创建 task-card.html 公共片段，在abnormalTasks.html 中创建列表/卡片视图",
           "file": "dbsyncer-web/src/main/resources/public/shared/task-card.html",
           "code": "task-card.html: <div th:fragment='task-card(task)' class='mapping-card' th:data-id='${task}'>...</div>"
         },
         {
           "type": "code",
-          "criteria": "异常任务.html 仅包含异常任务的展示，不包含正常任务",
-          "file": "dbsyncer-web/src/main/resources/public/异常任务.html",
-          "code": "异常任务.html: 页面加载时调用/getAbnormalTasks 接口，仅显示返回的异常任务"
+          "criteria": "abnormalTasks.html 仅包含abnormalTasks的展示，不包含正常任务",
+          "file": "dbsyncer-web/src/main/resources/public/abnormalTasks.html",
+          "code": "abnormalTasks.html: 页面加载时调用/getAbnormalTasks 接口，仅显示返回的abnormalTasks"
         },
         {
           "type": "test",
-          "criteria": "访问异常任务页面，仅显示有问题的任务（state==3 或 fail>0）",
-          "file": "e2e/test/异常任务 - 显示范围.spec.js",
+          "criteria": "访问abnormalTasks页面，仅显示有问题的任务（state==3 或 fail>0）",
+          "file": "e2e/test/abnormalTasks - 显示范围.spec.js",
           "code": "test('仅显示 state==ERROR 或 fail>0 的任务')",
           "description": "验证后端筛选生效，正常任务不显示"
         }
@@ -35,7 +79,7 @@
       "notes": "后端筛选 state==3 || fail>0，前端直接渲染"
     },
     {
-      "id": 2,
+      "id": 4,
       "title": "抽取公共 HTML 片段并移除原有代码",
       "description": "将 index.html 中的任务卡片 HTML 抽取为公共片段，并移除原有代码",
       "verifyMethods": [
@@ -63,20 +107,20 @@
       "notes": "抽取片段后，index.html 中原有的卡片 HTML 代码**必须移除**，改为引用片段"
     },
     {
-      "id": 3,
-      "title": "后端筛选异常任务",
-      "description": "新增 /异常任务 接口，后端直接返回筛选后的异常任务列表并排序",
+      "id": 5,
+      "title": "后端筛选abnormalTasks",
+      "description": "新增 /abnormalTasks 接口，后端直接返回筛选后的abnormalTasks列表并排序",
       "verifyMethods": [
         {
           "type": "code",
-          "criteria": "在 IndexController 中新增@GetMapping('/异常任务')接口，返回异常任务数据",
+          "criteria": "在 IndexController 中新增@GetMapping('/abnormalTasks')接口，返回abnormalTasks数据",
           "file": "dbsyncer-web/src/main/java/org/dbsyncer/web/controller/index/IndexController.java",
           "code": "getAbnormalTasks() 实现:\n  all.stream()\n    .filter(m -> m.getMeta().getState()==3 || m.getMeta().getFail()>0)\n    .sorted((a,b) -> { ... })\n    .collect(Collectors.toList())"
         },
         {
           "type": "test",
           "criteria": "后端接口返回的任务 100% 符合异常条件（state==3 或 fail>0）",
-          "file": "unit/test/IndexController - 异常任务接口.spec.js",
+          "file": "unit/test/IndexController - abnormalTasks接口.spec.js",
           "code": "test('返回任务全部符合异常条件')",
           "description": "随机抽取返回结果验证，确认无正常任务"
         }
@@ -85,7 +129,7 @@
       "notes": "后端筛选 + 排序，前端无需处理"
     },
     {
-      "id": 4,
+      "id": 6,
       "title": "状态标识列（红色三角）",
       "description": "所有任务都显示状态标识，无需条件判断（因为已过滤）",
       "verifyMethods": [
@@ -98,16 +142,16 @@
         {
           "type": "test",
           "criteria": "列表中所有 ERROR 任务（100%）显示红色三角",
-          "file": "e2e/test/异常任务 - 状态标识.spec.js",
+          "file": "e2e/test/abnormalTasks - 状态标识.spec.js",
           "code": "test('ERROR 任务显示红色三角')",
           "description": "验证列表中所有 state==3 的任务都有红色三角"
         }
       ],
       "status": "pending",
-      "notes": "因为列表仅包含异常任务，无需条件判断"
+      "notes": "因为列表仅包含abnormalTasks，无需条件判断"
     },
     {
-      "id": 5,
+      "id": 7,
       "title": "错误队列标识（黄色标签）",
       "description": "有失败的 task 显示黄色标签和失败数，支持单独显示和与红色三角同时显示",
       "verifyMethods": [
@@ -120,21 +164,21 @@
         {
           "type": "test",
           "criteria": "fail>0 的任务显示黄色标签和失败数",
-          "file": "e2e/test/异常任务 - 状态标识.spec.js",
+          "file": "e2e/test/abnormalTasks - 状态标识.spec.js",
           "code": "test('fail>0 显示黄色标签')",
           "description": "验证 fail>0 的任务显示正确"
         },
         {
           "type": "test",
           "criteria": "同时满足 ERROR 和 fail>0 时，同时显示红色三角和黄色标签",
-          "file": "e2e/test/异常任务 - 状态标识.spec.js",
+          "file": "e2e/test/abnormalTasks - 状态标识.spec.js",
           "code": "test('ERROR+fail>0 显示两种标识')",
           "description": "验证 state==3 && fail>0 时两种标识都显示"
         },
         {
           "type": "test",
           "criteria": "state==3 且 fail==0 时，仅显示红色三角，不显示黄色标签",
-          "file": "e2e/test/异常任务 - 状态标识.spec.js",
+          "file": "e2e/test/abnormalTasks - 状态标识.spec.js",
           "code": "test('ERROR 且无失败仅显示红色三角')",
           "description": "验证 state==3 && fail==0 时黄色标签不显示"
         }
@@ -143,20 +187,20 @@
       "notes": "支持同时显示，逻辑：红色三角独立，黄色标签条件显示"
     },
     {
-      "id": 6,
+      "id": 8,
       "title": "视图切换功能",
       "description": "实现列表视图和卡片视图的切换功能并保存用户偏好",
       "verifyMethods": [
         {
           "type": "code",
           "criteria": "JavaScript 实现两种视图的切换逻辑，使用 localStorage 保存用户偏好",
-          "file": "dbsyncer-web/src/main/resources/static/js/异常任务.js",
+          "file": "dbsyncer-web/src/main/resources/static/js/abnormalTasks.js",
           "code": "showListView() / showCardView() 切换逻辑 + localStorage 保存"
         },
         {
           "type": "test",
           "criteria": "点击列表/卡片按钮可正确切换视图模式，刷新后保持偏好",
-          "file": "e2e/test/异常任务 - 视图切换.spec.js",
+          "file": "e2e/test/abnormalTasks - 视图切换.spec.js",
           "code": "test('视图切换功能正常')",
           "description": "验证切换功能和偏好保存"
         }
@@ -165,7 +209,7 @@
       "notes": "复用 index.html 的视图切换逻辑"
     },
     {
-      "id": 7,
+      "id": 9,
       "title": "后端数据排序",
       "description": "后端排序：第一优先级 ERROR，第二优先级 fail 倒序",
       "verifyMethods": [
@@ -178,7 +222,7 @@
         {
           "type": "test",
           "criteria": "返回任务列表按规则排序（ERROR 优先，fail 倒序）",
-          "file": "e2e/test/异常任务 - 排序.spec.js",
+          "file": "e2e/test/abnormalTasks - 排序.spec.js",
           "code": "test('排序正确')",
           "description": "验证列表顺序符合预期"
         }
@@ -187,20 +231,20 @@
       "notes": "后端排序，前端无需排序逻辑"
     },
     {
-      "id": 8,
+      "id": 10,
       "title": "点击跳转详情",
       "description": "点击任务卡片跳转到现有编辑页面",
       "verifyMethods": [
         {
           "type": "code",
-          "criteria": "异常任务.js 中实现任务卡片点击事件，调用 goToDetail(taskId)",
-          "file": "dbsyncer-web/src/main/resources/static/js/异常任务.js",
+          "criteria": "abnormalTasks.js 中实现任务卡片点击事件，调用 goToDetail(taskId)",
+          "file": "dbsyncer-web/src/main/resources/static/js/abnormalTasks.js",
           "code": "$('.mapping-card').click(function() { var id=$(this).attr('data-id'); updateHash('/mapping/page/edit?id='+id); })"
         },
         {
           "type": "test",
           "criteria": "点击卡片跳转到编辑页面，URL 参数正确",
-          "file": "e2e/test/异常任务 - 详情跳转.spec.js",
+          "file": "e2e/test/abnormalTasks - 详情跳转.spec.js",
           "code": "test('点击卡片跳转编辑页面')",
           "description": "验证跳转 URL 和参数"
         }
@@ -209,20 +253,20 @@
       "notes": "列表视图的行也能跳转"
     },
     {
-      "id": 9,
+      "id": 11,
       "title": "导航菜单集成",
-      "description": "nav.html 中新增'异常任务'菜单项",
+      "description": "nav.html 中新增'abnormalTasks'菜单项",
       "verifyMethods": [
         {
           "type": "code",
-          "criteria": "nav.html 中新增菜单项，url='/异常任务'，data-route='1'",
+          "criteria": "nav.html 中新增菜单项，url='/abnormalTasks'，data-route='1'",
           "file": "dbsyncer-web/src/main/resources/public/nav.html",
-          "code": "<li><a href='javascript:void(0);' url='/异常任务' data-route='1'><span class='fa fa-exclamation-triangle'></span>异常任务</a></li>"
+          "code": "<li><a href='javascript:void(0);' url='/abnormalTasks' data-route='1'><span class='fa fa-exclamation-triangle'></span>abnormalTasks</a></li>"
         },
         {
           "type": "test",
-          "criteria": "点击导航菜单项正常加载异常任务页面",
-          "file": "e2e/test/异常任务 - 菜单点击.spec.js",
+          "criteria": "点击导航菜单项正常加载abnormalTasks页面",
+          "file": "e2e/test/abnormalTasks - 菜单点击.spec.js",
           "code": "test('菜单点击正常工作')",
           "description": "验证路由和页面加载"
         }
@@ -231,7 +275,7 @@
       "notes": ""
     },
     {
-      "id": 10,
+      "id": 12,
       "title": "向后兼容性",
       "description": "不影响现有功能，新增独立 Tab",
       "verifyMethods": [
@@ -250,8 +294,8 @@
         },
         {
           "type": "test",
-          "criteria": "异常任务页面的功能验证无影响现有功能",
-          "file": "e2e/test/异常任务 - 回归测试.spec.js",
+          "criteria": "abnormalTasks页面的功能验证无影响现有功能",
+          "file": "e2e/test/abnormalTasks - 回归测试.spec.js",
           "code": "test('新增功能无影响')",
           "description": "验证新增功能无影响"
         }
@@ -261,7 +305,7 @@
     }
   ],
   "summary": {
-    "total": 10,
+    "total": 12,
     "passed": 0,
     "failed": 0,
     "pending": 10

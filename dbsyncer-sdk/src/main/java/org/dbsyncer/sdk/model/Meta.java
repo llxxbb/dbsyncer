@@ -244,6 +244,7 @@ public class Meta extends ConfigModel {
 
     public void setMappingId(String mappingId) {
         this.mappingId = mappingId;
+        this.setName(mappingId) ;
     }
 
     public int getState() {

@@ -2557,8 +2557,6 @@ function doQueryLog(pageNum, append) {
 
 // Log 查询功能
 function bindMappingLogEvent(mappingId) {
-    console.log('绑定日志查询事件，mappingId:', mappingId);
-    
     currentMappingId = mappingId;
 
     // 查询日志

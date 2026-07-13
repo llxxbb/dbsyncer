@@ -89,7 +89,7 @@ function bindAddMapping() {
 
 // 编辑任务
 function bindEditMapping() {
-    $(".mappingList .dbsyncer_block").click(function (e) {
+    $(".mapping-card").click(function (e) {
         // 获取任务 ID
         var $id = $(this).attr("data-id") || $(this).attr("id");
         if ($id) {
@@ -239,31 +239,6 @@ function syncProjectGroupIdFromUrl() {
         $('#projectGroup').val(projectGroupId);
     }
 }
-
-// 创建定时器
-function createTimer(projectGroupId) {
-    // 移除旧的定时器机制，避免与refreshMappingList函数的定时器冲突
-    // 统一使用refreshMappingList函数的定时刷新机制
-    return;
-    /*
-    doGetWithoutLoading("/monitor/getRefreshIntervalSeconds", {}, function (data) {
-        if (data.success == true) {
-            // 确保timer2是全局变量
-            if (!window.timer2) {
-                window.timer2 = setInterval(function () {
-                    // 加载页面
-                    var pgId = (typeof projectGroupId === 'string') ? projectGroupId : '';
-                    timerLoad("/index?projectGroupId=" + pgId + "&refresh=" + new Date().getTime(), 1);
-                }, data.resultValue * 1000);
-            }
-
-        } else {
-            bootGrowl(data.resultValue, "danger");
-        }
-    });
-    */
-}
-
 
 function refreshMappingList() {
 
@@ -566,6 +541,16 @@ function nextToMapping(str) {
 }
 
 // 布局切换功能
+// 分组列表点击事件绑定
+function bindGroupList() {
+    $('.group-list-item').off('click.groupList').on('click.groupList', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var groupId = $(this).attr('data-group-id') || '';
+        groupShow(groupId);
+    });
+}
+
 function bindViewToggle() {
     // 列表视图按钮
     $('#listViewBtn').click(function() {
@@ -630,6 +615,8 @@ $(function () {
     
     // 绑定布局切换功能
     bindViewToggle();
+    bindGroupList();
+    
     
     // 清理定时器，防止内存泄漏
     $(window).on('beforeunload', function() {
@@ -639,3 +626,5 @@ $(function () {
         }
     });
 });
+
+//# sourceURL=/js/index/index.js

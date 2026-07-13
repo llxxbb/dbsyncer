@@ -1,0 +1,125 @@
+<div th:fragment='task-card(task)' class="mapping-card" th:data-id="${task.id}">
+    <div class="panel panel-default dbsyncer_block dbsyncer_task_card" 
+         style="height: 280px; display: flex; flex-direction: column; width: 100%; margin: 0; cursor: pointer;">
+        <div class="panel-body" style="flex: 1; display: flex; flex-direction: column; padding: 6px;">
+            <!-- 顶部：任务名称 -->
+            <div style="margin-bottom: 6px;">
+                <h4 th:text="${task.name}" 
+                    style="margin: 0; font-size: 14px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #000000;" 
+                    th:title="${task.name}"></h4>
+            </div>
+            
+            <!-- 分割线 -->
+            <div style="margin: 6px 0; padding-top: 1px; border-top: 1px solid #e0e0e0;"></div>
+            
+            <!-- 连接信息 -->
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
+                <!-- 起始源 -->
+                <div style="display: flex; align-items: center; padding: 8px; background-color: #f8f9fa; border-radius: 4px; margin-bottom: 8px; overflow: hidden;">
+                    <img draggable="false"
+                        th:src="@{'/img/'+ ${task.sourceConnector?.config?.connectorType} + '.png'}"
+                        style="width: 18px; height: 18px; margin-right: 6px; flex-shrink: 0;">
+                    <span th:text="${task.sourceConnector?.name}"
+                        th:title="${task.sourceConnector?.name}" 
+                        style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: #555; min-width: 0;"></span>
+                    <span th:if="${task.sourceConnector?.running}" th:title="连接正常"
+                        style="margin-left: 5px; color: #5cb85c; font-size: 12px; flex-shrink: 0;">
+                        <i class="fa fa-circle"></i>
+                    </span>
+                    <span th:unless="${task.sourceConnector?.running}"
+                        th:title="连接异常" style="margin-left: 5px; color: #d9534f; font-size: 12px; flex-shrink: 0;">
+                        <i class="fa fa-times-circle"></i>
+                    </span>
+                </div>
+                
+                <!-- 箭头和同步类型 -->
+                <div style="display: flex; align-items: center; margin: 4px 0; padding-left: 14px;">
+                    <img src="/img/Arrow.png" style="width: 24px; height: 24px; margin-right: 8px; opacity: 0.6;">
+                    <span style="font-size: 13px; font-weight: bold; color: #000000;">
+                        <span th:text="${T(org.dbsyncer.sdk.enums.ModelEnum).getModelName(task.model)}"></span>
+                    </span>
+                </div>
+                
+                <!-- 目标源 -->
+                <div style="display: flex; align-items: center; padding: 8px; background-color: #f8f9fa; border-radius: 4px; overflow: hidden;">
+                    <img draggable="false"
+                        th:src="@{'/img/'+ ${task.targetConnector?.config?.connectorType} + '.png'}"
+                        style="width: 18px; height: 18px; margin-right: 6px; flex-shrink: 0;">
+                    <span th:text="${task.targetConnector?.name}"
+                        th:title="${task.targetConnector?.name}" 
+                        style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: #555; min-width: 0;"></span>
+                    <span th:if="${task.targetConnector?.running}" th:title="连接正常"
+                        style="margin-left: 5px; color: #5cb85c; font-size: 12px; flex-shrink: 0;">
+                        <i class="fa fa-circle"></i>
+                    </span>
+                    <span th:unless="${task.targetConnector?.running}"
+                        th:title="连接异常" style="margin-left: 5px; color: #d9534f; font-size: 12px; flex-shrink: 0;">
+                        <i class="fa fa-times-circle"></i>
+                    </span>
+                </div>
+            </div>
+            
+            <!-- 底部：统计数据、运行状态、状态标识和操作 -->
+            <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #e0e0e0;">
+                <!-- 异常状态标识列（仅显示有失败记录的任务） -->
+                <div class="status-col" 
+                     th:if="${task.meta?.fail gt 0}" 
+                     style="margin-bottom: 8px; display: flex; align-items: center;">
+                    <span th:if="${task.meta.fail > 0}" 
+                          class="fa fa-exclamation-triangle text-warning" 
+                          th:title="'失败记录数：' + ${task.meta.fail}"></span>
+                    <span th:if="${task.meta.fail > 0}" 
+                          class="fail-count" 
+                          th:text="${task.meta.fail}" 
+                          style="margin-left: 4px; color: #d9534f; font-weight: bold;"></span>
+                </div>
+                
+                <!-- 读取条数和写入条数 -->
+                <div style="display: flex; align-items: center; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #e0e0e0;">
+                    <div style="flex: 1; text-align: center; border-right: 1px solid #e0e0e0;">
+                        <div style="font-size: 11px; color: #666;">读取条数</div>
+                        <div style="font-size: 13px; font-weight: bold; color: #333;" th:text="${task.meta?.total ?: 0}">0</div>
+                    </div>
+                    <div style="flex: 1; text-align: center;">
+                        <div style="font-size: 11px; color: #666;">写入条数</div>
+                        <div style="font-size: 13px; font-weight: bold; color: #333;" th:text="${task.meta?.success ?: 0}">0</div>
+                    </div>
+                </div>
+                
+                <!-- 运行状态和操作按钮 -->
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <!-- 运行状态 -->
+                    <div id="stateId" style="flex-shrink: 0;">
+                        <span th:if="${task.meta?.state eq 0}"
+                            class="label label-info" style="font-size: 11px;">未运行</span>
+                        <span th:if="${task.meta?.state eq 1}"
+                            class="label label-success" style="font-size: 11px;">运行中</span>
+                        <span th:if="${task.meta?.state eq 3}"
+                            class="label label-danger" style="font-size: 11px;">异常</span>
+                        <span th:if="${task.meta?.state eq 3}"
+                            th:title="${task.meta?.errorMessage}"
+                            class="mapping-error-sign" data-toggle="tooltip"
+                            data-placement="top"><i
+                                class="fa fa-exclamation-triangle"></i></span>
+                    </div>
+
+                    <!-- 操作按钮 -->
+                    <div class="operation-buttons">
+                        <a th:if="${task.meta?.state ne 1}"
+                            th:attr="data-url='/mapping/start?id='+${task.id}"
+                            href="javascript:;"
+                            class="btn btn-xs btn-start" style="font-size: 11px; padding: 2px 6px;">
+                            <i class="fa fa-play"></i> 启动
+                        </a>
+                        <a th:if="${task.meta?.state eq 1}"
+                            th:attr="data-url='/mapping/stop?id='+${task.id}"
+                            href="javascript:;"
+                            class="btn btn-xs btn-danger btn-stop" style="font-size: 11px; padding: 2px 6px;">
+                            <i class="fa fa-stop"></i> 停止
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

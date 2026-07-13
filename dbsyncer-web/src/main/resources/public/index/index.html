@@ -29,21 +29,21 @@
                                         font-weight: bold;
                                     }
                                 </style>
-                                <div th:if="${currentUser?.roleCode eq 'admin'}" style="display: flex; align-items: center; padding: 8px 15px; position: relative; border-bottom: 1px solid #e0e0e0;" th:classappend="${#strings.isEmpty(projectGroupId)} ? 'active-group-item'" title="未分配">
+                                <div th:if="${currentUser?.roleCode eq 'admin'}" class="group-list-item" data-group-id="" style="display: flex; align-items: center; padding: 8px 15px; position: relative; border-bottom: 1px solid #e0e0e0;" th:classappend="${#strings.isEmpty(projectGroupId)} ? 'active-group-item'" title="未分配">
                                     <img th:src="@{/img/File.png}" style="width: 16px; height: 16px; margin-right: 10px; flex-shrink: 0;" />
                                     <span style="vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0;">&nbsp;未分配</span>
-                                    <button type="button" class="btn btn-default btn-block text-left" th:onclick="groupShow('')" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;">
-                                    </button>
+                                    <button type="button" class="btn btn-default btn-block text-left" onclick="groupShow('')" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;"></button>
                                 </div>
-                                <div th:each="g,s:${projectGroups}" style="display: flex; align-items: center; padding: 8px 15px; position: relative; border-bottom: 1px solid #e0e0e0;"
+                                <div th:each="g,s:${projectGroups}" class="group-list-item"
+                                    th:attr="data-group-id=${g?.id}"
+                                    style="display: flex; align-items: center; padding: 8px 15px; position: relative; border-bottom: 1px solid #e0e0e0;"
                                     th:classappend="${g?.id eq projectGroupId} ? 'active-group-item'"
                                     th:title="${g?.name}">
                                     <img th:src="@{/img/File.png}"
                                         style="width: 16px; height: 16px; margin-right: 10px; flex-shrink: 0;" />
                                     <span style="vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0;">&nbsp;<span
                                         th:text="${g?.name}"></span></span>
-                                    <button type="button" 
-                                        th:attr="onclick='groupShow(\'' + ${g?.id} + '\')'"
+                                    <button type="button"
                                         style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;">
                                     </button>
                                     <div style="position: absolute; right: 0; top: 0; width: 40px; height: 100%; opacity: 0; transition: opacity 0.2s ease-in-out;" th:if="${currentUser?.roleCode eq 'admin'}">
@@ -53,16 +53,16 @@
                                                 style="padding: 6px 8px; margin: 0; width: 40px; height: 100%; border: none; background: transparent;">
                                                 <span class="fa fa-ellipsis-v"></span>
                                             </button>
-                                            <ul class="dropdown-menu dropdown-menu-right" style="min-width: 80px; width: auto;">
-                                                <li><a href="javascript:;"
-                                                        th:attr="onclick='doEditProjectGroup(\'' + ${g?.id} + '\')'"
-                                                        style="padding: 5px 10px;">
-                                                        <span class="fa fa-pencil"></span> 修改</a></li>
-                                                <li><a href="javascript:;"
-                                                        th:attr="onclick='doRemoveProjectGroup(\'' + ${g?.id} + '\')'"
-                                                        style="padding: 5px 10px;">
-                                                        <span class="fa fa-times"></span> 删除</a></li>
-                                            </ul>
+                                             <ul class="dropdown-menu dropdown-menu-right" style="min-width: 80px; width: auto;">
+                                                  <li><a href="javascript:;"
+                                                          onclick="doEditProjectGroup('${g?.id}')"
+                                                          style="padding: 5px 10px;">
+                                                         <span class="fa fa-pencil"></span> 修改</a></li>
+                                                  <li><a href="javascript:;"
+                                                          onclick="doRemoveProjectGroup('${g?.id}')"
+                                                          style="padding: 5px 10px;">
+                                                         <span class="fa fa-times"></span> 删除</a></li>
+                                             </ul>
                                         </div>
                                     </div>
                                 </div>
@@ -257,116 +257,9 @@
                         <!-- 卡片视图 -->
                         <div id="cardView" class="col-md-12" style="display: none; padding-left: 0; padding-right: 0;">
                             <div class="mappingList">
-                                <div th:each="m,state : ${mappings}" th:id="${m?.id}" class="mapping-card">
-                                    <div class="panel panel-default dbsyncer_block" style="height: 280px; display: flex; flex-direction: column; width: 100%; margin: 0; cursor: pointer;" th:attr="data-id=${m?.id}">
-                                        <div class="panel-body" style="flex: 1; display: flex; flex-direction: column; padding: 6px;">
-                                            <!-- 顶部：任务名称 -->
-                                            <div style="margin-bottom: 6px;">
-                                                <h4 th:text="${m?.name}" style="margin: 0; font-size: 14px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #000000;" th:title="${m?.name}"></h4>
-                                            </div>
-                                            
-                                            <!-- 分割线 -->
-                                            <div style="margin: 6px 0; padding-top: 1px; border-top: 1px solid #e0e0e0;"></div>
-                                            
-                                            <!-- 连接信息 -->
-                                            <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
-                                                <!-- 起始源 -->
-                                                <div style="display: flex; align-items: center; padding: 8px; background-color: #f8f9fa; border-radius: 4px; margin-bottom: 8px; overflow: hidden;">
-                                                    <img draggable="false"
-                                                        th:src="@{'/img/'+ ${m?.sourceConnector?.config?.connectorType} + '.png'}"
-                                                        style="width: 18px; height: 18px; margin-right: 6px; flex-shrink: 0;">
-                                                    <span th:text="${m?.sourceConnector?.name}"
-                                                        th:title="${m?.sourceConnector?.name}" 
-                                                        style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: #555; min-width: 0;"></span>
-                                                    <span th:if="${m?.sourceConnector?.running}" th:title="连接正常"
-                                                        style="margin-left: 5px; color: #5cb85c; font-size: 12px; flex-shrink: 0;">
-                                                        <i class="fa fa-circle"></i>
-                                                    </span>
-                                                    <span th:unless="${m?.sourceConnector?.running}"
-                                                        th:title="连接异常" style="margin-left: 5px; color: #d9534f; font-size: 12px; flex-shrink: 0;">
-                                                        <i class="fa fa-times-circle"></i>
-                                                    </span>
-                                                </div>
-                                                
-                                                <!-- 箭头和同步类型 -->
-                                                <div style="display: flex; align-items: center; margin: 4px 0; padding-left: 14px;">
-                                                    <img src="/img/Arrow.png" style="width: 24px; height: 24px; margin-right: 8px; opacity: 0.6;" alt="箭头">
-                                                    <span style="font-size: 13px; font-weight: bold; color: #000000;">
-                                                        <span th:text="${T(org.dbsyncer.sdk.enums.ModelEnum).getModelName(m?.model)}"></span>
-                                                    </span>
-                                                </div>
-                                                
-                                                <!-- 目标源 -->
-                                                <div style="display: flex; align-items: center; padding: 8px; background-color: #f8f9fa; border-radius: 4px; overflow: hidden;">
-                                                    <img draggable="false"
-                                                        th:src="@{'/img/'+ ${m?.targetConnector?.config?.connectorType} + '.png'}"
-                                                        style="width: 18px; height: 18px; margin-right: 6px; flex-shrink: 0;">
-                                                    <span th:text="${m?.targetConnector?.name}"
-                                                        th:title="${m?.targetConnector?.name}" 
-                                                        style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: #555; min-width: 0;"></span>
-                                                    <span th:if="${m?.targetConnector?.running}" th:title="连接正常"
-                                                        style="margin-left: 5px; color: #5cb85c; font-size: 12px; flex-shrink: 0;">
-                                                        <i class="fa fa-circle"></i>
-                                                    </span>
-                                                    <span th:unless="${m?.targetConnector?.running}"
-                                                        th:title="连接异常" style="margin-left: 5px; color: #d9534f; font-size: 12px; flex-shrink: 0;">
-                                                        <i class="fa fa-times-circle"></i>
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            
-                                            <!-- 底部：统计数据、运行状态和操作按钮 -->
-                                            <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #e0e0e0;">
-                                                <!-- 读取条数和写入条数 -->
-                                                <div style="display: flex; align-items: center; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #e0e0e0;">
-                                                    <div style="flex: 1; text-align: center; border-right: 1px solid #e0e0e0;">
-                                                        <div style="font-size: 11px; color: #666;">读取条数</div>
-                                                        <div style="font-size: 13px; font-weight: bold; color: #333;" th:text="${m?.meta?.total}">0</div>
-                                                    </div>
-                                                    <div style="flex: 1; text-align: center;">
-                                                        <div style="font-size: 11px; color: #666;">写入条数</div>
-                                                        <div style="font-size: 13px; font-weight: bold; color: #333;" th:text="${m?.meta?.success}">0</div>
-                                                    </div>
-                                                </div>
-                                                <div style="display: flex; align-items: center; justify-content: space-between;">
-                                                    <!-- 运行状态 -->
-                                                    <div id="stateId" style="flex-shrink: 0;">
-                                                        <span th:if="${m?.meta?.state eq 0}"
-                                                            class="label label-info" style="font-size: 11px;">未运行</span>
-                                                        <span th:if="${m?.meta?.state eq 1}"
-                                                            class="label label-success" style="font-size: 11px;">运行中</span>
-                                                        <span th:if="${m?.meta?.state eq 2}"
-                                                            class="label label-warning" style="font-size: 11px;">停止中</span>
-                                                        <span th:if="${m?.meta?.state eq 3}"
-                                                            class="label label-danger" style="font-size: 11px;">异常</span>
-                                                        <span th:if="${m?.meta?.state eq 3}"
-                                                            th:title="${m?.meta?.errorMessage}"
-                                                            class="mapping-error-sign" data-toggle="tooltip"
-                                                            data-placement="top"><i
-                                                                class="fa fa-exclamation-triangle"></i></span>
-                                                    </div>
-
-                                                    <!-- 操作按钮 -->
-                                                    <div class="operation-buttons">
-                                                        <!-- 未运行 -->
-                                                        <a th:if="${m?.meta?.state ne 1}"
-                                                            th:attr="data-url='/mapping/start?id='+${m?.id}"
-                                                            href="javascript:;"
-                                                            class="btn btn-xs btn-start" style="font-size: 11px; padding: 2px 6px;">
-                                                            <i class="fa fa-play"></i> 启动
-                                                        </a>
-                                                        <!-- 运行中 -->
-                                                        <a th:if="${m?.meta?.state eq 1}"
-                                                            th:attr="data-url='/mapping/stop?id='+${m?.id}"
-                                                            href="javascript:;"
-                                                            class="btn btn-xs btn-danger btn-stop" style="font-size: 11px; padding: 2px 6px;">
-                                                            <i class="fa fa-stop"></i> 停止
-                                                        </a>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                <div th:each="m : ${mappings}" th:id="${m?.id}" class="mapping-card">
+                                    <!-- 使用共享的 task-card.html 片段 -->
+                                    <div th:replace="shared/task-card :: task-card(${m})"></div>
                                 </div>
                             </div>
                         </div>

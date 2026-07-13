@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
+
+<div th:fragment="abnormalTasks" class="contentDiv">
+    <div class="container-fluid">
+        <!-- 视图切换按钮 -->
+        <div class="container-fluid" style="margin-bottom: 20px;">
+            <div class="row">
+                <div class="col-md-3">
+                    <button id="listViewBtn" class="btn btn-default btn-sm" onclick="showListView()">
+                        <span class="fa fa-table"></span> 列表视图
+                    </button>
+                    <button id="cardViewBtn" class="btn btn-default btn-sm active" onclick="showCardView()">
+                        <span class="fa fa-th-large"></span> 卡片视图
+                    </button>
+                    <button id="refreshPageBtn" class="btn btn-default btn-sm" onclick="location.reload()">
+                        <span class="fa fa-refresh"></span> 刷新页面
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 数据展示容器 -->
+        <div class="container-fluid">
+            <!-- 列表视图 -->
+            <div id="listView" style="display:none;">
+                <div class="panel panel-default">
+                    <div class="panel-body">
+                        <table class="table table-hover table-striped" id="taskTable">
+                            <thead>
+                                <tr>
+                                    <th>名称</th>
+                                    <th>状态</th>
+                                    <th>失败数</th>
+                                    <th>源</th>
+                                    <th>目标</th>
+                                    <th>读取/写入</th>
+                                </tr>
+                            </thead>
+                            <tbody id="listViewBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 卡片视图 -->
+            <div id="cardView" style="display:block;">
+                <div class="mappingList">
+                    <div id="cardViewContainer">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script th:src="@{/js/abnormalTasks.js}"></script>
+</html>

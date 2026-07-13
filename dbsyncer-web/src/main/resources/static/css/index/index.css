@@ -73,6 +73,7 @@
     background-color: #fff;
     width: 100%;
     max-width: 230px;
+    cursor: pointer;
 }
 
 .mappingList .dbsyncer_block:hover {

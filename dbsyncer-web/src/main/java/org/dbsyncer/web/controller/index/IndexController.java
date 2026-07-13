@@ -8,12 +8,15 @@ import org.dbsyncer.biz.vo.MappingVo;
 import org.dbsyncer.biz.AppConfigService;
 import org.dbsyncer.biz.PermissionService;
 import org.dbsyncer.biz.ProjectGroupService;
+import org.dbsyncer.biz.SystemConfigService;
 import org.dbsyncer.biz.UserConfigService;
+import org.dbsyncer.biz.MappingService;
 import org.dbsyncer.biz.vo.ProjectGroupVo;
 import org.dbsyncer.biz.vo.RestResult;
 import org.dbsyncer.biz.vo.UserInfoVo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
@@ -48,6 +51,12 @@ public class IndexController {
 
     @Resource
     private PermissionService permissionService;
+
+    @Resource
+    private SystemConfigService systemConfigService;
+
+    @Resource
+    private MappingService mappingService;
 
     @GetMapping("")
     public String index(ModelMap model, String projectGroupId) {
@@ -144,7 +153,7 @@ public class IndexController {
     /**
      * 根据驱动名称进行模糊搜索
      * @param keyword 搜索关键词
-     * @param projectGroupId 项目组ID
+     * @param projectGroupId 项目组 ID
      * @param state 任务状态
      * @param sourceConnectorType 数据源类型
      * @param targetConnectorType 目标源类型
@@ -197,8 +206,8 @@ public class IndexController {
 
             return RestResult.restSuccess(resultMapping);
         } catch (Exception e) {
-            logger.error("搜索驱动失败: " + e.getMessage(), e);
-            return RestResult.restFail("搜索驱动失败: " + e.getMessage());
+            logger.error("搜索驱动失败：" + e.getMessage(), e);
+            return RestResult.restFail("搜索驱动失败：" + e.getMessage());
         }
     }
 
@@ -217,5 +226,56 @@ public class IndexController {
         return mappings.stream()
                 .filter(mapping -> permissionService.canAccessMapping(username, mapping.getId()))
                 .collect(Collectors.toList());
+    }
+
+
+
+    /**
+     * 异常任务监控页面（仅管理员可见）
+     * 返回 HTML 页面视图
+     */
+    @PreAuthorize("hasRole('admin')")
+    @GetMapping("/abnormalTasks")
+    public String abnormalTasksPage(ModelMap model) {
+        try {
+            model.put("enableCDN", systemConfigService.getSystemConfig().isEnableCDN());
+        } catch (Exception e) {
+            logger.error("获取 enableCDN 配置失败", e);
+        }
+        return "abnormalTasks";
+    }
+
+    /**
+     * 获取异常任务列表（仅管理员可见）
+     * 仅返回 state==3 (ERROR) 或 fail>0 的任务，并按规则排序
+     * @return RestResult 异常任务列表
+     */
+    @PreAuthorize("hasRole('admin')")
+    @GetMapping("/abnormalTasks/api")
+    @ResponseBody
+    public RestResult getAbnormalTasks() {
+        try {
+            List<MappingVo> allMappings = mappingService.getMappingAll();
+
+            return RestResult.restSuccess(allMappings.stream()
+                .filter(m -> m != null && m.getMeta() != null && (m.getMeta().getState() == 3 || m.getMeta().getFail() > 0))
+                .sorted((a, b) -> {
+                    int stateA = (a.getMeta() != null) ? a.getMeta().getState() : 0;
+                    int stateB = (b.getMeta() != null) ? b.getMeta().getState() : 0;
+                    
+                    if (stateA == 3 && stateB != 3) return -1;
+                    if (stateA != 3 && stateB == 3) return 1;
+                    
+                    int cmp = Long.compare(
+                        (a.getMeta() != null) ? a.getMeta().getFail() : 0,
+                        (b.getMeta() != null) ? b.getMeta().getFail() : 0
+                    );
+                    return -cmp;
+                })
+                .collect(Collectors.toList()));
+        } catch (Exception e) {
+            logger.error("获取异常任务失败：" + e.getMessage(), e);
+            return RestResult.restFail("获取异常任务失败：" + e.getMessage());
+        }
     }
 }
