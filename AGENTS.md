@@ -92,3 +92,17 @@ cd dbsyncer-common && mvn test
 ## Debug Port
 
 Default: 5005 (can conflict). Check `application.properties` for `server.port` and Java agent settings.
+
+## Agent skills
+
+### Issue tracker
+
+Local Markdown under `.scratch/<feature>/`. External PRs are not a triage surface. See `doc/agents/issue-tracker.md`.
+
+### Triage labels
+
+All five canonical labels use default names: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `doc/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout: `doc/CONTEXT.md` + `doc/adr/`. See `doc/agents/domain.md`.

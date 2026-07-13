@@ -14,10 +14,10 @@
         //     "-Dexec.mainClass=org.dbsyncer.web.Application",
         //     "-Dexec.classpathScope=runtime"
         // ],
-        "build": {
-            "command": "mvn",
-            "args": ["install", "-pl", "dbsyncer-web", "-am", "-DskipTests"]
-        },
+        // "build": {
+        //     "command": "mvn",
+        //     "args": ["install", "-pl", "dbsyncer-web", "-am", "-DskipTests"]
+        // },
         "cwd": "$ZED_WORKTREE_ROOT"
     }
 ]
