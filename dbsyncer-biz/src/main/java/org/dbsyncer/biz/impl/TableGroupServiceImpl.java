@@ -226,11 +226,7 @@ public class TableGroupServiceImpl implements TableGroupService {
             throw new PrimaryKeyDifferenceException(diff);
         }
 
-        // 保存原始 fieldMapping JSON，用于 DDL 后重新应用
-        String fieldMappingJson = params.get("fieldMapping");
 
-        // DDL 前设置字段映射（initCommand 依赖 fieldMapping 非空）
-        tableGroupChecker.applyFieldMapping(model, fieldMappingJson);
 
         // 执行自定义字段 DDL（先执行，因为主键可能引用自定义字段）
         List<Convert> customConverts = model.getConvert();
@@ -252,6 +248,11 @@ public class TableGroupServiceImpl implements TableGroupService {
                 }
             }
         }
+        
+        // 保存原始 fieldMapping JSON，用于 DDL 后重新应用
+        String fieldMappingJson = params.get("fieldMapping");
+        tableGroupChecker.applyFieldMapping(model, fieldMappingJson);
+
 
         // 主键变更 DDL（在自定义字段DDL之后，确保自定义主键字段已存在）
         // 必须在保存配置之前执行，否则失败后 hasPkDifference=0 导致死锁
