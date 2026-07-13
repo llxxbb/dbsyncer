@@ -65,6 +65,7 @@ public class ManagerFactory {
                 ((FullIncrementPuller) puller).start(mapping, tableGroupsToSync);
             } else {
                 puller.start(mapping);
+                profileComponent.editConfigModel(meta);
             }
         } catch (Exception e) {
             // 记录异常状态和异常信息到 Meta 对象，使用统一方法
@@ -91,6 +92,8 @@ public class ManagerFactory {
     public void close(Mapping mapping) throws Exception {
         Puller puller = getPuller(mapping);
         puller.close(mapping);
+        Meta meta = profileComponent.getMeta(mapping.getMetaId());
+        profileComponent.editConfigModel(meta);
     }
 
     private Puller getPuller(Mapping mapping) {

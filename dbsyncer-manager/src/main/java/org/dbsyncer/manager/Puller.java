@@ -1,7 +1,6 @@
 package org.dbsyncer.manager;
 
 import org.dbsyncer.sdk.model.Mapping;
-import org.dbsyncer.sdk.model.Meta;
 
 public interface Puller {
 
