@@ -22,7 +22,7 @@ import static org.junit.Assert.*;
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = Application.class)
 @ActiveProfiles("test")
-public class CompositeKeyMysqlUpsertIntegrationTest extends BaseDDLIntegrationTest {
+public class CompositeKeyMysqlIntegrationTest extends BaseDDLIntegrationTest {
 
     @BeforeClass
     public static void setUpClass() throws Exception {
@@ -30,7 +30,7 @@ public class CompositeKeyMysqlUpsertIntegrationTest extends BaseDDLIntegrationTe
         loadTestConfigStatic();
         testDatabaseManager = new TestDatabaseManager(sourceConfig, targetConfig);
 
-        String initSql = "DROP TABLE IF EXISTS t1,t2; CREATE TABLE t1 (id1 INT NOT NULL, id2 INT NOT NULL, name VARCHAR(50), age INT, PRIMARY KEY (id1, id2)); CREATE TABLE t2 (id1 INT NOT NULL, id2 INT NOT NULL, name VARCHAR(50), age INT, PRIMARY KEY (id1, id2))";
+        String initSql = "DROP TABLE IF EXISTS t1,t2; CREATE TABLE t1 (id1 INT NOT NULL, id2 INT NOT NULL, name VARCHAR(50), age INT, PRIMARY KEY (id1, id2)); CREATE TABLE t2 (id2 INT NOT NULL, id1 INT NOT NULL, name VARCHAR(50), age INT, PRIMARY KEY (id1, id2))";
         testDatabaseManager.initializeTestEnvironment(initSql, initSql);
 
         logger.info("MySQL 复合主键 UPSERT 集成测试环境初始化完成");
@@ -48,7 +48,7 @@ public class CompositeKeyMysqlUpsertIntegrationTest extends BaseDDLIntegrationTe
 
     private static void loadTestConfigStatic() throws IOException {
         Properties props = new Properties();
-        try (InputStream input = CompositeKeyMysqlUpsertIntegrationTest.class.getClassLoader().getResourceAsStream("test.properties")) {
+        try (InputStream input = CompositeKeyMysqlIntegrationTest.class.getClassLoader().getResourceAsStream("test.properties")) {
             if (input == null) {
                 throw new IllegalArgumentException("test.properties not found");
             }
@@ -87,7 +87,7 @@ public class CompositeKeyMysqlUpsertIntegrationTest extends BaseDDLIntegrationTe
 
     @Override
     protected Class<?> getTestClass() {
-        return CompositeKeyMysqlUpsertIntegrationTest.class;
+        return CompositeKeyMysqlIntegrationTest.class;
     }
 
     @Override
@@ -136,7 +136,7 @@ public class CompositeKeyMysqlUpsertIntegrationTest extends BaseDDLIntegrationTe
     }
 
     @Test
-    public void testUpsertCompositeKey() throws Exception {
+    public void testCompositeKey() throws Exception {
         logger.info("测试复合主键 UPSERT (增量模式)...");
 
         // 创建连接器和映射
@@ -181,6 +181,20 @@ public class CompositeKeyMysqlUpsertIntegrationTest extends BaseDDLIntegrationTe
         assertEquals("Bob Age 应保持 30", 30, bob.get("age"));
 
         logger.info("✅ 测试通过：只有 Alice 被更新，Bob 不受影响！");
+
+        // DELETE 测试：删除 Bob (id1=2, id2=2)
+        deleteRow("t1", 1, 2, sourceConfig);
+        Thread.sleep(2000);
+
+        targetCount = countRows("t2", targetConfig);
+        assertEquals("目标表应剩 1 行", 1L, targetCount);
+
+        alice = queryRow("t2", "id1=1 AND id2=1", targetConfig);
+        bob = queryRow("t2", "id1=1 AND id2=2", targetConfig);
+
+        assertNotNull("Alice 应存在", alice);
+        assertNull("Bob 应被删除", bob);
+        logger.info("✅ DELETE 测试通过：Bob 被成功删除，Alice 保留！");
     }
 
     protected String createMapping() throws Exception {
@@ -218,6 +232,14 @@ public class CompositeKeyMysqlUpsertIntegrationTest extends BaseDDLIntegrationTe
         new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(cfg)
                 .execute(t -> {
                     t.execute(String.format("UPDATE %s SET age=%d WHERE id1=%d AND id2=%d", table, age, id1, id2));
+                    return null;
+                });
+    }
+
+    private void deleteRow(String table, int id1, int id2, DatabaseConfig cfg) throws Exception {
+        new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(cfg)
+                .execute(t -> {
+                    t.execute(String.format("DELETE FROM %s WHERE id1=%d AND id2=%d", table, id1, id2));
                     return null;
                 });
     }
