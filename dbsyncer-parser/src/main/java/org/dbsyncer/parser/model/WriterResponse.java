@@ -22,6 +22,13 @@ public class WriterResponse extends AbstractWriter implements BufferResponse {
      * 是否为重试操作（用于防止重试失败时再次写入错误队列）
      */
     private transient boolean isErrQueueRetry = false;
+    
+    /**
+     * 批次序号，用于在同一 binlog position 时保持顺序不变
+     * 当多个批次具有相同的 position 时（如同一事务内的不同事件类型），
+     * 按照 batchIndex 从小到大处理，确保顺序正确
+     */
+    private transient int batchIndex = 0;
 
     @Override
     public int getTaskSize() {
@@ -77,5 +84,19 @@ public class WriterResponse extends AbstractWriter implements BufferResponse {
      */
     public void setErrQueueRetry(boolean retry) {
         isErrQueueRetry = retry;
+    }
+    
+    /**
+     * 获取批次序号
+     */
+    public int getBatchIndex() {
+        return batchIndex;
+    }
+    
+    /**
+     * 设置批次序号
+     */
+    public void setBatchIndex(int batchIndex) {
+        this.batchIndex = batchIndex;
     }
 }

@@ -12,6 +12,7 @@ import org.dbsyncer.common.ParserException;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.sdk.enums.MetaEnum;
 import org.dbsyncer.sdk.model.Meta;
+import org.dbsyncer.parser.model.AbstractWriter;
 import org.dbsyncer.parser.model.WriterResponse;
 import org.dbsyncer.sdk.model.ChangedOffset;
 import org.slf4j.Logger;
@@ -159,11 +160,11 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
                     // 检查 Response 是否是 AbstractWriter 的子类（如 WriterResponse）
                     ChangedOffset o1 = null;
                     ChangedOffset o2 = null;
-                    if (r1 instanceof org.dbsyncer.parser.model.AbstractWriter) {
-                        o1 = ((org.dbsyncer.parser.model.AbstractWriter) r1).getChangedOffset();
+                    if (r1 instanceof AbstractWriter) {
+                        o1 = ((AbstractWriter) r1).getChangedOffset();
                     }
-                    if (r2 instanceof org.dbsyncer.parser.model.AbstractWriter) {
-                        o2 = ((org.dbsyncer.parser.model.AbstractWriter) r2).getChangedOffset();
+                    if (r2 instanceof AbstractWriter) {
+                        o2 = ((AbstractWriter) r2).getChangedOffset();
                     }
 
                     // 如果 ChangedOffset 为 null，放在最后处理
@@ -194,19 +195,28 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
                     // 比较位置
                     Object pos1 = o1.getPosition();
                     Object pos2 = o2.getPosition();
+                    int posCompare = 0;
                     if (pos1 instanceof Long && pos2 instanceof Long) {
-                        return Long.compare((Long) pos1, (Long) pos2);
+                        posCompare = Long.compare((Long) pos1, (Long) pos2);
                     } else if (pos1 instanceof Number && pos2 instanceof Number) {
-                        return Long.compare(((Number) pos1).longValue(), ((Number) pos2).longValue());
+                        posCompare = Long.compare(((Number) pos1).longValue(), ((Number) pos2).longValue());
                     } else if (pos1 != null && pos2 != null) {
-                        return pos1.toString().compareTo(pos2.toString());
+                        posCompare = pos1.toString().compareTo(pos2.toString());
                     } else if (pos1 != null) {
-                        return -1;
+                        posCompare = -1;
                     } else if (pos2 != null) {
-                        return 1;
+                        posCompare = 1;
                     }
 
-                    return 0;
+                    // 如果位置相同，使用 batchIndex 保序（关键修复同一事务内顺序）
+                    if (posCompare != 0) {
+                        return posCompare;
+                    }
+                    
+                    // 关键点：同一 position 保持原始顺序
+                    int b1 = r1 instanceof WriterResponse ? ((WriterResponse) r1).getBatchIndex() : 0;
+                    int b2 = r2 instanceof WriterResponse ? ((WriterResponse) r2).getBatchIndex() : 0;
+                    return Integer.compare(b1, b2);
                 })
                 .collect(Collectors.toList());
 
@@ -308,6 +318,7 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
         }
 
         AtomicLong batchCounter = new AtomicLong();
+        AtomicLong batchIndexCounter = new AtomicLong();  // 批次序号计数器，用于同一 position 保序
         Map<String, Response> map = new ConcurrentHashMap<>();
         while (!queue.isEmpty()) {
             Request poll = queue.poll();
@@ -315,7 +326,12 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
             Response response = map.compute(key, (k, v) -> {
                 if (v == null) {
                     try {
-                        return responseClazz.newInstance();
+                        Response newResponse = responseClazz.newInstance();
+                        // 为每个新创建的批次分配序号 (需要强制类型转换)
+                        if (newResponse instanceof WriterResponse) {
+                            ((WriterResponse) newResponse).setBatchIndex((int) batchIndexCounter.getAndIncrement());
+                        }
+                        return newResponse;
                     } catch (Exception e) {
                         throw new ParserException(e);
                     }

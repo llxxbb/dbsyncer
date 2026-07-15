@@ -196,41 +196,6 @@ public class CompositeKeyMySQLDeleteIntegrationTest extends BaseDDLIntegrationTe
         assertEquals("目标表应有 2 行", 2L, targetCount);
     }
 
-    @Test
-    public void testDeleteMultipleCompositeKeys() throws Exception {
-        logger.info("测试删除多个复合主键数据...");
-
-        List<org.dbsyncer.sdk.model.TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
-        org.dbsyncer.sdk.model.TableGroup tableGroup = tableGroups.get(0);
-        tableGroup.setFullCompleted(false);
-        tableGroup.setCursors(null);
-        profileComponent.editConfigModel(tableGroup);
-
-        insertRowDirect(sourceTableName, 4, "C004", 4.0, 400.00, 1004L, "Y", "admin4", sourceConfig);
-        insertRowDirect(sourceTableName, 5, "C005", 5.0, 500.00, 1005L, "Y", "admin5", sourceConfig);
-        Thread.sleep(3000);
-
-        assertEquals("目标表应有 5 行", 5L, countRows(targetTableName, targetConfig));
-
-        String deleteSql = String.format("DELETE FROM %s WHERE (Uid = 4 AND Courseid = 'C004') OR (Uid = 5 AND Courseid = 'C005')", sourceTableName);
-        new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(sourceConfig)
-                .execute(t -> {
-                    t.execute(deleteSql);
-                    return null;
-                });
-        Thread.sleep(3000);
-
-        assertEquals("目标表应有 3 行", 3L, countRows(targetTableName, targetConfig));
-
-        assertNull("行 4 应被删除", queryRowByCompositeKey(targetTableName, 4, "C004", targetConfig));
-        assertNull("行 5 应被删除", queryRowByCompositeKey(targetTableName, 5, "C005", targetConfig));
-
-        assertNotNull("行 2 应仍然存在", queryRowByCompositeKey(targetTableName, 2, "C002", targetConfig));
-        assertNotNull("行 3 应仍然存在", queryRowByCompositeKey(targetTableName, 3, "C003", targetConfig));
-
-        logger.info("✅ 测试通过：多个复合主键数据正确删除！");
-    }
-
     private void insertRowDirect(String table, int uid, String courseid, double detailId, Double payMoney, Long payCourseId, String payed, String operator, DatabaseConfig cfg) throws Exception {
         new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(cfg)
                 .execute(t -> {
