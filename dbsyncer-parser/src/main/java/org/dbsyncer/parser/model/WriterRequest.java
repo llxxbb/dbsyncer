@@ -15,7 +15,8 @@ import java.util.List;
 public class WriterRequest extends AbstractWriter implements BufferRequest {
 
     private final List<Object> row;
-    private final List<String> columnNames;  // CDC 捕获的列名列表（按数据顺序）
+    private final List<Object> beforeRow;
+    private final List<String> columnNames;
 
     public WriterRequest(ChangedEvent event) {
         setTraceId(event.getTraceId());
@@ -25,8 +26,15 @@ public class WriterRequest extends AbstractWriter implements BufferRequest {
         setEvent(event.getEvent());
         setSql(event.getSql());
         this.row = event.getChangedRow();
-        // 从 RowChangedEvent 中提取列名信息
+        this.beforeRow = extractBeforeRow(event);
         this.columnNames = extractColumnNames(event);
+    }
+
+    private List<Object> extractBeforeRow(ChangedEvent event) {
+        if (event instanceof RowChangedEvent) {
+            return ((RowChangedEvent) event).getBeforeRow();
+        }
+        return null;
     }
 
     /**
@@ -50,6 +58,10 @@ public class WriterRequest extends AbstractWriter implements BufferRequest {
 
     public List<Object> getRow() {
         return row;
+    }
+
+    public List<Object> getBeforeRow() {
+        return beforeRow;
     }
 
     /**

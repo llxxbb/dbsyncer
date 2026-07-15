@@ -15,23 +15,29 @@ import java.util.List;
  * @Date 2020-06-15 20:00
  */
 public final class RowChangedEvent extends CommonChangedEvent {
-    private final List<Object> changedRow;
-    private final List<String> columnNames;  // CDC 捕获的列名列表（按数据顺序）
+    private final List<Object> changedRow;        // after
+    private final List<Object> beforeRow;
+    private final List<String> columnNames;
 
     public RowChangedEvent(String sourceTableName, String event, List<Object> data) {
         this(sourceTableName, event, data, null, null, null);
     }
 
     public RowChangedEvent(String sourceTableName, String event, List<Object> data, String nextFileName, Object position) {
-        this(sourceTableName, event, data, nextFileName, position, null);
+        this(sourceTableName, event, data, data, nextFileName, position, null);
     }
 
     public RowChangedEvent(String sourceTableName, String event, List<Object> data, String nextFileName, Object position, List<String> columnNames) {
+        this(sourceTableName, event, data, data, nextFileName, position, columnNames);
+    }
+
+    public RowChangedEvent(String sourceTableName, String event, List<Object> afterRow, List<Object> beforeRow, String nextFileName, Object position, List<String> columnNames) {
         setSourceTableName(sourceTableName);
         setEvent(event);
         setNextFileName(nextFileName);
         setPosition(position);
-        this.changedRow = data;
+        this.changedRow = afterRow;
+        this.beforeRow = beforeRow;
         this.columnNames = columnNames;
     }
 
@@ -45,7 +51,11 @@ public final class RowChangedEvent extends CommonChangedEvent {
         return changedRow;
     }
 
-    /**
+    public List<Object> getBeforeRow() {
+        return beforeRow;
+    }
+
+        /**
      * 获取 CDC 捕获的列名列表（按数据顺序）
      * 
      * @return 列名列表，如果为 null 表示使用 TableGroup 的字段信息

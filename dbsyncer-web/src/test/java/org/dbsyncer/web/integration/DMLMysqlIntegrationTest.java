@@ -41,7 +41,7 @@ public class DMLMysqlIntegrationTest extends BaseDDLIntegrationTest {
         // 加载测试配置
         loadTestConfigStatic();
 
-        // 创建测试数据库管理器
+        // 创建测试数据库管理器R
         testDatabaseManager = new TestDatabaseManager(sourceConfig, targetConfig);
 
         // 初始化测试环境（使用按数据库类型分类的脚本）
@@ -340,7 +340,7 @@ public class DMLMysqlIntegrationTest extends BaseDDLIntegrationTest {
             databaseTemplate.execute(updateSourceSql);
             return null;
         });
-        logger.info("源表已更新数据，UserName: {}, 新Age: 35, 新Email: new@example.com", userName);
+        logger.info("源表已更新数据，UserName: {}, 新 Age: 35, 新 Email: new@example.com", userName);
 
         // 6. 再次启动全量同步（应该触发 UPDATE）
         tableGroup.setFullCompleted(false);
@@ -352,11 +352,113 @@ public class DMLMysqlIntegrationTest extends BaseDDLIntegrationTest {
         // 7. 验证更新结果
         Map<String, Object> targetData = queryTableDataByPrimaryKey(testTargetTable, "UserName", userName, targetConfig);
         assertNotNull("目标表中应该找到数据", targetData);
-        assertEquals("Age应该被更新", 35, targetData.get("Age"));
-        assertEquals("Email应该被更新", "new@example.com", targetData.get("Email"));
+        assertEquals("Age 应该被更新", 35, targetData.get("Age"));
+        assertEquals("Email 应该被更新", "new@example.com", targetData.get("Email"));
 
         logger.info("UPDATE 操作测试通过");
     }
+
+    /**
+     * 测试 UPDATE 操作 - 修改主键值
+     * 
+     * 这是修复 MySQL 主键修改 BUG 的专门测试用例
+     * 验证当主键被修改时，目标端能正确使用 beforeRow 作为 WHERE 条件找到原行
+     * 
+     * 测试场景：
+     * 1. 插入初始数据 ID=100, UserName="OriginalUser"
+     * 2. 修改主键 ID 从 100 改为 200
+     * 3. 同步完成后，验证：
+     *    - 目标表中原有 ID=100 的记录被找到并更新
+     *    - 更新后 ID=200, UserName="ModifiedUser"
+     *    - 不存在 ID=100 的记录
+     */
+    @Test
+    public void testUpdate_PrimaryKeyChanged() throws Exception {
+        logger.info("开始测试 UPDATE 操作 - 修改主键值");
+
+        String testSourceTable = getSourceTableName();
+        String testTargetTable = getTargetTableName();
+
+        // 1. 重置 TableGroup 完成状态
+        List<TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
+        TableGroup tableGroup = tableGroups.get(0);
+        tableGroup.setFullCompleted(false);
+        tableGroup.setCursors(null);
+        profileComponent.editConfigModel(tableGroup);
+
+        // 2. 配置 Mapping 为增量同步模式（Log），因为需要监听 binlog 的 UPDATE 事件
+        Map<String, String> editParams = new HashMap<>();
+        editParams.put("id", mappingId);
+        editParams.put("model", "increment");
+        editParams.put("incrementStrategy", "Log");
+        editParams.put("forceUpdate", "false");
+        editParams.put("enableDDL", "true");
+        editParams.put("enableInsert", "true");
+        editParams.put("enableUpdate", "true");
+        editParams.put("enableDelete", "true");
+        mappingService.edit(editParams);
+        mappingService.start(mappingId);
+        Thread.sleep(3000); // 等待增量同步处理 INSERT
+
+        String insertSourceSql = String.format(
+            "INSERT INTO %s (ID, UserName, Age, Email) VALUES (%d, '%s', %d, '%s')",
+            testSourceTable, 100, "OriginalUser", 25, "original@example.com");
+        
+        DatabaseConnectorInstance sourceInstance = 
+            new DatabaseConnectorInstance(sourceConfig);
+        sourceInstance.execute(databaseTemplate -> {
+            databaseTemplate.execute(insertSourceSql);
+            return null;
+        });
+        logger.info("源表已插入初始数据，ID: {}, UserName: {}", 100, "OriginalUser" );
+
+        // 4. 启动增量同步
+        Thread.sleep(1500); // 等待增量同步处理 INSERT
+
+        // 5. 验证初始数据已同步到目标表
+        Map<String, Object> targetDataBeforeUpdate = queryTableDataByPrimaryKey(testTargetTable, "ID", 100, targetConfig);
+        assertFalse("删除前目标表中应该有 ID=" + 100 + "的记录", targetDataBeforeUpdate.isEmpty());
+        assertEquals("初始 Age 应该一致", 25, targetDataBeforeUpdate.get("Age"));
+        logger.info("源数据已同步到目标表，ID: {}", 100);
+
+        // 6. 修改主键值（核心测试场景）
+        Integer newId = 200;
+        
+        String updateSourceSql = String.format(
+            "UPDATE %s SET ID = %d, UserName = '%s', Age = %d WHERE ID = %d",
+            testSourceTable, newId, "ModifiedUser", 35, 100);
+        sourceInstance.execute(databaseTemplate -> {
+            databaseTemplate.execute(updateSourceSql);
+            return null;
+        });
+        logger.info("源表已修改主键，ID: {} -> {}", 100, newId);
+
+        // 7. 等待增量同步处理 UPDATE（binlog）
+        Thread.sleep(1500);
+
+        // 8. 验证目标表结果
+        // 8.1 原 ID 应该不存在
+        Map<String, Object> targetDataAfterUpdate = queryTableDataByPrimaryKey(testTargetTable, "ID", newId, targetConfig);
+        assertNotNull("目标表中应该有 ID=" + newId + "的记录", targetDataAfterUpdate);
+        
+        assertEquals("ID 应该被更新为 " + newId, newId, targetDataAfterUpdate.get("ID"));
+        assertEquals("UserName 应该被更新为 ModifiedUser", "ModifiedUser", targetDataAfterUpdate.get("UserName"));
+        assertEquals("Age 应该被更新为 35", 35, targetDataAfterUpdate.get("Age"));
+
+        // 8.2 确认原 ID 不存在于目标表
+        Map<String, Object> oldIdExists = queryTableDataByPrimaryKey(testTargetTable, "ID", 100, targetConfig);
+        assertTrue("目标表中原 ID=" + 100 + "应该已不存在（或查询结果为空）", oldIdExists.isEmpty());
+
+        logger.info("UPDATE 主键修改测试通过，ID: {} -> {}", 100, newId);
+    }
+
+    // 注意：测试主键修改功能时，需要确保：
+    // 1. 使用增量同步模式（Log/binlog）以捕获 UPDATE 事件
+    // 2. MySQLListener.java 已修改为传递 beforeRow
+    // 3. UpdateSql.java 的 rebuildPrimaryKeyWhere() 使用 beforeRow 生成 WHERE 条件
+    // 4. 主键修改场景：UPDATE ... SET id = new WHERE id = old
+    //    正确的 SQL 应该是：UPDATE target SET ... WHERE id = old
+    //    而不是：UPDATE target SET ... WHERE id = new
 
     // ==================== DELETE 测试场景 ====================
 
@@ -413,7 +515,7 @@ public class DMLMysqlIntegrationTest extends BaseDDLIntegrationTest {
 
         // 5. 验证数据已同步到目标表
         Map<String, Object> targetDataBeforeDelete = queryTableDataByPrimaryKey(testTargetTable, "UserName", userName, targetConfig);
-        assertNotNull("删除前目标表中应该找到数据", targetDataBeforeDelete);
+        assertFalse("删除前目标表中应该找到数据", targetDataBeforeDelete.isEmpty());
 
         // 6. 从源表删除数据
         String deleteSourceSql = String.format("DELETE FROM %s WHERE UserName = '%s'", testSourceTable, userName);

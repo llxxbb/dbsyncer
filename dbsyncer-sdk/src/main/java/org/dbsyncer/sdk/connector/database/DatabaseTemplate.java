@@ -385,9 +385,9 @@ public class DatabaseTemplate implements JdbcOperations {
     public <T> T query(final String sql, final ResultSetExtractor<T> rse) throws DataAccessException {
         Assert.notNull(sql, "SQL must not be null");
         Assert.notNull(rse, "ResultSetExtractor must not be null");
-        if (logger.isDebugEnabled()) {
-            logger.debug("Executing SQL query [" + sql + "]");
-        }
+        // if (logger.isDebugEnabled()) {
+        //     logger.debug("Executing SQL query [" + sql + "]");
+        // }
 
         /**
          * Callback to execute the query.

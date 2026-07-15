@@ -31,6 +31,7 @@ import org.dbsyncer.sdk.listener.ChangedEvent;
 import org.dbsyncer.sdk.listener.Listener;
 import org.dbsyncer.sdk.plugin.SyncRow;
 import org.dbsyncer.sdk.spi.ConnectorService;
+import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.util.RowConverter;
 import org.springframework.util.Assert;
 
@@ -124,6 +125,14 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         printTraceInfo(response);
         final Mapping mapping = profileComponent.getMapping(meta.getMappingId());
         List<TableGroupPicker> pickers = tableGroupContext.getTableGroupPickers(meta.getId(), response.getTableName());
+        if (pickers.isEmpty()) {
+            String msg = String.format("pickers 不能为空！mappingId: %s, 源表名: %s",
+                    mapping.getId(), response.getTableName());
+            logger.error(msg);
+            logService.log(mapping, LogType.SYNC, LogLevel.ERROR, msg);
+            // 重试场景下，如果有失败数据，先抛出异常，避免调用 flushIncrementData 写入错误数据
+            throw new RuntimeException(msg);
+        }
         switch (response.getTypeEnum()) {
             case DDL:
                 if (!mapping.getListener().isEnableDDL()) {

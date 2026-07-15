@@ -9,7 +9,6 @@ import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.statement.Statement;
 import net.sf.jsqlparser.statement.alter.Alter;
-import org.dbsyncer.common.QueueOverflowException;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.mysql.MySQLException;
 import org.dbsyncer.connector.mysql.binlog.BinaryLogClient;
@@ -17,7 +16,6 @@ import org.dbsyncer.connector.mysql.binlog.BinaryLogRemoteClient;
 import org.dbsyncer.sdk.config.DatabaseConfig;
 import org.dbsyncer.sdk.constant.ConnectorConstant;
 import org.dbsyncer.sdk.listener.AbstractDatabaseListener;
-import org.dbsyncer.sdk.listener.ChangedEvent;
 import org.dbsyncer.sdk.listener.event.DDLChangedEvent;
 import org.dbsyncer.sdk.listener.event.RowChangedEvent;
 import org.dbsyncer.sdk.model.ChangedOffset;
@@ -27,10 +25,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.util.Assert;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Matcher;
@@ -268,9 +266,9 @@ public class MySQLListener extends AbstractDatabaseListener {
                     long tableId = data.getTableId();
                     List<String> columnNames = getColumnNames(tableId);
                     data.getRows().forEach(m -> {
-                        List<Object> after = Stream.of(m.getValue()).collect(Collectors.toList());
-                        // ROW 事件发送时，携带上一个事务的 XID 位置（lastXIDPosition）
-                        trySendEvent(new RowChangedEvent(getTableName(tableId), ConnectorConstant.OPERTION_UPDATE, after, lastXIDFileName, lastXIDPosition, columnNames));
+                        List<Object> before = rowDataToList(m.getKey(), columnNames);
+                        List<Object> after = rowDataToList(m.getValue(), columnNames);
+                        trySendEvent(new RowChangedEvent(getTableName(tableId), ConnectorConstant.OPERTION_UPDATE, after, before, lastXIDFileName, lastXIDPosition, columnNames));
                     });
                 }
                 return;
@@ -283,8 +281,7 @@ public class MySQLListener extends AbstractDatabaseListener {
                     List<String> columnNames = getColumnNames(tableId);
                     data.getRows().forEach(m -> {
                         List<Object> after = Stream.of(m).collect(Collectors.toList());
-                        // ROW 事件发送时，携带上一个事务的 XID 位置（lastXIDPosition）
-                        trySendEvent(new RowChangedEvent(getTableName(tableId), ConnectorConstant.OPERTION_INSERT, after, lastXIDFileName, lastXIDPosition, columnNames));
+                        trySendEvent(new RowChangedEvent(getTableName(tableId), ConnectorConstant.OPERTION_INSERT, after, after, lastXIDFileName, lastXIDPosition, columnNames));
                     });
                 }
                 return;
@@ -296,9 +293,8 @@ public class MySQLListener extends AbstractDatabaseListener {
                     long tableId = data.getTableId();
                     List<String> columnNames = getColumnNames(tableId);
                     data.getRows().forEach(m -> {
-                        List<Object> before = Stream.of(m).collect(Collectors.toList());
-                        // ROW 事件发送时，携带上一个事务的 XID 位置（lastXIDPosition）
-                        trySendEvent(new RowChangedEvent(getTableName(tableId), ConnectorConstant.OPERTION_DELETE, before, lastXIDFileName, lastXIDPosition, columnNames));
+                        List<Object> beforeData = Stream.of(m).collect(Collectors.toList());
+                        trySendEvent(new RowChangedEvent(getTableName(tableId), ConnectorConstant.OPERTION_DELETE, beforeData, beforeData, lastXIDFileName, lastXIDPosition, columnNames));
                     });
                 }
                 return;
@@ -483,6 +479,25 @@ public class MySQLListener extends AbstractDatabaseListener {
 
         private boolean isNotUniqueCodeEvent(String sql) {
             return !StringUtil.startsWith(sql, "/*dbs*/");
+        }
+
+        private List<Object> rowDataToList(Object rowData, List<String> columnNames) {
+            if (rowData == null) {
+                return new ArrayList<>();
+            }
+            if (rowData instanceof Object[]) {
+                return new ArrayList<>(Arrays.asList((Object[]) rowData));
+            }
+            if (rowData instanceof Map) {
+                List<Object> values = new ArrayList<>();
+                for (Object value : ((Map<?, ?>) rowData).values()) {
+                    values.add(value);
+                }
+                return values;
+            }
+            List<Object> result = new ArrayList<>();
+            result.add(rowData);
+            return result;
         }
 
     }
