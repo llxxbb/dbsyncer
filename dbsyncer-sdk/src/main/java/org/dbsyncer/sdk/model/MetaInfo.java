@@ -56,8 +56,12 @@ public class MetaInfo extends Table {
             if (CollectionUtils.isEmpty(primaryKeys) || CollectionUtils.isEmpty(getColumn())) {
                 pkFields = Collections.emptyList();
             } else {
-                pkFields = getColumn().stream()
-                        .filter(f -> f != null && primaryKeys.contains(f.getName()))
+                pkFields = primaryKeys.stream()
+                        .map(pkName -> getColumn().stream()
+                                .filter(f -> f != null && pkName.equals(f.getName()))
+                                .findFirst()
+                                .orElse(null))
+                        .filter(f -> f != null)
                         .collect(Collectors.toList());
             }
         }
