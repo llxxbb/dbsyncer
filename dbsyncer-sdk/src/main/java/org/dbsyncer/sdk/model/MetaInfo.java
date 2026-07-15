@@ -35,7 +35,8 @@ public class MetaInfo extends Table {
         super();
     }
 
-    public MetaInfo(String name, String type, List<Field> column, String sql, String indexType, List<String> primaryKeys) {
+    public MetaInfo(String name, String type, List<Field> column, String sql, String indexType,
+            List<String> primaryKeys) {
         super(name, type, column, sql, indexType);
         this.primaryKeys = primaryKeys;
     }
@@ -52,19 +53,31 @@ public class MetaInfo extends Table {
 
     @JsonIgnore
     public List<Field> getPkFields() {
-        if (pkFields == null) {
-            if (CollectionUtils.isEmpty(primaryKeys) || CollectionUtils.isEmpty(getColumn())) {
-                pkFields = Collections.emptyList();
-            } else {
-                pkFields = primaryKeys.stream()
-                        .map(pkName -> getColumn().stream()
-                                .filter(f -> f != null && pkName.equals(f.getName()))
-                                .findFirst()
-                                .orElse(null))
-                        .filter(f -> f != null)
-                        .collect(Collectors.toList());
-            }
+        if (pkFields != null) {
+            return pkFields;
         }
+
+        if (CollectionUtils.isEmpty(primaryKeys)
+                || CollectionUtils.isEmpty(getColumn())) {
+            pkFields = Collections.emptyList();
+            return pkFields;
+        }
+
+        List<Field> orderedPkFields = new ArrayList<>(primaryKeys.size());
+
+        for (String pkName : primaryKeys) {
+            Field matched = getColumn().stream()
+                    .filter(field -> field != null && field.matchesName(pkName))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException(
+                            "主键字段不存在，table=" + getName()
+                                    + ", primaryKey=" + pkName
+                                    + ", primaryKeys=" + primaryKeys));
+
+            orderedPkFields.add(matched);
+        }
+
+        pkFields = Collections.unmodifiableList(orderedPkFields);
         return pkFields;
     }
 
@@ -94,13 +107,12 @@ public class MetaInfo extends Table {
             clonedColumns = new ArrayList<>(getColumn());
         }
         MetaInfo cloned = new MetaInfo(
-            getName(),
-            getType(),
-            clonedColumns,
-            getSql(),
-            getIndexType(),
-            primaryKeys != null ? new ArrayList<>(primaryKeys) : null
-        );
+                getName(),
+                getType(),
+                clonedColumns,
+                getSql(),
+                getIndexType(),
+                primaryKeys != null ? new ArrayList<>(primaryKeys) : null);
         cloned.setCount(getCount());
         return cloned;
     }
@@ -108,10 +120,10 @@ public class MetaInfo extends Table {
     @Override
     public String toString() {
         return new StringBuilder().append("MetaInfo{")
-            .append("name=").append(getName())
-            .append(", type=").append(getType())
-            .append(", primaryKeys=").append(primaryKeys)
-            .append(", column=").append(getColumn())
-            .append('}').toString();
+                .append("name=").append(getName())
+                .append(", type=").append(getType())
+                .append(", primaryKeys=").append(primaryKeys)
+                .append(", column=").append(getColumn())
+                .append('}').toString();
     }
 }
