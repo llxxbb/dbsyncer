@@ -301,10 +301,10 @@ public class SqlServerToMySQLDMLIntegrationTest extends BaseDDLIntegrationTest {
     // ==================== UPDATE 测试场景 ====================
 
     /**
-     * 测试 UPDATE 操作 - SQL Server 到 MySQL 更新已存在的数据
+     * 测试 UPDATE 操作 - SQL Server 到 MySQL 更新已存在的数据(全量)
      */
     @Test
-    public void testUpdate_ExistingData() throws Exception {
+    public void testUpdate_ExistingData_full() throws Exception {
         logger.info("开始测试 UPDATE 操作 - SQL Server 到 MySQL 更新已存在的数据");
 
         String testSourceTable = getSourceTableName();
@@ -321,6 +321,100 @@ public class SqlServerToMySQLDMLIntegrationTest extends BaseDDLIntegrationTest {
         Map<String, String> editParams = new HashMap<>();
         editParams.put("id", mappingId);
         editParams.put("model", "full");
+        editParams.put("incrementStrategy", "Log");
+        editParams.put("forceUpdate", "true");
+        editParams.put("enableDDL", "true");
+        editParams.put("enableInsert", "true");
+        editParams.put("enableUpdate", "true");
+        editParams.put("enableDelete", "true");
+        mappingService.edit(editParams);
+
+        // 3. 先在源表和目标表插入初始数据
+        Integer testId = 300;
+        String userName = "UpdateUser";
+        
+        // SQL Server 源表插入
+        String sourceIdentityInsertOn = String.format("SET IDENTITY_INSERT %s ON", testSourceTable);
+        String sourceIdentityInsertOff = String.format("SET IDENTITY_INSERT %s OFF", testSourceTable);
+        String insertSourceSql = String.format(
+            "INSERT INTO %s (ID, UserName, Age, Email) VALUES (%d, '%s', %d, '%s')",
+            testSourceTable, testId, userName, 25, "old@example.com");
+        
+        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance sourceInstance = 
+            new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(sourceConfig);
+        sourceInstance.execute(databaseTemplate -> {
+            databaseTemplate.execute(sourceIdentityInsertOn);
+            try {
+                databaseTemplate.execute(insertSourceSql);
+            } finally {
+                databaseTemplate.execute(sourceIdentityInsertOff);
+            }
+            return null;
+        });
+
+        // MySQL 目标表插入
+        String insertTargetSql = String.format(
+            "INSERT INTO %s (ID, UserName, Age, Email) VALUES (%d, '%s', %d, '%s')",
+            testTargetTable, testId, userName, 25, "old@example.com");
+        
+        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance targetInstance = 
+            new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(targetConfig);
+        targetInstance.execute(databaseTemplate -> {
+            databaseTemplate.execute(insertTargetSql);
+            return null;
+        });
+
+        // 4. 启动全量同步（第一次同步）
+        mappingService.start(mappingId);
+        Thread.sleep(2000);
+
+        // 5. 更新源表数据
+        String updateSourceSql = String.format(
+            "UPDATE %s SET Age = %d, Email = '%s' WHERE UserName = '%s'",
+            testSourceTable, 35, "new@example.com", userName);
+        sourceInstance.execute(databaseTemplate -> {
+            databaseTemplate.execute(updateSourceSql);
+            return null;
+        });
+        logger.info("源表已更新数据，UserName: {}, 新Age: 35, 新Email: new@example.com", userName);
+
+        // 6. 再次启动全量同步（应该触发 UPDATE）
+        tableGroup.setFullCompleted(false);
+        tableGroup.setCursors(null);
+        profileComponent.editConfigModel(tableGroup);
+        mappingService.start(mappingId);
+        Thread.sleep(3000);
+
+        // 7. 验证更新结果
+        Map<String, Object> targetData = queryTableDataByPrimaryKey(testTargetTable, "UserName", userName, targetConfig);
+        assertNotNull("目标表中应该找到数据", targetData);
+        assertEquals("Age应该被更新", 35, targetData.get("Age"));
+        assertEquals("Email应该被更新", "new@example.com", targetData.get("Email"));
+
+        logger.info("UPDATE SQL Server到MySQL操作测试通过");
+    }
+
+        /**
+     * 测试 UPDATE 操作 - SQL Server 到 MySQL 更新已存在的数据(全量)
+     */
+    @Test
+    public void testUpdate_ExistingData_increment() throws Exception {
+        logger.info("开始测试 UPDATE 操作 - SQL Server 到 MySQL 更新已存在的数据");
+
+        String testSourceTable = getSourceTableName();
+        String testTargetTable = getTargetTableName();
+
+        // 1. 重置 TableGroup 完成状态
+        List<org.dbsyncer.sdk.model.TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
+        org.dbsyncer.sdk.model.TableGroup tableGroup = tableGroups.get(0);
+        tableGroup.setFullCompleted(false);
+        tableGroup.setCursors(null);
+        profileComponent.editConfigModel(tableGroup);
+
+        // 2. 配置 Mapping
+        Map<String, String> editParams = new HashMap<>();
+        editParams.put("id", mappingId);
+        editParams.put("model", "increment");
         editParams.put("incrementStrategy", "Log");
         editParams.put("forceUpdate", "true");
         editParams.put("enableDDL", "true");
