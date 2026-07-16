@@ -44,7 +44,7 @@ public final class TableGroupContextImpl implements TableGroupContext {
         tableGroupMap.computeIfAbsent(mapping.getMetaId(), k -> {
             InnerMapping innerMap = new InnerMapping();
             tableGroups.forEach(tableGroup -> {
-                String sourceTableName = tableGroup.getSourceTable().getName();
+                String sourceTableName = tableGroup.getSourceTable().getName().toLowerCase();
                 innerMap.add(sourceTableName, PickerUtil.mergeTableGroupConfig(mapping, tableGroup));
             });
             return innerMap;
@@ -57,7 +57,7 @@ public final class TableGroupContextImpl implements TableGroupContext {
             // 强制刷新缓存：先清空表映射关系，再更新表映射关系
             // 这确保了 DDL 事件处理完成后，后续的 DML 事件使用最新的 fieldMapping
             tableGroups.forEach(tableGroup -> {
-                String sourceTableName = tableGroup.getSourceTable().getName();
+                String sourceTableName = tableGroup.getSourceTable().getName().toLowerCase();
                 // 先移除旧的 TableGroupPicker（如果存在）
                 innerMap.remove(sourceTableName);
                 // 再添加新的 TableGroupPicker（使用更新后的 fieldMapping）
@@ -71,7 +71,7 @@ public final class TableGroupContextImpl implements TableGroupContext {
     public List<TableGroupPicker> getTableGroupPickers(String metaId, String tableName) {
         List<TableGroupPicker> list = new ArrayList<>();
         tableGroupMap.computeIfPresent(metaId, (k, innerMapping) -> {
-            innerMapping.pickerMap.computeIfPresent(tableName, (x, pickers) -> {
+            innerMapping.pickerMap.computeIfPresent(tableName.toLowerCase(), (x, pickers) -> {
                 list.addAll(pickers);
                 return pickers;
             });
@@ -99,7 +99,7 @@ public final class TableGroupContextImpl implements TableGroupContext {
                 put(mapping, tableGroups);
                 // 从缓存中重新获取（避免递归调用）
                 tableGroupMap.computeIfPresent(metaId, (k, innerMapping) -> {
-                    innerMapping.pickerMap.computeIfPresent(tableName, (x, pickers) -> {
+                    innerMapping.pickerMap.computeIfPresent(tableName.toLowerCase(), (x, pickers) -> {
                         list.addAll(pickers);
                         return pickers;
                     });
