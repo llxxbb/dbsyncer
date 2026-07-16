@@ -54,7 +54,7 @@ public class ManagerFactory {
         Meta meta = profileComponent.getMeta(mapping.getMetaId());
         meta.setBeginTime(Instant.now().toEpochMilli());
         meta.saveState(MetaEnum.RUNNING, "");
-        
+        profileComponent.editConfigModel(meta);
         mapping.setUpdateTime(Instant.now().toEpochMilli());
         profileComponent.editConfigModel(mapping);
         

@@ -88,7 +88,6 @@ public final class FullPuller implements org.dbsyncer.manager.Puller, ProcessEve
                 logger.info("mappingId：{}, mappingName：{}", mapping.getId(), mapping.getName());
                 logService.log(mapping, LogType.STOP, "结束全量同步");
                 executor.shutdown();
-                meta.resetState();
             }
         });
         worker.setName("full-worker-" + mapping.getId());

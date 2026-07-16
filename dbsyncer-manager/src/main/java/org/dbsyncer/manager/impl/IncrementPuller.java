@@ -127,6 +127,7 @@ public final class IncrementPuller implements Puller {
                     long now = Instant.now().toEpochMilli();
                     meta.setBeginTime(now);
                     meta.setEndTime(now);
+                    meta.saveState(MetaEnum.RUNNING, "");
                     profileComponent.editConfigModel(meta);
                     tableGroupContext.put(mapping, list);
                     listener = getListener(mapping, connector, targetConnector, list, meta, closeCallback);
