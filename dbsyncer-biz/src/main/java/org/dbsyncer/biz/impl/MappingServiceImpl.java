@@ -434,7 +434,7 @@ public class MappingServiceImpl implements MappingService {
 
         // 元信息
         Meta meta = profileComponent.getMeta(mapping.getMetaId());
-        Assert.notNull(meta, "Meta can not be null.");
+        Assert.notNull(meta, String.format("Meta can not be null. mappingId: %s, metaId: %s", mapping.getId(), mapping.getMetaId()));
         MetaVo metaVo = new MetaVo(ModelEnum.getModelEnum(model).getName(), mapping.getName());
         BeanUtils.copyProperties(meta, metaVo);
         metaVo.setCounting(dispatchTaskService.isRunning(mapping.getId()));
