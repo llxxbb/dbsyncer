@@ -439,7 +439,7 @@ public class DMLMysqlIntegrationTest extends BaseDDLIntegrationTest {
         // 8. 验证目标表结果
         // 8.1 原 ID 应该不存在
         Map<String, Object> targetDataAfterUpdate = queryTableDataByPrimaryKey(testTargetTable, "ID", newId, targetConfig);
-        assertNotNull("目标表中应该有 ID=" + newId + "的记录", targetDataAfterUpdate);
+        assertFalse("目标表中应该有 ID=" + newId + "的记录", targetDataAfterUpdate.isEmpty());
         
         assertEquals("ID 应该被更新为 " + newId, newId, targetDataAfterUpdate.get("ID"));
         assertEquals("UserName 应该被更新为 ModifiedUser", "ModifiedUser", targetDataAfterUpdate.get("UserName"));

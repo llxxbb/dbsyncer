@@ -103,6 +103,8 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             response.setSql(request.getSql());
             // 传递列名信息（从第一个请求中获取）
             response.setColumnNames(request.getColumnNames());
+            // 传递 beforeRow 信息（用于 UPDATE 操作中主键修改场景）
+            response.setBeforeRow(request.getBeforeRow());
             response.setMerged(true);
         } else if (profileComponent.getSystemConfig().isEnablePrintTraceInfo() && StringUtil.isNotBlank(request.getTraceId())) {
             logger.info("traceId:{} merge into traceId:{}", request.getTraceId(), response.getTraceId());
@@ -356,6 +358,10 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             for (SyncRow row : targetDataList) {
                 row.setMapping(mapping);
                 row.setTableGroup(tableGroup);
+                // 传递 beforeRow 信息（用于主键修改场景的 WHERE 条件生成）
+                row.setBeforeRow(response.getBeforeRow());
+                // 传递列名信息（用于映射 beforeRow 中的值到字段名）
+                row.setColumnNames(response.getColumnNames());
             }
 
             // 2、参数转换（ConvertUtil 直接操作 SyncRow）

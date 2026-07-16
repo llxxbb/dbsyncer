@@ -327,13 +327,9 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
 
     @Override
     public Result update(DatabaseConnectorInstance connectorInstance, List<SyncRow> syncRows) {
+        // 对于UPDATE操作，保留所有字段在SET子句中（包括主键字段）
+        // 这样支持主键修改场景：SET pk = new_value WHERE ... 
         List<Field> fields = new ArrayList<>(syncRows.get(0).getTargetFields());
-        List<Field> pkFields = syncRows.get(0).getTableGroup().getTargetTable().getPkFields();
-        if (CollectionUtils.isEmpty(pkFields)) {
-            throw new SdkException("Primary keys cannot be empty for UPDATE operation");
-        }
-        removeFieldWithPk(fields, pkFields);
-        fields.addAll(pkFields);
         return executeWriter(connectorInstance, syncRows, fields);
     }
 
@@ -397,13 +393,104 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
             List<Field> fields, List<SyncRow> syncRows) throws Exception {
         String event = syncRows.get(0).getContext().getEvent();
         String executeSql = syncRows.get(0).getTableGroup().getCommand().get(event);
+        
         // 从 SyncRow 中提取数据用于参数绑定
         List<Map> data = new ArrayList<>(syncRows.size());
         for (SyncRow row : syncRows) {
             data.add(row.getData());
         }
+        
+        // 如果是 UPDATE 事件且有 beforeRow，需要特殊处理主键修改场景
+        if (ConnectorConstant.OPERTION_UPDATE.equals(event) && hasBeforeRow(syncRows)) {
+            return doExecuteBatchForUpdate(connectorInstance, fields, syncRows, executeSql);
+        }
+        
         return connectorInstance
                 .execute(databaseTemplate -> databaseTemplate.batchUpdate(executeSql, batchRows(fields, data)));
+    }
+
+    /**
+     * 检查是否有任何 SyncRow 包含 beforeRow
+     */
+    private boolean hasBeforeRow(List<SyncRow> syncRows) {
+        for (SyncRow row : syncRows) {
+            if (row.getBeforeRow() != null && !row.getBeforeRow().isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 执行 UPDATE 操作，正确处理主键修改场景
+     * SQL模板: UPDATE table SET non-pk-field1=?, non-pk-field2=? WHERE pk1=?, pk2=?
+     * 参数绑定: [非主键新值...] + [主键旧值...]
+     */
+    private int[] doExecuteBatchForUpdate(DatabaseConnectorInstance connectorInstance,
+            List<Field> fields, List<SyncRow> syncRows, String executeSql) throws Exception {
+        
+        return connectorInstance.execute(databaseTemplate -> {
+            List<Object[]> batchArgs = new ArrayList<>();
+            
+            for (SyncRow row : syncRows) {
+                List<Object> beforeRow = row.getBeforeRow();
+                List<String> columnNames = row.getColumnNames();
+                List<String> primaryKeys = row.getPrimaryKeys();
+                
+                // 如果没有足够的信息使用beforeRow，回退到普通逻辑
+                if (beforeRow == null || beforeRow.isEmpty() || 
+                    columnNames == null || columnNames.isEmpty() ||
+                    primaryKeys == null || primaryKeys.isEmpty()) {
+                    // 对于新SQL模板，参数数量是所有字段 + 主键
+                    Object[] args = new Object[fields.size() + primaryKeys.size()];
+                    int index = 0;
+                    
+                    // SET子句：所有字段的新值
+                    for (Field field : fields) {
+                        args[index++] = row.getData().get(field.getName());
+                    }
+                    
+                    // WHERE子句：主键的新值（降级处理）
+                    for (String pk : primaryKeys) {
+                        args[index++] = row.getData().get(pk);
+                    }
+                    
+                    batchArgs.add(args);
+                    continue;
+                }
+                
+                // 构建 beforeRow 的列名到值的映射
+                Map<String, Object> beforeValueMap = new java.util.HashMap<>();
+                for (int i = 0; i < columnNames.size() && i < beforeRow.size(); i++) {
+                    beforeValueMap.put(columnNames.get(i), beforeRow.get(i));
+                }
+                
+                // SQL模板生成的参数顺序是：
+                // SET子句: 所有字段（包括主键的新值）+ WHERE子句: 主键旧值
+                Object[] args = new Object[fields.size() + primaryKeys.size()];
+                int index = 0;
+                
+                // SET子句：所有字段使用新值（包括主键）
+                for (Field field : fields) {
+                    args[index++] = row.getData().get(field.getName());
+                }
+                
+                // WHERE子句：主键字段使用旧值（需要在primaryKeys列表中查找对应的旧值）
+                for (String pkName : primaryKeys) {
+                    Object beforeValue = beforeValueMap.get(pkName);
+                    if (beforeValue != null) {
+                        args[index++] = beforeValue;
+                    } else {
+                        // 降级：如果找不到旧值，使用新值
+                        args[index++] = row.getData().get(pkName);
+                    }
+                }
+                
+                batchArgs.add(args);
+            }
+            
+            return databaseTemplate.batchUpdate(executeSql, batchArgs);
+        });
     }
 
     @Override
@@ -870,23 +957,6 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
             return false;
         }
         return pk.stream().anyMatch(key -> key.equalsIgnoreCase(name));
-    }
-
-    private void removeFieldWithPk(List<Field> fields, List<Field> pkFields) {
-        if (CollectionUtils.isEmpty(fields) || CollectionUtils.isEmpty(pkFields)) {
-            return;
-        }
-
-        pkFields.forEach(pkField -> {
-            Iterator<Field> iterator = fields.iterator();
-            while (iterator.hasNext()) {
-                Field next = iterator.next();
-                if (next != null && next.matchesName(pkField.getName())) {
-                    iterator.remove();
-                    break;
-                }
-            }
-        });
     }
 
     @Override

@@ -111,12 +111,6 @@ public interface SqlTemplate {
         return buildInsertSql(schemaTable, buildContext.getFields());
     }
 
-    /**
-     * 构建更新SQL
-     *
-     * @param buildContext 构建上下文
-     * @return 构建后的SQL（包含?占位符）
-     */
     default String buildUpdateSql(SqlBuildContext buildContext) {
         String schemaTable = buildTable(buildContext.getSchema(), buildContext.getTableName());
         return buildUpdateSql(schemaTable, buildContext.getFields(), buildContext.getPrimaryKeys());
@@ -403,8 +397,9 @@ public interface SqlTemplate {
     }
 
     default String buildUpdateSql(String schemaTable, List<Field> fields, List<String> primaryKeys) {
+        // SET子句包含所有字段（包括主键），以支持主键修改场景
+        // 参数绑定顺序：[非主键新值...] + [主键新值] + [主键旧值]（由调用者处理）
         String setClause = fields.stream()
-                .filter(field -> !field.isPk())
                 .map(field -> buildColumn(field.getName()) + " = ?")
                 .collect(java.util.stream.Collectors.joining(", "));
         String whereClause = primaryKeys.stream()

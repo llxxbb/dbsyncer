@@ -15,6 +15,7 @@ public class WriterResponse extends AbstractWriter implements BufferResponse {
 
     private final List<List<Object>> dataList = new LinkedList<>();
     private List<String> columnNames;  // CDC 捕获的列名列表（按数据顺序）
+    private List<Object> beforeRow;  // UPDATE 操作中的旧值行数据（用于主键修改场景）
 
     private transient boolean isMerged;
     
@@ -98,5 +99,21 @@ public class WriterResponse extends AbstractWriter implements BufferResponse {
      */
     public void setBatchIndex(int batchIndex) {
         this.batchIndex = batchIndex;
+    }
+
+    /**
+     * 获取 UPDATE 操作中的旧值行数据
+     * 
+     * @return 旧值行数据，如果为 null 表示不是UPDATE操作或没有beforeRow
+     */
+    public List<Object> getBeforeRow() {
+        return beforeRow;
+    }
+
+    /**
+     * 设置 UPDATE 操作中的旧值行数据
+     */
+    public void setBeforeRow(List<Object> beforeRow) {
+        this.beforeRow = beforeRow;
     }
 }

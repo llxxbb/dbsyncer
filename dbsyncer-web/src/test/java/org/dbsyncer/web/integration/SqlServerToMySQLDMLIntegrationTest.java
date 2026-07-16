@@ -33,6 +33,11 @@ import static org.junit.Assert.*;
 @ActiveProfiles("test")
 public class SqlServerToMySQLDMLIntegrationTest extends BaseDDLIntegrationTest {
 
+    static {
+        // 测试环境减少 CT 轮询间隔到 1 秒，加速 DDL 同步检测
+        System.setProperty("sqlserver.ct.poll.interval.ms", "100");
+    }
+
     private static DatabaseConfig sqlServerConfig;
     private static DatabaseConfig mysqlConfig;
 
@@ -399,7 +404,7 @@ public class SqlServerToMySQLDMLIntegrationTest extends BaseDDLIntegrationTest {
      */
     @Test
     public void testUpdate_ExistingData_increment() throws Exception {
-        logger.info("开始测试 UPDATE 操作 - SQL Server 到 MySQL 更新已存在的数据");
+        logger.info("----------------------------------------------");
 
         String testSourceTable = getSourceTableName();
         String testTargetTable = getTargetTableName();
@@ -472,16 +477,11 @@ public class SqlServerToMySQLDMLIntegrationTest extends BaseDDLIntegrationTest {
         });
         logger.info("源表已更新数据，UserName: {}, 新Age: 35, 新Email: new@example.com", userName);
 
-        // 6. 再次启动全量同步（应该触发 UPDATE）
-        tableGroup.setFullCompleted(false);
-        tableGroup.setCursors(null);
-        profileComponent.editConfigModel(tableGroup);
-        mappingService.start(mappingId);
         Thread.sleep(3000);
 
         // 7. 验证更新结果
         Map<String, Object> targetData = queryTableDataByPrimaryKey(testTargetTable, "UserName", userName, targetConfig);
-        assertNotNull("目标表中应该找到数据", targetData);
+        assertFalse("目标表中应该找到数据", targetData == null || targetData.isEmpty());
         assertEquals("Age应该被更新", 35, targetData.get("Age"));
         assertEquals("Email应该被更新", "new@example.com", targetData.get("Email"));
 

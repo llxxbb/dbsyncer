@@ -16,6 +16,8 @@ public class SyncRow {
     private PluginContext context;
     private Mapping mapping;
     private TableGroup tableGroup;
+    private List<Object> beforeRow;  // UPDATE 操作中的旧值行数据
+    private List<String> columnNames;  // CDC 捕获的列名列表（与 beforeRow 对应）
 
     public SyncRow() {
     }
@@ -70,5 +72,21 @@ public class SyncRow {
 
     public List<String> getPrimaryKeys() {
         return tableGroup != null ? tableGroup.getTargetTable().getPrimaryKeys() : null;
+    }
+
+    public List<Object> getBeforeRow() {
+        return beforeRow;
+    }
+
+    public void setBeforeRow(List<Object> beforeRow) {
+        this.beforeRow = beforeRow;
+    }
+
+    public List<String> getColumnNames() {
+        return columnNames;
+    }
+
+    public void setColumnNames(List<String> columnNames) {
+        this.columnNames = columnNames;
     }
 }
