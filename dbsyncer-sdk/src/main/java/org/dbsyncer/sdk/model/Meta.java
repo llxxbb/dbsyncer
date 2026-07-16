@@ -232,6 +232,7 @@ public class Meta extends ConfigModel {
         Meta meta = new Meta();
         meta.setId(newId);
         meta.setCreateTime(Instant.now().toEpochMilli());
+        meta.setUpdateTime(Instant.now().toEpochMilli());
         meta.setMappingId(mapping.getId());
         meta.setName(mapping.getId());
         mapping.setMetaId(newId);
