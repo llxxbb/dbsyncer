@@ -383,6 +383,203 @@ public class DMLSqlServerIntegrationTest extends BaseDDLIntegrationTest {
 
         logger.info("UPDATE 操作测试通过");
     }
+    
+    /**
+      * 测试 UPDATE 操作 - 修改主键值
+      * 
+      * 这是修复 SQL Server 主键修改 BUG 的专门测试用例
+      * SQL Server 表的主键是 UserName(非 IDENTITY 列),因为 ID 是 IDENTITY 列无法 UPDATE
+      * 验证当主键 (UserName) 被修改时，目标端能正确使用 beforeRow 作为 WHERE 条件找到原行
+      * 
+      * 测试场景:
+      * 1. 插入初始数据 ID=100, UserName="OriginalUser"
+      * 2. 修改主键 UserName 从"OriginalUser"改为"ModifiedUser"
+      * 3. 同步完成后，验证:
+      *    - 目标表中原有 UserName="OriginalUser" 的记录被找到并更新
+      *    - 更新后 UserName="ModifiedUser", Age=35
+      *    - 不存在 UserName="OriginalUser" 的记录
+      */
+    @Test
+    public void testUpdate_PrimaryKeyChanged() throws Exception {
+        logger.info("---------------------------------------");
+
+        String testSourceTable = getSourceTableName();
+        String testTargetTable = getTargetTableName();
+
+        // 1. 重置 TableGroup 完成状态
+        List<org.dbsyncer.sdk.model.TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
+        org.dbsyncer.sdk.model.TableGroup tableGroup = tableGroups.get(0);
+        tableGroup.setFullCompleted(false);
+        tableGroup.setCursors(null);
+        profileComponent.editConfigModel(tableGroup);
+
+        // 2. 配置 Mapping 为增量同步模式 (Log),因为需要监听 CT 的 UPDATE 事件
+        Map<String, String> editParams = new HashMap<>();
+        editParams.put("id", mappingId);
+        editParams.put("model", "increment");
+        editParams.put("incrementStrategy", "Log");
+        editParams.put("forceUpdate", "false");
+        editParams.put("enableDDL", "true");
+        editParams.put("enableInsert", "true");
+        editParams.put("enableUpdate", "true");
+        editParams.put("enableDelete", "true");
+        mappingService.edit(editParams);
+        mappingService.start(mappingId);
+        Thread.sleep(2000); // 等待增量同步处理 INSERT
+
+        // 3. 在源表插入初始数据
+        String sourceIdentityInsertOn = String.format("SET IDENTITY_INSERT %s ON", testSourceTable);
+        String sourceIdentityInsertOff = String.format("SET IDENTITY_INSERT %s OFF", testSourceTable);
+        String insertSourceSql = String.format(
+            "INSERT INTO %s (ID, UserName, Age, Email) VALUES (%d, '%s', %d, '%s')",
+            testSourceTable, 100, "OriginalUser", 25, "original@example.com");
+        
+        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance sourceInstance = 
+            new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(sourceConfig);
+        sourceInstance.execute(databaseTemplate -> {
+            databaseTemplate.execute(sourceIdentityInsertOn);
+            try {
+                databaseTemplate.execute(insertSourceSql);
+            } finally {
+                databaseTemplate.execute(sourceIdentityInsertOff);
+            }
+            return null;
+        });
+        logger.info("源表已插入初始数据，ID: {}, UserName: {}", 100, "OriginalUser");
+
+        // 4. 等待增量同步处理 INSERT
+        Thread.sleep(1500);
+
+        // 5. 验证初始数据已同步到目标表
+        Map<String, Object> targetDataBeforeUpdate = queryTableDataByPrimaryKey(testTargetTable, "UserName", "OriginalUser", targetConfig);
+        assertFalse("删除前目标表中应该有 UserName=OriginalUser 的记录", targetDataBeforeUpdate.isEmpty());
+        assertEquals("初始 Age 应该一致", 25, targetDataBeforeUpdate.get("Age"));
+        logger.info("源数据已同步到目标表，UserName: {}", "OriginalUser");
+
+        // 6. 修改主键值 (核心测试场景) - 修改主键列 UserName，而不是 IDENTITY 列 ID
+        String newUserName = "ModifiedUser";
+        
+        String updateSourceSql = String.format(
+            "UPDATE %s SET UserName = '%s', Age = %d WHERE UserName = '%s'",
+            testSourceTable, newUserName, 35, "OriginalUser");
+        sourceInstance.execute(databaseTemplate -> {
+            databaseTemplate.execute(updateSourceSql);
+            return null;
+        });
+        logger.info("源表已修改主键，UserName: {} -> {}", "OriginalUser", newUserName);
+
+        // 7. 等待增量同步处理 UPDATE (CT)
+        Thread.sleep(1500);
+
+        // 8. 验证目标表结果
+        // 8.1 新 UserName 应该存在
+        Map<String, Object> targetDataAfterUpdate = queryTableDataByPrimaryKey(testTargetTable, "UserName", newUserName, targetConfig);
+        assertFalse("目标表中应该有 UserName=" + newUserName + "的记录", targetDataAfterUpdate.isEmpty());
+        
+        assertEquals("UserName 应该被更新为 " + newUserName, newUserName, targetDataAfterUpdate.get("UserName"));
+        assertEquals("Age 应该被更新为 35", 35, targetDataAfterUpdate.get("Age"));
+
+        // 8.2 确认原 UserName 不存在于目标表
+        Map<String, Object> oldUserNameExists = queryTableDataByPrimaryKey(testTargetTable, "UserName", "OriginalUser", targetConfig);
+        assertTrue("目标表中原 UserName=OriginalUser 应该已不存在 (或查询结果为空)", oldUserNameExists.isEmpty());
+
+        logger.info("UPDATE 主键修改测试通过，UserName: {} -> {}", "OriginalUser", newUserName);
+    }
+
+    /**
+      * 测试 UPDATE 操作 - 更新已存在的数据
+      */
+    @Test
+    public void testUpdate_ExistingData_increment() throws Exception {
+        logger.info("---------------------------------------");
+
+        String testSourceTable = getSourceTableName();
+        String testTargetTable = getTargetTableName();
+
+        // 1. 重置 TableGroup 完成状态
+        List<org.dbsyncer.sdk.model.TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
+        org.dbsyncer.sdk.model.TableGroup tableGroup = tableGroups.get(0);
+        tableGroup.setFullCompleted(false);
+        tableGroup.setCursors(null);
+        profileComponent.editConfigModel(tableGroup);
+
+        // 2. 配置 Mapping
+        Map<String, String> editParams = new HashMap<>();
+        editParams.put("id", mappingId);
+        editParams.put("model", "increment");
+        editParams.put("incrementStrategy", "Log");
+        editParams.put("forceUpdate", "true");
+        editParams.put("enableDDL", "true");
+        editParams.put("enableInsert", "true");
+        editParams.put("enableUpdate", "true");
+        editParams.put("enableDelete", "true");
+        mappingService.edit(editParams);
+
+        // 3. 先在源表和目标表插入初始数据
+        Integer testId = 300;
+        String userName = "UpdateUser";
+        
+        // 源表插入
+        String sourceIdentityInsertOn = String.format("SET IDENTITY_INSERT %s ON", testSourceTable);
+        String sourceIdentityInsertOff = String.format("SET IDENTITY_INSERT %s OFF", testSourceTable);
+        String insertSourceSql = String.format(
+            "INSERT INTO %s (ID, UserName, Age, Email) VALUES (%d, '%s', %d, '%s')",
+            testSourceTable, testId, userName, 25, "old@example.com");
+        
+        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance sourceInstance = 
+            new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(sourceConfig);
+        sourceInstance.execute(databaseTemplate -> {
+            databaseTemplate.execute(sourceIdentityInsertOn);
+            try {
+                databaseTemplate.execute(insertSourceSql);
+            } finally {
+                databaseTemplate.execute(sourceIdentityInsertOff);
+            }
+            return null;
+        });
+
+        // 目标表插入（相同主键）
+        String targetIdentityInsertOn = String.format("SET IDENTITY_INSERT %s ON", testTargetTable);
+        String targetIdentityInsertOff = String.format("SET IDENTITY_INSERT %s OFF", testTargetTable);
+        String insertTargetSql = String.format(
+            "INSERT INTO %s (ID, UserName, Age, Email) VALUES (%d, '%s', %d, '%s')",
+            testTargetTable, testId, userName, 25, "old@example.com");
+        
+        org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance targetInstance = 
+            new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(targetConfig);
+        targetInstance.execute(databaseTemplate -> {
+            databaseTemplate.execute(targetIdentityInsertOn);
+            try {
+                databaseTemplate.execute(insertTargetSql);
+            } finally {
+                databaseTemplate.execute(targetIdentityInsertOff);
+            }
+            return null;
+        });
+
+        // 4. 启动全量同步（第一次同步，插入数据）
+        mappingService.start(mappingId);
+        Thread.sleep(2000);
+
+        // 5. 更新源表数据
+        String updateSourceSql = String.format(
+            "UPDATE %s SET Age = %d, Email = '%s' WHERE UserName = '%s'",
+            testSourceTable, 35, "new@example.com", userName);
+        sourceInstance.execute(databaseTemplate -> {
+            databaseTemplate.execute(updateSourceSql);
+            return null;
+        });
+        logger.info("源表已更新数据，UserName: {}, 新Age: 35, 新Email: new@example.com", userName);
+
+        // 7. 验证更新结果
+        Thread.sleep(2000);
+        Map<String, Object> targetData = queryTableDataByPrimaryKey(testTargetTable, "UserName", userName, targetConfig);
+        assertFalse("目标表中应该找到数据", targetData.isEmpty());
+        assertEquals("Age应该被更新", 35, targetData.get("Age"));
+        assertEquals("Email应该被更新", "new@example.com", targetData.get("Email"));
+
+        logger.info("UPDATE 操作测试通过");
+    }
 
     // ==================== DELETE 测试场景 ====================
 
@@ -623,11 +820,11 @@ public class DMLSqlServerIntegrationTest extends BaseDDLIntegrationTest {
     // ==================== 辅助方法 ====================
 
     /**
-     * 根据主键查询表数据
-     */
+      * 根据主键查询表数据
+      */
     private Map<String, Object> queryTableDataByPrimaryKey(String tableName, String primaryKeyColumn, Object primaryKeyValue, DatabaseConfig config) throws Exception {
-        String whereCondition = primaryKeyColumn + " = " + (primaryKeyValue instanceof String ? "'" + primaryKeyValue + "'" : primaryKeyValue);
-        String sql = String.format("SELECT * FROM %s WHERE %s", tableName, whereCondition);
+        String whereClause = primaryKeyColumn + " = " + (primaryKeyValue instanceof String ? "'" + primaryKeyValue + "'" : primaryKeyValue);
+        String sql = "SELECT * FROM " + tableName + " WHERE " + whereClause;
         return queryTableData(sql, config);
     }
 
