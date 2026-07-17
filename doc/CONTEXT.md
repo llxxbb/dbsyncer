@@ -50,6 +50,15 @@ DBSyncer 是一款开源的数据同步中间件，支持 MySQL、Oracle、SqlSe
 - **Data 解析**: 解析业务数据
 - **增量解析**: 解析增量变更（CDC）
 
+### ErrorQueue (错误队列)
+
+同步失败时写入的错误记录集合（存储于 `dbsyncer_data` 表），供 UI 呈现给运维人员并提供手动"重试"入口。
+
+**存储内容**：同步源字段映射数据，即 `RowConverter.toListOfMap()` 输出的 `Map<同步源字段名, 原始类型值>`。
+
+- `同步源字段名`：来自 `Picker.sourceFields = TableGroup.getSyncSourceFields()`，仅包含配置了同步映射的字段
+- `原始类型值`：保持 binlog 原始类型，未经 `ConvertUtil.convert()` 目标类型转换
+
 ### AbstractDataType (抽象数据类型)
 
 统一的类型系统，用于跨数据库类型转换：
@@ -173,6 +182,8 @@ DBSyncer 是一款开源的数据同步中间件，支持 MySQL、Oracle、SqlSe
 - [0008-字段表名大小写不敏感](./adr/0008-field-table-case-insensitive.md) - 大小写处理
 - [0009-字段差异分析](./adr/0009-字段差异分析增加 MAPPING_ONLY 检测与修复.md) - 字段差异检测
 - [0018-引入上下文感知的数据模型](./adr/0018-引入上下文感知的数据模型.md) - 数据模型重构
+- [0021-字段差异修复弹窗公共化](./adr/0021-字段差异修复弹窗公共化.md) - 修复预览弹窗下沉到公共组件
+- [0023-错误队列数据一致性修复](./adr/0023-错误队列数据一致性修复.md) - 统一错误队列服务、熔断机制、对账功能
 
 ## 业务规则
 

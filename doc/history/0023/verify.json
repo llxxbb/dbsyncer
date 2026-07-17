@@ -1,0 +1,451 @@
+{
+  "version": 1,
+  "adrId": "0023",
+  "title": "错误队列数据一致性修复",
+  "verifier": "@凌曦",
+  "verifyDate": "2026-07-31",
+  "status": "in_progress",
+  "requirements": [
+    {
+      "id": 1,
+      "title": "统一错误队列服务",
+      "description": "新增 ErrorQueueService，全量/增量共用同一错误写入、计数、通知入口，DML/DDL 双入口",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "ErrorQueueService 类存在，包含 handleFailData 与 handleDdlFailData 方法",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/error/ErrorQueueService.java",
+          "code": "handleFailData(String metaId, String tableGroupId, String targetTableName, String event, List<Map> failData, String errorMsg), handleDdlFailData(...)"
+        },
+        {
+          "type": "code",
+          "criteria": "MetaBufferActuator 中 catch 块调用 errorQueueService.handleFailData()",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/flush/impl/MetaBufferActuator.java",
+          "code": "errorQueueService.handleFailData(...)"
+        },
+        {
+          "type": "code",
+          "criteria": "FullSyncExecutorImpl 中调用 errorQueueService.handleFailData()",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/impl/FullSyncExecutorImpl.java",
+          "code": "errorQueueService.handleFailData(...)"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": 2,
+      "title": "现场处理，去除 Result 传导链",
+      "description": "错误发生点直接调用 ErrorQueueService；Result 保留为 ConnectorService 契约，被去除的是 Result→FlushStrategyImpl 错误处理链",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "MetaBufferActuator.distributeTableGroup() 中 catch 块不再构造 Result 传递，直接调用 errorQueueService",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/flush/impl/MetaBufferActuator.java",
+          "code": "distributeTableGroup() 方法中无 result.addFailData() 调用"
+        },
+        {
+          "type": "code",
+          "criteria": "FlushStrategyImpl.flushIncrementData() 不再包含错误处理逻辑（notifyOnError/失败数据 asyncWrite）",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/strategy/impl/FlushStrategyImpl.java",
+          "code": "flushIncrementData() 方法中无 notifyOnError() 与失败数据 asyncWrite() 调用"
+        },
+        {
+          "type": "code",
+          "criteria": "ConnectorFactory 保留 Result 返回契约，failData 使用 getSourceData()",
+          "file": "dbsyncer-connector/dbsyncer-connector-base/src/main/java/org/dbsyncer/connector/base/ConnectorFactory.java",
+          "code": "syncRows.stream().map(SyncRow::getSourceData)"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": 3,
+      "title": "熔断机制",
+      "description": "错误计数累计到阈值时终止任务并发送通知；全量/增量统一计入；熔断置 ERROR",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "application.properties 中存在 dbsyncer.error.threshold 配置项，且已移除 dbsyncer.error.fence.*",
+          "file": "dbsyncer-web/src/main/resources/application.properties",
+          "code": "dbsyncer.error.threshold 存在；无 dbsyncer.error.fence 前缀配置"
+        },
+        {
+          "type": "code",
+          "criteria": "ErrorQueueConfig 类存在，包含 threshold 属性",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/error/ErrorQueueConfig.java",
+          "code": "getThreshold()"
+        },
+        {
+          "type": "code",
+          "criteria": "ErrorQueueService.checkCircuitBreaker() 检查阈值，将 Meta 置 ERROR 并发布 CircuitBreakEvent",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/error/ErrorQueueService.java",
+          "code": "checkCircuitBreaker(String metaId) 中 publish(CircuitBreakEvent) 与 saveState(ERROR)"
+        },
+        {
+          "type": "code",
+          "criteria": "NotifyType 枚举新增 DATA_ERROR_CIRCUIT_BREAKER，且 getName() 含对应分支",
+          "file": "dbsyncer-sdk/src/main/java/org/dbsyncer/sdk/notify/NotifyType.java",
+          "code": "DATA_ERROR_CIRCUIT_BREAKER"
+        },
+        {
+          "type": "test",
+          "criteria": "单元测试：错误数达到阈值时触发熔断通知",
+          "file": "dbsyncer-parser/src/test/java/org/dbsyncer/parser/error/ErrorQueueServiceTest.java",
+          "code": "testCircuitBreakerTriggered()"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": 4,
+      "title": "熔断停止机制",
+      "description": "熔断通过 Spring 事件通知 biz 层关闭任务；全量靠 meta.isRunning() 自然退出",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "CircuitBreakEvent 事件类存在，携带 mappingId",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/error/CircuitBreakEvent.java",
+          "code": "getMappingId()"
+        },
+        {
+          "type": "code",
+          "criteria": "biz 层监听器存在，调用 managerFactory.close(mapping)，且校验 meta.isRunning()",
+          "file": "dbsyncer-biz/src/main/java/org/dbsyncer/biz/impl/CircuitBreakerEventListener.java",
+          "code": "@EventListener onCircuitBreak(CircuitBreakEvent) 中 managerFactory.close(mapping)"
+        },
+        {
+          "type": "code",
+          "criteria": "FullSyncExecutorImpl 保持每批次检查 meta.isRunning() 支持自然退出",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/impl/FullSyncExecutorImpl.java",
+          "code": "meta.isRunning()"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": 5,
+      "title": "计数对齐功能",
+      "description": "以存储中实际失败行数为准修正 Meta.fail 与各 TableGroup.fail",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "ErrorQueueService.alignCount() 循环按 tableGroupId 查询 success=0 行数，更新 TableGroup.fail 并求和 Meta.fail",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/error/ErrorQueueService.java",
+          "code": "alignCount(String metaId) 中 query(...DATA_SUCCESS=0...).getTotal()"
+        },
+        {
+          "type": "code",
+          "criteria": "MonitorController 新增 /alignCount 接口",
+          "file": "dbsyncer-web/src/main/java/org/dbsyncer/web/controller/monitor/MonitorController.java",
+          "code": "@PostMapping(\"/alignCount\")"
+        },
+        {
+          "type": "code",
+          "criteria": "edit.html 错误队列面板新增'计数对齐'按钮",
+          "file": "dbsyncer-web/src/main/resources/public/mapping/edit.html",
+          "code": "id=\"alignCountBtn\""
+        },
+        {
+          "type": "code",
+          "criteria": "edit.js 新增 bindAlignCountEvent() 函数",
+          "file": "dbsyncer-web/src/main/resources/static/js/mapping/edit.js",
+          "code": "bindAlignCountEvent()"
+        },
+        {
+          "type": "test",
+          "criteria": "单元测试：计数对齐后 Meta.fail 与 TableGroup.fail 与实际行数一致",
+          "file": "dbsyncer-parser/src/test/java/org/dbsyncer/parser/error/ErrorQueueServiceTest.java",
+          "code": "testAlignCount()"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": 6,
+      "title": "重试减计数",
+      "description": "手工重试成功后，通过 ErrorQueueService.onRetrySuccess() 统一调用 CounterService.decrementFail()",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "ErrorQueueService.onRetrySuccess() 方法存在，委托 CounterService.decrementFail()",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/error/ErrorQueueService.java",
+          "code": "onRetrySuccess(String metaId, String tableGroupId)"
+        },
+        {
+          "type": "code",
+          "criteria": "DataSyncServiceImpl.sync() 重试成功后调用 errorQueueService.onRetrySuccess()",
+          "file": "dbsyncer-biz/src/main/java/org/dbsyncer/biz/impl/DataSyncServiceImpl.java",
+          "code": "errorQueueService.onRetrySuccess(metaId, tableGroupId)"
+        },
+        {
+          "type": "test",
+          "criteria": "单元测试：重试成功后 Meta.fail 减 1，Meta.success 加 1",
+          "file": "dbsyncer-biz/src/test/java/org/dbsyncer/biz/impl/DataSyncServiceImplTest.java",
+          "code": "testRetrySuccessUpdatesCounts()"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": 7,
+      "title": "SyncRow 携带源数据",
+      "description": "SyncRow 新增 sourceData 字段，Picker 创建时直接引用源格式数据（不深拷贝）",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "SyncRow 类新增 sourceData 字段和 getter/setter",
+          "file": "dbsyncer-sdk/src/main/java/org/dbsyncer/sdk/plugin/SyncRow.java",
+          "code": "getSourceData(), setSourceData(Map<String, Object>)"
+        },
+        {
+          "type": "code",
+          "criteria": "Picker.pickTargetDataFromMaps() 设置 sourceData 且直接引用源 Map",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/model/Picker.java",
+          "code": "syncRow.setSourceData(sourceMap)（无 new HashMap 拷贝）"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": 8,
+      "title": "ConnectorFactory 使用源格式 failData",
+      "description": "ConnectorFactory 中 failData 统一使用 SyncRow.getSourceData()",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "executeWriterOperation() catch 块（含 convertProcessBeforeWriter 失败）中使用 getSourceData() 提取失败数据",
+          "file": "dbsyncer-connector/dbsyncer-connector-base/src/main/java/org/dbsyncer/connector/base/ConnectorFactory.java",
+          "code": "syncRows.stream().map(SyncRow::getSourceData)"
+        },
+        {
+          "type": "test",
+          "criteria": "单元测试：convertProcessBeforeWriter 失败时 failData 为源格式",
+          "file": "dbsyncer-connector/dbsyncer-connector-base/src/test/java/org/dbsyncer/connector/base/ConnectorFactoryTest.java",
+          "code": "testFailDataIsSourceFormat()"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": 9,
+      "title": "部分行失败捕获",
+      "description": "AbstractDatabaseConnector.executeWriter() 中 execute[i] != 1 且 != -2 的行加入 failData",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "executeWriter() 循环中失败行加入 result.getFailData()，使用 getSourceData()，-2 维持成功语义",
+          "file": "dbsyncer-sdk/src/main/java/org/dbsyncer/sdk/connector/database/AbstractDatabaseConnector.java",
+          "code": "result.getFailData().add(syncRows.get(i).getSourceData())"
+        },
+        {
+          "type": "test",
+          "criteria": "单元测试：批量执行部分失败时，失败行进入 failData",
+          "file": "dbsyncer-sdk/src/test/java/org/dbsyncer/sdk/connector/database/AbstractDatabaseConnectorTest.java",
+          "code": "testPartialFailureCaptured()"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": 10,
+      "title": "统一自动重试机制",
+      "description": "将自动重试从 AbstractDatabaseConnector 提升到 ConnectorFactory.writeBatch() 层面；非数据库连接器整体异常直接抛",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "ConnectorFactory.writeBatch() 包含统一的 retryInterceptor 调用",
+          "file": "dbsyncer-connector/dbsyncer-connector-base/src/main/java/org/dbsyncer/connector/base/ConnectorFactory.java",
+          "code": "retryInterceptor.execute(() -> connector.writer(syncRows), policy)"
+        },
+        {
+          "type": "code",
+          "criteria": "catch 块中使用 getSourceData() 提取失败数据",
+          "file": "dbsyncer-connector/dbsyncer-connector-base/src/main/java/org/dbsyncer/connector/base/ConnectorFactory.java",
+          "code": "syncRows.stream().map(SyncRow::getSourceData)"
+        },
+        {
+          "type": "code",
+          "criteria": "AbstractDatabaseConnector 移除内部 retryInterceptor",
+          "file": "dbsyncer-sdk/src/main/java/org/dbsyncer/sdk/connector/database/AbstractDatabaseConnector.java",
+          "code": "executeWriter() 方法中无 retryInterceptor"
+        },
+        {
+          "type": "code",
+          "criteria": "非数据库连接器（ES/File/Kafka）移除内部 try-catch/addFailData，整体异常直接抛",
+          "file": "dbsyncer-connector/dbsyncer-connector-elasticsearch/src/main/java/org/dbsyncer/connector/elasticsearch/ElasticsearchConnector.java",
+          "code": "writer() 方法中无 addFailData 调用"
+        },
+        {
+          "type": "test",
+          "criteria": "单元测试：非数据库连接器异常触发重试",
+          "file": "dbsyncer-connector/dbsyncer-connector-base/src/test/java/org/dbsyncer/connector/base/ConnectorFactoryTest.java",
+          "code": "testNoDatabaseConnectorRetry()"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": 11,
+      "title": "全量同步异常捕获",
+      "description": "FullSyncExecutorImpl 捕获 writeBatch 异常，从 SyncRow 提取源数据交给 ErrorQueueService",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "processTableGroupDataBatch() 中 try-catch 包裹 writeBatch()",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/impl/FullSyncExecutorImpl.java",
+          "code": "catch (Exception e) { ... errorQueueService.handleFailData(...)"
+        },
+        {
+          "type": "code",
+          "criteria": "catch 块中使用 SyncRow.getSourceData() 提取失败数据",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/impl/FullSyncExecutorImpl.java",
+          "code": "target.stream().map(SyncRow::getSourceData)"
+        },
+        {
+          "type": "test",
+          "criteria": "单元测试：writeBatch 抛异常时错误数据被捕获并进入错误队列",
+          "file": "dbsyncer-parser/src/test/java/org/dbsyncer/parser/impl/FullSyncExecutorImplTest.java",
+          "code": "testWriteBatchExceptionCaptured()"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": 12,
+      "title": "CounterService 统一计数管理",
+      "description": "新增 CounterService 统一管理计数：读 meta.getSyncPhase() 区分全量/增量，聚合与细分字段一次维护，原子累加",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "CounterService 类存在，包含 incrementSuccess/Fail、decrementFail、flush 方法（签名无 phase 参数）",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/service/CounterService.java",
+          "code": "incrementSuccess(Meta, TableGroup, int), incrementFail(Meta, TableGroup, int), decrementFail(Meta, TableGroup), flush(Meta, TableGroup)"
+        },
+        {
+          "type": "code",
+          "criteria": "内部读取 meta.getSyncPhase() 判定细分字段归属（FULL→full*，INCREMENTAL→increment*）",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/service/CounterService.java",
+          "code": "meta.getSyncPhase()"
+        },
+        {
+          "type": "code",
+          "criteria": "内部按 meta 加锁保证原子累加",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/service/CounterService.java",
+          "code": "synchronized(meta)"
+        },
+        {
+          "type": "code",
+          "criteria": "FlushStrategyImpl 使用 CounterService 替代直接更新",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/strategy/impl/FlushStrategyImpl.java",
+          "code": "counterService.incrementSuccess(...)"
+        },
+        {
+          "type": "code",
+          "criteria": "DataSyncServiceImpl 使用 CounterService 替代直接更新",
+          "file": "dbsyncer-biz/src/main/java/org/dbsyncer/biz/impl/DataSyncServiceImpl.java",
+          "code": "counterService.decrementFail(...)"
+        },
+        {
+          "type": "test",
+          "criteria": "单元测试：CounterService 正确更新成功/失败计数（含全量与增量分支）",
+          "file": "dbsyncer-parser/src/test/java/org/dbsyncer/parser/service/CounterServiceTest.java",
+          "code": "testIncrementSuccess(), testIncrementFail(), testDecrementFail(), testFullVsIncrementPhase()"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": 13,
+      "title": "Picker 方法合并",
+      "description": "合并 Picker 中两个 pickTargetData 方法，提取核心逻辑到 pickTargetDataFromMaps，移除 sourceMapList 输出参数",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "Picker 类存在 pickTargetDataFromMaps 私有方法",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/model/Picker.java",
+          "code": "pickTargetDataFromMaps(List<Map<String, Object>> sourceMaps, ...)"
+        },
+        {
+          "type": "code",
+          "criteria": "全量 pickTargetData(List<Map>) 调用核心方法",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/model/Picker.java",
+          "code": "pickTargetData(List<Map> source, PluginContext context) { return pickTargetDataFromMaps(...) }"
+        },
+        {
+          "type": "code",
+          "criteria": "增量 pickTargetData 调用核心方法，且签名移除 sourceMapList 参数",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/model/Picker.java",
+          "code": "pickTargetData(...) throws Exception { sourceMaps = RowConverter.toListOfMaps(...); return pickTargetDataFromMaps(...) }"
+        },
+        {
+          "type": "test",
+          "criteria": "单元测试：全量和增量路径都正确设置 sourceData",
+          "file": "dbsyncer-parser/src/test/java/org/dbsyncer/parser/model/PickerTest.java",
+          "code": "testFullSyncSetsSourceData(), testIncrementSyncSetsSourceData()"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": 14,
+      "title": "DDL 错误独立处理",
+      "description": "ErrorQueueService 提供 handleDdlFailData 入口，存储格式与重试分支不变，DDL 失败计 fail 并参与熔断",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "ErrorQueueService 存在 handleDdlFailData 方法，接收 DDLConfig JSON",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/error/ErrorQueueService.java",
+          "code": "handleDdlFailData(...)"
+        },
+        {
+          "type": "code",
+          "criteria": "MetaBufferActuator.parseDDl() 中 writerDDL 失败调用 handleDdlFailData",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/flush/impl/MetaBufferActuator.java",
+          "code": "errorQueueService.handleDdlFailData(...)"
+        },
+        {
+          "type": "code",
+          "criteria": "DDL 重试分支保持 OPERTION_ALTER 逻辑不变",
+          "file": "dbsyncer-biz/src/main/java/org/dbsyncer/biz/impl/DataSyncServiceImpl.java",
+          "code": "OPERTION_ALTER 分支仍基于 DDLConfig JSON 反序列化重做"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": 15,
+      "title": "FlushStrategyImpl 只走成功路径",
+      "description": "FlushStrategyImpl 仅负责成功数据存储与成功计数，失败路径完全由 ErrorQueueService 接管",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "FlushStrategyImpl 移除失败数据 asyncWrite 与 notifyOnError，失败计数委托 CounterService",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/strategy/impl/FlushStrategyImpl.java",
+          "code": "无 result.getFailData() 相关的 asyncWrite 调用"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    }
+  ],
+  "summary": {
+    "total": 15,
+    "passed": 0,
+    "failed": 0,
+    "pending": 15
+  }
+}
