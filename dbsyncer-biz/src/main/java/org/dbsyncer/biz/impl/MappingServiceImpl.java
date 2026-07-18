@@ -3,6 +3,7 @@
  */
 package org.dbsyncer.biz.impl;
 
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.dbsyncer.biz.*;
 import org.dbsyncer.biz.checker.impl.mapping.MappingChecker;
 import org.dbsyncer.biz.task.MappingCountTask;
@@ -284,7 +285,14 @@ public class MappingServiceImpl implements MappingService {
 
         // 过滤已映射的表
         MappingVo vo = convertMapping2Vo(mapping);
-        List<TableGroup> tableGroupAll = tableGroupService.getTableGroupAll(id);
+        List<TableGroup> tableGroupAll;
+        try {
+            tableGroupAll = tableGroupService.getTableGroupAll(id);
+        } catch (Exception e) {
+            logger.error("获取表映射关系失败，mappingId: {}", id, e);
+            logService.log(mapping, LogType.CONFIG, LogLevel.ERROR, ExceptionUtils.getStackTrace(e));
+            throw new Exception(String.format("mappingId: %s 获取表映射关系失败: %s, ", id , e.getMessage()));
+        }
         if (!CollectionUtils.isEmpty(tableGroupAll)) {
             final Set<String> sTables = new HashSet<>();
             final Set<String> tTables = new HashSet<>();

@@ -405,6 +405,9 @@ public class TableGroupServiceImpl implements TableGroupService {
         }
         if (StringUtil.isBlank(targetTablePK)) {
             List<String> pks = tableGroup.getTargetTable().getPrimaryKeys();
+            if (CollectionUtils.isEmpty(pks)) {
+                pks = tableGroup.getSourceTable().getPrimaryKeys();
+            }
             targetTablePK = !CollectionUtils.isEmpty(pks) ? String.join(",", pks) : null;
         }
 
