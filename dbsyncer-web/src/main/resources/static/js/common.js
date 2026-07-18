@@ -9,6 +9,17 @@ $initContainer.css("min-height", $(window).height() - 125);
 // 移除全局定时器变量定义，避免跨页面作用域冲突
 // 每个页面应该使用自己的局部定时器变量
 
+// 清除编辑页面轮询定时器（在SPA路由切换时调用）
+function clearEditPageTimer() {
+    if (typeof timer3 !== 'undefined' && timer3 !== null) {
+        clearInterval(timer3);
+        timer3 = null;
+    }
+    if (typeof currentMappingId !== 'undefined') {
+        currentMappingId = null;
+    }
+}
+
 // ******************* 插件封装 ***************************
 // 全局提示框
 function bootGrowl(data, type) {
@@ -346,6 +357,8 @@ function updateHash(url, route) {
 
 // 不更新哈希的页面加载函数
 function doLoaderWithoutHashUpdate(url, route = 0) {
+    // 清除编辑页面的轮询定时器，防止SPA路由切换后旧定时器继续发送请求
+    clearEditPageTimer();
     // 加载页面
     const contents = document.querySelectorAll('.contentDiv');
     contents.forEach(function (content) {
@@ -386,6 +399,8 @@ function doLoaderWithoutHashUpdate(url, route = 0) {
 
 // 全局加载页面
 function doLoader(url, route = 0) {
+    // 清除编辑页面的轮询定时器，防止SPA路由切换后旧定时器继续发送请求
+    clearEditPageTimer();
     // 更新URL哈希
     updateHash(url, route);
     

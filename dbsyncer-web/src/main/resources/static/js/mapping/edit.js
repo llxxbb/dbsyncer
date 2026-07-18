@@ -1094,6 +1094,7 @@ function clearTimer() {
         clearInterval(timer3);
         timer3 = null;
     }
+    currentMappingId = null;
 }
 
 // 绑定编辑页面操作按钮事件
