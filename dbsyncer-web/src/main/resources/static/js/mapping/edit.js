@@ -212,14 +212,21 @@ function checkFieldDifferencesForTableGroups(refreshBeforeCheck) {
 // 绑定字段差异状态列点击事件
 function bindFieldDiffStatusClick() {
     $('.field-diff-status').off('click').on('click', function(e) {
-        e.stopPropagation(); // 阻止事件冒泡，避免触发整行点击
+        e.stopPropagation();
         var tableGroupId = $(this).data('id');
         if (tableGroupId) {
-            // 使用公共组件显示字段差异弹窗，不显示修复按钮
             FieldDifferenceComponent.show(tableGroupId);
         }
     });
 }
+
+$(document).on('fieldDiffConfigChanged', function() {
+    if ($('#tableGroupList').length === 0) return;
+    $('.modal-backdrop').remove();
+    $('body').removeClass('modal-open').css({ 'padding-right': '', 'overflow': '' });
+    FieldDifferenceComponent.setCachedData(null, null);
+    checkFieldDifferencesForTableGroups();
+});
 
 function bindMappingTableGroupListClick() {
     var $tableGroupList = $("#tableGroupList");

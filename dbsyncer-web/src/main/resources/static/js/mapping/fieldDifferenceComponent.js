@@ -5,31 +5,27 @@
 
 // 字段差异弹窗组件
 var FieldDifferenceComponent = {
-    // 当前显示的字段差异数据
     currentData: null,
-    // 缓存数据（页面预加载时写入，避免弹窗时重复请求 API）
     _cachedData: null,
     _cachedTableGroupId: null,
+    _fixResult: null,
 
-    /**
-     * 显示字段差异弹窗
-     * @param {string} tableGroupId - 表映射关系ID
-     * @param {Object} options - 配置选项
-     * @param {boolean} options.showFixButton - 是否显示修复按钮，默认true
-     * @param {Function} options.onFix - 修复按钮点击回调
-     */
     show: function(tableGroupId, options) {
         options = options || {};
+        var showFix = options.showFixButton !== false;
 
-        // 显示弹窗
+        if (showFix) {
+            $('#fixTargetTableBtn').show();
+        } else {
+            $('#fixTargetTableBtn').hide();
+        }
+
         $('#fieldDifferenceModal').modal('show');
         $('#fieldDifferenceContent').html('<div class="text-center"><span class="fa fa-spinner fa-spin fa-2x"></span> 加载中...</div>');
 
-        // 保存回调
         this.onFixCallback = options.onFix;
 
         var self = this;
-        // 缓存仅对同一个 tableGroupId 有效，切换表组时清空
         if (this._cachedData && this._cachedTableGroupId === tableGroupId) {
             self.currentData = this._cachedData;
             self.render(this._cachedData);
@@ -234,25 +230,182 @@ var FieldDifferenceComponent = {
         return this.currentData;
     },
 
-    /**
-     * 清空当前数据
-     */
     clear: function() {
         this.currentData = null;
         this.onFixCallback = null;
         this._cachedData = null;
+        this._fixResult = null;
+    },
+
+    _onFixBtnClick: function() {
+        var id = this._cachedTableGroupId;
+        if (!id) return;
+        this._showFixPreview(id);
+    },
+
+    _showFixPreview: function(id) {
+        $('#fieldDiffFixModal').modal('show');
+        $('#fieldDiffFixWarning').removeClass('alert-danger').addClass('alert-warning').html('<strong>加载中...</strong>').show();
+        $('#fieldDiffFixInfoContent').html('');
+        $('#fieldDiffFixSqlContent').text('');
+        $('#confirmFieldDiffFixBtn').prop('disabled', true);
+
+        var self = this;
+        doPoster("/tableGroup/fieldDiffFixPreview", {'id': id}, function(data) {
+            if (data.success === true) {
+                self._renderFixPreview(data.resultValue);
+            } else {
+                $('#fieldDiffFixWarning').removeClass('alert-warning').addClass('alert-danger');
+                $('#fieldDiffFixWarning').html('<strong>错误：</strong>' + (data.resultValue || '获取修复预览失败'));
+            }
+        });
+    },
+
+    _renderFixPreview: function(result) {
+        this._fixResult = result;
+
+        if (result.warning) {
+            if (result.warning.indexOf('DROP') !== -1) {
+                $('#fieldDiffFixWarning').removeClass('alert-warning').addClass('alert-danger');
+            }
+            $('#fieldDiffFixWarning').html('<strong>警告：</strong>' + result.warning);
+        } else {
+            $('#fieldDiffFixWarning').html('').hide();
+        }
+
+        var self = this;
+        var infoHtml = '<div class="panel panel-default">' +
+            '<div class="panel-heading">修复信息</div>' +
+            '<div class="panel-body">' +
+            '<p><strong>源表：</strong>' + result.sourceTableName + '</p>' +
+            '<p><strong>目标表：</strong>' + result.targetTableName + '</p>' +
+            '<p><strong>修复方向：</strong>以源表为基准修复目标表</p>' +
+            '</div></div>';
+
+        if (result.items && result.items.length > 0) {
+            infoHtml += '<div class="panel panel-info">' +
+                '<div class="panel-heading">修复项列表 <span class="badge">' + result.items.length + '</span></div>' +
+                '<div class="panel-body" style="max-height: 250px; overflow-y: auto;">' +
+                '<table class="table table-condensed">' +
+                '<thead><tr><th><input type="checkbox" id="selectAllDiffItems" checked/></th><th>字段名</th><th>差异类型</th><th>操作</th><th>说明</th></tr></thead>' +
+                '<tbody>';
+
+            result.items.forEach(function(item) {
+                infoHtml += '<tr>' +
+                    '<td><input type="checkbox" class="diff-item-checkbox" data-id="' + item.id + '" checked/></td>' +
+                    '<td><strong>' + item.fieldName + '</strong></td>' +
+                    '<td><span class="label label-' + self._getDiffTypeLabel(item.diffType) + '">' + item.diffType + '</span></td>' +
+                    '<td><span class="label label-' + self._getOperationLabel(item.operation) + '">' + item.operation + '</span></td>' +
+                    '<td>' + item.description + '</td>' +
+                    '</tr>';
+            });
+
+            infoHtml += '</tbody></table></div></div>';
+        }
+
+        $('#fieldDiffFixInfoContent').html(infoHtml);
+
+        if (result.sqlStatements && result.sqlStatements.length > 0) {
+            $('#fieldDiffFixSqlContent').text(result.sqlStatements.join('\n\n'));
+            $('#confirmFieldDiffFixBtn').prop('disabled', false);
+        } else {
+            $('#fieldDiffFixSqlContent').text('无 SQL 语句需要执行');
+            $('#confirmFieldDiffFixBtn').prop('disabled', true);
+        }
+
+        $('#selectAllDiffItems').off('change').on('change', function() {
+            $('.diff-item-checkbox').prop('checked', $(this).prop('checked'));
+            self._updateFixSelection();
+        });
+
+        $('.diff-item-checkbox').off('change').on('change', function() {
+            self._updateFixSelection();
+        });
+    },
+
+    _updateFixSelection: function() {
+        if (this._fixResult && this._fixResult.items) {
+            this._fixResult.items.forEach(function(item) {
+                var $checkbox = $('.diff-item-checkbox[data-id="' + item.id + '"]');
+                item.selected = $checkbox.prop('checked');
+            });
+        }
+    },
+
+    _executeFix: function() {
+        var self = this;
+        var id = this._cachedTableGroupId;
+        var $confirmBtn = $("#confirmFieldDiffFixBtn");
+        $confirmBtn.prop('disabled', true);
+        $confirmBtn.html('<span class="fa fa-spinner fa-spin"></span> 执行中...');
+
+        var selectedIds = [];
+        if (this._fixResult && this._fixResult.items) {
+            this._fixResult.items.forEach(function(item) {
+                if (item.selected) {
+                    selectedIds.push(item.id);
+                }
+            });
+        }
+
+        if (selectedIds.length === 0) {
+            $('#fieldDiffFixWarning').removeClass('alert-warning').addClass('alert-danger').show();
+            $('#fieldDiffFixWarning').html('<strong>错误：</strong>请至少选择一项进行修复');
+            $confirmBtn.html('<span class="fa fa-check"></span> 确认执行');
+            $confirmBtn.prop('disabled', false);
+            return;
+        }
+
+        doPoster("/tableGroup/executeFieldDiffFixSelective", {
+            'id': id,
+            'selectedIds': JSON.stringify(selectedIds)
+        }, function(data) {
+            if (data.success === true) {
+                $('#fieldDiffFixModal').modal('hide');
+                $('#fieldDifferenceModal').modal('hide');
+                $('.modal-backdrop').remove();
+                $('body').removeClass('modal-open').css({ 'padding-right': '', 'overflow': '' });
+                bootGrowl(data.resultValue, "success");
+                self._configChanged = true;
+            } else {
+                $('#fieldDiffFixWarning').removeClass('alert-warning').addClass('alert-danger');
+                $('#fieldDiffFixWarning').html('<strong>执行失败：</strong>' + (data.resultValue || '未知错误'));
+                $confirmBtn.html('<span class="fa fa-check"></span> 确认执行');
+                $confirmBtn.prop('disabled', false);
+            }
+        });
+    },
+
+    _getDiffTypeLabel: function(diffType) {
+        switch(diffType) {
+            case 'ADDED': return 'info';
+            case 'MISSING': return 'warning';
+            case 'TYPE_MISMATCH': return 'danger';
+            case 'LENGTH_MISMATCH': return 'primary';
+            default: return 'default';
+        }
+    },
+
+    _getOperationLabel: function(operation) {
+        switch(operation) {
+            case 'ADD': return 'success';
+            case 'DROP': return 'danger';
+            case 'MODIFY': return 'warning';
+            default: return 'default';
+        }
     }
 };
 
 // 绑定修复按钮点击事件（全局只绑定一次）
 $(function() {
     $(document).on('click', '#fixTargetTableBtn', function() {
-        if (FieldDifferenceComponent.onFixCallback) {
-            FieldDifferenceComponent.onFixCallback(FieldDifferenceComponent.currentData);
-        }
+        FieldDifferenceComponent._onFixBtnClick();
     });
 
-    // 弹窗关闭时，如果发生过配置变更则通知上游刷新
+    $(document).on('click', '#confirmFieldDiffFixBtn', function() {
+        FieldDifferenceComponent._executeFix();
+    });
+
     $('#fieldDifferenceModal').on('hidden.bs.modal', function() {
         if (FieldDifferenceComponent._configChanged) {
             FieldDifferenceComponent._configChanged = false;
