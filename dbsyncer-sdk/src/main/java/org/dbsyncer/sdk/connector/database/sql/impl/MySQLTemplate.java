@@ -267,12 +267,13 @@ public class MySQLTemplate extends AbstractSqlTemplate {
                 if (binarySize > 0 && binarySize <= 255) {
                     // 固定长度且小于等于 255，使用 BINARY
                     return "BINARY(" + binarySize + ")";
-                } else if (binarySize > 255 && binarySize <= 65535) {
+                } else if (binarySize > 255 && binarySize < 65535) {
                     // 有长度但大于 255 且<=65535，使用 VARBINARY
                     return "VARBINARY(" + binarySize + ")";
                 }
-                // 没有长度信息或长度超过 65535，默认使用 VARBINARY(65535)
-                return "VARBINARY(65535)";
+                // 没有长度信息或长度超过 65535，使用 LONGBLOB 避免行大小超限错误
+                // SQL Server varbinary(MAX) 等大容量二进制数据需要此处理
+                return "LONGBLOB";
             case "BLOB":
                 // BLOB 类型：用于大容量二进制数据
                 // MySQL 的 BLOB 类型容量：

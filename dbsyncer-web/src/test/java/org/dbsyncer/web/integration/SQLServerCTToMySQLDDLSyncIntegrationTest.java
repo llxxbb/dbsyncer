@@ -23,7 +23,7 @@ import static org.junit.Assert.*;
  * <p>
  * 使用完整的Spring Boot应用上下文，启动真实的Listener进行端到端测试
  * 覆盖场景：
- * - SQL Server特殊类型转换：XML, UNIQUEIDENTIFIER, MONEY, SMALLMONEY, DATETIME2, DATETIMEOFFSET, TIMESTAMP, IMAGE, TEXT, NTEXT, BINARY, SMALLDATETIME, BIT, HIERARCHYID
+ * - SQL Server 特殊类型转换：XML, UNIQUEIDENTIFIER, MONEY, SMALLMONEY, DATETIME2, DATETIMEOFFSET, TIMESTAMP, IMAGE, TEXT, NTEXT, BINARY, SMALLDATETIME, BIT, HIERARCHYID, VARBINARY(MAX)
  * - DDL操作：ADD COLUMN, ALTER COLUMN (MODIFY), DROP COLUMN, RENAME COLUMN
  * - 复杂场景：多字段添加、带约束字段添加
  * - DDL后DML时序一致性：测试DDL执行后，DML操作是否能正确反映变更
@@ -386,6 +386,12 @@ public class SQLServerCTToMySQLDDLSyncIntegrationTest extends BaseDDLIntegration
         logger.info("开始测试NVARCHAR(MAX)类型转换");
         String sqlserverDDL = "ALTER TABLE ddlTestEmployee ADD unicode_text NVARCHAR(MAX)";
         testDDLConversionWithTypeVerification(sqlserverDDL, "unicode_text", "longtext", null);
+    }
+    @Test
+    public void testAddColumn_VARBINARYMAXType() throws Exception {
+        logger.info("开始测试 VARBINARY(MAX) 类型转换");
+        String sqlserverDDL = "ALTER TABLE ddlTestEmployee ADD data_blob VARBINARY(MAX)";
+        testDDLConversionWithTypeVerification(sqlserverDDL, "data_blob", "longblob", null);
     }
 
     // ==================== DDL操作测试 ====================
@@ -1209,6 +1215,11 @@ public class SQLServerCTToMySQLDDLSyncIntegrationTest extends BaseDDLIntegration
             return;
         }
         
+        // VARBINARY/BINARY 类型在 SQL Server 中不能直接插入字符串，需要跳过
+        if (lowerFieldName.contains("data_blob") || lowerFieldName.contains("blob") || 
+            lowerFieldName.contains("varbinary") || lowerFieldName.contains("binary")) {
+            return;
+        }
         if (lowerFieldName.contains("age") || lowerFieldName.contains("count") || lowerFieldName.contains("num")) {
             data.put(fieldName, 100);
         } else if (lowerFieldName.contains("price") || lowerFieldName.contains("salary") || lowerFieldName.contains("bonus") 
