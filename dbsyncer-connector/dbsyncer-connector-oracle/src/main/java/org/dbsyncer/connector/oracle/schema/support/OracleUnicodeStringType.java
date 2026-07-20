@@ -62,6 +62,21 @@ public final class OracleUnicodeStringType extends UnicodeStringType {
             throw new OracleException(e);
         }
     }
+
+    @Override
+    public Boolean determineIsSizeFixed(String typeName) {
+        if (typeName == null) {
+            return null;
+        }
+        String upper = typeName.toUpperCase();
+        if ("NCHAR".equals(upper)) {
+            return true;
+        }
+        if ("NVARCHAR2".equals(upper)) {
+            return false;
+        }
+        return null;
+    }
     
 }
 

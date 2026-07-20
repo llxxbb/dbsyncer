@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.springframework.jdbc.support.rowset.SqlRowSet;
 
 import static org.junit.Assert.*;
 
@@ -1323,5 +1324,130 @@ public abstract class BaseDDLIntegrationTest {
         assertTrue("Meta应在" + timeoutMs + "ms内进入运行状态，当前状态: " + meta.getState() +
                 (meta.getErrorMessage() != null ? ", 错误信息: " + meta.getErrorMessage() : ""),
                 meta.isRunning());
+    }
+    /**
+     * 批量验证表结构（高效）
+     * 使用 MetaInfo 单次查询获取所有字段元数据，在内存中直接比对 Field 对象
+     * 性能提升：21 次查询 → 2 次查询
+     * 
+     * @param tableName 表名
+     * @param config 数据库配置
+     * @param expectedFields 期望的字段列表
+     * @throws Exception 验证失败时抛出异常
+     */
+    protected void verifyTableStructure(String tableName, DatabaseConfig config, 
+            List<org.dbsyncer.sdk.model.Field> expectedFields) throws Exception {
+        
+        logger.info("开始批量验证表结构：{} (字段数={})", tableName, expectedFields.size());
+        
+        if (config.getConnectorType() == null) {
+            config.setConnectorType(getConnectorType(config, false));
+        }
+        
+        DatabaseConnectorInstance instance = new DatabaseConnectorInstance(config);
+        MetaInfo metaInfo = instance.execute(databaseTemplate -> {
+            String connectorType = config.getConnectorType();
+            String sql;
+            
+            if ("mysql".equalsIgnoreCase(connectorType)) {
+                sql = "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_TYPE " +
+                      "FROM INFORMATION_SCHEMA.COLUMNS " +
+                      "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? " +
+                      "ORDER BY ORDINAL_POSITION";
+            } else {
+                sql = "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, " +
+                      "CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION, NUMERIC_SCALE " +
+                      "FROM INFORMATION_SCHEMA.COLUMNS " +
+                      "WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = ? " +
+                      "ORDER BY ORDINAL_POSITION";
+            }
+            
+            SqlRowSet rs = databaseTemplate.queryForRowSet(sql, tableName);
+            List<org.dbsyncer.sdk.model.Field> columns = new java.util.ArrayList<>();
+            
+            while (rs.next()) {
+                org.dbsyncer.sdk.model.Field f = new org.dbsyncer.sdk.model.Field();
+                f.setName(rs.getString("COLUMN_NAME"));
+                f.setTypeName(rs.getString("DATA_TYPE"));
+                f.setNullable("YES".equalsIgnoreCase(rs.getString("IS_NULLABLE")));
+                
+                String columnType = rs.getString("COLUMN_TYPE");
+                if (columnType != null && !columnType.isEmpty()) {
+                    int parenIndex = columnType.indexOf('(');
+                    if (parenIndex > 0) {
+                        f.setTypeName(columnType.substring(0, parenIndex));
+                        String sizeStr = columnType.substring(parenIndex + 1, columnType.indexOf(')'));
+                        try {
+                            f.setColumnSize(Long.parseLong(sizeStr));
+                        } catch (NumberFormatException e) {
+                            f.setColumnSize(0);
+                        }
+                    } else {
+                        f.setTypeName(columnType);
+                        f.setColumnSize(0);
+                    }
+                } else {
+                    Integer length = rs.getInt("CHARACTER_MAXIMUM_LENGTH");
+                    f.setColumnSize(length != java.sql.Types.NULL && length > 0 ? length : 0);
+                    Integer precision = rs.getInt("NUMERIC_PRECISION");
+                    f.setColumnSize(precision != java.sql.Types.NULL && precision > 0 ? precision : f.getColumnSize());
+                    Integer scale = rs.getInt("NUMERIC_SCALE");
+                    if (scale != java.sql.Types.NULL && scale > 0) {
+                        f.setRatio(scale);
+                    }
+                }
+                
+                columns.add(f);
+            }
+            
+            List<String> pks = new java.util.ArrayList<>();
+            String pkSql = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE " +
+                          "WHERE TABLE_NAME = ? AND CONSTRAINT_NAME = 'PRIMARY' " +
+                          "ORDER BY ORDINAL_POSITION";
+            SqlRowSet pkRs = databaseTemplate.queryForRowSet(pkSql, tableName);
+            while (pkRs.next()) {
+                pks.add(pkRs.getString("COLUMN_NAME"));
+            }
+            
+            return new MetaInfo(tableName, "table", columns, null, null, pks);
+        });
+        
+        assertNotNull("表 " + tableName + " 不存在", metaInfo);
+        List<org.dbsyncer.sdk.model.Field> actualFields = metaInfo.getColumn();
+        
+        assertEquals("字段数不匹配", expectedFields.size(), actualFields.size());
+        
+        for (int i = 0; i < expectedFields.size(); i++) {
+            org.dbsyncer.sdk.model.Field expected = expectedFields.get(i);
+            org.dbsyncer.sdk.model.Field actual = actualFields.get(i);
+            
+            assertEquals("字段 " + i + " 名称不匹配", expected.getName(), actual.getName());
+            if (expected.getTypeName() != null) {
+                assertEquals("字段 " + expected.getName() + " 类型不匹配", 
+                    expected.getTypeName().toLowerCase(), actual.getTypeName().toLowerCase());
+            }
+            if (expected.getColumnSize() > 0) {
+                assertEquals("字段 " + expected.getName() + " 长度不匹配", 
+                    expected.getColumnSize(), actual.getColumnSize());
+            }
+            if (expected.getNullable() != null) {
+                boolean expectedNotNull = !expected.getNullable();
+                boolean actualNotNull = actual.getNullable() == null || !actual.getNullable();
+                assertEquals("字段 " + expected.getName() + " NULL 约束不匹配", expectedNotNull, actualNotNull);
+            }
+        }
+        
+        List<String> expectedPks = expectedFields.stream()
+                .filter(org.dbsyncer.sdk.model.Field::isPk)
+                .map(org.dbsyncer.sdk.model.Field::getName)
+                .collect(Collectors.toList());
+        
+        assertNotNull("主键信息为空", metaInfo.getPrimaryKeys());
+        assertEquals("主键数量不匹配", expectedPks.size(), metaInfo.getPrimaryKeys().size());
+        for (int i = 0; i < expectedPks.size(); i++) {
+            assertEquals("主键 " + i + " 不匹配", expectedPks.get(i), metaInfo.getPrimaryKeys().get(i));
+        }
+        
+        logger.info("表结构批量验证通过：{}", tableName);
     }
 }

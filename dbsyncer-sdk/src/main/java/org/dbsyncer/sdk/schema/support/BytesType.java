@@ -55,7 +55,7 @@ public abstract class BytesType extends AbstractDataType<byte[]> {
         }
 
         // 根据原始类型名称判断字段长度是否固定
-        // BINARY 为固定长度，VARBINARY 为可变长度
+        // 由各数据库的具体实现类通过 determineIsSizeFixed 方法提供判断
         String originalTypeName = colDataType.getDataType();
         if (originalTypeName != null) {
             Boolean isSizeFixed = determineIsSizeFixed(originalTypeName);
@@ -65,15 +65,4 @@ public abstract class BytesType extends AbstractDataType<byte[]> {
         return result;
     }
 
-    /**
-     * 判断二进制类型字段长度是否固定
-     * 基类不处理任何类型判断，由各数据库的实现类自行处理
-     * 
-     * @param typeName 原始类型名称（如 BINARY, VARBINARY 等）
-     * @return true表示固定长度，false表示可变长度，null表示未设置或不适用
-     */
-    protected Boolean determineIsSizeFixed(String typeName) {
-        // 基类不处理任何类型判断，由各数据库的实现类自行处理
-        return null;
-    }
 }

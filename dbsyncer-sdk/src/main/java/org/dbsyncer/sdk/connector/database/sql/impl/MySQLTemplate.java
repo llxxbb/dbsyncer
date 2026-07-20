@@ -203,8 +203,6 @@ public class MySQLTemplate extends AbstractSqlTemplate {
         // 使用 SchemaResolver 进行类型转换，完全委托给 SchemaResolver 处理
         Field targetField = schemaResolver.fromStandardType(column);
         String typeName = targetField.getTypeName();
-        
-        // 处理参数（长度、精度等）
         switch (typeName) {
             case "CHAR":
                 if (column.getColumnSize() > 0) {

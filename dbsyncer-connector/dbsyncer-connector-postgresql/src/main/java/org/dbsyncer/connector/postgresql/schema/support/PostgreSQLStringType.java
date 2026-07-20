@@ -37,20 +37,18 @@ public final class PostgreSQLStringType extends UnicodeStringType {
     }
 
     @Override
-    protected Boolean determineIsSizeFixed(String typeName) {
+    public Boolean determineIsSizeFixed(String typeName) {
         if (typeName == null) {
             return null;
         }
-        
-        String upperTypeName = typeName.toUpperCase();
-        
-        // PostgreSQL特定类型：BPCHAR（Blank-Padded CHAR）是固定长度
-        if ("BPCHAR".equals(upperTypeName)) {
+        String upper = typeName.toUpperCase();
+        if ("CHAR".equals(upper) || "BPCHAR".equals(upper)) {
             return true;
         }
-        
-        // 其他类型由父类处理
-        return super.determineIsSizeFixed(typeName);
+        if ("VARCHAR".equals(upper)) {
+            return false;
+        }
+        return null;
     }
     
 }

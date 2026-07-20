@@ -88,23 +88,17 @@ public final class SqlServerBinaryType extends BytesType {
     }
 
     @Override
-    protected Boolean determineIsSizeFixed(String typeName) {
+    public Boolean determineIsSizeFixed(String typeName) {
         if (typeName == null) {
             return null;
         }
-        
-        String upperTypeName = typeName.toUpperCase();
-        
-        // SQL Server固定长度类型：BINARY
-        if ("BINARY".equals(upperTypeName)) {
+        String upper = typeName.toUpperCase();
+        if ("BINARY".equals(upper)) {
             return true;
         }
-        
-        // SQL Server可变长度类型：VARBINARY
-        if ("VARBINARY".equals(upperTypeName)) {
+        if ("VARBINARY".equals(upper)) {
             return false;
         }
-        
         return null;
     }
 

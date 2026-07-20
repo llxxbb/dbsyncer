@@ -39,23 +39,17 @@ public final class MySQLBytesType extends BytesType {
     }
 
     @Override
-    protected Boolean determineIsSizeFixed(String typeName) {
+    public Boolean determineIsSizeFixed(String typeName) {
         if (typeName == null) {
             return null;
         }
-        
-        String upperTypeName = typeName.toUpperCase();
-        
-        // MySQL固定长度类型：BINARY
-        if ("BINARY".equals(upperTypeName)) {
+        String upper = typeName.toUpperCase();
+        if ("BINARY".equals(upper)) {
             return true;
         }
-        
-        // MySQL可变长度类型：VARBINARY
-        if ("VARBINARY".equals(upperTypeName)) {
+        if ("VARBINARY".equals(upper)) {
             return false;
         }
-        
         return null;
     }
 

@@ -2,6 +2,7 @@ package org.dbsyncer.connector.mysql.schema;
 
 import org.dbsyncer.connector.mysql.MySQLException;
 import org.dbsyncer.connector.mysql.schema.support.*;
+import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.schema.AbstractSchemaResolver;
 import org.dbsyncer.sdk.schema.DataType;
 
@@ -91,6 +92,24 @@ public final class MySQLSchemaResolver extends AbstractSchemaResolver {
             }
             mapping.put(typeName, t);
         }));
+    }
+
+    @Override
+    public Field fromStandardType(Field standardField) {
+        Field result = super.fromStandardType(standardField);
+        // MySQL: 根据 isSizeFixed 决定使用 CHAR 还是 VARCHAR
+        // STRING 和 UNICODE_STRING 默认映射为 VARCHAR，但如果 isSizeFixed=true，应该使用 CHAR
+        String standardTypeName = standardField.getTypeName();
+        if (("STRING".equals(standardTypeName) || "UNICODE_STRING".equals(standardTypeName))
+                && Boolean.TRUE.equals(standardField.getIsSizeFixed())) {
+            result.setTypeName("CHAR");
+        }
+        // BYTES 同理: isSizeFixed=true 时使用 BINARY 而非 VARBINARY
+        else if ("BYTES".equals(standardTypeName)
+                && Boolean.TRUE.equals(standardField.getIsSizeFixed())) {
+            result.setTypeName("BINARY");
+        }
+        return result;
     }
 
     @Override

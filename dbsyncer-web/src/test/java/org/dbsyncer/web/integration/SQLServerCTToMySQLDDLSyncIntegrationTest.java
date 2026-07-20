@@ -23,8 +23,7 @@ import static org.junit.Assert.*;
  * <p>
  * 使用完整的Spring Boot应用上下文，启动真实的Listener进行端到端测试
  * 覆盖场景：
- * - SQL Server 特殊类型转换：XML, UNIQUEIDENTIFIER, MONEY, SMALLMONEY, DATETIME2, DATETIMEOFFSET, TIMESTAMP, IMAGE, TEXT, NTEXT, BINARY, SMALLDATETIME, BIT, HIERARCHYID, VARBINARY(MAX)
- * - DDL操作：ADD COLUMN, ALTER COLUMN (MODIFY), DROP COLUMN, RENAME COLUMN
+ * - SQL Server 特殊类型转换：XML, UNIQUEIDENTIFIER, MONEY, SMALLMONEY, DATETIME2, DATETIMEOFFSET, TIMESTAMP, IMAGE, TEXT, NTEXT, BINARY, SMALLDATETIME, BIT, HIERARCHYID, VARBINARY(MAX), CHAR, NCHAR
  * - 复杂场景：多字段添加、带约束字段添加
  * - DDL后DML时序一致性：测试DDL执行后，DML操作是否能正确反映变更
  * - 字段映射更新验证：验证DDL操作后字段映射是否正确更新
@@ -388,10 +387,29 @@ public class SQLServerCTToMySQLDDLSyncIntegrationTest extends BaseDDLIntegration
         testDDLConversionWithTypeVerification(sqlserverDDL, "unicode_text", "longtext", null);
     }
     @Test
+    public void testAddColumn_FLOATType() throws Exception {
+        logger.info("开始测试 FLOAT 类型转换");
+        String sqlserverDDL = "ALTER TABLE ddlTestEmployee ADD ratio FLOAT";
+        testDDLConversionWithTypeVerification(sqlserverDDL, "ratio", "double", null);
+    }
+    @Test
     public void testAddColumn_VARBINARYMAXType() throws Exception {
         logger.info("开始测试 VARBINARY(MAX) 类型转换");
         String sqlserverDDL = "ALTER TABLE ddlTestEmployee ADD data_blob VARBINARY(MAX)";
         testDDLConversionWithTypeVerification(sqlserverDDL, "data_blob", "longblob", null);
+    }
+    // ==================== CHAR/NCHAR 类型转换测试 ====================
+
+    @Test
+    public void testAddColumn_CHARType() throws Exception {
+        logger.info("开始测试 CHAR 类型转换");
+        String sqlserverDDL = "ALTER TABLE ddlTestEmployee ADD country_code CHAR(3)";
+        testDDLConversionWithTypeVerification(sqlserverDDL, "country_code", "char", 3);
+    }
+    @Test
+    public void testAddColumn_NCHARType() throws Exception {
+        String sqlserverDDL = "ALTER TABLE ddlTestEmployee ADD zip_code NCHAR(10)";
+        testDDLConversionWithTypeVerification(sqlserverDDL, "zip_code", "char", 10);
     }
 
     // ==================== DDL操作测试 ====================
@@ -892,46 +910,37 @@ public class SQLServerCTToMySQLDDLSyncIntegrationTest extends BaseDDLIntegration
      */
     @Test
     public void testCreateTable_Basic() throws Exception {
-        logger.info("开始测试CREATE TABLE - 基础建表（配置阶段）");
+        logger.info("开始测试 CREATE TABLE - 基础建表（配置阶段）（使用 MetaInfo 批量验证）");
 
-        // 准备：确保表不存在
         prepareForCreateTableTest("createTableTestSource", "createTableTestTarget");
 
-        // 先在源库创建表（SQL Server）
         String sourceDDL = "IF OBJECT_ID('createTableTestSource', 'U') IS NOT NULL DROP TABLE createTableTestSource;\n" +
                 "CREATE TABLE createTableTestSource (\n" +
                 "    id INT IDENTITY(1,1) PRIMARY KEY,\n" +
                 "    actID INT NOT NULL,\n" +
                 "    pid INT NOT NULL,\n" +
                 "    mediumID INT NOT NULL,\n" +
-                "    createtime DATETIME2 NOT NULL\n" +
+                "    createtime DATETIME2 NOT NULL,\n" +
+                "    country_code CHAR(3) NOT NULL,\n" +
+                "    large_text VARCHAR(MAX) NULL,\n" +
+                "    ratio FLOAT NULL\n" +
                 ");";
 
         executeDDLToSourceDatabase(sourceDDL, sqlServerConfig);
-
-        // 模拟配置阶段的建表流程：获取源表结构 -> 生成DDL -> 执行DDL
         createTargetTableFromSource("createTableTestSource", "createTableTestTarget");
 
-        // 验证表结构
-        verifyTableExists("createTableTestTarget", mysqlConfig);
-        verifyTableFieldCount("createTableTestTarget", mysqlConfig, 5);
-        verifyFieldExistsInTargetDatabase("id", "createTableTestTarget", mysqlConfig);
-        verifyFieldExistsInTargetDatabase("actID", "createTableTestTarget", mysqlConfig);
-        verifyFieldExistsInTargetDatabase("pid", "createTableTestTarget", mysqlConfig);
-        verifyFieldExistsInTargetDatabase("mediumID", "createTableTestTarget", mysqlConfig);
-        verifyFieldExistsInTargetDatabase("createtime", "createTableTestTarget", mysqlConfig);
-
-        // 验证主键（IDENTITY → AUTO_INCREMENT）
-        verifyTablePrimaryKeys("createTableTestTarget", mysqlConfig, Arrays.asList("id"));
-
-        // 验证字段属性
-        verifyFieldNotNull("id", "createTableTestTarget", mysqlConfig);
-        verifyFieldNotNull("actID", "createTableTestTarget", mysqlConfig);
-        verifyFieldType("createtime", "createTableTestTarget", mysqlConfig, "datetime");
-
-        logger.info("CREATE TABLE基础建表测试通过");
+        List<org.dbsyncer.sdk.model.Field> expectedFields = new java.util.ArrayList<>();
+        expectedFields.add(new org.dbsyncer.sdk.model.Field("id", "int", 4, true, 11, 0));
+        expectedFields.add(new org.dbsyncer.sdk.model.Field("actID", "int", 4, false));
+        expectedFields.add(new org.dbsyncer.sdk.model.Field("pid", "int", 4, false));
+        expectedFields.add(new org.dbsyncer.sdk.model.Field("mediumID", "int", 4, false));
+        expectedFields.add(new org.dbsyncer.sdk.model.Field("createtime", "datetime", 0, false));
+        expectedFields.add(new org.dbsyncer.sdk.model.Field("country_code", "char", 3, false));
+        expectedFields.add(new org.dbsyncer.sdk.model.Field("large_text", "longtext", 0, false, 0, 0));
+        expectedFields.add(new org.dbsyncer.sdk.model.Field("ratio", "double", 0, false));
+        verifyTableStructure("createTableTestTarget", mysqlConfig, expectedFields);
+        logger.info("CREATE TABLE 基础建表测试通过（MetaInfo 批量验证）");
     }
-
     /**
      * 测试CREATE TABLE - 带约束（NOT NULL、IDENTITY）
      */
@@ -1223,7 +1232,10 @@ public class SQLServerCTToMySQLDDLSyncIntegrationTest extends BaseDDLIntegration
         if (lowerFieldName.contains("age") || lowerFieldName.contains("count") || lowerFieldName.contains("num")) {
             data.put(fieldName, 100);
         } else if (lowerFieldName.contains("price") || lowerFieldName.contains("salary") || lowerFieldName.contains("bonus") 
-                || lowerFieldName.contains("amount") || lowerFieldName.contains("total") || lowerFieldName.contains("sum")) {
+                || lowerFieldName.contains("amount") || lowerFieldName.contains("total") || lowerFieldName.contains("sum")
+                || lowerFieldName.contains("ratio") || lowerFieldName.contains("rate") || lowerFieldName.contains("score")
+                || lowerFieldName.contains("percentage") || lowerFieldName.contains("float")) {
+            // FLOAT/DECIMAL 类型
             data.put(fieldName, 1000.00);
         } else if (lowerFieldName.contains("date") || lowerFieldName.contains("birth")) {
             // DATE 类型，使用 LocalDate

@@ -58,6 +58,43 @@ DBSyncer 是一款开源的数据同步中间件，支持 MySQL、Oracle、SqlSe
 - **类型映射**: 不同数据库类型之间的映射关系
 - **大小写处理**: 支持大小写不敏感匹配
 
+### DDL Intermediate Representation（DDL 中间表示 / IR）
+
+异构数据库 DDL 同步的数据库无关枢纽结构，使源库和目标库的 DDL 方言解耦。
+
+**架构流程：**
+
+```
+源库 DDL ──SourceToIRConverter──▶ IR ──IRToTargetConverter──▶ 目标库 DDL
+```
+
+**路由规则**（`DDLParserImpl`）：
+- 同构 + 无 CHANGE 操作：原生 SQL 仅替换表名，不产生 IR
+- 异构 或 含 CHANGE 操作：走 IR 转换链路
+
+**IR 核心数据**（`DDLIntermediateRepresentation`）：
+
+| 字段 | 作用 |
+|---|---|
+| `tableName` / `schema` | 目标表名与模式名 |
+| `columnsByOperation` | 按 `AlterOperation`（ADD/MODIFY/DROP/CHANGE）分组的列列表 |
+| `oldToNewColumnNames` | CHANGE 操作的旧→新字段名映射 |
+
+**转换实现：**
+
+- **源→IR**：`MySQLToIRConverter`、`SQLServerToIRConverter` 等，继承 `AbstractSourceToIRConverter`
+  - 通过 `SchemaResolver.toStandardTypeFromDDL` 将源库类型标准化为 `Field`（`type` 为 `java.sql.Types` 数值码，`typeName` 为标准名）
+  - 提取列规范：`NOT NULL` / `DEFAULT` / `COMMENT`
+  - 处理数据库方言差异（如 SQL Server 的 `UNSPECIFIC` 操作推断）
+- **IR→目标**：`IRToMySQLConverter`、`IRToSQLServerConverter` 等，实现 `IRToTargetConverter`
+- **非数据库连接器**（Kafka 等）：复用源端的 `IRToTargetConverter` 输出标准 SQL
+
+**关键文件：**
+- IR 模型：`dbsyncer-sdk/.../parser/ddl/ir/DDLIntermediateRepresentation.java`
+- 转换器接口：`dbsyncer-sdk/.../parser/ddl/converter/`（`SourceToIRConverter`、`IRToTargetConverter`）
+- 抽象基类：`AbstractSourceToIRConverter`、`AbstractIRToTargetConverter`
+- 解析器入口：`dbsyncer-parser/.../ddl/impl/DDLParserImpl.java`
+
 ## 同步模式
 
 ### Full Sync (全量同步)

@@ -144,7 +144,12 @@ public abstract class AbstractSchemaResolver implements SchemaResolver {
             result.setNullable(field.getNullable());
             result.setComment(field.getComment());
             result.setAutoincrement(field.isAutoincrement());
-            result.setIsSizeFixed(field.getIsSizeFixed());
+            // 保留或推断 isSizeFixed（如果原字段没有设置，让 DataType 推断）
+            Boolean isSizeFixed = field.getIsSizeFixed();
+            if (isSizeFixed == null) {
+                isSizeFixed = dataType.determineIsSizeFixed(field.getTypeName());
+            }
+            result.setIsSizeFixed(isSizeFixed);
             // 保留枚举值列表（用于 ENUM/SET 类型）
             if (field.getEnumValues() != null) {
                 result.setEnumValues(field.getEnumValues());
@@ -164,7 +169,7 @@ public abstract class AbstractSchemaResolver implements SchemaResolver {
 
     @Override
     public Field fromStandardType(Field standardField) {
-        // 将Java标准类型转换为目标数据库特定类型
+        // 将 Java 标准类型转换为目标数据库特定类型
         String targetTypeName = getTargetTypeName(standardField.getTypeName());
         Field result = new Field(standardField.getName(),
                 targetTypeName,
@@ -172,13 +177,17 @@ public abstract class AbstractSchemaResolver implements SchemaResolver {
                 standardField.isPk(),
                 standardField.getColumnSize(),
                 standardField.getRatio());
-        // 保留SRID信息（用于Geometry类型）
+        // 保留 SRID 信息（用于 Geometry 类型）
         if (standardField.getSrid() != null) {
             result.setSrid(standardField.getSrid());
         }
         // 保留枚举值列表（用于 ENUM/SET 类型）
         if (standardField.getEnumValues() != null) {
             result.setEnumValues(standardField.getEnumValues());
+        }
+        // 保留 isSizeFixed 信息（用于区分固定长度和可变长度字符串/二进制）
+        if (standardField.getIsSizeFixed() != null) {
+            result.setIsSizeFixed(standardField.getIsSizeFixed());
         }
         return result;
     }
@@ -210,11 +219,14 @@ public abstract class AbstractSchemaResolver implements SchemaResolver {
             if (ddlField.getIsSizeFixed() != null) {
                 result.setIsSizeFixed(ddlField.getIsSizeFixed());
             }
-            // 合并charset信息（用于非 UTF-8 字符集的 STRING/TEXT 列）
+            // 合并 charset 信息（用于非 UTF-8 字符集的 STRING/TEXT 列）
             if (ddlField.getCharset() != null) {
                 result.setCharset(ddlField.getCharset());
             }
-
+            // 注意：不合并 ddlField.getTypeName()，因为 handleDDLParameters 的默认实现
+            // 会把源库类型名（如 NCHAR）设回 result，覆盖掉标准化类型名（如 UNICODE_STRING）
+            // 如需在 DDL 参数阶段调整标准类型（如 NVARCHAR(MAX) → UNICODE_TEXT），
+            // 应在子类 toStandardTypeFromDDL 覆盖中直接操作 result，而非依赖此合并逻辑
             return result;
         }
 

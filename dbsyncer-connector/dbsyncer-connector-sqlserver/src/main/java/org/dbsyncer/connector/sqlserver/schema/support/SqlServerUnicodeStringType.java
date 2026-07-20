@@ -41,6 +41,21 @@ public final class SqlServerUnicodeStringType extends UnicodeStringType {
         }
         return super.convert(val, field);
     }
+
+    @Override
+    public Boolean determineIsSizeFixed(String typeName) {
+        if (typeName == null) {
+            return null;
+        }
+        String upper = typeName.toUpperCase();
+        if ("NCHAR".equals(upper)) {
+            return true;
+        }
+        if ("NVARCHAR".equals(upper)) {
+            return false;
+        }
+        return null;
+    }
     
 }
 

@@ -220,6 +220,13 @@ public class TableGroupController extends BaseController {
                             targetField.setColumnSize(sourceField.getColumnSize());
                             targetField.setRatio(sourceField.getRatio());
                             targetField.setNullable(sourceField.getNullable());
+                            targetField.setIsSizeFixed(sourceField.getIsSizeFixed());
+                            targetField.setComment(sourceField.getComment());
+                            targetField.setAutoincrement(sourceField.isAutoincrement());
+                            targetField.setSrid(sourceField.getSrid());
+                            targetField.setEnumValues(sourceField.getEnumValues());
+                            targetField.setCharset(sourceField.getCharset());
+                            targetField.setLabelName(sourceField.getLabelName());
                             targetField.setPk(false); // 先重置，后面再设置
                             filteredFields.add(targetField);
                         }

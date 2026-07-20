@@ -107,15 +107,4 @@ public abstract class StringType extends AbstractDataType<String> {
         return result;
     }
 
-    /**
-     * 判断字符串类型字段长度是否固定
-     * 基类不处理任何类型判断，由各数据库的实现类自行处理
-     * 
-     * @param typeName 原始类型名称（如 CHAR, VARCHAR, NCHAR, NVARCHAR 等）
-     * @return true表示固定长度，false表示可变长度，null表示未设置或不适用
-     */
-    protected Boolean determineIsSizeFixed(String typeName) {
-        // 基类不处理任何类型判断，由各数据库的实现类自行处理
-        return null;
-    }
 }

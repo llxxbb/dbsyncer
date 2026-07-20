@@ -175,7 +175,6 @@ public class ConnectorFactory implements DisposableBean {
             }
         }
         return metaInfo;
-
     }
 
     public Object getPosition(ConnectorInstance connectorInstance) throws Exception {

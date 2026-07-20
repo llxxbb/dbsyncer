@@ -53,4 +53,15 @@ public interface DataType {
         result.setTypeName(colDataType.getDataType());
         return result;
     }
+
+    /**
+     * 推断类型字段长度是否固定
+     * 默认不确定，由具体类型实现类按需覆盖
+     *
+     * @param typeName 原始类型名称
+     * @return true表示固定长度，false表示可变长度，null表示不确定或不适用
+     */
+    default Boolean determineIsSizeFixed(String typeName) {
+        return null;
+    }
 }
