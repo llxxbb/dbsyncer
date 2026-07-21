@@ -21,13 +21,13 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public abstract class AbstractSchemaResolver implements SchemaResolver {
 
-    private final Map<String, DataType> mapping = new ConcurrentHashMap<>();
+    private final Map<String, DataType> sourceToStandardTypeMap = new ConcurrentHashMap<>();
     protected final Map<String, String> standardToTargetTypeMap = new ConcurrentHashMap<>();
 
     public AbstractSchemaResolver() {
         initStandardToTargetTypeMapping(standardToTargetTypeMap);
-        initDataTypeMapping(mapping);
-        Assert.notEmpty(mapping, "At least one data type is required.");
+        initDataTypeMapping(sourceToStandardTypeMap);
+        Assert.notEmpty(sourceToStandardTypeMap, "At least one data type is required.");
     }
 
     /**
@@ -38,9 +38,9 @@ public abstract class AbstractSchemaResolver implements SchemaResolver {
     protected abstract void initStandardToTargetTypeMapping(Map<String, String> mapping);
 
     /**
-     * 初始化数据类型映射
+     * 初始化源类型到标准类型的映射（通过 DataType 封装）
      *
-     * @param mapping 映射表，由子类填充
+     * @param mapping 映射表，key 为源库类型名，由子类填充
      */
     protected abstract void initDataTypeMapping(Map<String, DataType> mapping);
 
@@ -52,14 +52,14 @@ public abstract class AbstractSchemaResolver implements SchemaResolver {
     protected abstract String getDatabaseName();
 
     public Set<String> getSupportedTypeNames() {
-        return Collections.unmodifiableSet(mapping.keySet());
+        return Collections.unmodifiableSet(sourceToStandardTypeMap.keySet());
     }
 
     protected DataType getDataType(Field field) {
         if (field == null || field.getTypeName() == null) {
             return null;
         }
-        return mapping.get(field.getTypeName());
+        return sourceToStandardTypeMap.get(field.getTypeName());
     }
 
     /**

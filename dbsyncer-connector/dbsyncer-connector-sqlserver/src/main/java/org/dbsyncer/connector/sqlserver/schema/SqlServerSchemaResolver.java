@@ -33,7 +33,7 @@ public final class SqlServerSchemaResolver extends AbstractSchemaResolver {
         mapping.put("DECIMAL", "decimal");
         mapping.put("UNSIGNED_DECIMAL", "decimal"); // SQL Server不支持unsigned，但decimal可以存储所有值
         mapping.put("DOUBLE", "float");
-        mapping.put("FLOAT", "real");
+        mapping.put("FLOAT", "float"); // FLOAT (8 字节) 映射到 SQL Server FLOAT
         // 布尔型
         mapping.put("BOOLEAN", "bit");
         // 时间
@@ -66,19 +66,20 @@ public final class SqlServerSchemaResolver extends AbstractSchemaResolver {
                 new SqlServerShortType(),               // SMALLINT -> SHORT
                 new SqlServerIntType(),                 // INT -> INT
                 new SqlServerLongType(),                // BIGINT, TIMESTAMP -> LONG
-                new SqlServerDecimalType(),             // Decimal类型（精确小数类型）
-                new SqlServerApproximateNumericType(),  // 近似数值类型
-                new SqlServerDateTimeType(),            // 日期时间类型
-                new SqlServerBooleanType(),              // BOOLEAN类型支持（BIT）
+                new SqlServerDecimalType(),             // Decimal 类型（精确小数类型）
+                new SqlServerFloatType(),               // FLOAT 类型 (8 字节)
+                new SqlServerRealType(),  // REAL 类型 (4 字节)
+                new SqlServerBooleanType(),              // BOOLEAN 类型支持（BIT）
                 new SqlServerStringType(),              // 字符字符串类型（CHAR, VARCHAR）
-                new SqlServerUnicodeStringType(),       // Unicode字符字符串类型（NCHAR, NVARCHAR）
+                new SqlServerUnicodeStringType(),       // Unicode 字符字符串类型（NCHAR, NVARCHAR）
                 new SqlServerBinaryType(),              // 二进制字符串类型（BINARY, VARBINARY）
-                new SqlServerBlobType(),                // BLOB类型支持（IMAGE）
-                new SqlServerTextType(),                // TEXT类型支持
-                new SqlServerUnicodeTextType(),         // Unicode TEXT类型支持（NTEXT）
-                new SqlServerXmlType(),                 // XML类型支持
-                new SqlServerUniqueIdentifierType(),    // UNIQUEIDENTIFIER类型支持
-                new SqlServerGeometryType()              // GEOMETRY类型支持
+                new SqlServerBlobType(),                // BLOB 类型支持（IMAGE）
+                new SqlServerTextType(),                // TEXT 类型支持
+                new SqlServerUnicodeTextType(),         // Unicode TEXT 类型支持（NTEXT）
+                new SqlServerXmlType(),                 // XML 类型支持
+                new SqlServerUniqueIdentifierType(),    // UNIQUEIDENTIFIER 类型支持
+                new SqlServerGeometryType(),            // GEOMETRY 类型支持
+                new SqlServerDateTimeType()             // DATETIME, DATETIME2, SMALLDATETIME, DATETIMEOFFSET
         ).forEach(t -> t.getSupportedTypeName().forEach(typeName -> {
             if (mapping.containsKey(typeName)) {
                 throw new SqlServerException("Duplicate type name: " + typeName);

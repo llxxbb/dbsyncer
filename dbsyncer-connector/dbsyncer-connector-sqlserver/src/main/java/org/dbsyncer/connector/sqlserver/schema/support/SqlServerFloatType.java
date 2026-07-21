@@ -1,8 +1,6 @@
-/**
- * DBSyncer Copyright 2020-2024 All Rights Reserved.
- */
 package org.dbsyncer.connector.sqlserver.schema.support;
 
+import org.dbsyncer.sdk.enums.DataTypeEnum;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.schema.support.DoubleType;
 
@@ -11,19 +9,20 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * SQL Server 近似数值类型
- * 包括浮点数类型
- * 注意：近似数值类型不支持 IDENTITY 属性
- *
- * @Author 穿云
- * @Version 1.0.0
- * @Date 2024-12-24 23:45
+ * SQL Server FLOAT 类型支持
+ * 专门处理 FLOAT 类型 (8 字节，双精度浮点数)
+ * 返回 DataTypeEnum.FLOAT，与 DOUBLE (64 位 IEEE 754) 区分
  */
-public final class SqlServerApproximateNumericType extends DoubleType {
+public final class SqlServerFloatType extends DoubleType {
 
     @Override
     public Set<String> getSupportedTypeName() {
-        return new HashSet<>(Arrays.asList("FLOAT", "REAL"));
+        return new HashSet<>(Arrays.asList("FLOAT"));
+    }
+
+    @Override
+    public DataTypeEnum getType() {
+        return DataTypeEnum.FLOAT; // 明确返回 FLOAT 而非 DOUBLE
     }
 
     @Override
@@ -60,5 +59,5 @@ public final class SqlServerApproximateNumericType extends DoubleType {
         }
         return super.convert(val, field);
     }
-}
 
+}

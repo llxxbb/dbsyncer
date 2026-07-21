@@ -22,16 +22,16 @@ import static org.junit.Assert.*;
  * SQL Server Change Tracking (CT) 到 SQL Server CT 的 DDL 同步集成测试
  * 全面测试 SQL Server CT 模式之间 DDL 同步的端到端功能，包括解析、转换和执行
  * 覆盖场景：
- * - ADD COLUMN: 基础添加、带约束、带NULL/NOT NULL
+ * - ADD COLUMN: 基础添加、带约束、带 NULL/NOT NULL、FLOAT/REAL类型验证
  * - DROP COLUMN: 删除字段
- * - ALTER COLUMN: 修改类型、修改长度、修改约束（NULL/NOT NULL）
- * - RENAME COLUMN: 重命名字段（使用 sp_rename，CT 模式特有功能）
+ * - ALTER COLUMN: 修改类型、修改长度、修改约束（NULL/NOT NULL）、FLOAT 类型转换
  * - 异常处理
  * <p>
  * 注意：
  * - 使用 SqlServerCT 连接器类型（而不是 SqlServer）
  * - CT 模式通过 Change Tracking 机制检测 DDL 变更
  * - RENAME COLUMN 通过列属性匹配检测，使用 sp_rename 存储过程
+ * - FLOAT/REAL 类型通过 SqlServerApproximateNumericType 支持
  */
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = Application.class)
@@ -670,6 +670,184 @@ public class DDLSqlServerCTIntegrationTest extends BaseDDLIntegrationTest {
 
         logger.info("ALTER COLUMN移除NOT NULL约束测试通过（DDL 和 DML 数据绑定验证完成）");
     }
+    // ==================== FLOAT/REAL 类型测试场景 ====================
+
+    /**
+     * 测试 FLOAT 类型 - 添加 FLOAT 字段
+     */
+    @Test
+    public void testAddColumn_Float() throws Exception {
+        logger.info("开始测试 ADD COLUMN - FLOAT 类型");
+
+        String sqlServerDDL = "ALTER TABLE ddlTestSource ADD price FLOAT";
+
+        mappingService.start(mappingId);
+        Thread.sleep(2000);
+
+        waitForMetaRunning(metaId, 10000);
+
+        // SQL Server CT 模式下，DDL 检测需要 DML 操作来触发
+        // 1. 先执行一次 DML 操作来初始化表结构快照
+        Map<String, Object> initData = new HashMap<>();
+        initData.put("first_name", "Init");
+        initData.put("last_name", "User");
+        initData.put("department", "IT");
+        initData = executeInsertDMLToSourceDatabase(getSourceTableName(), initData, sourceConfig);
+        waitForDataSync(initData, getTargetTableName(), "id", targetConfig, 10000);
+
+        Thread.sleep(500);
+
+        // 2. 执行 DDL 操作
+        executeDDLToSourceDatabase(sqlServerDDL, sourceConfig);
+
+        // 3. 执行包含新字段的 INSERT 操作
+        Map<String, Object> insertedData = new HashMap<>();
+        insertedData.put("first_name", "Test");
+        insertedData.put("last_name", "User");
+        insertedData.put("department", "IT");
+        insertedData.put("price", 123.456789); // FLOAT 类型的值
+        insertedData = executeInsertDMLToSourceDatabase(getSourceTableName(), insertedData, sourceConfig);
+
+        waitForDDLProcessingComplete("price", 10000);
+
+        // 验证 DDL：字段映射和表结构
+        List<TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
+        TableGroup tableGroup = tableGroups.get(0);
+
+        boolean foundPriceMapping = tableGroup.getFieldMapping().stream()
+                .anyMatch(fm -> fm.matchesSource("price") &&
+                        fm.matchesTarget("price"));
+
+        assertTrue("应找到 price 字段的映射", foundPriceMapping);
+        verifyFieldExistsInTargetDatabase("price", getTargetTableName(), targetConfig);
+        verifyFieldType("price", getTargetTableName(), targetConfig, "float"); // SQL Server FLOAT → float
+
+        // 验证 DML 数据同步
+        waitForDataSync(insertedData, getTargetTableName(), "id", targetConfig, 10000);
+
+        logger.info("ADD COLUMN - FLOAT 类型测试通过");
+    }
+
+    /**
+     * 测试 REAL 类型 - 添加 REAL 字段
+     */
+    @Test
+    public void testAddColumn_Real() throws Exception {
+        logger.info("开始测试 ADD COLUMN - REAL 类型");
+
+        String sqlServerDDL = "ALTER TABLE ddlTestSource ADD discount REAL";
+
+        mappingService.start(mappingId);
+        Thread.sleep(2000);
+
+        waitForMetaRunning(metaId, 10000);
+
+        // SQL Server CT 模式下，DDL 检测需要 DML 操作来触发
+        // 1. 先执行一次 DML 操作来初始化表结构快照
+        Map<String, Object> initData = new HashMap<>();
+        initData.put("first_name", "Init");
+        initData.put("last_name", "User");
+        initData.put("department", "IT");
+        initData = executeInsertDMLToSourceDatabase(getSourceTableName(), initData, sourceConfig);
+        waitForDataSync(initData, getTargetTableName(), "id", targetConfig, 10000);
+
+        Thread.sleep(500);
+
+        // 2. 执行 DDL 操作
+        executeDDLToSourceDatabase(sqlServerDDL, sourceConfig);
+
+        // 3. 执行包含新字段的 INSERT 操作
+        Map<String, Object> insertedData = new HashMap<>();
+        insertedData.put("first_name", "Test");
+        insertedData.put("last_name", "User");
+        insertedData.put("department", "IT");
+        insertedData.put("discount", 0.95f); // REAL 类型的值
+        insertedData = executeInsertDMLToSourceDatabase(getSourceTableName(), insertedData, sourceConfig);
+
+        waitForDDLProcessingComplete("discount", 10000);
+
+        // 验证 DDL：字段映射和表结构
+        List<TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
+        TableGroup tableGroup = tableGroups.get(0);
+
+        boolean foundDiscountMapping = tableGroup.getFieldMapping().stream()
+                .anyMatch(fm -> fm.matchesSource("discount") &&
+                        fm.matchesTarget("discount"));
+
+        assertTrue("应找到 discount 字段的映射", foundDiscountMapping);
+        verifyFieldExistsInTargetDatabase("discount", getTargetTableName(), targetConfig);
+        verifyFieldType("discount", getTargetTableName(), targetConfig, "real"); // SQL Server REAL → real
+
+        // 验证 DML 数据同步
+        waitForDataSync(insertedData, getTargetTableName(), "id", targetConfig, 10000);
+
+        logger.info("ADD COLUMN - REAL 类型测试通过");
+    }
+
+    /**
+     * 测试 FLOAT/REAL 类型 - 修改字段类型为 FLOAT
+     */
+    @Test
+    public void testAlterColumn_ChangeToFloat() throws Exception {
+        logger.info("开始测试 ALTER COLUMN - 修改类型到 FLOAT");
+
+        // 先添加一个 INT 字段用于测试类型修改
+        String addColumnDDL = "ALTER TABLE ddlTestSource ADD amount INT";
+        mappingService.start(mappingId);
+        Thread.sleep(2000);
+        waitForMetaRunning(metaId, 10000);
+
+        // SQL Server CT 模式下，DDL 检测需要 DML 操作来触发
+        // 1. 先执行一次 DML 操作来初始化表结构快照
+        Map<String, Object> initData = new HashMap<>();
+        initData.put("first_name", "Init");
+        initData.put("last_name", "User");
+        initData.put("department", "IT");
+        initData = executeInsertDMLToSourceDatabase(getSourceTableName(), initData, sourceConfig);
+        waitForDataSync(initData, getTargetTableName(), "id", targetConfig, 10000);
+
+        // 2. 执行第一个 DDL 操作（添加字段）
+        executeDDLToSourceDatabase(addColumnDDL, sourceConfig);
+
+        // 3. 执行 DML 操作来触发 DDL 检测
+        Map<String, Object> dataAfterAdd = new HashMap<>();
+        dataAfterAdd.put("first_name", "Test");
+        dataAfterAdd.put("last_name", "User");
+        dataAfterAdd.put("department", "IT");
+        dataAfterAdd.put("amount", 100); // INT 类型的值
+        dataAfterAdd = executeInsertDMLToSourceDatabase(getSourceTableName(), dataAfterAdd, sourceConfig);
+        waitForDDLProcessingComplete("amount", 10000);
+
+        // 4. 执行第二个 DDL 操作（修改字段类型为 FLOAT）
+        String sqlServerDDL = "ALTER TABLE ddlTestSource ALTER COLUMN amount FLOAT";
+        executeDDLToSourceDatabase(sqlServerDDL, sourceConfig);
+
+        // 5. 执行 DML 操作来触发 DDL 检测（使用 FLOAT 类型的值）
+        Map<String, Object> insertedData = new HashMap<>();
+        insertedData.put("first_name", "Test");
+        insertedData.put("last_name", "User");
+        insertedData.put("department", "IT");
+        insertedData.put("amount", 123.456789); // FLOAT 类型的值
+        insertedData = executeInsertDMLToSourceDatabase(getSourceTableName(), insertedData, sourceConfig);
+
+        Thread.sleep(2000);
+
+        // 验证 DDL：字段映射
+        List<TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
+        TableGroup tableGroup = tableGroups.get(0);
+
+        boolean foundAmountMapping = tableGroup.getFieldMapping().stream()
+                .anyMatch(fm -> fm.matchesSource("amount") &&
+                        fm.matchesTarget("amount"));
+
+        assertTrue("应找到 amount 字段的映射", foundAmountMapping);
+        verifyFieldType("amount", getTargetTableName(), targetConfig, "float"); // INT → SQL Server FLOAT → float
+
+        // 验证 DML 数据同步
+        waitForDataSync(insertedData, getTargetTableName(), "id", targetConfig, 10000);
+
+        logger.info("ALTER COLUMN 修改类型到 FLOAT 测试通过");
+    }
 
     // ==================== RENAME COLUMN 测试场景 ====================
 
@@ -837,8 +1015,8 @@ public class DDLSqlServerCTIntegrationTest extends BaseDDLIntegrationTest {
      * - IDENTITY列属性应该正确设置
      */
     @Test
-    public void testCreateTable_WithIdentityColumn_NoDuplicateIdentity() throws Exception {
-        logger.info("开始测试CREATE TABLE - IDENTITY列重复约束问题");
+    public void testCreateTable() throws Exception {
+        logger.info("-----------------------------------------");
 
         String testSourceTable = "TestTableOne";
         String testTargetTable = "TestTableTwo";
@@ -855,6 +1033,7 @@ public class DDLSqlServerCTIntegrationTest extends BaseDDLIntegrationTest {
             "    [RegisterTime] DATETIME NOT NULL,\n" +
             "    [Score] DECIMAL(5,2) NOT NULL,\n" +
             "    [IsActive] BIT NOT NULL,\n" +
+            "    [Price] FLOAT NOT NULL,\n" +
             "    PRIMARY KEY ([UserName])\n" +
             ")", testSourceTable);
         
@@ -876,13 +1055,18 @@ public class DDLSqlServerCTIntegrationTest extends BaseDDLIntegrationTest {
         Map<String, Object> testData = new HashMap<>();
         testData.put("UserName", "TestUser");
         testData.put("Age", 25);
-        testData.put("RegisterTime", new java.util.Date());
         testData.put("Score", 95.50);
         testData.put("IsActive", true);
-        testData = executeInsertDMLToSourceDatabase(testSourceTable, testData, sourceConfig);
-        assertNotNull("插入的数据应该包含生成的ID", testData.get("ID"));
+        testData.put("RegisterTime", new java.util.Date()); // DATETIME NOT NULL 字段
+        testData.put("Price", 123.45); // FLOAT 类型数据
         
-        logger.info("CREATE TABLE IDENTITY列重复约束问题测试通过（表创建成功，无重复IDENTITY约束）");
+        testData = executeInsertDMLToSourceDatabase(testSourceTable, testData, sourceConfig);
+        assertNotNull("插入的数据应该包含生成的 ID", testData.get("ID"));
+        // 验证 FLOAT 字段
+        verifyFieldExistsInTargetDatabase("Price", testTargetTable, targetConfig);
+        verifyFieldType("Price", testTargetTable, targetConfig, "float"); // FLOAT → float
+
+        logger.info("CREATE TABLE IDENTITY 列重复约束问题测试通过（表创建成功，无重复 IDENTITY 约束）");
     }
 
     // ==================== 辅助方法 ====================
