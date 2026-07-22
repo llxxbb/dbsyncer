@@ -8,7 +8,6 @@ import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.manager.ManagerException;
 import org.dbsyncer.manager.Puller;
 import org.dbsyncer.parser.MessageService;
-import org.dbsyncer.parser.ParserComponent;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.TableGroupContext;
 import org.dbsyncer.parser.consumer.ParserConsumer;
@@ -64,9 +63,6 @@ public final class IncrementPuller implements Puller {
 
     @Resource
     private ConnectorFactory connectorFactory;
-
-    @Resource
-    private ParserComponent parserComponent;
 
     @Resource
     private MessageService messageService;

@@ -7,15 +7,9 @@ import org.dbsyncer.sdk.model.MetaInfo;
 import java.util.Map;
 
 /**
- * <pre>
- *     实现全量和增量同步任务，以及连接器读写，插件转换，表元信息，心跳检测
- * </pre>
- *
- * @author AE86
- * @version 1.0.0
- * @date 2019/10/20 21:11
+ * 实现全量同步任务
  */
-public interface ParserComponent {
+public interface FullSyncExecutor {
 
     /**
      * 获取表元信息

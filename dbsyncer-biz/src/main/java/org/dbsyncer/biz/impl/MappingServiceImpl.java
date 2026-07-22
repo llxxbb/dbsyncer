@@ -34,7 +34,6 @@ import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.enums.ModelEnum;
 import org.dbsyncer.sdk.enums.StorageEnum;
 import org.dbsyncer.sdk.enums.TableTypeEnum;
-import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.storage.impl.SnowflakeIdWorker;
 import org.slf4j.Logger;
@@ -91,7 +90,7 @@ public class MappingServiceImpl implements MappingService {
     private TableGroupContext tableGroupContext;
 
     @Resource
-    private ParserComponent parserComponent;
+    private FullSyncExecutor fullSyncExecutor;
 
     @Resource
     private LogService logService;
@@ -394,7 +393,7 @@ public class MappingServiceImpl implements MappingService {
     private void submitMappingCountTask(Mapping mapping) {
         MappingCountTask task = new MappingCountTask();
         task.setMappingId(mapping.getId());
-        task.setParserComponent(parserComponent);
+        task.setFullSyncExecutor(fullSyncExecutor);
         task.setProfileComponent(profileComponent);
         task.setTableGroupService(tableGroupService);
         dispatchTaskService.execute(task);

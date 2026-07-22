@@ -3,13 +3,11 @@
  */
 package org.dbsyncer.parser.service;
 
-import org.dbsyncer.parser.ParserComponent;
+import org.dbsyncer.parser.FullSyncExecutor;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.sdk.model.ConfigModel;
 import org.dbsyncer.parser.model.Connector;
-import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.sdk.model.TableGroup;
-import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.model.ConnectorConfig;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.service.ModelPersistenceService;
@@ -38,7 +36,7 @@ public class DefaultModelPersistenceService implements ModelPersistenceService {
     private ProfileComponent profileComponent;
 
     @Resource
-    private ParserComponent parserComponent;
+    private FullSyncExecutor fullSyncExecutor;
 
     @Override
     public String save(String modelId, Object modelObj) throws Exception {
@@ -114,7 +112,7 @@ public class DefaultModelPersistenceService implements ModelPersistenceService {
             return null;
         }
         try {
-            return parserComponent.getMetaInfo(connectorId, tableName);
+            return fullSyncExecutor.getMetaInfo(connectorId, tableName);
         } catch (Exception e) {
             throw new RuntimeException("Failed to get table meta info for connector: "
                 + connectorId + ", table: " + tableName, e);

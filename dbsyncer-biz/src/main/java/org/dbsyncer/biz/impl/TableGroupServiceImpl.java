@@ -24,7 +24,7 @@ import org.dbsyncer.manager.ManagerFactory;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.spi.LogLevel;
-import org.dbsyncer.parser.ParserComponent;
+import org.dbsyncer.parser.FullSyncExecutor;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.model.*;
 import org.dbsyncer.parser.service.MappingModelService;
@@ -80,7 +80,7 @@ public class TableGroupServiceImpl implements TableGroupService {
     private org.dbsyncer.parser.MessageService messageService;
 
     @Resource
-    private ParserComponent parserComponent;
+    private FullSyncExecutor parserComponent;
 
     @Resource
     private ConnectorFactory connectorFactory;
@@ -448,7 +448,7 @@ public class TableGroupServiceImpl implements TableGroupService {
         TableGroupCountTask task = new TableGroupCountTask();
         task.setMappingId(mapping.getId());
         task.setTableGroups(list);
-        task.setParserComponent(parserComponent);
+        task.setFullSyncExecutor(parserComponent);
         task.setProfileComponent(profileComponent);
         task.setTableGroupService(this);
         dispatchTaskService.execute(task);

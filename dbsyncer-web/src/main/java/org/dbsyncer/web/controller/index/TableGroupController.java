@@ -11,7 +11,6 @@ import org.dbsyncer.biz.vo.RestResult;
 import org.dbsyncer.common.model.Result;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
-import org.dbsyncer.parser.ParserComponent;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.model.Connector;
 import org.dbsyncer.sdk.model.Mapping;
@@ -58,10 +57,6 @@ public class TableGroupController extends BaseController {
 
     @Resource
     private ProfileComponent profileComponent;
-
-    @Resource
-    private ParserComponent parserComponent;
-
 
     @GetMapping("/page/{page}")
     public String page(ModelMap model, @PathVariable("page") String page, @RequestParam(value = "id") String id) throws Exception {

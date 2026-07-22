@@ -10,7 +10,7 @@ import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
-import org.dbsyncer.parser.ParserComponent;
+import org.dbsyncer.parser.FullSyncExecutor;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.service.TableGroupModelService;
 import org.dbsyncer.sdk.model.ConfigModel;
@@ -43,7 +43,7 @@ public class TableGroupChecker extends AbstractChecker {
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     @Resource
-    private ParserComponent parserComponent;
+    private FullSyncExecutor fullSyncExecutor;
 
     @Resource
     private ProfileComponent profileComponent;
@@ -141,7 +141,7 @@ public class TableGroupChecker extends AbstractChecker {
 
         // 源表：从数据库重新获取元数据，主键使用 KEY_SEQ 顺序
         tableGroup.setSourceTable(
-            parserComponent.getMetaInfo(mapping.getSourceConnectorId(), tableGroup.getSourceTable().getName()));
+            fullSyncExecutor.getMetaInfo(mapping.getSourceConnectorId(), tableGroup.getSourceTable().getName()));
 
         // 目标表：从数据库重新获取元数据，主键保留用户配置
         List<String> existingPks = tableGroup.getTargetTable().getPrimaryKeys();
@@ -151,7 +151,7 @@ public class TableGroupChecker extends AbstractChecker {
     }
 
     private MetaInfo getMetaInfo(String connectorId, String tableName, String primaryKeyStr) throws Exception {
-        MetaInfo metaInfo = parserComponent.getMetaInfo(connectorId, tableName);
+        MetaInfo metaInfo = fullSyncExecutor.getMetaInfo(connectorId, tableName);
         Assert.notNull(metaInfo, "无法获取连接器表信息:" + tableName);
         
         // 自定义主键：使用传入的主键配置（覆盖数据库默认顺序）

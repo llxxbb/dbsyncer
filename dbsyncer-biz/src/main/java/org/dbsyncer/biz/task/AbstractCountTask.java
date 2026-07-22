@@ -5,7 +5,7 @@ package org.dbsyncer.biz.task;
 
 import org.dbsyncer.biz.TableGroupService;
 import org.dbsyncer.common.dispatch.AbstractDispatchTask;
-import org.dbsyncer.parser.ParserComponent;
+import org.dbsyncer.parser.FullSyncExecutor;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.sdk.enums.SyncPhaseEnum;
 import org.dbsyncer.sdk.model.Mapping;
@@ -30,7 +30,7 @@ public abstract class AbstractCountTask extends AbstractDispatchTask {
 
     protected String mappingId;
 
-    protected ParserComponent parserComponent;
+    protected FullSyncExecutor fullSyncExecutor;
 
     protected ProfileComponent profileComponent;
 
@@ -40,8 +40,8 @@ public abstract class AbstractCountTask extends AbstractDispatchTask {
         this.mappingId = mappingId;
     }
 
-    public void setParserComponent(ParserComponent parserComponent) {
-        this.parserComponent = parserComponent;
+    public void setFullSyncExecutor(FullSyncExecutor parserComponent) {
+        this.fullSyncExecutor = parserComponent;
     }
 
     public void setProfileComponent(ProfileComponent profileComponent) {
@@ -55,7 +55,7 @@ public abstract class AbstractCountTask extends AbstractDispatchTask {
     protected void updateTableGroupCount(Mapping mapping, TableGroup tableGroup) throws Exception {
         long now = Instant.now().toEpochMilli();
         TableGroup group = PickerUtil.mergeTableGroupConfig(mapping, tableGroup);
-        long count = parserComponent.getCount(mapping.getSourceConnectorId(), group.getCommand());
+        long count = fullSyncExecutor.getCount(mapping.getSourceConnectorId(), group.getCommand());
         tableGroup.getSourceTable().setCount(count);
         profileComponent.editConfigModel(tableGroup);
         logger.info("{}表{}, 总数:{}, {}ms", mapping.getName(), tableGroup.getSourceTable().getName(), count, (Instant.now().toEpochMilli() - now));

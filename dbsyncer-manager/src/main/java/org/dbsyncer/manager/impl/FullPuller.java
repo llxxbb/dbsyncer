@@ -10,7 +10,7 @@ import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
-import org.dbsyncer.parser.ParserComponent;
+import org.dbsyncer.parser.FullSyncExecutor;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.service.MappingModelService;
 import org.dbsyncer.sdk.enums.MetaEnum;
@@ -46,7 +46,7 @@ public final class FullPuller implements org.dbsyncer.manager.Puller, ProcessEve
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     @Resource
-    private ParserComponent parserComponent;
+    private FullSyncExecutor fullSyncExecutor;
 
     @Resource
     private ProfileComponent profileComponent;
@@ -119,7 +119,7 @@ public final class FullPuller implements org.dbsyncer.manager.Puller, ProcessEve
             CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                 try {
                     // 直接使用TableGroup的cursor进行流式处理
-                    parserComponent.executeTableGroup(metaId, tableGroup, mapping);
+                    fullSyncExecutor.executeTableGroup(metaId, tableGroup, mapping);
                 } catch (Exception e) {
                     logger.error("TableGroup {} 处理失败", tableGroup.getTargetTable().getName(), e);
                     logService.log(mapping, LogType.START, LogLevel.ERROR, String.format("targetTable %s 处理失败, 错误信息=%s", tableGroup.getTargetTable().getName(), ExceptionUtils.getStackTrace(e)));

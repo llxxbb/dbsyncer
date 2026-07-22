@@ -6,9 +6,8 @@ package org.dbsyncer.parser.impl;
 import org.dbsyncer.common.ProcessEvent;
 import org.dbsyncer.common.model.Result;
 import org.dbsyncer.common.util.CollectionUtils;
-import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
-import org.dbsyncer.parser.ParserComponent;
+import org.dbsyncer.parser.FullSyncExecutor;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.model.*;
 import org.dbsyncer.sdk.model.*;
@@ -45,7 +44,7 @@ import java.util.stream.Stream;
  * @date 2019/9/29 22:38
  */
 @Component
-public class ParserComponentImpl implements ParserComponent {
+public class FullSyncExecutorImpl implements FullSyncExecutor {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 

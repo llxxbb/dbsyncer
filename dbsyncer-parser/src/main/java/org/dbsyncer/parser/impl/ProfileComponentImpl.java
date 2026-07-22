@@ -7,7 +7,6 @@ import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.parser.CacheService;
-import org.dbsyncer.parser.ParserComponent;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.enums.CommandEnum;
 import org.dbsyncer.parser.enums.ConvertEnum;
@@ -23,7 +22,6 @@ import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.storage.enums.StorageDataStatusEnum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
@@ -56,9 +54,6 @@ public class ProfileComponentImpl implements ProfileComponent {
 
     @Resource
     private ConnectorFactory connectorFactory;
-
-    @Resource
-    private ParserComponent parserComponent;
 
     @Resource
     private ProfileComponent profileComponent;
