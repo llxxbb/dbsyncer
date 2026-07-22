@@ -74,26 +74,35 @@ public class Picker {
      * @param fieldIndexMap        字段名到行数据索引的映射（解决字段删除后的数据错位问题）
      * @param enableFilter         是否启用过滤条件
      * @param rows                 原始数据行（每行是一个List<Object>，按数据库列顺序存储值）
+     * @param beforeRows 与 rows 等长的旧值列表（UPDATE 场景下的行级 before image），
+     *                   非 UPDATE 或无 beforeRow 的可传 null
      * @param sourceMapList        用于存储源数据的Map列表（作为输出参数，方法会向其中添加数据）
      * @return 转换后的目标数据列表（Map格式，key为目标字段名，value为字段值）
      * @throws Exception 当没有数据通过过滤时抛出异常
      */
     public List<SyncRow> pickTargetData(List<Field> sourceOriginalFields, Map<String, Integer> fieldIndexMap,
-                                        boolean enableFilter, List<List<Object>> rows, List<Map> sourceMapList,
+                                        boolean enableFilter, List<List<Object>> rows,
+                                        List<List<Object>> beforeRows,
+                                        List<Map> sourceMapList,
                                         org.dbsyncer.sdk.plugin.PluginContext context) throws Exception {
         List<SyncRow> targetList = new ArrayList<>();
         if (CollectionUtils.isEmpty(rows)) {
             return targetList;
         }
         List<Map<String, Object>> sourceMaps = RowConverter.toListOfMaps(sourceOriginalFields, fieldIndexMap, rows);
-        for (Map<String, Object> source : sourceMaps) {
+        for (int i = 0; i < sourceMaps.size(); i++) {
+            Map<String, Object> source = sourceMaps.get(i);
             Map<String, Object> target = new HashMap<>();
             exchange(sFieldSize, tFieldSize, this.sourceFields, this.targetFields, source, target);
             if (enableFilter && !filter(target)) {
                 continue;
             }
             sourceMapList.add(source);
-            targetList.add(new SyncRow(target, context));
+            SyncRow syncRow = new SyncRow(target, context);
+            if (beforeRows != null && i < beforeRows.size()) {
+                syncRow.setBeforeRow(beforeRows.get(i));
+            }
+            targetList.add(syncRow);
         }
         if (targetList.isEmpty()) {
             throw new Exception("数据提取失败");

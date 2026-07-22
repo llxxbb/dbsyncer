@@ -4,8 +4,9 @@
 
 缺陷：修复添加表主键丢失问题。
 缺陷："字段差异分析"页面，"修复目标表"无响应
-修正 sql server varbinary(max), char, nchar, float 映射问题。
-修复：全量同步 kafka topic 丢失问题
+缺陷: 修复 sql server varbinary(max), char, nchar, float 映射问题。
+缺陷：修复全量同步 kafka topic 丢失问题
+缺陷：修复 update 主键冲突问题
 优化：去除任务编辑页无关的定时请求。
 
 ## 2.29.2
