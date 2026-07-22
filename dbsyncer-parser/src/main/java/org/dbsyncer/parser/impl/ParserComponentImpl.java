@@ -12,7 +12,6 @@ import org.dbsyncer.parser.ParserComponent;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.model.*;
 import org.dbsyncer.sdk.model.*;
-import org.dbsyncer.sdk.model.ConfigModel;
 import org.dbsyncer.parser.strategy.FlushStrategy;
 import org.dbsyncer.parser.util.ConvertUtil;
 import org.dbsyncer.parser.util.PickerUtil;
@@ -22,9 +21,6 @@ import org.dbsyncer.sdk.connector.database.Database;
 import org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance;
 import org.dbsyncer.sdk.connector.database.DatabaseTemplate;
 import org.dbsyncer.sdk.constant.ConnectorConstant;
-import org.dbsyncer.sdk.model.ConnectorConfig;
-import org.dbsyncer.sdk.model.MetaInfo;
-import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.plugin.AbstractPluginContext;
 import org.dbsyncer.sdk.plugin.SyncRow;
 import org.dbsyncer.sdk.spi.ConnectorService;
@@ -139,10 +135,10 @@ public class ParserComponentImpl implements ParserComponent {
 
         // 执行流式处理
         ((DatabaseConnectorInstance) context.getSourceConnectorInstance()).execute(databaseTemplate ->
-                executeTableGroupWithStreaming(metaId, tableGroup, mapping, context, picker, db, primaryKeys, querySql, databaseTemplate));
+                executeTableGroupWithStreaming(metaId, tableGroup, group, mapping, context, picker, db, primaryKeys, querySql, databaseTemplate));
     }
 
-    private Object executeTableGroupWithStreaming(String metaId, TableGroup tableGroup, Mapping mapping,
+    private Object executeTableGroupWithStreaming(String metaId, TableGroup tableGroup, TableGroup group, Mapping mapping,
                                                   AbstractPluginContext context,
                                                   Picker picker, Database db, List<String> primaryKeys,
                                                   String querySql, DatabaseTemplate databaseTemplate) {
@@ -172,13 +168,13 @@ public class ParserComponentImpl implements ParserComponent {
 
                 // 达到批次大小时处理数据
                 if (batch.size() >= mapping.getBatchNum()) {
-                    processTableGroupDataBatch(metaId, batch, tableGroup, mapping, context, picker, primaryKeys, lastSaveTime);
+                    processTableGroupDataBatch(metaId, batch, tableGroup, group, mapping, context, picker, primaryKeys, lastSaveTime);
                     batch = new ArrayList<>();
                 }
             }
             // 处理最后一批数据
             if (!batch.isEmpty()) {
-                processTableGroupDataBatch(metaId, batch, tableGroup, mapping, context, picker, primaryKeys, lastSaveTime);
+                processTableGroupDataBatch(metaId, batch, tableGroup, group, mapping, context, picker, primaryKeys, lastSaveTime);
             }
             // 标记流式处理完成，强制保存一次
             tableGroup.setFullCompleted(true);
@@ -192,24 +188,24 @@ public class ParserComponentImpl implements ParserComponent {
     /**
      * TableGroup专用的数据处理逻辑
      */
-    private void processTableGroupDataBatch(String metaId, List<Map> source, TableGroup tableGroup, Mapping mapping,
+    private void processTableGroupDataBatch(String metaId, List<Map> source, TableGroup tableGroup, TableGroup group, Mapping mapping,
                                              AbstractPluginContext context, Picker picker, List<String> primaryKeys,
                                              long[] lastSaveTime) throws Exception {
         // 1、映射字段 + 封装为 SyncRow（Picker 返回的就是 SyncRow）
         List<SyncRow> target = picker.pickTargetData(source, context);
-        // 设置 Mapping/TableGroup 引用（Step 3: SyncRow 直接持有配置模型）
+        // 设置 Mapping/TableGroup 引用（使用 group 而不是 tableGroup，确保 writer 能获取到合并后的 params）
         for (SyncRow row : target) {
             row.setMapping(mapping);
-            row.setTableGroup(tableGroup);
+            row.setTableGroup(group);
         }
 
-        // 2、参数转换（增强：支持字段值生成和转换）
+        // 2、参数转换（使用 tableGroup 的 convert）
         ConvertUtil.convert(tableGroup.getConvert(), target);
 
         // 3、写入目标源（直接传递 syncRows）
         Result result = connectorFactory.writeBatch(target);
 
-        // 4、更新Meta统计信息
+        // 4、更新 Meta 统计信息
         if (result != null) {
             result.setMappingId(profileComponent.getMeta(metaId).getMappingId());
             result.setTargetTableGroupName(tableGroup.getName());
@@ -217,20 +213,13 @@ public class ParserComponentImpl implements ParserComponent {
             flushStrategy.flushFullData(metaId, result, ConnectorConstant.OPERTION_INSERT);
         }
 
-        // 更新TableGroup的cursor并持久化（每3秒保存一次）
+        // 更新 group 的 cursor 并同步到 tableGroup（用于持久化）
         Object[] newCursors = PrimaryKeyUtil.getLastCursors(source, primaryKeys);
         tableGroup.setCursors(newCursors);
         saveTableGroupIfNeeded(tableGroup, lastSaveTime);
 
         // 同步完成后无需后置处理
     }
-
-    /**
-     * 获取连接配置
-     *
-     * @param connectorId
-     * @return
-     */
     private ConnectorConfig getConnectorConfig(String connectorId) {
         return profileComponent.getConnector(connectorId).getConfig();
     }
