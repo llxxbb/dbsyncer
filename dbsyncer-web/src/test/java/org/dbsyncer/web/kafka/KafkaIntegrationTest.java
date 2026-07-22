@@ -202,12 +202,12 @@ public class KafkaIntegrationTest {
     /**
      * 创建 mapping
      */
-    private String createMapping(String topic) {
+    private String createMapping(String topic, String model) {
         Map<String, String> mappingParams = new HashMap<>();
         mappingParams.put("name", "kafka-test-mapping-shared");
         mappingParams.put("sourceConnectorId", connectorId);
         mappingParams.put("targetConnectorId", kafkaConnectorId);
-        mappingParams.put("model", "increment");
+        mappingParams.put("model", model);
         mappingParams.put("enableDDL", "true");
         mappingParams.put("enableInsert", "true");
         mappingParams.put("enableUpdate", "true");
@@ -316,7 +316,7 @@ public class KafkaIntegrationTest {
         String testTopic = "kafka-test-topic-t1";
         String sql = "INSERT INTO " + testTable + " (id, name, value, enabled) VALUES ('test-pk-t1', 't1_test', 100, true) ON DUPLICATE KEY UPDATE name='t1_test', value=100, enabled=true";
         
-        mappingId = createMapping(testTopic);
+        mappingId = createMapping(testTopic, "increment");
         Map<String, Object> message = executeKafkaTest(testTopic, sql);
         verifyDML(message);
     }
@@ -331,7 +331,7 @@ public class KafkaIntegrationTest {
         connectorService.edit(kafkaConnectorParams);
         String sql = "INSERT INTO " + testTable + " (id, name, value, enabled) VALUES ('test-pk-t2', 't2_test', 200, false) ON DUPLICATE KEY UPDATE name='t2_test', value=200, enabled=false";
 
-        mappingId = createMapping(null);
+        mappingId = createMapping(null, "increment");
         Map<String, Object> message = executeKafkaTest(testTopic, sql);
         verifyDML(message);
     }
@@ -342,7 +342,7 @@ public class KafkaIntegrationTest {
 
         String testTopic = "kafka-test-topic-t3";
         String sql = "ALTER TABLE " + testTable + " ADD COLUMN des1 VARCHAR(255) DEFAULT NULL COMMENT '描述' AFTER name";
-        mappingId = createMapping(testTopic);
+        mappingId = createMapping(testTopic, "increment");
         Map<String, Object> message = executeKafkaTest(testTopic, sql);
         verifyDDL(message);
     }
@@ -356,7 +356,7 @@ public class KafkaIntegrationTest {
         kafkaConnectorParams.put("id", kafkaConnectorId);
         kafkaConnectorParams.put("topic", testTopic);
         connectorService.edit(kafkaConnectorParams);
-        mappingId = createMapping(null);
+        mappingId = createMapping(null, "increment");
         Map<String, Object> message = executeKafkaTest(testTopic, sql);
         verifyDDL(message);
     }
@@ -367,8 +367,92 @@ public class KafkaIntegrationTest {
         
         String type = (String) message.get("type");
         Assert.assertTrue("消息 type 应为 DDL", type != null && type.equals("DDL"));
-        
         String subType = (String) message.get("subType");
-        Assert.assertTrue("消息 subType 应以 ALTER开头", subType.startsWith("ALTER"));
+        Assert.assertTrue("消息 subType 应以 ALTER 开头", subType.startsWith("ALTER"));
+    }
+
+    // ==================== 全量模式测试 ====================
+    
+    @Test
+    public void testT5_FullSync_DmlWithMappingTopic() throws Exception {
+        System.out.println("-----------------------------------------------");
+
+        String testTopic = "kafka-test-topic-t5";
+
+        KafkaTestDatabaseManager testConsumer = new KafkaTestDatabaseManager(
+            mysqlConfig.getUrl(), mysqlConfig.getUsername(), mysqlConfig.getPassword(), 
+            mysqlConfig.getDriverClassName(), kafkaBootstrapServers, kafkaGroupId + "-test-" + testTopic.replaceAll("[-.:]", "-")
+        );
+        testConsumer.startConsumerAsync(testTopic);
+        
+        // 插入数据
+        String sql = "INSERT INTO " + testTable + " (id, name, value, enabled) VALUES ('test-pk-t5', 't5_test', 500, true) ON DUPLICATE KEY UPDATE name='t5_test', value=500, enabled=true";
+        testConsumer.executeUpdate(sql);
+
+        // 创建 TableGroup 并启动
+        mappingId = createMapping(testTopic, "full");
+        createTableGroupParams();
+        mappingService.start(mappingId);
+        Thread.sleep(2000);
+
+        
+        KafkaTestDatabaseManager.CacheMessage msg = testConsumer.getMessage(testTopic, 10000);
+        Assert.assertNotNull("应收到至少 1 条 Kafka 消息", msg);
+        
+        System.out.println("=== " + testTopic + " 通过：捕获到消息 ===");
+        
+        @SuppressWarnings("unchecked")
+        Map<String, Object> message = (Map<String, Object>) msg.value;
+        String type = (String) message.get("type");
+        
+        // 全量模式下，DML 操作触发 DML 消息（非 SCAN）
+        if ("DML".equals(type)) {
+            verifyDML(message);
+        } else {
+            Assert.fail("Expected type DML or SCAN, but got: " + type);
+        }
+    }
+
+    @Test
+    public void testT6_FullSync_DMLWithConnectorTopic() throws Exception {
+        System.out.println("-----------------------------------------------");
+
+        String testTopic = "kafka-test-topic-t6";
+
+        kafkaConnectorParams.put("id", kafkaConnectorId);
+        kafkaConnectorParams.put("topic", testTopic);
+        connectorService.edit(kafkaConnectorParams);
+
+        KafkaTestDatabaseManager testConsumer = new KafkaTestDatabaseManager(
+            mysqlConfig.getUrl(), mysqlConfig.getUsername(), mysqlConfig.getPassword(), 
+            mysqlConfig.getDriverClassName(), kafkaBootstrapServers, kafkaGroupId + "-test-" + testTopic.replaceAll("[-.:]", "-")
+        );
+        testConsumer.startConsumerAsync(testTopic);
+        
+        // 插入数据
+        String sql = "INSERT INTO " + testTable + " (id, name, value, enabled) VALUES ('test-pk-t6', 't6_test', 600, true) ON DUPLICATE KEY UPDATE name='t6_test', value=600, enabled=true";
+        testConsumer.executeUpdate(sql);
+
+        // 创建 TableGroup 并启动
+        mappingId = createMapping(null, "full");
+        createTableGroupParams();
+        mappingService.start(mappingId);
+        Thread.sleep(2000);
+        
+        KafkaTestDatabaseManager.CacheMessage msg = testConsumer.getMessage(testTopic, 10000);
+        Assert.assertNotNull("应收到至少 1 条 Kafka 消息", msg);
+        
+        System.out.println("=== " + testTopic + " 通过：捕获到消息 ===");
+        
+        @SuppressWarnings("unchecked")
+        Map<String, Object> message = (Map<String, Object>) msg.value;
+        String type = (String) message.get("type");
+        
+        // 全量模式下，DML 操作触发 DML 消息（非 SCAN）
+        if ("DML".equals(type)) {
+            verifyDML(message);
+        } else {
+            Assert.fail("Expected type DML or SCAN, but got: " + type);
+        }
     }
 }
