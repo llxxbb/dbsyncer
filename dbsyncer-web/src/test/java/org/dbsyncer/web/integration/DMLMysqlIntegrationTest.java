@@ -451,6 +451,97 @@ public class DMLMysqlIntegrationTest extends BaseDDLIntegrationTest {
 
         logger.info("UPDATE 主键修改测试通过，ID: {} -> {}", 100, newId);
     }
+    /**
+     * 测试批量 UPDATE - 多条记录在同一 UPDATE SQL 中
+     * 
+     * 这是修复 MySQL 批量更新主键冲突 BUG 的专门测试用例
+     * 验证当一条 UPDATE SQL 更新多行时，每行都能正确使用各自的 beforeRow 作为 WHERE 条件
+     * 
+     * 测试场景：
+     * 1. 插入初始数据 ID=1,2,3
+     * 2. 执行批量 UPDATE：UPDATE ... WHERE ID IN (1, 2, 3)
+     * 3. 验证目标表 3 条记录都被正确更新，无主键冲突
+     */
+    @Test
+    public void testUpdate_BatchUpdateWithMultipleRows() throws Exception {
+        logger.info("开始测试批量 UPDATE - 多条记录在同一 SQL 中");
+
+        String testSourceTable = getSourceTableName();
+        String testTargetTable = getTargetTableName();
+
+        // 1. 重置 TableGroup 完成状态
+        List<TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
+        TableGroup tableGroup = tableGroups.get(0);
+        tableGroup.setFullCompleted(false);
+        tableGroup.setCursors(null);
+        profileComponent.editConfigModel(tableGroup);
+
+        // 2. 配置 Mapping 为增量同步模式（Log）
+        Map<String, String> editParams = new HashMap<>();
+        editParams.put("id", mappingId);
+        editParams.put("model", "increment");
+        editParams.put("incrementStrategy", "Log");
+        editParams.put("forceUpdate", "false");
+        editParams.put("enableDDL", "true");
+        editParams.put("enableInsert", "true");
+        editParams.put("enableUpdate", "true");
+        editParams.put("enableDelete", "true");
+        mappingService.edit(editParams);
+        mappingService.start(mappingId);
+        Thread.sleep(3000);
+
+        // 3. 插入 3 条初始数据
+        Integer[] testIds = {1, 2, 3};
+        for (Integer id : testIds) {
+            String insertSourceSql = String.format(
+                "INSERT INTO %s (ID, UserName, Age, Email) VALUES (%d, 'User%d', %d, 'user%d@example.com')",
+                testSourceTable, id, id, id * 10, id);
+            
+            DatabaseConnectorInstance sourceInstance = 
+                new DatabaseConnectorInstance(sourceConfig);
+            sourceInstance.execute(databaseTemplate -> {
+                databaseTemplate.execute(insertSourceSql);
+                return null;
+            });
+            logger.info("源表已插入初始数据，ID: {}", id);
+        }
+
+        // 4. 等待增量同步处理 INSERT
+        Thread.sleep(2000);
+
+        // 5. 验证初始数据已同步到目标表
+        for (Integer id : testIds) {
+            Map<String, Object> targetData = queryTableDataByPrimaryKey(testTargetTable, "ID", id, targetConfig);
+            assertFalse("目标表中应该有 ID=" + id + "的记录", targetData.isEmpty());
+            assertEquals("ID=" + id + "的 Age 初始值应为 " + (id * 10), id * 10, targetData.get("Age"));
+        }
+        logger.info("源数据已同步到目标表，共 {} 条记录", testIds.length);
+
+        // 6. 执行批量 UPDATE（核心测试场景）
+        String updateSourceSql = String.format(
+            "UPDATE %s SET Age = Age + 10 WHERE ID IN (1, 2, 3)",
+            testSourceTable);
+        
+        DatabaseConnectorInstance sourceInstance = 
+            new DatabaseConnectorInstance(sourceConfig);
+        sourceInstance.execute(databaseTemplate -> {
+            databaseTemplate.execute(updateSourceSql);
+            return null;
+        });
+        logger.info("源表已执行批量 UPDATE: Age = Age + 10 WHERE ID IN (1, 2, 3)");
+
+        // 7. 等待增量同步处理 UPDATE
+        Thread.sleep(2000);
+
+        // 8. 验证目标表结果 - 每条记录都正确更新
+        for (Integer id : testIds) {
+            Map<String, Object> targetData = queryTableDataByPrimaryKey(testTargetTable, "ID", id, targetConfig);
+            assertFalse("目标表中应该有 ID=" + id + "的记录", targetData.isEmpty());
+            assertEquals("ID=" + id + "的 Age 应该增加 10", id * 10 + 10, targetData.get("Age"));
+        }
+
+        logger.info("批量 UPDATE 测试通过，{} 条记录都正确更新", testIds.length);
+    }
 
     // 注意：测试主键修改功能时，需要确保：
     // 1. 使用增量同步模式（Log/binlog）以捕获 UPDATE 事件
