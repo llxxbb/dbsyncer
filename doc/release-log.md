@@ -7,6 +7,7 @@
 缺陷: 修复 sql server varbinary(max), char, nchar, float 映射问题。
 缺陷：修复全量同步 kafka topic 丢失问题
 缺陷：修复 update 主键冲突问题
+缺陷：修复分组操作按钮无法触发问题
 优化：去除任务编辑页无关的定时请求。
 优化：缩小任务编辑锁的粒度
 

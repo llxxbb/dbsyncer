@@ -540,17 +540,20 @@ function nextToMapping(str) {
     }
 }
 
-// 布局切换功能
 // 分组列表点击事件绑定
 function bindGroupList() {
-    $('.group-list-item').off('click.groupList').on('click.groupList', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
+    // 使用事件委托，只在点击非按钮区域时触发
+    $('.group-list-item').on('click.groupList', function(e) {
+        // 如果点击的是右侧按钮或按钮内的元素，则不处理
+        if ($(e.target).closest('.dropdown').length > 0) {
+            return;
+        }
         var groupId = $(this).attr('data-group-id') || '';
         groupShow(groupId);
     });
 }
 
+// 布局切换功能
 function bindViewToggle() {
     // 列表视图按钮
     $('#listViewBtn').click(function() {
