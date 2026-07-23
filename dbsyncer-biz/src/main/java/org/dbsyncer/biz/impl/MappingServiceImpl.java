@@ -177,7 +177,7 @@ public class MappingServiceImpl implements MappingService {
         String id = params.get(ConfigConstant.CONFIG_MODEL_ID);
         Mapping mapping = assertMappingExist(id);
         String metaSnapshot = params.get("metaSnapshot");
-        synchronized (this) {
+        synchronized (mapping) {
             // 检查是否禁止编辑
             mappingModelService.assertDisableEdit(mapping);
 
