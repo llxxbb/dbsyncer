@@ -61,19 +61,6 @@
             
             <!-- 底部：统计数据、运行状态、状态标识和操作 -->
             <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #e0e0e0;">
-                <!-- 异常状态标识列（仅显示有失败记录的任务） -->
-                <div class="status-col" 
-                     th:if="${task.meta?.fail gt 0}" 
-                     style="margin-bottom: 8px; display: flex; align-items: center;">
-                    <span th:if="${task.meta.fail > 0}" 
-                          class="fa fa-exclamation-triangle text-warning" 
-                          th:title="'失败记录数：' + ${task.meta.fail}"></span>
-                    <span th:if="${task.meta.fail > 0}" 
-                          class="fail-count" 
-                          th:text="${task.meta.fail}" 
-                          style="margin-left: 4px; color: #d9534f; font-weight: bold;"></span>
-                </div>
-                
                 <!-- 读取条数和写入条数 -->
                 <div style="display: flex; align-items: center; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #e0e0e0;">
                     <div style="flex: 1; text-align: center; border-right: 1px solid #e0e0e0;">
@@ -86,7 +73,7 @@
                     </div>
                 </div>
                 
-                <!-- 运行状态和操作按钮 -->
+                <!-- 运行状态、状态标识和操作按钮 -->
                 <div style="display: flex; align-items: center; justify-content: space-between;">
                     <!-- 运行状态 -->
                     <div id="stateId" style="flex-shrink: 0;">
@@ -101,6 +88,19 @@
                             class="mapping-error-sign" data-toggle="tooltip"
                             data-placement="top"><i
                                 class="fa fa-exclamation-triangle"></i></span>
+                    </div>
+
+                    <!-- 异常状态标识列（仅显示有失败记录的任务） -->
+                    <div class="status-col" 
+                         th:if="${task.meta?.fail gt 0}" 
+                         style="display: flex; align-items: center; flex-shrink: 0; margin-left: 10px;">
+                        <span th:if="${task.meta.fail > 0}" 
+                              class="fa fa-exclamation-triangle text-warning" 
+                              th:title="'失败记录数：' + ${task.meta.fail}"></span>
+                        <span th:if="${task.meta.fail > 0}" 
+                              class="fail-count" 
+                              th:text="${task.meta.fail}" 
+                              style="margin-left: 4px; color: #d9534f; font-weight: bold;"></span>
                     </div>
 
                     <!-- 操作按钮 -->
