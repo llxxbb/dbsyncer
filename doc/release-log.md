@@ -1,8 +1,11 @@
 # 发布日志
 
-## 2.29.3
+## 2.29.4
 
 缺陷：修复增量同步，update, delete where 语句不完整问题。
+
+## 2.29.3
+
 缺陷：修复添加表主键丢失问题。
 缺陷："字段差异分析"页面，"修复目标表"无响应
 缺陷: 修复 sql server varbinary(max), char, nchar, float 映射问题。
