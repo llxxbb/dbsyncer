@@ -61,32 +61,8 @@ public class FullSyncExecutorImpl implements FullSyncExecutor {
     @Resource
     private ProcessEvent fullProcessEvent;
 
-    // 保存间隔（毫秒）
+        // 保存间隔（毫秒）
     private static final long SAVE_INTERVAL_MS = 3000L;
-
-    @Override
-    public MetaInfo getMetaInfo(String connectorId, String tableName) throws Exception {
-        Connector connector = profileComponent.getConnector(connectorId);
-        ConnectorInstance connectorInstance = connectorFactory.connect(connector.getConfig());
-        MetaInfo metaInfo = connectorFactory.getMetaInfo(connectorInstance, tableName);
-        if (!CollectionUtils.isEmpty(connector.getTable())) {
-            for (Table t : connector.getTable()) {
-                if (t.matchesName(tableName)) {
-                    metaInfo.setType(t.getType());
-                    metaInfo.setSql(t.getSql());
-                    break;
-                }
-            }
-        }
-        return metaInfo;
-    }
-
-    @Override
-    public long getCount(String connectorId, Map<String, String> command) throws Exception {
-        ConnectorInstance connectorInstance = connectorFactory.connect(getConnectorConfig(connectorId));
-        return connectorFactory.getCount(connectorInstance, command);
-    }
-
 
     /**
      * 新的TableGroup流式处理方法

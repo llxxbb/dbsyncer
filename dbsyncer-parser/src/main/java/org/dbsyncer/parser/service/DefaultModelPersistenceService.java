@@ -3,15 +3,17 @@
  */
 package org.dbsyncer.parser.service;
 
+import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.parser.FullSyncExecutor;
 import org.dbsyncer.parser.ProfileComponent;
-import org.dbsyncer.sdk.model.ConfigModel;
 import org.dbsyncer.parser.model.Connector;
-import org.dbsyncer.sdk.model.TableGroup;
-import org.dbsyncer.sdk.model.ConnectorConfig;
 import org.dbsyncer.sdk.model.MetaInfo;
+import org.dbsyncer.sdk.model.ConfigModel;
+import org.dbsyncer.sdk.model.ConnectorConfig;
+import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.service.ModelPersistenceService;
 import org.springframework.stereotype.Service;
+
 
 import javax.annotation.Resource;
 import java.util.Collections;
@@ -37,6 +39,8 @@ public class DefaultModelPersistenceService implements ModelPersistenceService {
 
     @Resource
     private FullSyncExecutor fullSyncExecutor;
+    @Resource
+    private ConnectorFactory connectorFactory;
 
     @Override
     public String save(String modelId, Object modelObj) throws Exception {
@@ -112,7 +116,8 @@ public class DefaultModelPersistenceService implements ModelPersistenceService {
             return null;
         }
         try {
-            return fullSyncExecutor.getMetaInfo(connectorId, tableName);
+            Connector connector = profileComponent.getConnector(connectorId);
+            return connectorFactory.getMetaInfo(connectorFactory.connect(connector.getConfig()), tableName);
         } catch (Exception e) {
             throw new RuntimeException("Failed to get table meta info for connector: "
                 + connectorId + ", table: " + tableName, e);

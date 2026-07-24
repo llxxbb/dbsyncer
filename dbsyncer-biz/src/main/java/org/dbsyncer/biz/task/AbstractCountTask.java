@@ -5,8 +5,10 @@ package org.dbsyncer.biz.task;
 
 import org.dbsyncer.biz.TableGroupService;
 import org.dbsyncer.common.dispatch.AbstractDispatchTask;
+import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.parser.FullSyncExecutor;
 import org.dbsyncer.parser.ProfileComponent;
+import org.dbsyncer.parser.model.Connector;
 import org.dbsyncer.sdk.enums.SyncPhaseEnum;
 import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.model.Meta;
@@ -15,6 +17,7 @@ import org.dbsyncer.parser.util.PickerUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Resource;
 import java.time.Instant;
 
 /**
@@ -30,7 +33,8 @@ public abstract class AbstractCountTask extends AbstractDispatchTask {
 
     protected String mappingId;
 
-    protected FullSyncExecutor fullSyncExecutor;
+    @Resource
+    private ConnectorFactory connectorFactory;
 
     protected ProfileComponent profileComponent;
 
@@ -38,10 +42,6 @@ public abstract class AbstractCountTask extends AbstractDispatchTask {
 
     public void setMappingId(String mappingId) {
         this.mappingId = mappingId;
-    }
-
-    public void setFullSyncExecutor(FullSyncExecutor parserComponent) {
-        this.fullSyncExecutor = parserComponent;
     }
 
     public void setProfileComponent(ProfileComponent profileComponent) {
@@ -55,7 +55,8 @@ public abstract class AbstractCountTask extends AbstractDispatchTask {
     protected void updateTableGroupCount(Mapping mapping, TableGroup tableGroup) throws Exception {
         long now = Instant.now().toEpochMilli();
         TableGroup group = PickerUtil.mergeTableGroupConfig(mapping, tableGroup);
-        long count = fullSyncExecutor.getCount(mapping.getSourceConnectorId(), group.getCommand());
+        Connector connector = profileComponent.getConnector(mapping.getSourceConnectorId());
+        long count = connectorFactory.getCount(connectorFactory.connect(connector.getConfig()), group.getCommand());
         tableGroup.getSourceTable().setCount(count);
         profileComponent.editConfigModel(tableGroup);
         logger.info("{}表{}, 总数:{}, {}ms", mapping.getName(), tableGroup.getSourceTable().getName(), count, (Instant.now().toEpochMilli() - now));

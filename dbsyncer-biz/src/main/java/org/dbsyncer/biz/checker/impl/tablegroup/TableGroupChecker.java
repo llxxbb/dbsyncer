@@ -10,8 +10,8 @@ import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
-import org.dbsyncer.parser.FullSyncExecutor;
 import org.dbsyncer.parser.ProfileComponent;
+import org.dbsyncer.parser.model.Connector;
 import org.dbsyncer.parser.service.TableGroupModelService;
 import org.dbsyncer.sdk.model.ConfigModel;
 import org.dbsyncer.sdk.model.FieldMapping;
@@ -42,8 +42,6 @@ public class TableGroupChecker extends AbstractChecker {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    @Resource
-    private FullSyncExecutor fullSyncExecutor;
 
     @Resource
     private ProfileComponent profileComponent;
@@ -140,8 +138,9 @@ public class TableGroupChecker extends AbstractChecker {
         Assert.notNull(mapping, "mapping can not be null.");
 
         // 源表：从数据库重新获取元数据，主键使用 KEY_SEQ 顺序
+        Connector connector = profileComponent.getConnector(mapping.getSourceConnectorId());
         tableGroup.setSourceTable(
-            fullSyncExecutor.getMetaInfo(mapping.getSourceConnectorId(), tableGroup.getSourceTable().getName()));
+            connectorFactory.getMetaInfo(connectorFactory.connect(connector.getConfig()), tableGroup.getSourceTable().getName()));
 
         // 目标表：从数据库重新获取元数据，主键保留用户配置
         List<String> existingPks = tableGroup.getTargetTable().getPrimaryKeys();
@@ -151,7 +150,8 @@ public class TableGroupChecker extends AbstractChecker {
     }
 
     private MetaInfo getMetaInfo(String connectorId, String tableName, String primaryKeyStr) throws Exception {
-        MetaInfo metaInfo = fullSyncExecutor.getMetaInfo(connectorId, tableName);
+        Connector connector = profileComponent.getConnector(connectorId);
+        MetaInfo metaInfo = connectorFactory.getMetaInfo(connectorFactory.connect(connector.getConfig()), tableName);
         Assert.notNull(metaInfo, "无法获取连接器表信息:" + tableName);
         
         // 自定义主键：使用传入的主键配置（覆盖数据库默认顺序）

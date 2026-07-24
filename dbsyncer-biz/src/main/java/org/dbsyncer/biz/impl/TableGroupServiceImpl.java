@@ -411,8 +411,8 @@ public class TableGroupServiceImpl implements TableGroupService {
             targetTablePK = !CollectionUtils.isEmpty(pks) ? String.join(",", pks) : null;
         }
 
-        // 检查表是否存在
-        MetaInfo metaInfo = parserComponent.getMetaInfo(mapping.getTargetConnectorId(), targetTableName);
+        Connector connector = profileComponent.getConnector(mapping.getTargetConnectorId());
+        MetaInfo metaInfo = connectorFactory.getMetaInfo(connectorFactory.connect(connector.getConfig()), targetTableName);
         if (metaInfo != null && !CollectionUtils.isEmpty(metaInfo.getColumn())) {
             return null; // 表存在
         }
@@ -448,7 +448,6 @@ public class TableGroupServiceImpl implements TableGroupService {
         TableGroupCountTask task = new TableGroupCountTask();
         task.setMappingId(mapping.getId());
         task.setTableGroups(list);
-        task.setFullSyncExecutor(parserComponent);
         task.setProfileComponent(profileComponent);
         task.setTableGroupService(this);
         dispatchTaskService.execute(task);
@@ -456,21 +455,6 @@ public class TableGroupServiceImpl implements TableGroupService {
 
     // ========== 自定义字段 DDL 相关方法 ==========
 
-    /**
-     * 提取自定义字段（有 fieldMetadata 的 convert）
-     */
-    private List<Field> extractCustomFields(TableGroup tableGroup) {
-        List<Field> customFields = new ArrayList<>();
-
-        for (Convert convert : tableGroup.getConvert()) {
-            Field metadata = convert.getFieldMetadata();
-            if (metadata != null) {
-                customFields.add(metadata);
-            }
-        }
-
-        return customFields;
-    }
 
     /**
      * 提取自定义字段名称集合（小写）
@@ -569,10 +553,8 @@ public class TableGroupServiceImpl implements TableGroupService {
         Mapping mapping = profileComponent.getMapping(tableGroup.getMappingId());
 
         // 重新获取目标表元数据
-        MetaInfo targetMetaInfo = parserComponent.getMetaInfo(
-                mapping.getTargetConnectorId(),
-                tableGroup.getTargetTable().getName());
-
+        Connector connector = profileComponent.getConnector(mapping.getTargetConnectorId());
+        MetaInfo targetMetaInfo = connectorFactory.getMetaInfo(connectorFactory.connect(connector.getConfig()), tableGroup.getTargetTable().getName());
         // 更新 TableGroup
         tableGroup.getTargetTable().setColumn(targetMetaInfo.getColumn());
 

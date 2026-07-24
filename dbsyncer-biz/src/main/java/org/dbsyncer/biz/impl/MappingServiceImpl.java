@@ -393,7 +393,6 @@ public class MappingServiceImpl implements MappingService {
     private void submitMappingCountTask(Mapping mapping) {
         MappingCountTask task = new MappingCountTask();
         task.setMappingId(mapping.getId());
-        task.setFullSyncExecutor(fullSyncExecutor);
         task.setProfileComponent(profileComponent);
         task.setTableGroupService(tableGroupService);
         dispatchTaskService.execute(task);
