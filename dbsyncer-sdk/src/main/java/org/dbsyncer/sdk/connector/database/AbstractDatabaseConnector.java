@@ -226,6 +226,9 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
             }
             return fields;
         });
+        if (CollectionUtils.isEmpty(fields)) {
+            return null;
+        }
         MetaInfo result = new MetaInfo()
                 .setColumn(enhanceFields(connectorInstance, fields, tableNamePattern))
                 .setPrimaryKeys(primaryKeys);

@@ -30,6 +30,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 
 import javax.annotation.Resource;
+
 import java.util.*;
 
 /**
@@ -41,7 +42,6 @@ import java.util.*;
 public class TableGroupChecker extends AbstractChecker {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
-
 
     @Resource
     private ProfileComponent profileComponent;
@@ -66,13 +66,14 @@ public class TableGroupChecker extends AbstractChecker {
         Mapping mapping = profileComponent.getMapping(mappingId);
         Assert.notNull(mapping, "mapping can not be null.");
 
-        // 检查是否存在重复映射关系（新增时排除ID为null）
+        // 检查是否存在重复映射关系（新增时排除 ID 为 null）
         checkRepeatedTable(mappingId, sourceTable, targetTable, null);
 
         // 获取连接器信息
         TableGroup tableGroup = tableGroupModelService.create(mappingId, sourceTable);
-        tableGroup.setSourceTable(getMetaInfo(mapping.getSourceConnectorId(), sourceTable, sourceTablePK));
-        tableGroup.setTargetTable(getMetaInfo(mapping.getTargetConnectorId(), targetTable, targetTablePK));
+        
+        // 统一初始化源表和目标表元数据
+        initTableGroupMeta(tableGroup, mapping, sourceTable, sourceTablePK, targetTable, targetTablePK);
 
         this.modifyConfigModel(tableGroup, params);
 
@@ -129,30 +130,45 @@ public class TableGroupChecker extends AbstractChecker {
     }
 
     /**
-     * 刷新表字段（从数据库重新获取列信息）
-     * - 源表：使用数据库 KEY_SEQ 最新主键顺序（不传 primaryKeyStr）
-     * - 目标表：保留用户配置的主键顺序
+     * 初始化表组元数据（源表和目标表）
+     * 
+     * @param tableGroup      表组
+     * @param mapping         映射配置
+     * @param sourceTable     源表名称（刷新时为 null，使用 tableGroup 已有值）
+     * @param sourceTablePK   源表主键（刷新时为 null，使用数据库默认顺序）
+     * @param targetTable     目标表名称（刷新时为 null，使用 tableGroup 已有值）
+     * @param targetTablePK   目标表主键（刷新时为 null，使用已有配置）
+     * @return 表组（已设置源表和目标表）
      */
-    public void refreshTableFields(TableGroup tableGroup) throws Exception {
-        Mapping mapping = profileComponent.getMapping(tableGroup.getMappingId());
-        Assert.notNull(mapping, "mapping can not be null.");
-
-        // 源表：从数据库重新获取元数据，主键使用 KEY_SEQ 顺序
-        Connector connector = profileComponent.getConnector(mapping.getSourceConnectorId());
-        tableGroup.setSourceTable(
-            connectorFactory.getMetaInfo(connectorFactory.connect(connector.getConfig()), tableGroup.getSourceTable().getName()));
-
-        // 目标表：从数据库重新获取元数据，主键保留用户配置
-        List<String> existingPks = tableGroup.getTargetTable().getPrimaryKeys();
-        String pkStr = !CollectionUtils.isEmpty(existingPks) ? String.join(",", existingPks) : null;
-        tableGroup.setTargetTable(
-            getMetaInfo(mapping.getTargetConnectorId(), tableGroup.getTargetTable().getName(), pkStr));
+    public TableGroup initTableGroupMeta(TableGroup tableGroup, Mapping mapping, String sourceTable, String sourceTablePK, String targetTable, String targetTablePK) throws Exception {
+        // 刷新场景：使用 tableGroup 现有的表名
+        String sourceTableName = sourceTable != null ? sourceTable : tableGroup.getSourceTable().getName();
+        String targetTableName = targetTable != null ? targetTable : tableGroup.getTargetTable().getName();
+        targetTableName = targetTableName != null ? targetTableName : sourceTableName; // 目标表名为空时使用源表名
+        
+        // 初始化源表
+        tableGroup.setSourceTable(getMetaInfo(mapping.getSourceConnectorId(), sourceTableName, sourceTablePK));
+        
+        // 初始化目标表
+        MetaInfo targetMetaInfo = getMetaInfo(mapping.getTargetConnectorId(), targetTableName, targetTablePK);
+        
+        // 新增场景：如果目标表不存在，深度复制源表信息（仅表名不同）
+        assert tableGroup.getSourceTable() != null;
+        if (targetMetaInfo == null && tableGroup.getSourceTable() != null) {
+            targetMetaInfo = tableGroup.getSourceTable().clone();
+            targetMetaInfo.setName(targetTableName);
+        }
+        tableGroup.setTargetTable(targetMetaInfo);
+        
+        return tableGroup;
     }
 
     private MetaInfo getMetaInfo(String connectorId, String tableName, String primaryKeyStr) throws Exception {
         Connector connector = profileComponent.getConnector(connectorId);
         MetaInfo metaInfo = connectorFactory.getMetaInfo(connectorFactory.connect(connector.getConfig()), tableName);
-        Assert.notNull(metaInfo, "无法获取连接器表信息:" + tableName);
+        if (metaInfo == null) {
+            return null;
+        }
         
         // 自定义主键：使用传入的主键配置（覆盖数据库默认顺序）
         if (StringUtil.isNotBlank(primaryKeyStr)) {
@@ -166,10 +182,10 @@ public class TableGroupChecker extends AbstractChecker {
     /**
      * 检查是否存在重复映射关系
      *
-     * @param mappingId           映射ID
+     * @param mappingId           映射 ID
      * @param sourceTable         源表名称
      * @param targetTable         目标表名称
-     * @param excludeTableGroupId 排除的表映射ID（编辑时使用，新增时传null）
+     * @param excludeTableGroupId 排除的表映射 ID（编辑时使用，新增时传 null）
      */
     private void checkRepeatedTable(String mappingId, String sourceTable, String targetTable, String excludeTableGroupId) throws Exception {
         List<TableGroup> list = profileComponent.getTableGroupAll(mappingId);

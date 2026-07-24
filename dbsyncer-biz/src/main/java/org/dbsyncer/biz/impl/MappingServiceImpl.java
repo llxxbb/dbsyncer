@@ -395,6 +395,7 @@ public class MappingServiceImpl implements MappingService {
         task.setMappingId(mapping.getId());
         task.setProfileComponent(profileComponent);
         task.setTableGroupService(tableGroupService);
+        task.setConnectorFactory(connectorFactory);
         dispatchTaskService.execute(task);
     }
 

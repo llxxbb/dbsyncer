@@ -304,7 +304,8 @@ public class TableGroupServiceImpl implements TableGroupService {
         // 检查是否禁止编辑
         mappingModelService.assertDisableEdit(mapping);
 
-        tableGroupChecker.refreshTableFields(tableGroup);
+        // 刷新源表和目标表元数据（传入 null 使用 tableGroup 现有值）
+        tableGroupChecker.initTableGroupMeta(tableGroup, mapping, null, null, null, null);
         return profileComponent.editTableGroup(tableGroup);
     }
 
@@ -450,6 +451,7 @@ public class TableGroupServiceImpl implements TableGroupService {
         task.setTableGroups(list);
         task.setProfileComponent(profileComponent);
         task.setTableGroupService(this);
+        task.setConnectorFactory(connectorFactory);
         dispatchTaskService.execute(task);
     }
 
@@ -1002,7 +1004,8 @@ public class TableGroupServiceImpl implements TableGroupService {
                 // 保存配置（REMOVE_MAPPING 或 DDL 成功都需要保存）
                 if (mappingRemovedCount > 0 || successCount > 0) {
                     try {
-                        tableGroupChecker.refreshTableFields(tableGroup);
+                        // 刷新源表和目标表元数据（传入 null 使用 tableGroup 现有值）
+                        tableGroupChecker.initTableGroupMeta(tableGroup, mapping, null, null, null, null);
                         profileComponent.editTableGroup(tableGroup);
                         this.logService.log(tableGroup, LogType.UPDATE, LogLevel.INFO, "UPDATE:" + tableGroup.getSourceTable().getName() + " >> " + tableGroup.getTargetTable().getName());
                     } catch (Exception e) {

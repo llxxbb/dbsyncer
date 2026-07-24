@@ -6,7 +6,6 @@ package org.dbsyncer.biz.task;
 import org.dbsyncer.biz.TableGroupService;
 import org.dbsyncer.common.dispatch.AbstractDispatchTask;
 import org.dbsyncer.connector.base.ConnectorFactory;
-import org.dbsyncer.parser.FullSyncExecutor;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.model.Connector;
 import org.dbsyncer.sdk.enums.SyncPhaseEnum;
@@ -17,7 +16,6 @@ import org.dbsyncer.parser.util.PickerUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Resource;
 import java.time.Instant;
 
 /**
@@ -33,12 +31,11 @@ public abstract class AbstractCountTask extends AbstractDispatchTask {
 
     protected String mappingId;
 
-    @Resource
-    private ConnectorFactory connectorFactory;
-
     protected ProfileComponent profileComponent;
 
     protected TableGroupService tableGroupService;
+
+    protected ConnectorFactory connectorFactory;
 
     public void setMappingId(String mappingId) {
         this.mappingId = mappingId;
@@ -50,6 +47,10 @@ public abstract class AbstractCountTask extends AbstractDispatchTask {
 
     public void setTableGroupService(TableGroupService tableGroupService) {
         this.tableGroupService = tableGroupService;
+    }
+
+    public void setConnectorFactory(ConnectorFactory connectorFactory) {
+        this.connectorFactory = connectorFactory;
     }
 
     protected void updateTableGroupCount(Mapping mapping, TableGroup tableGroup) throws Exception {

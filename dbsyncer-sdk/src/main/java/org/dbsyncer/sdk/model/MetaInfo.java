@@ -104,7 +104,10 @@ public class MetaInfo extends Table {
     public MetaInfo clone() {
         List<Field> clonedColumns = null;
         if (getColumn() != null) {
-            clonedColumns = new ArrayList<>(getColumn());
+            clonedColumns = new ArrayList<>(getColumn().size());
+            for (Field field : getColumn()) {
+                clonedColumns.add(field.clone());
+            }
         }
         MetaInfo cloned = new MetaInfo(
                 getName(),

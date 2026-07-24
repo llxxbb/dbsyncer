@@ -165,6 +165,9 @@ public class ConnectorFactory implements DisposableBean {
         Assert.hasText(tableName, "tableName can not be empty.");
         List<Table> table = getTable(connectorInstance);
         MetaInfo metaInfo = getConnectorService(connectorInstance.getConfig()).getMetaInfo(connectorInstance, tableName);
+        if (metaInfo == null) {
+            return null;
+        }
         if (!CollectionUtils.isEmpty(table)) {
             for (Table t : table) {
                 if (t.getName().equals(tableName)) {

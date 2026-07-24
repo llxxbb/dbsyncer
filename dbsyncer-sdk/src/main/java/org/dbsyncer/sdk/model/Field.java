@@ -321,4 +321,33 @@ public class Field {
     public String toString() {
         return JsonUtil.objToJson(this);
     }
+
+    /**
+     * 深拷贝字段对象
+     * @return 深拷贝后的新 Field 对象
+     */
+    @Override
+    @JsonIgnore
+    public Field clone() {
+        Field cloned = new Field();
+        cloned.name = this.name;
+        cloned.typeName = this.typeName;
+        cloned.type = this.type;
+        cloned.pk = this.pk;
+        cloned.labelName = this.labelName;
+        cloned.columnSize = this.columnSize;
+        cloned.ratio = this.ratio;
+        cloned.srid = this.srid;
+        cloned.isSizeFixed = this.isSizeFixed;
+        cloned.nullable = this.nullable;
+        cloned.comment = this.comment;
+        cloned.autoincrement = this.autoincrement;
+        cloned.charset = this.charset;
+        // 深拷贝枚举值列表
+        if (this.enumValues != null) {
+            cloned.enumValues = new java.util.ArrayList<>(this.enumValues);
+        }
+        return cloned;
+    }
+
 }
