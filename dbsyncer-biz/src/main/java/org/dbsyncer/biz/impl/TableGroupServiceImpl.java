@@ -44,6 +44,7 @@ import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.spi.ConnectorService;
+import org.dbsyncer.common.model.Result;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -150,8 +151,8 @@ public class TableGroupServiceImpl implements TableGroupService {
                             }
                         }
                     } // end if customFields
-                    // 目标表主键检查（DDL 之后，自定义主键字段已存在）
-                    // 从目标表 MetaInfo 获取主键（数据库定义顺序）
+                      // 目标表主键检查（DDL 之后，自定义主键字段已存在）
+                      // 从目标表 MetaInfo 获取主键（数据库定义顺序）
                     profileComponent.editTableGroup(model);
                     // 初始化 TableGroup（设置运行时组件并初始化 command）
                     model.isInit = false;
@@ -165,7 +166,8 @@ public class TableGroupServiceImpl implements TableGroupService {
                     String msg = String.format("跳过缺少主键的表组 - 驱动:%s, 源表:%s, 目标表:%s, 原因:%s",
                             mappingName, sourceTableName, targetTableName, e.getMessage());
                     logger.warn(msg);
-                    logService.log(mapping, LogType.DELETE, LogLevel.INFO, String.format("%s (mappingId=%s)", msg, mappingId));
+                    logService.log(mapping, LogType.DELETE, LogLevel.INFO,
+                            String.format("%s (mappingId=%s)", msg, mappingId));
                 }
             }
             submitTableGroupCountTask(mapping, list);
@@ -213,9 +215,11 @@ public class TableGroupServiceImpl implements TableGroupService {
         // 如果有差异且未确认，返回差异信息（不执行保存）
         if (hasPkDifference && !"true".equals(confirmParam) && !skipPrimaryKeyDDL) {
             List<String> newPrimaryKeys = CollectionUtils.isEmpty(model.getTargetTable().getPrimaryKeys())
-                    ? Collections.emptyList() : model.getTargetTable().getPrimaryKeys();
+                    ? Collections.emptyList()
+                    : model.getTargetTable().getPrimaryKeys();
             List<String> safeOldPrimaryKeys = CollectionUtils.isEmpty(oldPrimaryKeys)
-                    ? Collections.emptyList() : oldPrimaryKeys;
+                    ? Collections.emptyList()
+                    : oldPrimaryKeys;
             PrimaryKeyDifferenceVO diff = new PrimaryKeyDifferenceVO();
             diff.setHasDifference(true);
             diff.setConfiguredPKs(newPrimaryKeys);
@@ -225,8 +229,6 @@ public class TableGroupServiceImpl implements TableGroupService {
             diff.setTableName(tableGroup.getTargetTable().getName());
             throw new PrimaryKeyDifferenceException(diff);
         }
-
-
 
         // 执行自定义字段 DDL（先执行，因为主键可能引用自定义字段）
         List<Convert> customConverts = model.getConvert();
@@ -248,11 +250,10 @@ public class TableGroupServiceImpl implements TableGroupService {
                 }
             }
         }
-        
+
         // 保存原始 fieldMapping JSON，用于 DDL 后重新应用
         String fieldMappingJson = params.get("fieldMapping");
         tableGroupChecker.applyFieldMapping(model, fieldMappingJson);
-
 
         // 主键变更 DDL（在自定义字段DDL之后，确保自定义主键字段已存在）
         // 必须在保存配置之前执行，否则失败后 hasPkDifference=0 导致死锁
@@ -295,7 +296,7 @@ public class TableGroupServiceImpl implements TableGroupService {
                 .collect(Collectors.toList());
     }
 
-        @Override
+    @Override
     public String refreshFields(String id) throws Exception {
         TableGroup tableGroup = profileComponent.getTableGroup(id);
         Assert.notNull(tableGroup, "Can not find tableGroup.");
@@ -381,7 +382,7 @@ public class TableGroupServiceImpl implements TableGroupService {
 
     @Override
     public Map<String, String> checkTargetTableExists(String mappingId, TableGroup tableGroup,
-                                                       String targetTableName, String targetTablePK) throws Exception {
+            String targetTableName, String targetTablePK) throws Exception {
         Mapping mapping = profileComponent.getMapping(mappingId);
         if (mapping == null) {
             return null;
@@ -392,8 +393,8 @@ public class TableGroupServiceImpl implements TableGroupService {
         if (targetConnector == null) {
             return null;
         }
-        ConnectorService<?, ?> targetConnectorService =
-                connectorFactory.getConnectorService(targetConnector.getConfig().getConnectorType());
+        ConnectorService<?, ?> targetConnectorService = connectorFactory
+                .getConnectorService(targetConnector.getConfig().getConnectorType());
         if (targetConnectorService != null && !targetConnectorService.supportsCreateTable()) {
             logger.debug("目标连接器 {} 不支持创建表操作，跳过表存在性检查",
                     targetConnector.getConfig().getConnectorType());
@@ -413,7 +414,8 @@ public class TableGroupServiceImpl implements TableGroupService {
         }
 
         Connector connector = profileComponent.getConnector(mapping.getTargetConnectorId());
-        MetaInfo metaInfo = connectorFactory.getMetaInfo(connectorFactory.connect(connector.getConfig()), targetTableName);
+        MetaInfo metaInfo = connectorFactory.getMetaInfo(connectorFactory.connect(connector.getConfig()),
+                targetTableName);
         if (metaInfo != null && !CollectionUtils.isEmpty(metaInfo.getColumn())) {
             return null; // 表存在
         }
@@ -456,7 +458,6 @@ public class TableGroupServiceImpl implements TableGroupService {
     }
 
     // ========== 自定义字段 DDL 相关方法 ==========
-
 
     /**
      * 提取自定义字段名称集合（小写）
@@ -522,7 +523,7 @@ public class TableGroupServiceImpl implements TableGroupService {
                 ddlConfig.setSql(ddl);
 
                 // 使用 connectorFactory 执行 DDL
-                org.dbsyncer.common.model.Result result = connectorFactory.writerDDL(
+                Result result = connectorFactory.writerDDL(
                         connectorFactory.connect(targetConnector.getConfig()),
                         ddlConfig,
                         null);
@@ -535,7 +536,7 @@ public class TableGroupServiceImpl implements TableGroupService {
 
                 logger.info("自定义字段 DDL 执行成功：{}.{}",
                         tableGroup.getTargetTable().getName(), field.getName());
-             } catch (Exception e) {
+            } catch (Exception e) {
                 logger.error("DDL 执行异常：{}", field.getName(), e);
                 // 持久化异常到数据库，带上 mappingId 便于定位
                 String mappingId = mapping != null ? mapping.getId() : "unknown";
@@ -556,7 +557,8 @@ public class TableGroupServiceImpl implements TableGroupService {
 
         // 重新获取目标表元数据
         Connector connector = profileComponent.getConnector(mapping.getTargetConnectorId());
-        MetaInfo targetMetaInfo = connectorFactory.getMetaInfo(connectorFactory.connect(connector.getConfig()), tableGroup.getTargetTable().getName());
+        MetaInfo targetMetaInfo = connectorFactory.getMetaInfo(connectorFactory.connect(connector.getConfig()),
+                tableGroup.getTargetTable().getName());
         // 更新 TableGroup
         tableGroup.getTargetTable().setColumn(targetMetaInfo.getColumn());
 
@@ -622,7 +624,7 @@ public class TableGroupServiceImpl implements TableGroupService {
             DDLConfig ddlConfig = new DDLConfig();
             ddlConfig.setSql("/*dbs*/" + trimmedSql); // 添加前缀防止双向同步循环
 
-            org.dbsyncer.common.model.Result result = connectorFactory.writerDDL(
+            Result result = connectorFactory.writerDDL(
                     connectorFactory.connect(targetConnector.getConfig()),
                     ddlConfig,
                     null);
@@ -678,7 +680,8 @@ public class TableGroupServiceImpl implements TableGroupService {
             for (TableGroup tableGroup : tableGroupsToReset) {
                 tableGroup.clear();
                 profileComponent.editConfigModel(tableGroup);
-                this.logService.log(tableGroup, LogType.UPDATE, LogLevel.INFO, "UPDATE:" + tableGroup.getSourceTable().getName() + " >> " + tableGroup.getTargetTable().getName());
+                this.logService.log(tableGroup, LogType.UPDATE, LogLevel.INFO, "UPDATE:"
+                        + tableGroup.getSourceTable().getName() + " >> " + tableGroup.getTargetTable().getName());
             }
 
             // 使用 partialClear 而不是 clear，保留 syncPhase 和 snapshot
@@ -807,7 +810,8 @@ public class TableGroupServiceImpl implements TableGroupService {
 
         // 检测 MAPPING_ONLY：mapping 配置了 target 字段但目标表实际不存在
         List<org.dbsyncer.sdk.model.FieldMapping> fieldMappings = tableGroup.getFieldMapping();
-        List<FieldDiffItem> mappingOnlyFields = FieldComparisonUtil.compareMappingWithTarget(fieldMappings, targetFields);
+        List<FieldDiffItem> mappingOnlyFields = FieldComparisonUtil.compareMappingWithTarget(fieldMappings,
+                targetFields);
         result.setMappingOnlyFields(mappingOnlyFields);
 
         return result;
@@ -985,7 +989,7 @@ public class TableGroupServiceImpl implements TableGroupService {
                         DDLConfig ddlConfig = new DDLConfig();
                         ddlConfig.setSql(sql);
 
-                        org.dbsyncer.common.model.Result result = connectorFactory.writerDDL(connectorInstance,
+                        Result result = connectorFactory.writerDDL(connectorInstance,
                                 ddlConfig, null);
 
                         if (result.error != null && !result.error.isEmpty()) {
@@ -1007,7 +1011,9 @@ public class TableGroupServiceImpl implements TableGroupService {
                         // 刷新源表和目标表元数据（传入 null 使用 tableGroup 现有值）
                         tableGroupChecker.initTableGroupMeta(tableGroup, mapping, null, null, null, null);
                         profileComponent.editTableGroup(tableGroup);
-                        this.logService.log(tableGroup, LogType.UPDATE, LogLevel.INFO, "UPDATE:" + tableGroup.getSourceTable().getName() + " >> " + tableGroup.getTargetTable().getName());
+                        this.logService.log(tableGroup, LogType.UPDATE, LogLevel.INFO,
+                                "UPDATE:" + tableGroup.getSourceTable().getName() + " >> "
+                                        + tableGroup.getTargetTable().getName());
                     } catch (Exception e) {
                         logger.error("刷新表字段失败", e);
                     }
@@ -1216,8 +1222,8 @@ public class TableGroupServiceImpl implements TableGroupService {
      * 提供移除 Mapping 配置的修复能力
      *
      * @param mappingOnlyFields MAPPING_ONLY 差异列表
-     * @param tableGroup 表映射关系
-     * @param items 修复项列表
+     * @param tableGroup        表映射关系
+     * @param items             修复项列表
      */
     private void processMappingOnlyFields(List<FieldDiffItem> mappingOnlyFields, TableGroup tableGroup,
             List<FieldDiffFixItem> items) {
@@ -1245,7 +1251,7 @@ public class TableGroupServiceImpl implements TableGroupService {
     /**
      * 根据 Target 字段名称移除 FieldMapping 配置
      *
-     * @param tableGroup 表映射关系
+     * @param tableGroup      表映射关系
      * @param targetFieldName Target 字段名称
      */
     private void removeFieldMappingByTargetName(TableGroup tableGroup, String targetFieldName) {

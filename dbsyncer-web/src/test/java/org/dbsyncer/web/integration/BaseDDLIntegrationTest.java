@@ -556,6 +556,10 @@ public abstract class BaseDDLIntegrationTest {
                 // Java 8+ OffsetDateTime: 转换为 LocalDateTime（去掉时区信息）
                 java.time.OffsetDateTime odt = (java.time.OffsetDateTime) value;
                 values.append("'").append(odt.toLocalDateTime().toString().replace("T", " ")).append("'");
+            } else if (value instanceof byte[]) {
+                // 二进制数据转为 0x 十六进制格式
+                String hex = bytesToHex((byte[]) value);
+                values.append("0x").append(hex);
             } else {
                 // 其他类型转为字符串
                 values.append("'").append(value.toString().replace("'", "''")).append("'");
@@ -1449,5 +1453,16 @@ public abstract class BaseDDLIntegrationTest {
         }
         
         logger.info("表结构批量验证通过：{}", tableName);
+    }
+
+    /**
+     * 将 byte 数组转换为十六进制字符串
+     */
+    protected static String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
     }
 }
