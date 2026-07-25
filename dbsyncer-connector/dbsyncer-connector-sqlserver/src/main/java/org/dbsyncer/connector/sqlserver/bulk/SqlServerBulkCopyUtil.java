@@ -369,15 +369,13 @@ public class SqlServerBulkCopyUtil {
         if (dataList == null || dataList.isEmpty() || primaryKeys == null || primaryKeys.isEmpty()) {
             return dataList;
         }
-        LinkedHashMap<String, Map<String, Object>> dedupMap = new LinkedHashMap<>();
+        LinkedHashMap<List<Object>, Map<String, Object>> dedupMap = new LinkedHashMap<>();
         for (Map<String, Object> row : dataList) {
-            String pkKey = primaryKeys.stream()
-                    .map(pk -> {
-                        Object val = row.get(pk);
-                        return val == null ? "\0" : val.toString();
-                    })
-                    .collect(java.util.stream.Collectors.joining("|"));
-            dedupMap.put(pkKey, row);
+            List<Object> compositeKey = new ArrayList<>(primaryKeys.size());
+            for (String pk : primaryKeys) {
+                compositeKey.add(row.get(pk));
+            }
+            dedupMap.put(compositeKey, row);
         }
         return new ArrayList<>(dedupMap.values());
     }

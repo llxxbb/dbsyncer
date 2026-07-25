@@ -34,7 +34,7 @@ public class CompositeKeySqlServerUpsertIntegrationTest extends BaseDDLIntegrati
         loadTestConfigStatic();
         testDatabaseManager = new TestDatabaseManager(sourceConfig, targetConfig);
 
-        String initSql = "IF OBJECT_ID('t1','U') IS NOT NULL DROP TABLE t1; IF OBJECT_ID('t2','U') IS NOT NULL DROP TABLE t2; CREATE TABLE t1 (id1 INT NOT NULL, id2 INT NOT NULL, name NVARCHAR(50), age INT, PRIMARY KEY (id1, id2)); CREATE TABLE t2 (id1 INT NOT NULL, id2 INT NOT NULL, name NVARCHAR(50), age INT, PRIMARY KEY (id1, id2))";
+        String initSql = "IF OBJECT_ID('t1','U') IS NOT NULL DROP TABLE t1; IF OBJECT_ID('t2','U') IS NOT NULL DROP TABLE t2; IF OBJECT_ID('t3','U') IS NOT NULL DROP TABLE t3; IF OBJECT_ID('t4','U') IS NOT NULL DROP TABLE t4; CREATE TABLE t1 (id1 INT NOT NULL, id2 INT NOT NULL, name NVARCHAR(50), age INT, PRIMARY KEY (id1, id2)); CREATE TABLE t2 (id1 INT NOT NULL, id2 INT NOT NULL, name NVARCHAR(50), age INT, PRIMARY KEY (id1, id2)); CREATE TABLE t3 (k1 VARCHAR(50) NOT NULL, k2 VARCHAR(50) NOT NULL, value VARCHAR(50), PRIMARY KEY (k1, k2)); CREATE TABLE t4 (k1 VARCHAR(50) NOT NULL, k2 VARCHAR(50) NOT NULL, value VARCHAR(50), PRIMARY KEY (k1, k2))";
         testDatabaseManager.initializeTestEnvironment(initSql, initSql);
 
         logger.info("SQL Server 复合主键 UPSERT 集成测试环境初始化完成");
@@ -44,7 +44,7 @@ public class CompositeKeySqlServerUpsertIntegrationTest extends BaseDDLIntegrati
     public static void tearDownClass() {
         logger.info("开始清理测试环境");
         try {
-            testDatabaseManager.cleanupTestEnvironment("IF OBJECT_ID('t1','U') IS NOT NULL DROP TABLE t1; IF OBJECT_ID('t2','U') IS NOT NULL DROP TABLE t2", "IF OBJECT_ID('t1','U') IS NOT NULL DROP TABLE t1; IF OBJECT_ID('t2','U') IS NOT NULL DROP TABLE t2");
+            testDatabaseManager.cleanupTestEnvironment("IF OBJECT_ID('t1','U') IS NOT NULL DROP TABLE t1; IF OBJECT_ID('t2','U') IS NOT NULL DROP TABLE t2; IF OBJECT_ID('t3','U') IS NOT NULL DROP TABLE t3; IF OBJECT_ID('t4','U') IS NOT NULL DROP TABLE t4", "IF OBJECT_ID('t1','U') IS NOT NULL DROP TABLE t1; IF OBJECT_ID('t2','U') IS NOT NULL DROP TABLE t2; IF OBJECT_ID('t3','U') IS NOT NULL DROP TABLE t3; IF OBJECT_ID('t4','U') IS NOT NULL DROP TABLE t4");
         } catch (Exception e) {
             logger.error("清理失败", e);
         }
@@ -181,6 +181,84 @@ public class CompositeKeySqlServerUpsertIntegrationTest extends BaseDDLIntegrati
         assertEquals("Bob Age 应保持 30", 30, bob.get("age"));
 
         logger.info("✅ 测试通过：只有 Alice 被更新，Bob 不受影响！");
+    }
+
+    @Test
+    public void testUpsertCompositeKeyWithDelimiterCollision() throws Exception {
+        logger.info("测试复合主键含 | 分隔符碰撞的场景...");
+
+        sourceConnectorId = createConnector(getSourceConnectorName(), sourceConfig, true);
+        targetConnectorId = createConnector(getTargetConnectorName(), targetConfig, false);
+
+        String mappingId = createMappingForTables("t3", "t4",
+                Arrays.asList("k1,k1", "k2,k2", "value,value"));
+
+        org.dbsyncer.sdk.model.TableGroup tableGroup = profileComponent.getTableGroupAll(mappingId).get(0);
+        tableGroup.setFullCompleted(false);
+        tableGroup.setCursors(null);
+        profileComponent.editConfigModel(tableGroup);
+
+        mappingService.start(mappingId);
+        Thread.sleep(2000);
+
+        insertVarcharRow("t3", "a|b", "c", "row_1", sourceConfig);
+        insertVarcharRow("t3", "a", "b|c", "row_2", sourceConfig);
+        Thread.sleep(5000);
+
+        long targetCount = countRows("t4", targetConfig);
+        assertEquals("目标表应有 2 行（| 分隔符不应导致碰撞）", 2L, targetCount);
+
+        Map<String, Object> row1 = queryVarcharRow("t4", "k1", "a|b", "k2", "c", targetConfig);
+        Map<String, Object> row2 = queryVarcharRow("t4", "k1", "a", "k2", "b|c", targetConfig);
+
+        assertNotNull("row_1 (k1='a|b', k2='c') 应存在", row1);
+        assertNotNull("row_2 (k1='a', k2='b|c') 应存在", row2);
+        assertEquals("row_1 value 应为 row_1", "row_1", row1.get("value"));
+        assertEquals("row_2 value 应为 row_2", "row_2", row2.get("value"));
+
+        logger.info("✅ 测试通过：含 | 的复合主键行均正确写入，无碰撞丢行！");
+
+        mappingService.stop(mappingId);
+        mappingService.remove(mappingId);
+    }
+
+    private String createMappingForTables(String sourceTable, String targetTable, List<String> fieldMappings) throws Exception {
+        Map<String, String> p = new HashMap<>();
+        p.put("name", getMappingName() + "_" + sourceTable);
+        p.put("sourceConnectorId", sourceConnectorId);
+        p.put("targetConnectorId", targetConnectorId);
+        p.put("model", "increment");
+        p.put("incrementStrategy", getIncrementStrategy());
+        p.put("enableDDL", "true");
+        p.put("enableInsert", "true");
+        p.put("enableUpdate", "true");
+        p.put("enableDelete", "true");
+        String mid = mappingService.add(p);
+        p.put("id", mid);
+        mappingService.edit(p);
+        Map<String, String> tableGroupParams = new HashMap<>();
+        tableGroupParams.put("mappingId", mid);
+        tableGroupParams.put("sourceTable", sourceTable);
+        tableGroupParams.put("targetTable", targetTable);
+        tableGroupParams.put("fieldMappings", String.join(",", fieldMappings));
+        tableGroupService.add(tableGroupParams);
+        return mid;
+    }
+
+    private void insertVarcharRow(String table, String k1, String k2, String value, DatabaseConfig cfg) throws Exception {
+        new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(cfg)
+                .execute(t -> {
+                    t.execute(String.format("INSERT INTO %s (k1, k2, value) VALUES ('%s', '%s', '%s')", table, k1, k2, value));
+                    return null;
+                });
+    }
+
+    private Map<String, Object> queryVarcharRow(String table, String k1Col, String k1Val, String k2Col, String k2Val, DatabaseConfig cfg) throws Exception {
+        return (Map<String, Object>) new org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance(cfg)
+                .execute(t -> {
+                    List<Map<String, Object>> r = t.queryForList(String.format("SELECT * FROM %s WHERE %s = '%s' AND %s = '%s'", table, k1Col, k1Val, k2Col, k2Val));
+                    return r.isEmpty() ? null : r.get(0);
+                });
     }
 
     protected String createMapping() throws Exception {
