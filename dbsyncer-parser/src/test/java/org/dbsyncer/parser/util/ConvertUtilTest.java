@@ -2,6 +2,7 @@ package org.dbsyncer.parser.util;
 
 import org.dbsyncer.parser.enums.ConvertEnum;
 import org.dbsyncer.sdk.model.Convert;
+import org.dbsyncer.sdk.plugin.SyncRow;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -121,6 +122,47 @@ public class ConvertUtilTest {
         } catch (Exception e) {
             fail("不应该抛出异常: " + e.getMessage());
         }
+    }
+
+    @Test
+    public void testConvertSyncRowWithBeforeRow() {
+        // 测试固定值转换器对 beforeRow 的影响
+        Convert convert = new Convert();
+        convert.setName("status");
+        convert.setConvertCode(ConvertEnum.DEFAULT.getCode());
+        convert.setArgs("ACTIVE");
+        convert.setRoot(true);
+        converts.add(convert);
+
+        // 构建 SyncRow
+        SyncRow syncRow = new SyncRow();
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", 1);
+        data.put("status", "PENDING");
+        syncRow.setData(data);
+
+        // 设置 beforeRow
+        List<Object> beforeRow = new ArrayList<>();
+        beforeRow.add(1);
+        beforeRow.add(null);
+        syncRow.setBeforeRow(beforeRow);
+
+        // 设置 columnNames
+        List<String> columnNames = new ArrayList<>();
+        columnNames.add("id");
+        columnNames.add("status");
+        syncRow.setColumnNames(columnNames);
+
+        // 执行转换
+        List<SyncRow> rows = new ArrayList<>();
+        rows.add(syncRow);
+        ConvertUtil.convert(converts, rows);
+
+        // 验证 data 被转换
+        assertEquals("PENDING", syncRow.getData().get("status"));
+
+        // 验证 beforeRow 也被转换
+        assertEquals("ACTIVE", syncRow.getBeforeRow().get(1));
     }
 
     private boolean isValidUUID(String uuid) {

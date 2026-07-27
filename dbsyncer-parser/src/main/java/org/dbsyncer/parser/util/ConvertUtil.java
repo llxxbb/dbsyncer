@@ -26,7 +26,33 @@ public abstract class ConvertUtil {
      */
     public static void convert(List<Convert> convert, List<org.dbsyncer.sdk.plugin.SyncRow> data) {
         if (!CollectionUtils.isEmpty(convert) && !CollectionUtils.isEmpty(data)) {
-            data.forEach(syncRow -> convert(convert, syncRow.getData()));
+            data.forEach(syncRow -> {
+                convert(convert, syncRow.getData());
+                assert syncRow.getColumnNames() != null;
+                if (syncRow.getBeforeRow() != null) {
+                    convertBeforeRow(convert, syncRow);
+                }
+            });
+        }
+    }
+
+    /**
+     * 转换 beforeRow（UPDATE 操作中的旧值）
+     * 确保 beforeRow 与 data 应用相同的转换，使 WHERE 条件能匹配目标端数据
+     */
+    private static void convertBeforeRow(List<Convert> converts, org.dbsyncer.sdk.plugin.SyncRow syncRow) {
+        Map<String, Object> beforeMap = new HashMap<>();
+        List<String> columnNames = syncRow.getColumnNames();
+        List<Object> beforeRow = syncRow.getBeforeRow();
+
+        for (int i = 0; i < columnNames.size() && i < beforeRow.size(); i++) {
+            beforeMap.put(columnNames.get(i), beforeRow.get(i));
+        }
+
+        convert(converts, beforeMap);
+
+        for (int i = 0; i < columnNames.size() && i < beforeRow.size(); i++) {
+            beforeRow.set(i, beforeMap.get(columnNames.get(i)));
         }
     }
 
