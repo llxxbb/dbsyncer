@@ -3,6 +3,7 @@ package org.dbsyncer.web.integration;
 import org.dbsyncer.connector.sqlserver.SqlServerConnector;
 import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.config.DatabaseConfig;
+import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.web.Application;
 import org.junit.*;
@@ -849,6 +850,108 @@ public class DDLSqlServerCTIntegrationTest extends BaseDDLIntegrationTest {
         logger.info("ALTER COLUMN 修改类型到 FLOAT 测试通过");
     }
 
+    // ==================== NUMERIC 类型测试场景 ====================
+
+    /**
+     * 测试 NUMERIC 类型 - 添加 NUMERIC(18,6) 字段并验证精度
+     */
+    @Test
+    public void testAddColumn_Numeric() throws Exception {
+        logger.info("开始测试 ADD COLUMN - NUMERIC(18,6) 类型");
+
+        String sqlServerDDL = "ALTER TABLE ddlTestSource ADD amount NUMERIC(18,6)";
+
+        mappingService.start(mappingId);
+        Thread.sleep(2000);
+
+        waitForMetaRunning(metaId, 10000);
+
+        Map<String, Object> initData = new HashMap<>();
+        initData.put("first_name", "Init");
+        initData.put("last_name", "User");
+        initData.put("department", "IT");
+        initData = executeInsertDMLToSourceDatabase(getSourceTableName(), initData, sourceConfig);
+        waitForDataSync(initData, getTargetTableName(), "id", targetConfig, 10000);
+
+        Thread.sleep(500);
+
+        executeDDLToSourceDatabase(sqlServerDDL, sourceConfig);
+
+        Map<String, Object> insertedData = new HashMap<>();
+        insertedData.put("first_name", "Test");
+        insertedData.put("last_name", "User");
+        insertedData.put("department", "IT");
+        insertedData.put("amount", new java.math.BigDecimal("123456789012.345678"));
+        insertedData = executeInsertDMLToSourceDatabase(getSourceTableName(), insertedData, sourceConfig);
+
+        waitForDDLProcessingComplete("amount", 10000);
+
+        List<TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
+        TableGroup tableGroup = tableGroups.get(0);
+
+        boolean foundAmountMapping = tableGroup.getFieldMapping().stream()
+                .anyMatch(fm -> fm.matchesSource("amount") &&
+                        fm.matchesTarget("amount"));
+
+        assertTrue("应找到 amount 字段的映射", foundAmountMapping);
+        verifyField("amount", getTargetTableName(), targetConfig, "numeric", 18, 6);
+
+        waitForDataSync(insertedData, getTargetTableName(), "id", targetConfig, 10000);
+
+        logger.info("ADD COLUMN - NUMERIC(18,6) 类型测试通过（精度验证完成）");
+    }
+
+    /**
+     * 测试 ALTER COLUMN - 修改 NUMERIC 精度从 (10,2) 到 (18,6)
+     * 验证目标表字段精度实际发生变化
+     */
+    @Test
+    public void testAlterColumn_ChangeNumericPrecision() throws Exception {
+        logger.info("开始测试 ALTER COLUMN - 修改 NUMERIC 精度");
+
+        String addColumnDDL = "ALTER TABLE ddlTestSource ADD amount NUMERIC(10,2)";
+        mappingService.start(mappingId);
+        Thread.sleep(2000);
+        waitForMetaRunning(metaId, 10000);
+
+        Map<String, Object> initData = new HashMap<>();
+        initData.put("first_name", "Init");
+        initData.put("last_name", "User");
+        initData.put("department", "IT");
+        initData = executeInsertDMLToSourceDatabase(getSourceTableName(), initData, sourceConfig);
+        waitForDataSync(initData, getTargetTableName(), "id", targetConfig, 10000);
+
+        executeDDLToSourceDatabase(addColumnDDL, sourceConfig);
+
+        Map<String, Object> dataAfterAdd = new HashMap<>();
+        dataAfterAdd.put("first_name", "Test");
+        dataAfterAdd.put("last_name", "User");
+        dataAfterAdd.put("department", "IT");
+        dataAfterAdd.put("amount", new java.math.BigDecimal("99999999.99"));
+        dataAfterAdd = executeInsertDMLToSourceDatabase(getSourceTableName(), dataAfterAdd, sourceConfig);
+        waitForDDLProcessingComplete("amount", 10000);
+
+        verifyField("amount", getTargetTableName(), targetConfig, "numeric", 10, 2);
+
+        String alterDDL = "ALTER TABLE ddlTestSource ALTER COLUMN amount NUMERIC(18,6)";
+        executeDDLToSourceDatabase(alterDDL, sourceConfig);
+
+        Map<String, Object> insertedData = new HashMap<>();
+        insertedData.put("first_name", "Test2");
+        insertedData.put("last_name", "User");
+        insertedData.put("department", "IT");
+        insertedData.put("amount", new java.math.BigDecimal("123456789012.345678"));
+        insertedData = executeInsertDMLToSourceDatabase(getSourceTableName(), insertedData, sourceConfig);
+
+        Thread.sleep(2000);
+
+        verifyField("amount", getTargetTableName(), targetConfig, "numeric", 18, 6);
+
+        waitForDataSync(insertedData, getTargetTableName(), "id", targetConfig, 10000);
+
+        logger.info("ALTER COLUMN - 修改 NUMERIC 精度测试通过（目标表精度从 (10,2) 变为 (18,6)）");
+    }
+
     // ==================== RENAME COLUMN 测试场景 ====================
 
     /**
@@ -1034,6 +1137,7 @@ public class DDLSqlServerCTIntegrationTest extends BaseDDLIntegrationTest {
             "    [Score] DECIMAL(5,2) NOT NULL,\n" +
             "    [IsActive] BIT NOT NULL,\n" +
             "    [Price] FLOAT NOT NULL,\n" +
+            "    [Amount] NUMERIC(18,6) NOT NULL,\n" +
             "    PRIMARY KEY ([UserName])\n" +
             ")", testSourceTable);
         
@@ -1059,12 +1163,14 @@ public class DDLSqlServerCTIntegrationTest extends BaseDDLIntegrationTest {
         testData.put("IsActive", true);
         testData.put("RegisterTime", new java.util.Date()); // DATETIME NOT NULL 字段
         testData.put("Price", 123.45); // FLOAT 类型数据
+        testData.put("Amount", new java.math.BigDecimal("123456789012.345678")); // NUMERIC 类型数据
         
         testData = executeInsertDMLToSourceDatabase(testSourceTable, testData, sourceConfig);
         assertNotNull("插入的数据应该包含生成的 ID", testData.get("ID"));
-        // 验证 FLOAT 字段
-        verifyFieldExistsInTargetDatabase("Price", testTargetTable, targetConfig);
-        verifyFieldType("Price", testTargetTable, targetConfig, "float"); // FLOAT → float
+        
+        // 验证 FLOAT 和 NUMERIC 字段
+        verifyField("Price", testTargetTable, targetConfig, "float", 0, -1);
+        verifyField("Amount", testTargetTable, targetConfig, "numeric", 18, 6);
 
         logger.info("CREATE TABLE IDENTITY 列重复约束问题测试通过（表创建成功，无重复 IDENTITY 约束）");
     }
@@ -1089,8 +1195,8 @@ public class DDLSqlServerCTIntegrationTest extends BaseDDLIntegrationTest {
         }
 
         // 1. 连接源和目标数据库
-        org.dbsyncer.sdk.connector.ConnectorInstance sourceConnectorInstance = connectorFactory.connect(sourceConfig);
-        org.dbsyncer.sdk.connector.ConnectorInstance targetConnectorInstance = connectorFactory.connect(targetConfig);
+        ConnectorInstance sourceConnectorInstance = connectorFactory.connect(sourceConfig);
+        ConnectorInstance targetConnectorInstance = connectorFactory.connect(targetConfig);
 
         // 2. 检查目标表是否已存在
         try {

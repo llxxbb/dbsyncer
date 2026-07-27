@@ -427,12 +427,13 @@ public class SqlServerTemplate extends AbstractSqlTemplate {
                 // 没有长度信息或超过8000，默认使用BINARY(8000)
                 return "BINARY(8000)";
             case "DECIMAL":
+            case "NUMERIC":
                 if (column.getColumnSize() > 0 && column.getRatio() >= 0) {
                     return typeName + "(" + column.getColumnSize() + "," + column.getRatio() + ")";
                 } else if (column.getColumnSize() > 0) {
                     return typeName + "(" + column.getColumnSize() + ")";
                 }
-                return "DECIMAL(18,0)";
+                return typeName + "(18,0)";
             default:
                 return typeName;
         }

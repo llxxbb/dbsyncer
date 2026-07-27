@@ -11,6 +11,7 @@ import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.config.DatabaseConfig;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance;
+import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -1102,6 +1103,63 @@ public abstract class BaseDDLIntegrationTest {
             logger.info("字段长度验证通过: {} 的长度是 {}", fieldName, actualLength);
             return null;
         });
+    }
+
+    /**
+     * 获取目标表字段的元信息（通过 connectorFactory.getMetaInfo 统一获取）
+     *
+     * @param fieldName 字段名
+     * @param tableName 表名
+     * @param config    数据库配置
+     * @return 字段元信息，如果字段不存在返回 null
+     */
+    protected Field getFieldMetaInfo(String fieldName, String tableName, DatabaseConfig config) throws Exception {
+        if (config.getConnectorType() == null) {
+            config.setConnectorType(getConnectorType(config, false));
+        }
+        ConnectorInstance<DatabaseConfig, ?> instance = connectorFactory.connect(config);
+        MetaInfo metaInfo = connectorFactory.getMetaInfo(instance, tableName);
+        assertNotNull(String.format("未找到表 %s 的元信息", tableName), metaInfo);
+        assertNotNull(String.format("表 %s 没有字段信息", tableName), metaInfo.getColumn());
+
+        return metaInfo.getColumn().stream()
+                .filter(f -> fieldName.equalsIgnoreCase(f.getName()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * 验证字段属性（存在性、类型、精度等）
+     *
+     * @param fieldName         字段名
+     * @param tableName         表名
+     * @param config            数据库配置
+     * @param expectedType      期望的类型（可为 null 表示不验证）
+     * @param expectedPrecision 期望的精度（<=0 表示不验证）
+     * @param expectedScale     期望的小数位数（<0 表示不验证）
+     */
+    protected void verifyField(String fieldName, String tableName, DatabaseConfig config,
+            String expectedType, int expectedPrecision, int expectedScale) throws Exception {
+        Field field = getFieldMetaInfo(fieldName, tableName, config);
+        assertNotNull(String.format("未找到字段 %s", fieldName), field);
+
+        if (expectedType != null) {
+            assertEquals(String.format("字段 %s 的类型应为 %s", fieldName, expectedType),
+                    expectedType.toLowerCase(), field.getTypeName().toLowerCase());
+        }
+
+        if (expectedPrecision > 0) {
+            assertEquals(String.format("字段 %s 的精度应为 %d", fieldName, expectedPrecision),
+                    expectedPrecision, field.getColumnSize());
+        }
+
+        if (expectedScale >= 0) {
+            assertEquals(String.format("字段 %s 的小数位数应为 %d", fieldName, expectedScale),
+                    expectedScale, field.getRatio());
+        }
+
+        logger.info("字段验证通过: {} (类型={}, 精度={}, 小数位数={})",
+                fieldName, field.getTypeName(), field.getColumnSize(), field.getRatio());
     }
 
     /**
