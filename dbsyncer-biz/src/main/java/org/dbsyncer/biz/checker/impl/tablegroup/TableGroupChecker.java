@@ -100,9 +100,7 @@ public class TableGroupChecker extends AbstractChecker {
         Assert.notNull(newTargetTablePK, "targetTablePK can not be null.");
 
 
-        // 应用目标表变化（仅更新 MetaInfo，主键配置由 applyPrimaryKeyConfig 统一处理）
         checkRepeatedTable(mapping.getId(), tableGroup.getSourceTable().getName(), newTargetTableName, id);
-        tableGroup.setTargetTable(getMetaInfo(mapping.getTargetConnectorId(), newTargetTableName, newTargetTablePK));
 
         // 修改基本配置
         this.modifyConfigModel(tableGroup, params);
@@ -163,7 +161,7 @@ public class TableGroupChecker extends AbstractChecker {
         return tableGroup;
     }
 
-    private MetaInfo getMetaInfo(String connectorId, String tableName, String primaryKeyStr) throws Exception {
+    public MetaInfo getMetaInfo(String connectorId, String tableName, String primaryKeyStr) throws Exception {
         Connector connector = profileComponent.getConnector(connectorId);
         MetaInfo metaInfo = connectorFactory.getMetaInfo(connectorFactory.connect(connector.getConfig()), tableName);
         if (metaInfo == null) {

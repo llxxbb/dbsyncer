@@ -210,13 +210,13 @@ public class TableGroupServiceImpl implements TableGroupService {
         // 比较主键是否变化（旧模型 vs 新参数）
         String oldPkStr = !CollectionUtils.isEmpty(oldPrimaryKeys) ? String.join(",", oldPrimaryKeys) : "";
         String newPk = StringUtil.isNotBlank(params.get("targetTablePK")) ? params.get("targetTablePK") : "";
+        List<String> newPrimaryKeys = StringUtil.isNotBlank(newPk)
+                ? Arrays.asList(newPk.split(","))
+                : Collections.emptyList();
         boolean hasPkDifference = !StringUtil.equals(oldPkStr, newPk);
 
         // 如果有差异且未确认，返回差异信息（不执行保存）
         if (hasPkDifference && !"true".equals(confirmParam) && !skipPrimaryKeyDDL) {
-            List<String> newPrimaryKeys = CollectionUtils.isEmpty(model.getTargetTable().getPrimaryKeys())
-                    ? Collections.emptyList()
-                    : model.getTargetTable().getPrimaryKeys();
             List<String> safeOldPrimaryKeys = CollectionUtils.isEmpty(oldPrimaryKeys)
                     ? Collections.emptyList()
                     : oldPrimaryKeys;
@@ -261,14 +261,19 @@ public class TableGroupServiceImpl implements TableGroupService {
             Connector targetConnector = profileComponent.getConnector(mapping.getTargetConnectorId());
             if (targetConnector != null) {
                 try {
-                    alterPrimaryKey(model, targetConnector, oldPrimaryKeys, model.getTargetTable().getPrimaryKeys());
+                    alterPrimaryKey(model, targetConnector, oldPrimaryKeys, newPrimaryKeys);
                 } catch (Exception e) {
                     throw new RuntimeException("修改主键约束失败：" + e.getMessage(), e);
                 }
             }
         }
 
-        // 所有 DDL 成功后保存配置
+        // 所有 DDL 完成后，统一更新目标表元信息（反映 DDL 后状态 + 用户 PK）
+        MetaInfo newTargetMeta = tableGroupChecker.getMetaInfo(
+                mapping.getTargetConnectorId(), params.get("targetTable"), params.get("targetTablePK"));
+        model.setTargetTable(newTargetMeta);
+
+        // 保存配置
         this.logService.log(model, LogType.UPDATE, LogLevel.INFO, "UPDATE:" + model.getName());
         profileComponent.editTableGroup(model);
         // 初始化 TableGroup（设置运行时组件并初始化 command）
