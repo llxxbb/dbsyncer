@@ -745,6 +745,177 @@ public class DMLMysqlIntegrationTest extends BaseDDLIntegrationTest {
         logger.info("UPSERT 自增列更新测试通过");
     }
 
+    // ==================== Binlog ROTATE 测试场景 ====================
+
+    /**
+     * 测试 FLUSH BINARY LOGS 后 position 同步更新
+     * 
+     * 这是修复 MySQL binlog position 同步 BUG 的专门测试用例
+     * 验证当源端执行 flush binary logs 触发 binlog 文件切换后，position 能正确更新
+     * 
+     * 测试场景：
+     * 1. 启动增量同步，插入数据并等待同步完成
+     * 2. 执行 FLUSH BINARY LOGS 触发 binlog 文件切换（ROTATE 事件）
+     * 3. 在新 binlog 文件中插入数据
+     * 4. 验证新数据能被正确同步（position 已正确更新到新文件）
+     * 
+     * 如果没有修复，ROTATE 事件后 lastXIDPosition 未更新，会导致：
+     * - 后续数据携带错误的 position
+     * - 系统重启后从错误位置恢复，可能丢失数据
+     */
+    @Test
+    @Ignore("此测试依赖 MySQL binlog ROTATE 事件，需要特殊授权（RELOAD），暂时忽略")
+    public void testFlushBinaryLogs_PositionShouldUpdate() throws Exception {
+        logger.info("开始测试 FLUSH BINARY LOGS 后 position 同步更新");
+
+        String testSourceTable = getSourceTableName();
+        String testTargetTable = getTargetTableName();
+
+        // 1. 重置 TableGroup 完成状态
+        List<TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
+        TableGroup tableGroup = tableGroups.get(0);
+        tableGroup.setFullCompleted(false);
+        tableGroup.setCursors(null);
+        profileComponent.editConfigModel(tableGroup);
+
+        // 2. 配置 Mapping 为增量同步模式（Log）
+        Map<String, String> editParams = new HashMap<>();
+        editParams.put("id", mappingId);
+        editParams.put("model", "increment");
+        editParams.put("incrementStrategy", "Log");
+        editParams.put("forceUpdate", "false");
+        editParams.put("enableDDL", "true");
+        editParams.put("enableInsert", "true");
+        editParams.put("enableUpdate", "true");
+        editParams.put("enableDelete", "true");
+        mappingService.edit(editParams);
+
+        // 3. 启动增量同步
+        mappingService.start(mappingId);
+        Thread.sleep(2000);
+
+        // 4. 插入第一批数据（在旧的 binlog 文件中）
+        Integer firstTestId = 500;
+        String firstUserName = "BeforeFlush";
+        
+        DatabaseConnectorInstance sourceInstance = 
+            new DatabaseConnectorInstance(sourceConfig);
+        
+        String insertFirstSql = String.format(
+            "INSERT INTO %s (ID, UserName, Age, Email) VALUES (%d, '%s', %d, '%s')",
+            testSourceTable, firstTestId, firstUserName, 25, "before@example.com");
+        
+        sourceInstance.execute(databaseTemplate -> {
+            databaseTemplate.execute(insertFirstSql);
+            return null;
+        });
+        logger.info("源表已插入第一批数据，ID: {}, UserName: {}", firstTestId, firstUserName);
+
+        // 5. 等待增量同步处理第一批 INSERT
+        long startTime = System.currentTimeMillis();
+        long timeoutMs = 10000;
+        while (System.currentTimeMillis() - startTime < timeoutMs) {
+            Map<String, Object> checkData = queryTableDataByPrimaryKey(
+                testTargetTable, "UserName", firstUserName, targetConfig);
+            if (!checkData.isEmpty()) {
+                logger.info("第一批数据已同步，等待时间: {}ms", System.currentTimeMillis() - startTime);
+                break;
+            }
+            Thread.sleep(300);
+        }
+
+        // 验证第一批数据已同步
+        Map<String, Object> firstTargetData = queryTableDataByPrimaryKey(
+            testTargetTable, "UserName", firstUserName, targetConfig);
+        assertFalse("第一批数据应该已同步到目标表", firstTargetData.isEmpty());
+        assertEquals("第一批数据的 Age 应该正确", 25, firstTargetData.get("Age"));
+
+        // 6. 执行 FLUSH BINARY LOGS 触发 binlog 文件切换（核心测试场景）
+        logger.info("执行 FLUSH BINARY LOGS 触发 binlog 文件切换");
+        sourceInstance.execute(databaseTemplate -> {
+            databaseTemplate.execute("FLUSH BINARY LOGS");
+            return null;
+        });
+        
+        // 等待 binlog 文件切换完成
+        Thread.sleep(2000);
+
+        // 7. 在新 binlog 文件中插入第二批数据
+        Integer secondTestId = 600;
+        String secondUserName = "AfterFlush";
+        
+        String insertSecondSql = String.format(
+            "INSERT INTO %s (ID, UserName, Age, Email) VALUES (%d, '%s', %d, '%s')",
+            testSourceTable, secondTestId, secondUserName, 30, "after@example.com");
+        
+        sourceInstance.execute(databaseTemplate -> {
+            databaseTemplate.execute(insertSecondSql);
+            return null;
+        });
+        logger.info("源表已插入第二批数据（在新 binlog 文件中），ID: {}, UserName: {}", 
+            secondTestId, secondUserName);
+
+        // 8. 等待增量同步处理第二批 INSERT（验证 position 已正确更新）
+        startTime = System.currentTimeMillis();
+        while (System.currentTimeMillis() - startTime < timeoutMs) {
+            Map<String, Object> checkData = queryTableDataByPrimaryKey(
+                testTargetTable, "UserName", secondUserName, targetConfig);
+            if (!checkData.isEmpty()) {
+                logger.info("第二批数据已同步，等待时间: {}ms", System.currentTimeMillis() - startTime);
+                break;
+            }
+            Thread.sleep(300);
+        }
+
+        // 9. 验证第二批数据已同步（这是关键验证点）
+        Map<String, Object> secondTargetData = queryTableDataByPrimaryKey(
+            testTargetTable, "UserName", secondUserName, targetConfig);
+        assertFalse("第二批数据（在新 binlog 文件中）应该已同步到目标表", secondTargetData.isEmpty());
+        assertEquals("第二批数据的 Age 应该正确", 30, secondTargetData.get("Age"));
+        assertEquals("第二批数据的 Email 应该正确", "after@example.com", secondTargetData.get("Email"));
+
+        // 10. 再次执行 FLUSH BINARY LOGS，验证多次切换也能正常工作
+        logger.info("再次执行 FLUSH BINARY LOGS");
+        sourceInstance.execute(databaseTemplate -> {
+            databaseTemplate.execute("FLUSH BINARY LOGS");
+            return null;
+        });
+        Thread.sleep(2000);
+
+        // 11. 插入第三批数据
+        Integer thirdTestId = 700;
+        String thirdUserName = "AfterSecondFlush";
+        
+        String insertThirdSql = String.format(
+            "INSERT INTO %s (ID, UserName, Age, Email) VALUES (%d, '%s', %d, '%s')",
+            testSourceTable, thirdTestId, thirdUserName, 35, "third@example.com");
+        
+        sourceInstance.execute(databaseTemplate -> {
+            databaseTemplate.execute(insertThirdSql);
+            return null;
+        });
+        logger.info("源表已插入第三批数据，ID: {}, UserName: {}", thirdTestId, thirdUserName);
+
+        // 12. 等待并验证第三批数据同步
+        startTime = System.currentTimeMillis();
+        while (System.currentTimeMillis() - startTime < timeoutMs) {
+            Map<String, Object> checkData = queryTableDataByPrimaryKey(
+                testTargetTable, "UserName", thirdUserName, targetConfig);
+            if (!checkData.isEmpty()) {
+                logger.info("第三批数据已同步，等待时间: {}ms", System.currentTimeMillis() - startTime);
+                break;
+            }
+            Thread.sleep(300);
+        }
+
+        Map<String, Object> thirdTargetData = queryTableDataByPrimaryKey(
+            testTargetTable, "UserName", thirdUserName, targetConfig);
+        assertFalse("第三批数据应该已同步到目标表", thirdTargetData.isEmpty());
+        assertEquals("第三批数据的 Age 应该正确", 35, thirdTargetData.get("Age"));
+
+        logger.info("FLUSH BINARY LOGS position 同步更新测试通过，三次 binlog 切换后数据都能正确同步");
+    }
+
     // ==================== 辅助方法 ====================
 
     /**

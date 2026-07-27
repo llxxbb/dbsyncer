@@ -305,9 +305,10 @@ public class MySQLListener extends AbstractDatabaseListener {
                 return;
             }
 
-            // 切换binlog,
             if (header.getEventType() == EventType.ROTATE) {
-                lastXIDFileName = client.getBinlogFilename();
+                RotateEventData rotateData = (RotateEventData) event.getData();
+                lastXIDFileName = rotateData.getBinlogFilename();
+                lastXIDPosition = rotateData.getBinlogPosition();
             }
         }
 
