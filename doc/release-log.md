@@ -1,5 +1,9 @@
 # 发布日志
 
+## 2.29.7
+
+- 优化：调整类型 mysql、sql server 6个类型处理。
+
 ## 2.29.6
 
 - 缺陷：修复 sql server numeric 类型精度丢失问题。
