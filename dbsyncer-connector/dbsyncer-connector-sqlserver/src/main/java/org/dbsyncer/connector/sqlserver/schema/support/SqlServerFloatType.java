@@ -1,6 +1,5 @@
 package org.dbsyncer.connector.sqlserver.schema.support;
 
-import org.dbsyncer.sdk.enums.DataTypeEnum;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.schema.support.DoubleType;
 
@@ -10,19 +9,13 @@ import java.util.Set;
 
 /**
  * SQL Server FLOAT 类型支持
- * 专门处理 FLOAT 类型 (8 字节，双精度浮点数)
- * 返回 DataTypeEnum.FLOAT，与 DOUBLE (64 位 IEEE 754) 区分
+ * SQL Server FLOAT 默认为 8 字节双精度浮点数，映射到标准类型 DOUBLE
  */
 public final class SqlServerFloatType extends DoubleType {
 
     @Override
     public Set<String> getSupportedTypeName() {
         return new HashSet<>(Arrays.asList("FLOAT"));
-    }
-
-    @Override
-    public DataTypeEnum getType() {
-        return DataTypeEnum.FLOAT; // 明确返回 FLOAT 而非 DOUBLE
     }
 
     @Override

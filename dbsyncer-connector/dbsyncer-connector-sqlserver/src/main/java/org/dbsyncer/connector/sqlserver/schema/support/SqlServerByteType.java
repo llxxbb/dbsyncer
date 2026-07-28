@@ -1,7 +1,7 @@
 package org.dbsyncer.connector.sqlserver.schema.support;
 
 import org.dbsyncer.sdk.model.Field;
-import org.dbsyncer.sdk.schema.support.ByteType;
+import org.dbsyncer.sdk.schema.support.UnsignedByteType;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -9,9 +9,9 @@ import java.util.Set;
 
 /**
  * SQL Server TINYINT 类型
- * 映射到标准类型 BYTE
+ * 映射到标准类型 UNSIGNED_BYTE（SQL Server TINYINT 范围为 0~255，无符号）
  */
-public final class SqlServerByteType extends ByteType {
+public final class SqlServerByteType extends UnsignedByteType {
 
     @Override
     public Set<String> getSupportedTypeName() {
@@ -19,19 +19,17 @@ public final class SqlServerByteType extends ByteType {
     }
 
     @Override
-    protected Byte merge(Object val, Field field) {
+    protected Short merge(Object val, Field field) {
         if (val instanceof Number) {
-            return ((Number) val).byteValue();
+            return (short) ((Number) val).intValue();
         }
         if (val instanceof String) {
             try {
-                return Byte.parseByte((String) val);
+                return Short.parseShort((String) val);
             } catch (NumberFormatException e) {
                 return throwUnsupportedException(val, field);
             }
         }
         return throwUnsupportedException(val, field);
     }
-
 }
-

@@ -21,7 +21,7 @@ public final class SqlServerSyncConverter extends AbstractSyncConverter {
         mapping.put("STRING", "varchar");
         mapping.put("UNICODE_STRING", "nvarchar");
         // 整型
-        mapping.put("BYTE", "tinyint");
+        mapping.put("BYTE", "smallint");
         mapping.put("UNSIGNED_BYTE", "int"); // SQL Server不支持unsigned，映射到更大的类型以避免溢出
         mapping.put("SHORT", "smallint");
         mapping.put("UNSIGNED_SHORT", "int"); // SQL Server不支持unsigned，映射到更大的类型以避免溢出
@@ -79,6 +79,8 @@ public final class SqlServerSyncConverter extends AbstractSyncConverter {
                 new SqlServerXmlType(),                 // XML 类型支持
                 new SqlServerUniqueIdentifierType(),    // UNIQUEIDENTIFIER 类型支持
                 new SqlServerGeometryType(),            // GEOMETRY 类型支持
+                new SqlServerDateType(),                // DATE 类型支持
+                new SqlServerTimeType(),                // TIME 类型支持
                 new SqlServerDateTimeType()             // DATETIME, DATETIME2, SMALLDATETIME, DATETIMEOFFSET
         ).forEach(t -> t.getSupportedTypeName().forEach(typeName -> {
             if (mapping.containsKey(typeName)) {
@@ -91,6 +93,17 @@ public final class SqlServerSyncConverter extends AbstractSyncConverter {
     @Override
     protected String getDatabaseName() {
         return "SQL Server";
+    }
+
+    @Override
+    public Field toTargetType(Field standardField) {
+        Field result = super.toTargetType(standardField);
+        // SQL Server: UNSIGNED_LONG 映射到 decimal(20,0) 以容纳 20 位无符号长整型
+        if ("UNSIGNED_LONG".equals(standardField.getTypeName())) {
+            result.setColumnSize(20);
+            result.setRatio(0);
+        }
+        return result;
     }
 
     @Override

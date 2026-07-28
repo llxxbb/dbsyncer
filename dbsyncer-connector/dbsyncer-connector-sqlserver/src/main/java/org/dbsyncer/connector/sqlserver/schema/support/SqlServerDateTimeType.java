@@ -26,7 +26,7 @@ public final class SqlServerDateTimeType extends TimestampType {
     @Override
     public Set<String> getSupportedTypeName() {
         // 注意：TIMESTAMP已移除，因为SQL Server的TIMESTAMP是二进制类型，不是日期时间类型
-        return new HashSet<>(Arrays.asList("DATE", "TIME", "DATETIME", "DATETIME2", "SMALLDATETIME", "DATETIMEOFFSET"));
+        return new HashSet<>(Arrays.asList("DATETIME", "DATETIME2", "SMALLDATETIME", "DATETIMEOFFSET"));
     }
 
     @Override
