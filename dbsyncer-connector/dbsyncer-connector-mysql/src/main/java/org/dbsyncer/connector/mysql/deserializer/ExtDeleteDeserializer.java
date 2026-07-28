@@ -15,6 +15,7 @@ import java.util.Map;
 public final class ExtDeleteDeserializer extends DeleteRowsEventDataDeserializer {
 
     private final DatetimeV2Deserialize datetimeV2Deserialize = new DatetimeV2Deserialize();
+    private final TimeV2Deserialize timeV2Deserialize = new TimeV2Deserialize();
     private final JsonBinaryDeserialize jsonBinaryDeserialize = new JsonBinaryDeserialize();
 
     public ExtDeleteDeserializer(Map<Long, TableMapEventData> tableMapEventByTableId) {
@@ -53,6 +54,11 @@ public final class ExtDeleteDeserializer extends DeleteRowsEventDataDeserializer
     @Override
     protected Serializable deserializeDatetimeV2(int meta, ByteArrayInputStream inputStream) throws IOException {
         return datetimeV2Deserialize.deserializeDatetimeV2(meta, inputStream);
+    }
+
+    @Override
+    protected Serializable deserializeTimeV2(int meta, ByteArrayInputStream inputStream) throws IOException {
+        return timeV2Deserialize.deserializeTimeV2(meta, inputStream);
     }
 
     @Override
