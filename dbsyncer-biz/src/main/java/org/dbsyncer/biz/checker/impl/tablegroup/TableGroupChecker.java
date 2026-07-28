@@ -23,7 +23,7 @@ import org.dbsyncer.sdk.model.ConnectorConfig;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.spi.ConnectorService;
-import org.dbsyncer.sdk.schema.SchemaResolver;
+import org.dbsyncer.sdk.schema.SyncConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -238,8 +238,8 @@ public class TableGroupChecker extends AbstractChecker {
                 ConnectorConfig targetConnectorConfig = getConnectorConfig(mapping.getTargetConnectorId());
                 ConnectorService<?, ?> sourceConnectorService = connectorFactory.getConnectorService(sourceConnectorConfig.getConnectorType());
                 ConnectorService<?, ?> targetConnectorService = connectorFactory.getConnectorService(targetConnectorConfig.getConnectorType());
-                SchemaResolver sourceSchemaResolver = sourceConnectorService.getSchemaResolver();
-                SchemaResolver targetSchemaResolver = targetConnectorService.getSchemaResolver();
+                SyncConverter sourceSchemaResolver = sourceConnectorService.getSchemaResolver();
+                SyncConverter targetSchemaResolver = targetConnectorService.getSchemaResolver();
 
                 // 1. 先用源连接器将源字段标准化为 Java 标准类型
                 Field standardField = sourceSchemaResolver.toStandardType(s);
@@ -248,7 +248,7 @@ public class TableGroupChecker extends AbstractChecker {
                 if (null == targetSchemaResolver) // 如下游是 kafka
                     t = standardField;
                 else
-                    t = targetSchemaResolver.fromStandardType(standardField);
+                    t = targetSchemaResolver.toTargetType(standardField);
             }
 
             if (null != t) {

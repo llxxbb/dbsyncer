@@ -6,7 +6,7 @@ import org.dbsyncer.sdk.model.Field;
 /**
  * 数据类型解析器
  */
-public interface SchemaResolver {
+public interface SyncConverter {
 
     /**
      * 转换为标准数据类型
@@ -15,7 +15,7 @@ public interface SchemaResolver {
      * @param field 数据类型
      * @return Object
      */
-    Object merge(Object val, Field field);
+    Object toStandardValue(Object val, Field field);
 
     /**
      * 转换为指定数据类型
@@ -24,7 +24,7 @@ public interface SchemaResolver {
      * @param field 数据类型
      * @return Object
      */
-    Object convert(Object val, Field field);
+    Object toTargetValue(Object val, Field field);
 
     /**
      * 将数据库特定类型转换为标准类型
@@ -42,7 +42,7 @@ public interface SchemaResolver {
      * @param standardField 标准类型字段
      * @return 目标数据库类型字段
      */
-    Field fromStandardType(Field standardField);
+    Field toTargetType(Field standardField);
     
 
     /**

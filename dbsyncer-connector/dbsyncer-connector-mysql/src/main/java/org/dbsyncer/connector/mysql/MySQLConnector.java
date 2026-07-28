@@ -6,7 +6,7 @@ package org.dbsyncer.connector.mysql;
 import org.dbsyncer.connector.mysql.cdc.MySQLListener;
 import org.dbsyncer.connector.mysql.converter.IRToMySQLConverter;
 import org.dbsyncer.connector.mysql.converter.MySQLToIRConverter;
-import org.dbsyncer.connector.mysql.schema.MySQLSchemaResolver;
+import org.dbsyncer.connector.mysql.schema.MySQLSyncConverter;
 import org.dbsyncer.connector.mysql.storage.MySQLStorageService;
 import org.dbsyncer.connector.mysql.validator.MySQLConfigValidator;
 import org.dbsyncer.sdk.config.DatabaseConfig;
@@ -20,7 +20,7 @@ import org.dbsyncer.sdk.listener.Listener;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.plugin.ReaderContext;
-import org.dbsyncer.sdk.schema.SchemaResolver;
+import org.dbsyncer.sdk.schema.SyncConverter;
 import org.dbsyncer.sdk.storage.StorageService;
 import org.dbsyncer.common.util.StringUtil;
 import org.slf4j.Logger;
@@ -41,7 +41,7 @@ public class MySQLConnector extends AbstractDatabaseConnector {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    private final MySQLSchemaResolver schemaResolver = new MySQLSchemaResolver();
+    private final MySQLSyncConverter schemaResolver = new MySQLSyncConverter();
 
 
     public MySQLConnector() {
@@ -95,7 +95,7 @@ public class MySQLConnector extends AbstractDatabaseConnector {
     }
 
     @Override
-    public SchemaResolver getSchemaResolver() {
+    public SyncConverter getSchemaResolver() {
         return schemaResolver;
     }
 

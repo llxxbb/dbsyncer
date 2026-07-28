@@ -5,7 +5,7 @@ package org.dbsyncer.sdk.connector.database.sql.impl;
 
 import org.dbsyncer.sdk.connector.database.sql.SqlTemplate;
 import org.dbsyncer.sdk.model.Field;
-import org.dbsyncer.sdk.schema.SchemaResolver;
+import org.dbsyncer.sdk.schema.SyncConverter;
 
 /**
  * 抽象SQL模板实现
@@ -13,13 +13,13 @@ import org.dbsyncer.sdk.schema.SchemaResolver;
  */
 public abstract class AbstractSqlTemplate implements SqlTemplate {
 
-    protected SchemaResolver schemaResolver;
+    protected SyncConverter schemaResolver;
 
-    public AbstractSqlTemplate(SchemaResolver schemaResolver) {
+    public AbstractSqlTemplate(SyncConverter schemaResolver) {
         this.schemaResolver = schemaResolver;
     }
 
     public String convertToDatabaseType(Field column) {
-        return schemaResolver.fromStandardType(column).getTypeName();
+        return schemaResolver.toTargetType(column).getTypeName();
     }
 }

@@ -11,7 +11,7 @@ import org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance;
 import org.dbsyncer.sdk.connector.database.sql.SqlTemplate;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.MetaInfo;
-import org.dbsyncer.sdk.schema.SchemaResolver;
+import org.dbsyncer.sdk.schema.SyncConverter;
 import org.dbsyncer.web.Application;
 import org.junit.*;
 import org.junit.runner.RunWith;
@@ -1332,7 +1332,7 @@ public class DDLMysqlIntegrationTest extends BaseDDLIntegrationTest {
             // 注意：connectorFactory.getConnectorService() 返回的是 SDK 的 ConnectorService
             org.dbsyncer.sdk.spi.ConnectorService sourceConnectorService = connectorFactory.getConnectorService(sourceType);
             org.dbsyncer.sdk.spi.ConnectorService targetConnectorService = connectorFactory.getConnectorService(targetType);
-            SchemaResolver sourceSchemaResolver = sourceConnectorService.getSchemaResolver();
+            SyncConverter sourceSchemaResolver = sourceConnectorService.getSchemaResolver();
 
             // 创建标准化的 MetaInfo
             MetaInfo standardizedMetaInfo = new MetaInfo();

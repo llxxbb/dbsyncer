@@ -22,7 +22,7 @@ import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
 import org.dbsyncer.sdk.connector.database.sql.SqlTemplate;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.MetaInfo;
-import org.dbsyncer.sdk.schema.SchemaResolver;
+import org.dbsyncer.sdk.schema.SyncConverter;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.web.controller.BaseController;
 import org.slf4j.Logger;
@@ -298,7 +298,7 @@ public class TableGroupController extends BaseController {
                 // 需要先转换为标准类型，然后目标数据库的 SqlTemplate 才能正确转换为目标数据库类型
                 ConnectorService sourceConnectorService = connectorFactory.getConnectorService(sourceType);
                 ConnectorService targetConnectorService = connectorFactory.getConnectorService(targetType);
-                SchemaResolver sourceSchemaResolver = sourceConnectorService.getSchemaResolver();
+                SyncConverter sourceSchemaResolver = sourceConnectorService.getSchemaResolver();
 
                 // 创建标准化的 MetaInfo
                 MetaInfo standardizedMetaInfo = new MetaInfo();

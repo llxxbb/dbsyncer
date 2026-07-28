@@ -2,7 +2,7 @@ package org.dbsyncer.connector.oracle.schema;
 
 import org.dbsyncer.connector.oracle.OracleException;
 import org.dbsyncer.connector.oracle.schema.support.*;
-import org.dbsyncer.sdk.schema.AbstractSchemaResolver;
+import org.dbsyncer.sdk.schema.AbstractSyncConverter;
 import org.dbsyncer.sdk.schema.DataType;
 
 import java.util.Map;
@@ -11,7 +11,7 @@ import java.util.stream.Stream;
 /**
  * Oracle标准数据类型解析器
  */
-public final class OracleSchemaResolver extends AbstractSchemaResolver {
+public final class OracleSyncConverter extends AbstractSyncConverter {
 
     @Override
     protected void initStandardToTargetTypeMapping(Map<String, String> mapping) {

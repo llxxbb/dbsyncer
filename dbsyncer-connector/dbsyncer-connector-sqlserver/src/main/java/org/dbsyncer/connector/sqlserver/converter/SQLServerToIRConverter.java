@@ -4,7 +4,7 @@ import net.sf.jsqlparser.statement.alter.AlterExpression;
 import net.sf.jsqlparser.statement.alter.AlterOperation;
 import net.sf.jsqlparser.statement.create.table.ColDataType;
 import org.dbsyncer.common.util.StringUtil;
-import org.dbsyncer.connector.sqlserver.schema.SqlServerSchemaResolver;
+import org.dbsyncer.connector.sqlserver.schema.SqlServerSyncConverter;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.parser.ddl.converter.AbstractSourceToIRConverter;
 
@@ -18,7 +18,7 @@ public class SQLServerToIRConverter extends AbstractSourceToIRConverter {
 
     public SQLServerToIRConverter() {
         // 初始化SchemaResolver
-        this.schemaResolver = new SqlServerSchemaResolver();
+        this.schemaResolver = new SqlServerSyncConverter();
     }
 
     @Override

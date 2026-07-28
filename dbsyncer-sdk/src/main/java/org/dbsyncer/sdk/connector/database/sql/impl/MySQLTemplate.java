@@ -2,7 +2,7 @@ package org.dbsyncer.sdk.connector.database.sql.impl;
 
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.sdk.model.Field;
-import org.dbsyncer.sdk.schema.SchemaResolver;
+import org.dbsyncer.sdk.schema.SyncConverter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -12,7 +12,7 @@ import java.util.List;
  */
 public class MySQLTemplate extends AbstractSqlTemplate {
 
-    public MySQLTemplate(SchemaResolver schemaResolver) {
+    public MySQLTemplate(SyncConverter schemaResolver) {
         super(schemaResolver);
     }
 
@@ -201,7 +201,7 @@ public class MySQLTemplate extends AbstractSqlTemplate {
     @Override
     public String convertToDatabaseType(Field column) {
         // 使用 SchemaResolver 进行类型转换，完全委托给 SchemaResolver 处理
-        Field targetField = schemaResolver.fromStandardType(column);
+        Field targetField = schemaResolver.toTargetType(column);
         String typeName = targetField.getTypeName();
         switch (typeName) {
             case "CHAR":

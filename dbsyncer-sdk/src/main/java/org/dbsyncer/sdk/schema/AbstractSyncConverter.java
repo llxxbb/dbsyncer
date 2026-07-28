@@ -19,12 +19,12 @@ import java.util.concurrent.ConcurrentHashMap;
  * @Version 1.0.0
  * @Date 2024-11-26 20:50
  */
-public abstract class AbstractSchemaResolver implements SchemaResolver {
+public abstract class AbstractSyncConverter implements SyncConverter {
 
     private final Map<String, DataType> sourceToStandardTypeMap = new ConcurrentHashMap<>();
     protected final Map<String, String> standardToTargetTypeMap = new ConcurrentHashMap<>();
 
-    public AbstractSchemaResolver() {
+    public AbstractSyncConverter() {
         initStandardToTargetTypeMapping(standardToTargetTypeMap);
         initDataTypeMapping(sourceToStandardTypeMap);
         Assert.notEmpty(sourceToStandardTypeMap, "At least one data type is required.");
@@ -106,7 +106,7 @@ public abstract class AbstractSchemaResolver implements SchemaResolver {
     }
 
     @Override
-    public Object merge(Object val, Field field) {
+    public Object toStandardValue(Object val, Field field) {
         DataType dataType = getDataType(field);
         if (dataType != null) {
             return dataType.mergeValue(val, field);
@@ -115,7 +115,7 @@ public abstract class AbstractSchemaResolver implements SchemaResolver {
     }
 
     @Override
-    public Object convert(Object val, Field field) {
+    public Object toTargetValue(Object val, Field field) {
         DataType dataType = getDataType(field);
         if (dataType != null) {
             return dataType.convertValue(val, field);
@@ -168,7 +168,7 @@ public abstract class AbstractSchemaResolver implements SchemaResolver {
     }
 
     @Override
-    public Field fromStandardType(Field standardField) {
+    public Field toTargetType(Field standardField) {
         // 将 Java 标准类型转换为目标数据库特定类型
         String targetTypeName = getTargetTypeName(standardField.getTypeName());
         Field result = new Field(standardField.getName(),

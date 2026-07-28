@@ -4,7 +4,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.sdk.connector.database.sql.context.SqlBuildContext;
 import org.dbsyncer.sdk.model.Field;
-import org.dbsyncer.sdk.schema.SchemaResolver;
+import org.dbsyncer.sdk.schema.SyncConverter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,7 +14,7 @@ import java.util.List;
  */
 public class SqlServerTemplate extends AbstractSqlTemplate {
 
-    public SqlServerTemplate(SchemaResolver schemaResolver) {
+    public SqlServerTemplate(SyncConverter schemaResolver) {
         super(schemaResolver);
     }
 
@@ -352,7 +352,7 @@ public class SqlServerTemplate extends AbstractSqlTemplate {
     @Override
     public String convertToDatabaseType(Field column) {
         // 使用SchemaResolver进行类型转换，完全委托给SchemaResolver处理
-        Field targetField = schemaResolver.fromStandardType(column);
+        Field targetField = schemaResolver.toTargetType(column);
         String typeName = targetField.getTypeName();
         
         // 去除类型名称中的 IDENTITY 关键字（如果存在）

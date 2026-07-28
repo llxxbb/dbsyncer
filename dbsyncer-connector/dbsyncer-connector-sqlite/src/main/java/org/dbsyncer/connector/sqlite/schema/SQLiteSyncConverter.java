@@ -2,7 +2,7 @@ package org.dbsyncer.connector.sqlite.schema;
 
 import org.dbsyncer.connector.sqlite.SQLiteException;
 import org.dbsyncer.connector.sqlite.schema.support.*;
-import org.dbsyncer.sdk.schema.AbstractSchemaResolver;
+import org.dbsyncer.sdk.schema.AbstractSyncConverter;
 import org.dbsyncer.sdk.schema.DataType;
 
 import java.util.Map;
@@ -11,7 +11,7 @@ import java.util.stream.Stream;
 /**
  * SQLite标准数据类型解析器
  */
-public final class SQLiteSchemaResolver extends AbstractSchemaResolver {
+public final class SQLiteSyncConverter extends AbstractSyncConverter {
 
     @Override
     protected void initStandardToTargetTypeMapping(Map<String, String> mapping) {

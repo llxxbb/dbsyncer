@@ -3,7 +3,7 @@ package org.dbsyncer.connector.mysql.schema;
 import org.dbsyncer.connector.mysql.MySQLException;
 import org.dbsyncer.connector.mysql.schema.support.*;
 import org.dbsyncer.sdk.model.Field;
-import org.dbsyncer.sdk.schema.AbstractSchemaResolver;
+import org.dbsyncer.sdk.schema.AbstractSyncConverter;
 import org.dbsyncer.sdk.schema.DataType;
 
 import java.util.Map;
@@ -13,7 +13,7 @@ import java.util.stream.Stream;
  * MySQL标准数据类型解析器
  * <p>https://gitee.com/ghi/dbsyncer/wikis/%E9%A1%B9%E7%9B%AE%E8%AE%BE%E8%AE%A1/%E6%A0%87%E5%87%86%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/MySQL</p>
  */
-public final class MySQLSchemaResolver extends AbstractSchemaResolver {
+public final class MySQLSyncConverter extends AbstractSyncConverter {
 
     @Override
     protected void initStandardToTargetTypeMapping(Map<String, String> mapping) {
@@ -95,8 +95,8 @@ public final class MySQLSchemaResolver extends AbstractSchemaResolver {
     }
 
     @Override
-    public Field fromStandardType(Field standardField) {
-        Field result = super.fromStandardType(standardField);
+    public Field toTargetType(Field standardField) {
+        Field result = super.toTargetType(standardField);
         // MySQL: 根据 isSizeFixed 决定使用 CHAR 还是 VARCHAR
         // STRING 和 UNICODE_STRING 默认映射为 VARCHAR，但如果 isSizeFixed=true，应该使用 CHAR
         String standardTypeName = standardField.getTypeName();

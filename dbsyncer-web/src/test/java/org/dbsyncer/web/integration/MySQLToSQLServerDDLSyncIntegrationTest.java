@@ -1191,7 +1191,7 @@ public class MySQLToSQLServerDDLSyncIntegrationTest extends BaseDDLIntegrationTe
 
         org.dbsyncer.sdk.spi.ConnectorService sourceConnectorService = connectorFactory.getConnectorService(sourceType);
         org.dbsyncer.sdk.spi.ConnectorService targetConnectorService = connectorFactory.getConnectorService(targetType);
-        org.dbsyncer.sdk.schema.SchemaResolver sourceSchemaResolver = sourceConnectorService.getSchemaResolver();
+        org.dbsyncer.sdk.schema.SyncConverter sourceSchemaResolver = sourceConnectorService.getSchemaResolver();
 
         // 创建标准化的 MetaInfo
         org.dbsyncer.sdk.model.MetaInfo standardizedMetaInfo = new org.dbsyncer.sdk.model.MetaInfo();

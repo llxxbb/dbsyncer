@@ -4,7 +4,7 @@
 package org.dbsyncer.connector.postgresql;
 
 import org.dbsyncer.connector.postgresql.cdc.PostgreSQLListener;
-import org.dbsyncer.connector.postgresql.schema.PostgreSQLSchemaResolver;
+import org.dbsyncer.connector.postgresql.schema.PostgreSyncConverter;
 import org.dbsyncer.connector.postgresql.validator.PostgreSQLConfigValidator;
 import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
 import org.dbsyncer.sdk.connector.database.sql.SqlTemplate;
@@ -15,7 +15,7 @@ import org.dbsyncer.sdk.listener.Listener;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.plugin.ReaderContext;
-import org.dbsyncer.sdk.schema.SchemaResolver;
+import org.dbsyncer.sdk.schema.SyncConverter;
 import org.dbsyncer.common.util.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,7 +39,7 @@ public class PostgreSQLConnector extends AbstractDatabaseConnector {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    private final PostgreSQLSchemaResolver schemaResolver = new PostgreSQLSchemaResolver();
+    private final PostgreSyncConverter schemaResolver = new PostgreSyncConverter();
 
     public PostgreSQLConnector() {
         sqlTemplate = new PostgreSQLTemplate(schemaResolver);
@@ -86,7 +86,7 @@ public class PostgreSQLConnector extends AbstractDatabaseConnector {
     }
 
     @Override
-    public SchemaResolver getSchemaResolver() {
+    public SyncConverter getSchemaResolver() {
         return schemaResolver;
     }
 

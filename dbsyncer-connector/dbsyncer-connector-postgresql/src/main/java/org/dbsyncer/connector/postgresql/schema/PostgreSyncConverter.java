@@ -16,7 +16,7 @@ import org.dbsyncer.connector.postgresql.schema.support.PostgreSQLTextType;
 import org.dbsyncer.connector.postgresql.schema.support.PostgreSQLTimestampType;
 import org.dbsyncer.connector.postgresql.schema.support.PostgreSQLXmlType;
 import org.dbsyncer.connector.postgresql.schema.support.PostgreSQLGeometryType;
-import org.dbsyncer.sdk.schema.AbstractSchemaResolver;
+import org.dbsyncer.sdk.schema.AbstractSyncConverter;
 import org.dbsyncer.sdk.schema.DataType;
 
 import java.util.Map;
@@ -25,7 +25,7 @@ import java.util.stream.Stream;
 /**
  * PostgreSQL标准数据类型解析器
  */
-public final class PostgreSQLSchemaResolver extends AbstractSchemaResolver {
+public final class PostgreSyncConverter extends AbstractSyncConverter {
 
     @Override
     protected void initStandardToTargetTypeMapping(Map<String, String> mapping) {

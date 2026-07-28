@@ -1,7 +1,7 @@
 package org.dbsyncer.connector.mysql.converter;
 
 import org.dbsyncer.common.util.StringUtil;
-import org.dbsyncer.connector.mysql.schema.MySQLSchemaResolver;
+import org.dbsyncer.connector.mysql.schema.MySQLSyncConverter;
 import org.dbsyncer.sdk.parser.ddl.converter.AbstractSourceToIRConverter;
 
 /**
@@ -11,7 +11,7 @@ public class MySQLToIRConverter extends AbstractSourceToIRConverter {
 
     public MySQLToIRConverter() {
         // 初始化SchemaResolver
-        this.schemaResolver = new MySQLSchemaResolver();
+        this.schemaResolver = new MySQLSyncConverter();
     }
 
     @Override

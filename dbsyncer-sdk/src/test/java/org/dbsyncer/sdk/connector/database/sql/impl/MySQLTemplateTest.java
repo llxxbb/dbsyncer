@@ -1,7 +1,7 @@
 package org.dbsyncer.sdk.connector.database.sql.impl;
 
 import org.dbsyncer.sdk.model.Field;
-import org.dbsyncer.sdk.schema.SchemaResolver;
+import org.dbsyncer.sdk.schema.SyncConverter;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -165,19 +165,19 @@ public class MySQLTemplateTest {
      * 模拟 SchemaResolver，用于测试
      * 直接返回输入的 Field，不做类型转换
      */
-    private static class MockSchemaResolver implements SchemaResolver {
+    private static class MockSchemaResolver implements SyncConverter {
         @Override
-        public Object merge(Object val, Field field) {
+        public Object toStandardValue(Object val, Field field) {
             return val;
         }
 
         @Override
-        public Object convert(Object val, Field field) {
+        public Object toTargetValue(Object val, Field field) {
             return val;
         }
 
         @Override
-        public Field fromStandardType(Field field) {
+        public Field toTargetType(Field field) {
             // 测试中不需要实际的类型转换，直接返回原字段
             return field;
         }

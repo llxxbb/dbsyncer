@@ -4,7 +4,7 @@ import net.sf.jsqlparser.statement.create.table.ColDataType;
 import org.dbsyncer.connector.sqlserver.SqlServerException;
 import org.dbsyncer.connector.sqlserver.schema.support.*;
 import org.dbsyncer.sdk.model.Field;
-import org.dbsyncer.sdk.schema.AbstractSchemaResolver;
+import org.dbsyncer.sdk.schema.AbstractSyncConverter;
 import org.dbsyncer.sdk.schema.DataType;
 
 import java.util.Map;
@@ -13,7 +13,7 @@ import java.util.stream.Stream;
 /**
  * SqlServer标准数据类型解析器
  */
-public final class SqlServerSchemaResolver extends AbstractSchemaResolver {
+public final class SqlServerSyncConverter extends AbstractSyncConverter {
 
     @Override
     protected void initStandardToTargetTypeMapping(Map<String, String> mapping) {

@@ -5,10 +5,10 @@ import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.statement.alter.Alter;
 import org.dbsyncer.connector.mysql.converter.IRToMySQLConverter;
 import org.dbsyncer.connector.mysql.converter.MySQLToIRConverter;
-import org.dbsyncer.connector.mysql.schema.MySQLSchemaResolver;
+import org.dbsyncer.connector.mysql.schema.MySQLSyncConverter;
 import org.dbsyncer.connector.sqlserver.converter.IRToSQLServerConverter;
 import org.dbsyncer.connector.sqlserver.converter.SQLServerToIRConverter;
-import org.dbsyncer.connector.sqlserver.schema.SqlServerSchemaResolver;
+import org.dbsyncer.connector.sqlserver.schema.SqlServerSyncConverter;
 import org.dbsyncer.sdk.connector.database.sql.impl.MySQLTemplate;
 import org.dbsyncer.sdk.connector.database.sql.impl.SqlServerTemplate;
 import org.dbsyncer.sdk.parser.ddl.ir.DDLIntermediateRepresentation;
@@ -42,8 +42,8 @@ public class IRBasedHeterogeneousDDLConverterTest {
         mySQLToIRConverter = new MySQLToIRConverter();
         sqlServerToIRConverter = new SQLServerToIRConverter();
         // 创建带有SqlTemplate的转换器实例
-        irToMySQLConverter = new IRToMySQLConverter(new MySQLTemplate(new MySQLSchemaResolver()));
-        irToSQLServerConverter = new IRToSQLServerConverter(new SqlServerTemplate(new SqlServerSchemaResolver()));
+        irToMySQLConverter = new IRToMySQLConverter(new MySQLTemplate(new MySQLSyncConverter()));
+        irToSQLServerConverter = new IRToSQLServerConverter(new SqlServerTemplate(new SqlServerSyncConverter()));
     }
 
     @Test

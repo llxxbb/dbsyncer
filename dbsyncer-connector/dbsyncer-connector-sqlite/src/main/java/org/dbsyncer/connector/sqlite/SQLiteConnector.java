@@ -16,8 +16,8 @@ import org.dbsyncer.sdk.listener.Listener;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.plugin.ReaderContext;
-import org.dbsyncer.connector.sqlite.schema.SQLiteSchemaResolver;
-import org.dbsyncer.sdk.schema.SchemaResolver;
+import org.dbsyncer.connector.sqlite.schema.SQLiteSyncConverter;
+import org.dbsyncer.sdk.schema.SyncConverter;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
  */
 public class SQLiteConnector extends AbstractDatabaseConnector {
     
-    private final SQLiteSchemaResolver schemaResolver = new SQLiteSchemaResolver();
+    private final SQLiteSyncConverter schemaResolver = new SQLiteSyncConverter();
     
     private final String QUERY_VIEW = "SELECT name FROM sqlite_master WHERE type = 'view'";
     private final String QUERY_TABLE = "SELECT name FROM sqlite_master WHERE type='table'";
@@ -103,7 +103,7 @@ public class SQLiteConnector extends AbstractDatabaseConnector {
     }
 
     @Override
-    public SchemaResolver getSchemaResolver() {
+    public SyncConverter getSchemaResolver() {
         return schemaResolver;
     }
 

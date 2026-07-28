@@ -6,7 +6,7 @@ import net.sf.jsqlparser.statement.alter.AlterOperation;
 import net.sf.jsqlparser.statement.create.table.ColDataType;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.parser.ddl.ir.DDLIntermediateRepresentation;
-import org.dbsyncer.sdk.schema.SchemaResolver;
+import org.dbsyncer.sdk.schema.SyncConverter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,7 +18,7 @@ import java.util.List;
 public abstract class AbstractSourceToIRConverter implements SourceToIRConverter {
 
     // 具体的SchemaResolver实现，由子类在构造函数中初始化
-    protected SchemaResolver schemaResolver;
+    protected SyncConverter schemaResolver;
 
     // 子类需要提供具体的移除标识符方法
     protected abstract String removeIdentifier(String name);

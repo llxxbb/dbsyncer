@@ -6,7 +6,7 @@ package org.dbsyncer.connector.sqlserver.bulk;
 import org.dbsyncer.sdk.connector.database.sql.SqlTemplate;
 import org.dbsyncer.sdk.connector.database.sql.impl.SqlServerTemplate;
 import org.dbsyncer.sdk.model.Field;
-import org.dbsyncer.sdk.schema.SchemaResolver;
+import org.dbsyncer.sdk.schema.SyncConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,9 +33,9 @@ public class SqlServerBulkCopyUtil {
     private static final Logger logger = LoggerFactory.getLogger(SqlServerBulkCopyUtil.class);
     
     private final SqlTemplate sqlTemplate;
-    private final SchemaResolver schemaResolver;
+    private final SyncConverter schemaResolver;
 
-    public SqlServerBulkCopyUtil(SqlTemplate sqlTemplate, SchemaResolver schemaResolver) {
+    public SqlServerBulkCopyUtil(SqlTemplate sqlTemplate, SyncConverter schemaResolver) {
         this.sqlTemplate = sqlTemplate;
         this.schemaResolver = schemaResolver;
     }
@@ -228,7 +228,7 @@ public class SqlServerBulkCopyUtil {
     private void setParameterWithSchemaResolver(PreparedStatement ps, int paramIndex, Object value, Field field) throws SQLException {
         try {
             // 先尝试使用SchemaResolver进行类型转换
-            Object convertedValue = schemaResolver.convert(value, field);
+            Object convertedValue = schemaResolver.toTargetValue(value, field);
             
             // 根据字段类型正确设置参数
             String typeName = field.getTypeName().toUpperCase();

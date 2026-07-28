@@ -4,7 +4,7 @@
 package org.dbsyncer.connector.oracle;
 
 import org.dbsyncer.connector.oracle.cdc.OracleListener;
-import org.dbsyncer.connector.oracle.schema.OracleSchemaResolver;
+import org.dbsyncer.connector.oracle.schema.OracleSyncConverter;
 import org.dbsyncer.connector.oracle.validator.OracleConfigValidator;
 import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
 import org.dbsyncer.sdk.connector.database.sql.SqlTemplate;
@@ -15,7 +15,7 @@ import org.dbsyncer.sdk.listener.Listener;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.plugin.ReaderContext;
-import org.dbsyncer.sdk.schema.SchemaResolver;
+import org.dbsyncer.sdk.schema.SyncConverter;
 import org.dbsyncer.common.util.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,7 +36,7 @@ import java.util.Map;
  */
 public class OracleConnector extends AbstractDatabaseConnector {
 
-    private final OracleSchemaResolver schemaResolver = new OracleSchemaResolver();
+    private final OracleSyncConverter schemaResolver = new OracleSyncConverter();
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -90,7 +90,7 @@ public class OracleConnector extends AbstractDatabaseConnector {
     }
 
     @Override
-    public SchemaResolver getSchemaResolver() {
+    public SyncConverter getSchemaResolver() {
         return schemaResolver;
     }
 

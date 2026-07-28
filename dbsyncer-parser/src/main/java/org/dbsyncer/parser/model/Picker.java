@@ -9,7 +9,7 @@ import org.dbsyncer.sdk.filter.CompareFilter;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.Filter;
 import org.dbsyncer.sdk.model.TableGroup;
-import org.dbsyncer.sdk.schema.SchemaResolver;
+import org.dbsyncer.sdk.schema.SyncConverter;
 import org.dbsyncer.sdk.util.RowConverter;
 
 import org.dbsyncer.sdk.plugin.SyncRow;
@@ -28,7 +28,7 @@ public class Picker {
     private final boolean enabledFilter;
     private List<Filter> add;
     private List<Filter> or;
-    private SchemaResolver sourceResolver;
+    private SyncConverter sourceResolver;
 
     public Picker(TableGroup tableGroup) {
         if (!CollectionUtils.isEmpty(tableGroup.getFieldMapping())) {
@@ -202,7 +202,7 @@ public class Picker {
                 v = source.get(sField.getName());
                 // 合并为标准数据类型
                 if (sourceResolver != null) {
-                    v = sourceResolver.merge(v, sField);
+                    v = sourceResolver.toStandardValue(v, sField);
                 }
                 tFieldName = tField.getName();
                 // 映射值
@@ -229,7 +229,7 @@ public class Picker {
         return Collections.unmodifiableList(fields);
     }
 
-    public Picker setSourceResolver(SchemaResolver sourceResolver) {
+    public Picker setSourceResolver(SyncConverter sourceResolver) {
         this.sourceResolver = sourceResolver;
         return this;
     }

@@ -1194,12 +1194,12 @@ public class TableGroupServiceImpl implements TableGroupService {
 
     private Field convertFieldForTarget(Field sourceField, AbstractDatabaseConnector sourceDbConnector,
             AbstractDatabaseConnector targetDbConnector) {
-        org.dbsyncer.sdk.schema.SchemaResolver sourceSchemaResolver = sourceDbConnector.getSchemaResolver();
-        org.dbsyncer.sdk.schema.SchemaResolver targetSchemaResolver = targetDbConnector.getSchemaResolver();
+        org.dbsyncer.sdk.schema.SyncConverter sourceSchemaResolver = sourceDbConnector.getSchemaResolver();
+        org.dbsyncer.sdk.schema.SyncConverter targetSchemaResolver = targetDbConnector.getSchemaResolver();
 
         if (sourceSchemaResolver != null && targetSchemaResolver != null) {
             Field standardField = sourceSchemaResolver.toStandardType(sourceField);
-            Field targetField = targetSchemaResolver.fromStandardType(standardField);
+            Field targetField = targetSchemaResolver.toTargetType(standardField);
             targetField.setPk(sourceField.isPk());
             return targetField;
         }

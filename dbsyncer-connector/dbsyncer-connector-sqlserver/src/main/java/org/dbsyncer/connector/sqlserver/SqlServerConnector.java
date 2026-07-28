@@ -12,7 +12,7 @@ import org.dbsyncer.connector.sqlserver.cdc.Lsn;
 import org.dbsyncer.connector.sqlserver.cdc.SqlServerListener;
 import org.dbsyncer.connector.sqlserver.converter.IRToSQLServerConverter;
 import org.dbsyncer.connector.sqlserver.converter.SQLServerToIRConverter;
-import org.dbsyncer.connector.sqlserver.schema.SqlServerSchemaResolver;
+import org.dbsyncer.connector.sqlserver.schema.SqlServerSyncConverter;
 import org.dbsyncer.connector.sqlserver.validator.SqlServerConfigValidator;
 import org.dbsyncer.sdk.config.CommandConfig;
 import org.dbsyncer.sdk.config.DatabaseConfig;
@@ -31,7 +31,7 @@ import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.plugin.SyncRow;
 import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.plugin.ReaderContext;
-import org.dbsyncer.sdk.schema.SchemaResolver;
+import org.dbsyncer.sdk.schema.SyncConverter;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -54,7 +54,7 @@ public class SqlServerConnector extends AbstractDatabaseConnector {
     private final String QUERY_TABLE = "select name from sys.tables where schema_id = schema_id('%s') and is_ms_shipped = 0";
     private final String MARK_HAS_IDENTITY = "mark.hasIdentity";
 
-    private final SqlServerSchemaResolver schemaResolver = new SqlServerSchemaResolver();
+    private final SqlServerSyncConverter schemaResolver = new SqlServerSyncConverter();
     private final SqlServerBulkCopyUtil sqlServerBulkCopyUtil;
 
     public SqlServerConnector() {
@@ -143,7 +143,7 @@ public class SqlServerConnector extends AbstractDatabaseConnector {
     }
 
     @Override
-    public SchemaResolver getSchemaResolver() {
+    public SyncConverter getSchemaResolver() {
         return schemaResolver;
     }
 

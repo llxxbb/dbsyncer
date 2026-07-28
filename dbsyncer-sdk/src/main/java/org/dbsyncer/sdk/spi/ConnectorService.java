@@ -20,7 +20,7 @@ import org.dbsyncer.sdk.parser.ddl.converter.SourceToIRConverter;
 import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.plugin.ReaderContext;
 import org.dbsyncer.sdk.plugin.SyncRow;
-import org.dbsyncer.sdk.schema.SchemaResolver;
+import org.dbsyncer.sdk.schema.SyncConverter;
 import org.dbsyncer.sdk.storage.StorageService;
 
 import java.util.ArrayList;
@@ -221,7 +221,7 @@ public interface ConnectorService<I extends ConnectorInstance, C extends Connect
      *
      * @return
      */
-    default SchemaResolver getSchemaResolver() {
+    default SyncConverter getSchemaResolver() {
         return null;
     }
 
