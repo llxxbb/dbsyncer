@@ -317,6 +317,20 @@ public class MySQLToSQLServerDDLSyncIntegrationTest extends BaseDDLIntegrationTe
         testDDLConversion(mysqlDDL, "count_num");
     }
 
+    // ==================== ADR-0022 类型映射风险修复验证 ====================
+
+    @Test
+    public void testAddColumn_TINYINTType_ToSMALLINT() throws Exception {
+        logger.info("开始测试 MySQL TINYINT → SQL Server SMALLINT 类型转换（ADR-0022）");
+        String mysqlDDL = "ALTER TABLE ddlTestEmployee ADD COLUMN age TINYINT";
+        // MySQL TINYINT (有符号 -128~127) 应映射为 SQL Server SMALLINT
+        testDDLConversion(mysqlDDL, "age");
+        // 验证目标类型为 SMALLINT
+        List<TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
+        TableGroup tableGroup = tableGroups.get(0);
+        verifyFieldType("age", tableGroup.getTargetTable().getName(), sqlServerConfig, "smallint");
+    }
+
     @Test
     public void testAddColumn_DECIMALType() throws Exception {
         logger.info("开始测试DECIMAL类型转换");

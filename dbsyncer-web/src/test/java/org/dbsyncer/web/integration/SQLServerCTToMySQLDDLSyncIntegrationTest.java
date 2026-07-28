@@ -392,6 +392,33 @@ public class SQLServerCTToMySQLDDLSyncIntegrationTest extends BaseDDLIntegration
         String sqlserverDDL = "ALTER TABLE ddlTestEmployee ADD ratio FLOAT";
         testDDLConversionWithTypeVerification(sqlserverDDL, "ratio", "double", null);
     }
+
+    // ==================== ADR-0022 类型映射风险修复验证 ====================
+
+    @Test
+    public void testAddColumn_TINYINTType() throws Exception {
+        logger.info("开始测试 SQL Server TINYINT → MySQL TINYINT UNSIGNED 类型转换（ADR-0022）");
+        String sqlserverDDL = "ALTER TABLE ddlTestEmployee ADD age TINYINT";
+        // SQL Server TINYINT (0~255) 应映射为 MySQL TINYINT UNSIGNED
+        testDDLConversionWithTypeVerification(sqlserverDDL, "age", "tinyint", null);
+    }
+
+    @Test
+    public void testAddColumn_DATEType() throws Exception {
+        logger.info("开始测试 SQL Server DATE → MySQL DATE 类型转换（ADR-0022）");
+        String sqlserverDDL = "ALTER TABLE ddlTestEmployee ADD birth_date DATE";
+        // SQL Server DATE 应映射为 MySQL DATE（不应引入无业务含义的时间部分）
+        testDDLConversionWithTypeVerification(sqlserverDDL, "birth_date", "date", null);
+    }
+
+    @Test
+    public void testAddColumn_TIMEType() throws Exception {
+        logger.info("开始测试 SQL Server TIME → MySQL TIME 类型转换（ADR-0022）");
+        String sqlserverDDL = "ALTER TABLE ddlTestEmployee ADD work_time TIME";
+        // SQL Server TIME 应映射为 MySQL TIME（不应引入无业务含义的日期部分）
+        testDDLConversionWithTypeVerification(sqlserverDDL, "work_time", "time", null);
+    }
+
     @Test
     public void testAddColumn_VARBINARYMAXType() throws Exception {
         logger.info("开始测试 VARBINARY(MAX) 类型转换");

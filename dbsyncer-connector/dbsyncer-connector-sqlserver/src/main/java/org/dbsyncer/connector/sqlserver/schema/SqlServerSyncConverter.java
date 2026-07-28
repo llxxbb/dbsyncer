@@ -22,7 +22,7 @@ public final class SqlServerSyncConverter extends AbstractSyncConverter {
         mapping.put("UNICODE_STRING", "nvarchar");
         // 整型
         mapping.put("BYTE", "smallint");
-        mapping.put("UNSIGNED_BYTE", "int"); // SQL Server不支持unsigned，映射到更大的类型以避免溢出
+        mapping.put("UNSIGNED_BYTE", "tinyint");
         mapping.put("SHORT", "smallint");
         mapping.put("UNSIGNED_SHORT", "int"); // SQL Server不支持unsigned，映射到更大的类型以避免溢出
         mapping.put("INT", "int");
