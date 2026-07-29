@@ -7,7 +7,6 @@ import org.dbsyncer.sdk.enums.DDLOperationEnum;
 import org.dbsyncer.sdk.listener.event.DDLChangedEvent;
 import org.dbsyncer.sdk.listener.event.RowChangedEvent;
 import org.dbsyncer.sdk.model.MetaInfo;
-import org.dbsyncer.sdk.model.Table;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;

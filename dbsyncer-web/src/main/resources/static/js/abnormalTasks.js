@@ -139,11 +139,7 @@ function getPreference() {
 // 跳转到详情页面（编辑页面）
 function goToDetail(taskId) {
     if (!taskId) return;
-    if (typeof updateHash !== 'undefined') {
-        updateHash('/mapping/page/edit?id=' + taskId);
-    } else {
-        window.location.hash = '(mapping/page/edit?id=' + taskId + ')';
-    }
+    window.open('/#/mapping/page/edit?id=' + taskId, '_blank');
 }
 
 // 页面自动初始化（函数声明已提升，脚本执行时 DOM 已就绪）

@@ -448,8 +448,7 @@ function renderRelatedDrivers(drivers) {
  */
 function viewDriverDetail(driverItem) {
     var driverId = $(driverItem).data('id');
-    // 跳转到驱动详情页面
-    doLoader('/mapping/page/edit?classOn=0&id=' + driverId);
+    window.open('/#/mapping/page/edit?classOn=0&id=' + driverId, '_blank');
 }
 
 /**
@@ -744,8 +743,7 @@ function bindMappingOperationButtons() {
         url = url ? url.replace('javascript:;', '') : '';
 
         if (url) {
-            // 详情按钮直接跳转到页面
-            doLoader(url);
+            window.open('/#' + url, '_blank');
         }
     });
 }

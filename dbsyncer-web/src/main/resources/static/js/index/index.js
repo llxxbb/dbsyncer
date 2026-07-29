@@ -93,7 +93,7 @@ function bindEditMapping() {
         // 获取任务 ID
         var $id = $(this).attr("data-id") || $(this).attr("id");
         if ($id) {
-            updateHash('/mapping/page/edit?classOn=0&id=' + $id);
+            window.open('/#/mapping/page/edit?classOn=0&id=' + $id, '_blank');
 
              // 清除定时器，停止定时刷新任务列表
             if (window.timer2) {
@@ -187,9 +187,9 @@ function bindMappingOperationButtons() {
             return;
         }
 
-        // 对于编辑按钮，使用updateHash而不是doLoader
+        // 对于编辑/详情按钮，在新标签页打开
         if ($(this).hasClass('fa-pencil') || $(this).find('.fa-pencil').length > 0 || $(this).hasClass('fa-eye') || $(this).find('.fa-eye').length > 0) {
-            updateHash($url);
+            window.open('/#' + $url, '_blank');
         } else if ($(this).hasClass('queryData') || $(this).hasClass('fa-file-text-o') || $(this).find('.fa-file-text-o').length > 0) {
             // 日志按钮特殊处理
             var $id = $(this).attr("id");
