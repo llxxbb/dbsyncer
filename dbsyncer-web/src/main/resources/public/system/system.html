@@ -47,10 +47,6 @@
                 <div class="col-sm-4">
                     <input class="dbsyncer_switch" name="enableStorageWriteSuccess" th:checked="${config?.enableStorageWriteSuccess}" type="checkbox" />
                 </div>
-                <label class="col-sm-2 control-label">记录全量数据<i class="fa fa-question-circle fa_gray" aria-hidden="true" title="不推荐在生产环境下开启，可在源库数据量较少时使用，一般用于测试"></i></label>
-                <div class="col-sm-4">
-                    <input class="dbsyncer_switch" name="enableStorageWriteFull" th:checked="${config?.enableStorageWriteFull}" type="checkbox" />
-                </div>
             </div>
             <div class="form-group">
                 <label class="col-sm-2 control-label">记录同步失败数据</label>
