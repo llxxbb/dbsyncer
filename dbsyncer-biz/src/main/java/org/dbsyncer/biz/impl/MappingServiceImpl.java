@@ -57,8 +57,6 @@ public class MappingServiceImpl implements MappingService {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    private final static Object LOCK = new Object();
-
     @Resource
     private MappingChecker mappingChecker;
 
@@ -235,7 +233,7 @@ public class MappingServiceImpl implements MappingService {
         Mapping mapping = assertMappingExist(id);
         String metaId = mapping.getMetaId();
         Meta meta = profileComponent.getMeta(metaId);
-        synchronized (this) {
+        synchronized (mapping) {
 
             if (meta != null) {
                 // 删除数据
@@ -332,7 +330,7 @@ public class MappingServiceImpl implements MappingService {
     public String start(String id) throws Exception {
         Mapping mapping = assertMappingExist(id);
 
-        synchronized (LOCK) {
+        synchronized (mapping ) {
             mappingModelService.getMeta(mapping).assertNotRunning();
 
             // 启动
@@ -346,7 +344,7 @@ public class MappingServiceImpl implements MappingService {
     @Override
     public String stop(String id) throws Exception {
         Mapping mapping = assertMappingExist(id);
-        synchronized (LOCK) {
+        synchronized (mapping) {
             if (!mappingModelService.getMeta(mapping).isRunning()) {
                 throw new BizException("驱动已停止.");
             }
@@ -609,17 +607,17 @@ public class MappingServiceImpl implements MappingService {
         Mapping mapping = profileComponent.getMapping(id);
         Assert.notNull(mapping, "驱动不存在");
 
-        synchronized (this) {
+        synchronized (mapping) {
             logger.info("重置驱动：{}", mapping.getName());
             Meta meta = profileComponent.getMeta(mapping.getMetaId());
+
+            managerFactory.close(mapping);
 
             // 重置元数据
             meta.clear(mapping.getModel());
 
             // 清理错误队列（dbsyncer_data 表中的失败数据）
             storageService.clear(StorageEnum.DATA, meta.getId());
-
-            managerFactory.close(mapping);
             List<TableGroup> tableGroupAll = profileComponent.getTableGroupAll(mapping.getId());
             for (TableGroup tableGroup : tableGroupAll) {
                 tableGroup.clear();

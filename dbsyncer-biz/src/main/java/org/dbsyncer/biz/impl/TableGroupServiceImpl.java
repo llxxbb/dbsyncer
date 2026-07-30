@@ -108,7 +108,7 @@ public class TableGroupServiceImpl implements TableGroupService {
         // 检查是否禁止编辑
         mappingModelService.assertDisableEdit(mapping);
 
-        synchronized (this) {
+        synchronized (mapping) {
             // table1, table2
             String[] sourceTableArray = StringUtil.split(params.get("sourceTable"), StringUtil.VERTICAL_LINE);
             String[] targetTableArray = StringUtil.split(params.get("targetTable"), StringUtil.VERTICAL_LINE);
@@ -340,7 +340,7 @@ public class TableGroupServiceImpl implements TableGroupService {
         submitTableGroupCountTask(mapping, Collections.emptyList());
 
         // 重置排序
-        resetTableGroupAllIndex(mappingId);
+        resetTableGroupAllIndex(mapping);
         return true;
     }
 
@@ -356,9 +356,9 @@ public class TableGroupServiceImpl implements TableGroupService {
         return profileComponent.getSortedTableGroupAll(mappingId);
     }
 
-    private void resetTableGroupAllIndex(String mappingId) throws Exception {
-        synchronized (this) {
-            List<TableGroup> list = profileComponent.getSortedTableGroupAll(mappingId);
+    private void resetTableGroupAllIndex(Mapping mapping) throws Exception {
+        synchronized (mapping) {
+            List<TableGroup> list = profileComponent.getSortedTableGroupAll(mapping.getId());
             int size = list.size();
             int i = size;
             while (i > 0) {
@@ -661,7 +661,7 @@ public class TableGroupServiceImpl implements TableGroupService {
 
         meta.assertNotRunning();
 
-        synchronized (this) {
+        synchronized (mapping) {
             logger.info("重新同步表映射关系：驱动={}, 表组IDs={}", mapping.getName(), tableGroupIds);
 
             String[] ids = StringUtil.split(tableGroupIds, ",");
@@ -923,7 +923,7 @@ public class TableGroupServiceImpl implements TableGroupService {
             meta.assertNotRunning();
         }
 
-        synchronized (getLock(id)) {
+        synchronized (mapping) {
             FieldDiffFixVO fixVO = getFieldDiffFixPreview(id);
 
             List<FieldDiffFixItem> itemsToFix;
@@ -1216,10 +1216,6 @@ public class TableGroupServiceImpl implements TableGroupService {
         if (identifier.length() > 64) {
             throw new IllegalArgumentException(name + " 长度不能超过 64 个字符: " + identifier);
         }
-    }
-
-    private Object getLock(String id) {
-        return locks.computeIfAbsent(id, k -> new Object());
     }
 
     /**
