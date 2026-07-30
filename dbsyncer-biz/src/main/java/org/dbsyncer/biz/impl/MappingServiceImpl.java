@@ -164,7 +164,8 @@ public class MappingServiceImpl implements MappingService {
         String newName = (name != null && !name.trim().isEmpty()) ? name.trim() : mapping.getName() + "(复制)";
 
         Mapping newMapping = mappingModelService.copy(mapping, snowflakeIdWorker, newName, targetConnectorId);
-        this.logService.log(newMapping, LogType.COPY, LogLevel.INFO, LogType.COPY.getType() + ":" + newMapping.getName());
+        this.logService.log(newMapping, LogType.COPY, LogLevel.INFO,
+                LogType.COPY.getType() + ":" + newMapping.getName());
 
         submitMappingCountTask(newMapping);
         return String.format("复制成功[%s]", newMapping.getName());
@@ -260,7 +261,8 @@ public class MappingServiceImpl implements MappingService {
 
             // 删除驱动
             profileComponent.removeConfigModel(id);
-            this.logService.log(mapping, LogType.DELETE, LogLevel.INFO, LogType.DELETE.getType() + ":" + mapping.getName());
+            this.logService.log(mapping, LogType.DELETE, LogLevel.INFO,
+                    LogType.DELETE.getType() + ":" + mapping.getName());
         }
         return "驱动删除成功";
     }
@@ -275,36 +277,49 @@ public class MappingServiceImpl implements MappingService {
     @Override
     public MappingVo getMapping(String id, Integer exclude) throws Exception {
         Mapping mapping = profileComponent.getMapping(id);
-        // 显示所有表
-        if (exclude != null && exclude == 1) {
-            return convertMapping2Vo(mapping);
-        }
-
-        // 过滤已映射的表
-        MappingVo vo = convertMapping2Vo(mapping);
-        List<TableGroup> tableGroupAll;
         try {
-            tableGroupAll = tableGroupService.getTableGroupAll(id);
+            if (exclude != null && exclude == 1) {
+                return convertMapping2Vo(mapping);
+            }
+
+            MappingVo vo = convertMapping2Vo(mapping);
+            List<TableGroup> tableGroupAll = tableGroupService.getTableGroupAll(id);
+            if (!CollectionUtils.isEmpty(tableGroupAll)) {
+                final Set<String> sTables = new HashSet<>();
+                final Set<String> tTables = new HashSet<>();
+                tableGroupAll.forEach(tableGroup -> {
+                    sTables.add(tableGroup.getSourceTable().nameIgnoreCase());
+                    tTables.add(tableGroup.getTargetTable().nameIgnoreCase());
+                });
+                vo.getSourceConnector().setTable(vo.getSourceConnector().getTable().stream()
+                        .filter(t -> !sTables.contains(t.nameIgnoreCase())).collect(Collectors.toList()));
+                vo.getTargetConnector().setTable(vo.getTargetConnector().getTable().stream()
+                        .filter(t -> !tTables.contains(t.nameIgnoreCase())).collect(Collectors.toList()));
+            }
+            return vo;
         } catch (Exception e) {
-            logger.error("获取表映射关系失败，mappingId: {}", id, e);
-            logService.log(mapping, LogType.CONFIG, LogLevel.ERROR, ExceptionUtils.getStackTrace(e));
-            throw new Exception(String.format("mappingId: %s 获取表映射关系失败: %s, ", id , e.getMessage()));
+            String errorMsg = String.format("获取[数据表] 异常：mappingId=%s, error=%s\nstackTrace=%s",
+                    id, e.getMessage(), ExceptionUtils.getStackTrace(e));
+            logger.error(errorMsg);
+            logService.log(mapping, LogType.CONFIG, LogLevel.ERROR, errorMsg);
+
+            String metaId = mapping.getMetaId();
+            if (metaId != null) {
+                try {
+                    Meta meta = profileComponent.getMeta(metaId);
+                    if (meta != null) {
+                        meta.setErrorMessage(errorMsg);
+                        meta.setState(MetaEnum.ERROR.getCode());
+                        profileComponent.editConfigModel(meta);
+                    }
+                } catch (Exception ex) {
+                    logService.log(mapping, LogType.CONFIG, LogLevel.ERROR,
+                            String.format("获取[Meta] 失败：mappingId=%s, metaId=%s, stackTrace=%s", mapping.getId(), metaId,
+                                    ExceptionUtils.getStackTrace(ex)));
+                }
+            }
+            return createErrorMappingVo(mapping, errorMsg);
         }
-        if (!CollectionUtils.isEmpty(tableGroupAll)) {
-            final Set<String> sTables = new HashSet<>();
-            final Set<String> tTables = new HashSet<>();
-            tableGroupAll.forEach(tableGroup -> {
-                sTables.add(tableGroup.getSourceTable().nameIgnoreCase());
-                tTables.add(tableGroup.getTargetTable().nameIgnoreCase());
-            });
-            vo.getSourceConnector().setTable(vo.getSourceConnector().getTable().stream()
-                    .filter(t -> !sTables.contains(t.nameIgnoreCase())).collect(Collectors.toList()));
-            vo.getTargetConnector().setTable(vo.getTargetConnector().getTable().stream()
-                    .filter(t -> !tTables.contains(t.nameIgnoreCase())).collect(Collectors.toList()));
-            sTables.clear();
-            tTables.clear();
-        }
-        return vo;
     }
 
     @Override
@@ -318,7 +333,9 @@ public class MappingServiceImpl implements MappingService {
                         // 捕获其他可能的异常（如 Meta 为 null 等）
                         logger.error("转换 Mapping 失败，mappingId: {}, mappingName: {}",
                                 mapping.getId(), mapping.getName(), e);
-                        logService.log(mapping, LogType.UPDATE, LogLevel.INFO, String.format("映射配置失败：mappingId=%s, mappingName=%s, error=%s", mapping.getId(), mapping.getName(), e.getMessage()));
+                        logService.log(mapping, LogType.UPDATE, LogLevel.INFO,
+                                String.format("映射配置失败：mappingId=%s, mappingName=%s, error=%s", mapping.getId(),
+                                        mapping.getName(), e.getMessage()));
                         return createErrorMappingVo(mapping, e.getMessage());
                     }
                 })
@@ -330,7 +347,7 @@ public class MappingServiceImpl implements MappingService {
     public String start(String id) throws Exception {
         Mapping mapping = assertMappingExist(id);
 
-        synchronized (mapping ) {
+        synchronized (mapping) {
             mappingModelService.getMeta(mapping).assertNotRunning();
 
             // 启动
@@ -361,7 +378,7 @@ public class MappingServiceImpl implements MappingService {
 
             // 发送关闭驱动通知消息
             String mappingId = mapping.getId();
-            
+
             StringBuilder msg = new StringBuilder();
             msg.append("### DBSyncer 手动操作提示\n\n");
             msg.append("**操作类型**: 停止任务\n\n");
@@ -439,7 +456,8 @@ public class MappingServiceImpl implements MappingService {
 
         // 元信息
         Meta meta = profileComponent.getMeta(mapping.getMetaId());
-        Assert.notNull(meta, String.format("Meta can not be null. mappingId: %s, metaId: %s", mapping.getId(), mapping.getMetaId()));
+        Assert.notNull(meta,
+                String.format("Meta can not be null. mappingId: %s, metaId: %s", mapping.getId(), mapping.getMetaId()));
         MetaVo metaVo = new MetaVo(ModelEnum.getModelEnum(model).getName(), mapping.getName());
         BeanUtils.copyProperties(meta, metaVo);
         metaVo.setCounting(dispatchTaskService.isRunning(mapping.getId()));
@@ -457,18 +475,65 @@ public class MappingServiceImpl implements MappingService {
      * @return 标记为异常的 MappingVo
      */
     private MappingVo createErrorMappingVo(Mapping mapping, String errorMessage) {
-        // 创建默认的异常连接器
+        // 优先使用真实连接器，不可用则用假的
+        ConnectorVo sConn;
+        try {
+            Connector s = profileComponent.getConnector(mapping.getSourceConnectorId());
+            if (s != null) {
+                sConn = new ConnectorVo(connectorService.isAlive(s.getId()));
+                BeanUtils.copyProperties(s, sConn);
+            } else {
+                sConn = createErrorConnectorVo();
+            }
+        } catch (Exception e) {
+            sConn = createErrorConnectorVo();
+        }
+
+        ConnectorVo tConn;
+        try {
+            Connector t = profileComponent.getConnector(mapping.getTargetConnectorId());
+            if (t != null) {
+                tConn = new ConnectorVo(connectorService.isAlive(t.getId()));
+                BeanUtils.copyProperties(t, tConn);
+            } else {
+                tConn = createErrorConnectorVo();
+            }
+        } catch (Exception e) {
+            tConn = createErrorConnectorVo();
+        }
+
+        // 优先使用真实 meta，不可用则用假的
+        MetaVo metaVo;
+        try {
+            Meta meta = profileComponent.getMeta(mapping.getMetaId());
+            if (meta != null) {
+                metaVo = new MetaVo(ModelEnum.getModelEnum(mapping.getModel()).getName(), mapping.getName());
+                BeanUtils.copyProperties(meta, metaVo);
+                metaVo.setCounting(dispatchTaskService.isRunning(mapping.getId()));
+            } else {
+                metaVo = createErrorMetaVo(mapping);
+            }
+        } catch (Exception e) {
+            metaVo = createErrorMetaVo(mapping);
+        }
+        metaVo.setState(MetaEnum.ERROR.getCode());
+        metaVo.setErrorMessage(errorMessage);
+
+        MappingVo vo = new MappingVo(sConn, tConn, metaVo);
+        BeanUtils.copyProperties(mapping, vo);
+        return vo;
+    }
+
+    private ConnectorVo createErrorConnectorVo() {
         ConnectorVo errorConn = new ConnectorVo(false);
         errorConn.setName("连接器异常");
+        return errorConn;
+    }
 
-        // 创建默认的 MetaVo
+    private MetaVo createErrorMetaVo(Mapping mapping) {
         MetaVo metaVo = new MetaVo("异常", mapping.getName());
         metaVo.setState(MetaEnum.ERROR.getCode());
-
-        MappingVo vo = new MappingVo(errorConn, errorConn, metaVo);
-        BeanUtils.copyProperties(mapping, vo);
-        metaVo.setErrorMessage(errorMessage);
-        return vo;
+        return metaVo;
     }
 
     /**
@@ -632,12 +697,12 @@ public class MappingServiceImpl implements MappingService {
             mapping.setUpdateTime(Instant.now().toEpochMilli());
             profileComponent.editConfigModel(mapping);
 
-            this.logService.log(mapping, LogType.RESET, LogLevel.INFO, LogType.RESET.getType() + ":" + mapping.getName());
+            this.logService.log(mapping, LogType.RESET, LogLevel.INFO,
+                    LogType.RESET.getType() + ":" + mapping.getName());
 
             // 发送重置驱动通知消息
             String model = ModelEnum.getModelEnum(mapping.getModel()).getName();
             String mappingId = mapping.getId();
-            
 
             StringBuilder msg = new StringBuilder();
             msg.append("### DBSyncer 手动操作提示\n\n");

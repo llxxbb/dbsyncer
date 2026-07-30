@@ -106,12 +106,12 @@
             </thead>
             <tbody id="tableGroupList">
                 <tr th:id="${t?.id}" title='点击编辑' class='dbsyncer_pointer' th:each="t,state : ${tableGroups}">
-                    <td th:text="${t?.sourceTable.name}"/>
+                    <td th:text="${t?.sourceTable?.name}"/>
                     <td>
-                        <span class="target-table-name" th:text="${t?.targetTable.name}"></span>
+                        <span class="target-table-name" th:text="${t?.targetTable?.name}"></span>
                         <i class="fa fa-edit well-sign-green dbsyncer_pointer target-table-rename"
                            th:data-id="${t?.id}"
-                           th:data-current-name="${t?.targetTable.name}"
+                           th:data-current-name="${t?.targetTable?.name}"
                             th:data-target-table-pk="${t?.targetTable?.primaryKeys != null ? #strings.listJoin(t.targetTable.primaryKeys, ',') : ''}"
                            title="重命名目标表"
                            style="margin-left: 8px;"></i>

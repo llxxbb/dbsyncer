@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -60,7 +61,11 @@ public class MappingController extends BaseController {
     public String page(ModelMap model, @PathVariable("page") String page, @RequestParam(value = "id") String id, Integer classOn, Integer exclude) throws Exception {
         model.put("mapping", mappingService.getMapping(id, exclude));
         model.put("classOn", classOn);
-        model.put("tableGroups", tableGroupService.getTableGroupAll(id));
+        try {
+            model.put("tableGroups", tableGroupService.getTableGroupAll(id));
+        } catch (Exception e) {
+            model.put("tableGroups", new ArrayList<>());
+        }
         initConfig(model);
         
         // 获取当前登录用户信息
