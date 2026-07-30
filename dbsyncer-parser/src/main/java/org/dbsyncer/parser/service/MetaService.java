@@ -3,13 +3,13 @@
  */
 package org.dbsyncer.parser.service;
 
+import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.storage.impl.SnowflakeIdWorker;
 import org.dbsyncer.sdk.enums.MetaEnum;
 import org.dbsyncer.sdk.enums.SyncPhaseEnum;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.model.TableGroup;
-import org.dbsyncer.sdk.service.ModelPersistenceService;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
@@ -39,7 +39,7 @@ import java.util.Set;
 public class MetaService {
 
     @Resource
-    private ModelPersistenceService persistenceService;
+    private ProfileComponent profileComponent;
 
     @Resource
     private SnowflakeIdWorker snowflakeIdWorker;
@@ -52,7 +52,7 @@ public class MetaService {
      */
     public void clear(Meta meta) throws Exception {
         meta.clear();
-        persistenceService.save(meta.getId(), meta);
+        profileComponent.editConfigModel(meta);
     }
 
     /**
@@ -64,7 +64,7 @@ public class MetaService {
      */
     public void clear(Meta meta, String model) throws Exception {
         meta.clear(model);
-        persistenceService.save(meta.getId(), meta);
+        profileComponent.editConfigModel(meta);
     }
 
     /**
@@ -75,12 +75,10 @@ public class MetaService {
      * @throws Exception 持久化异常
      */
     public void partialClear(Meta meta, Set<String> resetTableGroupIds) throws Exception {
-        // 从 ModelPersistenceService 获取 allTableGroups
-        List<Object> allTableGroupsRaw = persistenceService.getAllTableGroups(meta.getMappingId());
-        List<TableGroup> allTableGroups = DefaultModelPersistenceService.castToListTableGroup(allTableGroupsRaw);
+        List<TableGroup> allTableGroups = profileComponent.getTableGroupAll(meta.getMappingId());
         
         meta.partialClear(resetTableGroupIds, allTableGroups);
-        persistenceService.save(meta.getId(), meta);
+        profileComponent.editConfigModel(meta);
     }
 
     /**
@@ -97,12 +95,10 @@ public class MetaService {
      * @throws Exception 持久化异常
      */
     public void updateFullTotal(Meta meta) throws Exception {
-        // 从 ModelPersistenceService 获取 allTableGroups
-        List<Object> allTableGroupsRaw = persistenceService.getAllTableGroups(meta.getMappingId());
-        List<TableGroup> allTableGroups = DefaultModelPersistenceService.castToListTableGroup(allTableGroupsRaw);
+        List<TableGroup> allTableGroups = profileComponent.getTableGroupAll(meta.getMappingId());
         
         meta.updateFullTotal(allTableGroups);
-        persistenceService.save(meta.getId(), meta);
+        profileComponent.editConfigModel(meta);
     }
 
     /**
@@ -113,12 +109,11 @@ public class MetaService {
      * @throws Exception 持久化异常
      */
     public void updateSnapshot(Meta meta, Map<String, String> snapshot) throws Exception {
-        // 直接合并到 meta 的 snapshot，不走 Meta.updateSnapshot(String)
         if (snapshot != null && !snapshot.isEmpty()) {
             meta.getSnapshot().putAll(snapshot);
             meta.setUpdateTime(java.time.Instant.now().toEpochMilli());
         }
-        persistenceService.save(meta.getId(), meta);
+        profileComponent.editConfigModel(meta);
     }
 
     /**
@@ -130,7 +125,7 @@ public class MetaService {
      */
     public void updateSyncPhase(Meta meta, SyncPhaseEnum phase) throws Exception {
         meta.updateSyncPhase(phase);
-        persistenceService.save(meta.getId(), meta);
+        profileComponent.editConfigModel(meta);
     }
 
     /**
@@ -142,7 +137,7 @@ public class MetaService {
      */
     public void recordIncrementStartPoint(Meta meta, Map<String, String> position) throws Exception {
         meta.recordIncrementStartPoint(position);
-        persistenceService.save(meta.getId(), meta);
+        profileComponent.editConfigModel(meta);
     }
 
     /**
@@ -155,7 +150,7 @@ public class MetaService {
      */
     public void saveState(Meta meta, MetaEnum state, String errorMessage) throws Exception {
         meta.saveState(state, errorMessage);
-        persistenceService.save(meta.getId(), meta);
+        profileComponent.editConfigModel(meta);
     }
 
     /**
@@ -177,7 +172,7 @@ public class MetaService {
      */
     public void resetState(Meta meta) throws Exception {
         meta.resetState();
-        persistenceService.save(meta.getId(), meta);
+        profileComponent.editConfigModel(meta);
     }
 
     /**
@@ -211,8 +206,7 @@ public class MetaService {
             meta.setCreateTime(System.currentTimeMillis());
         }
         meta.setUpdateTime(System.currentTimeMillis());
-        String id = persistenceService.save(null, meta);
-        meta.setId(id);
+        profileComponent.addConfigModel(meta);
         return meta;
     }
 
@@ -233,15 +227,5 @@ public class MetaService {
     public void partialClearWithTableGroups(Meta meta, Set<String> resetTableGroupIds) throws Exception {
         // 内部调用 Meta 的 partialClear 方法，不需要外部再调用 Meta 方法
         partialClear(meta, resetTableGroupIds);
-    }
-
-    /**
-     * 辅助方法：将 List<Object> 转换为 List<TableGroup>
-     * 
-     * @param objects 对象列表
-     * @return TableGroup 列表
-     */
-    public List<TableGroup> castToListTableGroup(List<Object> objects) {
-        return DefaultModelPersistenceService.castToListTableGroup(objects);
     }
 }

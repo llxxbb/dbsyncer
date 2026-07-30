@@ -8,16 +8,18 @@ import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
+import org.dbsyncer.parser.ProfileComponent;
+import org.dbsyncer.parser.model.Connector;
 import org.dbsyncer.sdk.model.Mapping;
+import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.sdk.model.TableGroup;
-import org.dbsyncer.sdk.SdkException;
 import org.dbsyncer.sdk.config.CommandConfig;
 import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
+import org.dbsyncer.sdk.enums.MetaEnum;
 import org.dbsyncer.sdk.model.ConnectorConfig;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.Filter;
 import org.dbsyncer.sdk.model.MetaInfo;
-import org.dbsyncer.sdk.service.ModelPersistenceService;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.spi.LogService;
@@ -30,6 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 
 /**
  * TableGroup 模型服务
@@ -49,13 +52,20 @@ import java.util.stream.Collectors;
 public class TableGroupModelService {
 
     @Resource
-    private ModelPersistenceService persistenceService;
+    private final MappingModelService mappingModelService;
+
+    @Resource
+    private ProfileComponent profileComponent;
 
     @Resource
     private ConnectorFactory connectorFactory;
 
     @Resource
     private LogService logService;
+
+    TableGroupModelService(MappingModelService mappingModelService) {
+        this.mappingModelService = mappingModelService;
+    }
 
     /**
      * 初始化 TableGroup
@@ -68,14 +78,42 @@ public class TableGroupModelService {
         if (tableGroup.isInit)
             return;
 
-        initCommand(tableGroup, mapping);
+        try {
+            initCommand(tableGroup, mapping);
+        } catch (Exception e) {
+            String errorMsg = String.format("[初始化命令] 异常：sourceTable=%s, targetTable=%s, error=%s\nstackTrace=%s",
+                    tableGroup.getSourceTable() != null ? tableGroup.getSourceTable().getName() : "null",
+                    tableGroup.getTargetTable() != null ? tableGroup.getTargetTable().getName() : "null",
+                    e.getMessage(),
+                    ExceptionUtils.getStackTrace(e));
+            logService.log(mapping, LogType.INIT, LogLevel.ERROR, errorMsg);
+            tableGroup.setErrorMessage(errorMsg);
+
+            // 将错误信息保存到与 mapping 关联的 Meta
+            String metaId = mapping.getMetaId();
+            if (metaId != null) {
+                try {
+                    Meta meta = (Meta) profileComponent.getMeta(metaId);
+                    if (meta != null) {
+                        meta.setErrorMessage(errorMsg);
+                        meta.setState(MetaEnum.ERROR.getCode());
+                        profileComponent.editConfigModel(meta);
+                    }
+                } catch (Exception ex) {
+                    logService.log(mapping, LogType.INIT, LogLevel.ERROR,
+                            String.format("[保存错误到 Meta] 失败：metaId=%s, error=%s", metaId, ex.getMessage()));
+                }
+            }
+
+            return;
+        }
 
         // 如果 estimatedTotal 为 0，则设置为 sourceTable.getCount()
         if (tableGroup.getEstimatedTotal() == 0
                 && tableGroup.getSourceTable() != null
                 && tableGroup.getSourceTable().getCount() > 0) {
             tableGroup.setEstimatedTotal(tableGroup.getSourceTable().getCount());
-            persistenceService.save(tableGroup.getId(), tableGroup);
+            profileComponent.editConfigModel(tableGroup);
         }
         tableGroup.isInit = true;
     }
@@ -88,8 +126,10 @@ public class TableGroupModelService {
      * @throws Exception 初始化异常
      */
     public void initCommand(TableGroup tableGroup, Mapping mapping) throws Exception {
-        ConnectorConfig sConnConfig = persistenceService.getConnectorConfig(mapping.getSourceConnectorId());
-        ConnectorConfig tConnConfig = persistenceService.getConnectorConfig(mapping.getTargetConnectorId());
+        Connector sourceConnector = profileComponent.getConnector(mapping.getSourceConnectorId());
+        Connector targetConnector = profileComponent.getConnector(mapping.getTargetConnectorId());
+        ConnectorConfig sConnConfig = sourceConnector.getConfig();
+        ConnectorConfig tConnConfig = targetConnector.getConfig();
 
         // 关键修复：fieldMapping 不能为空
         if (CollectionUtils.isEmpty(tableGroup.getFieldMapping())) {
@@ -168,7 +208,7 @@ public class TableGroupModelService {
         newTableGroup.setMappingId(newMappingId);
         newTableGroup.setName(newMappingId + ":" + newTableGroup.getSourceTable().getName());
 
-        persistenceService.save(null, newTableGroup);
+        profileComponent.addConfigModel(newTableGroup);
         return newTableGroup;
     }
 
@@ -190,7 +230,9 @@ public class TableGroupModelService {
 
                 // 修复 sourceTable.primaryKeys 缺失（ADR-0017 前旧数据没有该字段）
                 if (CollectionUtils.isEmpty(tableGroup.getSourceTable().getPrimaryKeys())) {
-                    MetaInfo freshMeta = persistenceService.getTableMetaInfo(connectorId, tableName);
+                    Connector connector = profileComponent.getConnector(connectorId);
+                    MetaInfo freshMeta = connectorFactory.getMetaInfo(connectorFactory.connect(connector.getConfig()),
+                            tableName);
                     if (freshMeta == null) {
                         logService.log(mapping, LogType.CONFIG, LogLevel.ERROR,
                                 String.format("[版本迁移]源表不存在，停止迁移: tableGroup=%s, sourceTable=%s",
@@ -206,12 +248,14 @@ public class TableGroupModelService {
             } else {
                 String connectorId = mapping.getTargetConnectorId();
                 String tableName = tableGroup.getTargetTable().getName();
-                MetaInfo freshMeta = persistenceService.getTableMetaInfo(connectorId, tableName);
+                Connector connector = profileComponent.getConnector(connectorId);
+                MetaInfo freshMeta = connectorFactory.getMetaInfo(connectorFactory.connect(connector.getConfig()),
+                        tableName);
                 tableGroup.setTargetTable(freshMeta);
             }
         }
 
         tableGroup.currentVersion = TableGroup.Version;
-        persistenceService.save(tableGroup.getId(), tableGroup);
+        profileComponent.editConfigModel(tableGroup);
     }
 }

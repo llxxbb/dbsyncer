@@ -6,11 +6,11 @@ package org.dbsyncer.parser.service;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
+import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.common.ParserException;
 import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.sdk.model.TableGroup;
-import org.dbsyncer.sdk.service.ModelPersistenceService;
 import org.dbsyncer.storage.impl.SnowflakeIdWorker;
 import org.springframework.stereotype.Service;
 
@@ -21,9 +21,11 @@ import java.util.List;
 /**
  * Mapping 模型服务
  * 
- * <p>封装 Mapping 的持久化和查询逻辑，替代原来 Mapping 类中对 ProfileComponent 的直接依赖。
+ * <p>
+ * 封装 Mapping 的持久化和查询逻辑，替代原来 Mapping 类中对 ProfileComponent 的直接依赖。
  * 
- * <p>ADR-0019: Model 层贫血化重构的一部分，将 Mapping 的持久化逻辑从 Model 层转移到 Service 层。
+ * <p>
+ * ADR-0019: Model 层贫血化重构的一部分，将 Mapping 的持久化逻辑从 Model 层转移到 Service 层。
  * 
  * @author opencode
  * @version 1.0.0
@@ -33,7 +35,7 @@ import java.util.List;
 public class MappingModelService {
 
     @Resource
-    private ModelPersistenceService persistenceService;
+    private ProfileComponent profileComponent;
 
     /**
      * 根据 Mapping 获取关联的 Meta 对象
@@ -46,7 +48,7 @@ public class MappingModelService {
         if (mapping == null) {
             return null;
         }
-        Object metaObj = persistenceService.getMeta(mapping.getMetaId());
+        Object metaObj = profileComponent.getMeta(mapping.getMetaId());
         if (metaObj instanceof Meta) {
             return (Meta) metaObj;
         }
@@ -76,7 +78,7 @@ public class MappingModelService {
         Meta meta = getMeta(mapping);
         if (meta != null) {
             meta.resetState();
-            persistenceService.save(meta.getId(), meta);
+            profileComponent.editConfigModel(meta);
         }
     }
 
@@ -91,22 +93,22 @@ public class MappingModelService {
         Meta meta = getMeta(mapping);
         if (meta != null) {
             meta.updateSnapshot(metaSnapshot);
-            persistenceService.save(mapping.getId(), mapping);
+            profileComponent.editConfigModel(mapping);
         }
     }
 
     /**
      * 复制 Mapping
      * 
-     * @param mapping            原 Mapping 对象
-     * @param snowflakeIdWorker  ID 生成器
-     * @param newName            新名称
-     * @param targetConnectorId  新目标连接器 ID（可选）
+     * @param mapping           原 Mapping 对象
+     * @param snowflakeIdWorker ID 生成器
+     * @param newName           新名称
+     * @param targetConnectorId 新目标连接器 ID（可选）
      * @return 复制后的新 Mapping 对象
      * @throws Exception 异常
      */
     public Mapping copy(Mapping mapping, SnowflakeIdWorker snowflakeIdWorker, String newName,
-                        String targetConnectorId) throws Exception {
+            String targetConnectorId) throws Exception {
         String json = JsonUtil.objToJson(mapping);
         Mapping newMapping = JsonUtil.jsonToObj(json, Mapping.class);
         newMapping.setName(newName);
@@ -117,24 +119,22 @@ public class MappingModelService {
         if (targetConnectorId != null && !targetConnectorId.isEmpty()) {
             newMapping.setTargetConnectorId(targetConnectorId);
         }
-        persistenceService.save(null, newMapping);
+        profileComponent.addConfigModel(newMapping);
 
         Meta meta = Meta.create(newMapping, String.valueOf(snowflakeIdWorker.nextId()));
-        persistenceService.save(null, meta);
+        profileComponent.addConfigModel(meta);
 
-        List<Object> groupList = persistenceService.getAllTableGroups(mapping.getId());
+        List<TableGroup> groupList = profileComponent.getTableGroupAll(mapping.getId());
         if (!CollectionUtils.isEmpty(groupList)) {
-            for (Object obj : groupList) {
-                if (obj instanceof TableGroup) {
-                    TableGroup tg = (TableGroup) obj;
-                    String tgJson = JsonUtil.objToJson(tg);
-                    TableGroup newTg = JsonUtil.jsonToObj(tgJson, TableGroup.class);
-                    newTg.clear();
-                    newTg.setId(String.valueOf(snowflakeIdWorker.nextId()));
-                    newTg.setMappingId(newId);
-                    newTg.setName(newId + ":" + newTg.getSourceTable().getName());
-                    persistenceService.save(null, newTg);
-                }
+            for (TableGroup obj : groupList) {
+                TableGroup tg = (TableGroup) obj;
+                String tgJson = JsonUtil.objToJson(tg);
+                TableGroup newTg = JsonUtil.jsonToObj(tgJson, TableGroup.class);
+                newTg.clear();
+                newTg.setId(String.valueOf(snowflakeIdWorker.nextId()));
+                newTg.setMappingId(newId);
+                newTg.setName(newId + ":" + newTg.getSourceTable().getName());
+                profileComponent.addConfigModel(newTg);
             }
         }
 
