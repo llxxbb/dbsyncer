@@ -8,7 +8,6 @@ import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
-import org.dbsyncer.parser.impl.LogServiceImpl;
 import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.SdkException;
@@ -192,6 +191,12 @@ public class TableGroupModelService {
                 // 修复 sourceTable.primaryKeys 缺失（ADR-0017 前旧数据没有该字段）
                 if (CollectionUtils.isEmpty(tableGroup.getSourceTable().getPrimaryKeys())) {
                     MetaInfo freshMeta = persistenceService.getTableMetaInfo(connectorId, tableName);
+                    if (freshMeta == null) {
+                        logService.log(mapping, LogType.CONFIG, LogLevel.ERROR,
+                                String.format("[版本迁移]源表不存在，停止迁移: tableGroup=%s, sourceTable=%s",
+                                        tableGroup.getId(), tableName));
+                        return;
+                    }
                     tableGroup.setSourceTable(freshMeta);
                 }
             }
