@@ -291,10 +291,16 @@ public class MappingServiceImpl implements MappingService {
                     sTables.add(tableGroup.getSourceTable().nameIgnoreCase());
                     tTables.add(tableGroup.getTargetTable().nameIgnoreCase());
                 });
-                vo.getSourceConnector().setTable(vo.getSourceConnector().getTable().stream()
-                        .filter(t -> !sTables.contains(t.nameIgnoreCase())).collect(Collectors.toList()));
-                vo.getTargetConnector().setTable(vo.getTargetConnector().getTable().stream()
-                        .filter(t -> !tTables.contains(t.nameIgnoreCase())).collect(Collectors.toList()));
+                List<Table> sourceTables = vo.getSourceConnector().getTable();
+                if (sourceTables != null) {
+                    vo.getSourceConnector().setTable(sourceTables.stream()
+                            .filter(t -> !sTables.contains(t.nameIgnoreCase())).collect(Collectors.toList()));
+                }
+                List<Table> targetTables = vo.getTargetConnector().getTable();
+                if (targetTables != null) {
+                    vo.getTargetConnector().setTable(targetTables.stream()
+                            .filter(t -> !tTables.contains(t.nameIgnoreCase())).collect(Collectors.toList()));
+                }
             }
             return vo;
         } catch (Exception e) {
@@ -439,6 +445,9 @@ public class MappingServiceImpl implements MappingService {
         }
         ConnectorVo sConn = new ConnectorVo(connectorService.isAlive(s.getId()));
         BeanUtils.copyProperties(s, sConn);
+        if (sConn.getTable() == null) {
+            sConn.setTable(new ArrayList<>());
+        }
 
         // 获取目标连接器，如果为 null 则直接生成异常的 MappingVo
         Connector t = profileComponent.getConnector(mapping.getTargetConnectorId());
@@ -453,6 +462,9 @@ public class MappingServiceImpl implements MappingService {
         }
         ConnectorVo tConn = new ConnectorVo(connectorService.isAlive(t.getId()));
         BeanUtils.copyProperties(t, tConn);
+        if (tConn.getTable() == null) {
+            tConn.setTable(new ArrayList<>());
+        }
 
         // 元信息
         Meta meta = profileComponent.getMeta(mapping.getMetaId());
@@ -482,6 +494,9 @@ public class MappingServiceImpl implements MappingService {
             if (s != null) {
                 sConn = new ConnectorVo(connectorService.isAlive(s.getId()));
                 BeanUtils.copyProperties(s, sConn);
+                if (sConn.getTable() == null) {
+                    sConn.setTable(new ArrayList<>());
+                }
             } else {
                 sConn = createErrorConnectorVo();
             }
@@ -495,6 +510,9 @@ public class MappingServiceImpl implements MappingService {
             if (t != null) {
                 tConn = new ConnectorVo(connectorService.isAlive(t.getId()));
                 BeanUtils.copyProperties(t, tConn);
+                if (tConn.getTable() == null) {
+                    tConn.setTable(new ArrayList<>());
+                }
             } else {
                 tConn = createErrorConnectorVo();
             }
@@ -527,6 +545,7 @@ public class MappingServiceImpl implements MappingService {
     private ConnectorVo createErrorConnectorVo() {
         ConnectorVo errorConn = new ConnectorVo(false);
         errorConn.setName("连接器异常");
+        errorConn.setTable(new ArrayList<>());
         return errorConn;
     }
 

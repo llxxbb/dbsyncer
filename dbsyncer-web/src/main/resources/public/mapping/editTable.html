@@ -4,7 +4,7 @@
 
 <div th:fragment="content">
     <!-- 数据源表数据 -->
-    <script type="application/json" id="sourceTableData" th:utext="${mapping?.sourceConnector?.table} ? ${#strings.replace(#strings.replace(#strings.toString(mapping?.sourceConnector?.table), '[', '['), ']', ']')}"></script>
+    <script type="application/json" id="sourceTableData" th:utext="${mapping?.sourceConnector?.table != null} ? ${#strings.replace(#strings.replace(#strings.toString(mapping?.sourceConnector?.table), '[', '['), ']', ']')} : '[]'"></script>
 
     <div class="row">
         <!-- 数据源配置 -->
