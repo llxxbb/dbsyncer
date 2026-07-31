@@ -1935,6 +1935,43 @@ function bindErrorQueueRetryAllEvent() {
     });
 }
 
+// 错误队列计数对齐
+function bindAlignCountEvent() {
+    $("#alignCountBtn").click(function () {
+        var metaId = $("#metaId").val();
+        if (!metaId) {
+            bootGrowl("metaId为空，无法执行计数对齐", "danger");
+            return;
+        }
+        BootstrapDialog.show({
+            title: "确认计数对齐",
+            type: BootstrapDialog.TYPE_INFO,
+            message: "以错误队列实际失败数为准，修正任务面板显示的失败计数？",
+            size: BootstrapDialog.SIZE_NORMAL,
+            buttons: [{
+                label: "确定",
+                cssClass: "btn-primary",
+                action: function (dialog) {
+                    doPoster('/monitor/alignCount', {"metaId": metaId}, function (result) {
+                        if (result.success == true) {
+                            bootGrowl("计数对齐完成", "success");
+                            location.reload();
+                        } else {
+                            bootGrowl(result.resultValue || "计数对齐失败", "danger");
+                        }
+                    });
+                    dialog.close();
+                }
+            }, {
+                label: "取消",
+                action: function (dialog) {
+                    dialog.close();
+                }
+            }]
+        });
+    });
+}
+
 // 初始化错误队列
 function initErrorQueue() {
     // 绑定查询数据事件
@@ -1945,6 +1982,8 @@ function initErrorQueue() {
     bindErrorQueueClearDataEvent();
     // 绑定全部重做事件
     bindErrorQueueRetryAllEvent();
+    // 绑定计数对齐事件
+    bindAlignCountEvent();
     // 绑定数据状态切换事件
     $("#errorQueueDataStatus").change(function () {
         $("#errorQueueQueryBtn").click();

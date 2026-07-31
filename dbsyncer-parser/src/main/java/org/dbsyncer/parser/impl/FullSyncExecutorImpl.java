@@ -5,6 +5,7 @@ package org.dbsyncer.parser.impl;
 
 import org.dbsyncer.common.ProcessEvent;
 import org.dbsyncer.common.model.Result;
+import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.parser.FullSyncExecutor;
 import org.dbsyncer.parser.ProfileComponent;
@@ -13,6 +14,7 @@ import org.dbsyncer.sdk.model.*;
 import org.dbsyncer.parser.strategy.FlushStrategy;
 import org.dbsyncer.parser.util.ConvertUtil;
 import org.dbsyncer.parser.util.PickerUtil;
+import org.dbsyncer.parser.error.ErrorQueueService;
 
 import org.dbsyncer.sdk.connector.database.Database;
 import org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance;
@@ -26,6 +28,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.ArgumentPreparedStatementSetter;
 import org.springframework.jdbc.core.ColumnMapRowMapper;
+
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 
@@ -54,6 +58,9 @@ public class FullSyncExecutorImpl implements FullSyncExecutor {
 
     @Resource
     private ProfileComponent profileComponent;
+
+    @Resource
+    private ErrorQueueService errorQueueService;
 
     // 移除ApplicationContext依赖，添加ProcessEvent依赖
     @Resource
@@ -164,34 +171,41 @@ public class FullSyncExecutorImpl implements FullSyncExecutor {
     private void processTableGroupDataBatch(String metaId, List<Map> source, TableGroup tableGroup, TableGroup group, Mapping mapping,
                                              AbstractPluginContext context, Picker picker, List<String> primaryKeys,
                                              long[] lastSaveTime) throws Exception {
-        // 1、映射字段 + 封装为 SyncRow（Picker 返回的就是 SyncRow）
         List<SyncRow> target = picker.pickTargetData(source, context);
-        // 设置 Mapping/TableGroup 引用（使用 group 而不是 tableGroup，确保 writer 能获取到合并后的 params）
         for (SyncRow row : target) {
             row.setMapping(mapping);
             row.setTableGroup(group);
         }
 
-        // 2、参数转换（使用 tableGroup 的 convert）
         ConvertUtil.convert(tableGroup.getConvert(), target);
+        Meta meta = profileComponent.getMeta(metaId);
 
-        // 3、写入目标源（直接传递 syncRows）
-        Result result = connectorFactory.writeBatch(target);
+        try {
+            Result result = connectorFactory.writeBatch(target);
 
-        // 4、更新 Meta 统计信息
-        if (result != null) {
-            result.setMappingId(profileComponent.getMeta(metaId).getMappingId());
-            result.setTargetTableGroupName(tableGroup.getName());
-            result.setTableGroupId(tableGroup.getId());
-            flushStrategy.flushFullData(metaId, result, ConnectorConstant.OPERTION_INSERT);
+            if (result != null) {
+                result.setMappingId(meta.getMappingId());
+                result.setTargetTableGroupName(tableGroup.getName());
+                result.setTableGroupId(tableGroup.getId());
+
+                if (!CollectionUtils.isEmpty(result.getFailData())) {
+                    errorQueueService.handleFailData(meta, tableGroup, tableGroup.getName(),
+                            ConnectorConstant.OPERTION_INSERT, result.getFailData(), result.error);
+                }
+                if (!CollectionUtils.isEmpty(result.getSuccessData())) {
+                    flushStrategy.flushFullData(metaId, result, ConnectorConstant.OPERTION_INSERT);
+                }
+            }
+        } catch (Exception e) {
+            logger.error("全量同步异常: tableGroup={}, error={}", tableGroup.getName(), e.getMessage(), e);
+            List<Map> failData = target.stream().map(SyncRow::getSourceData).collect(Collectors.toList());
+            errorQueueService.handleFailData(meta, tableGroup, tableGroup.getName(),
+                    ConnectorConstant.OPERTION_INSERT, failData, e.getMessage());
         }
 
-        // 更新 group 的 cursor 并同步到 tableGroup（用于持久化）
         Object[] newCursors = PrimaryKeyUtil.getLastCursors(source, primaryKeys);
         tableGroup.setCursors(newCursors);
         saveTableGroupIfNeeded(tableGroup, lastSaveTime);
-
-        // 同步完成后无需后置处理
     }
     private ConnectorConfig getConnectorConfig(String connectorId) {
         return profileComponent.getConnector(connectorId).getConfig();

@@ -18,6 +18,7 @@ import org.dbsyncer.parser.model.*;
 import org.dbsyncer.sdk.model.*;
 import org.dbsyncer.parser.service.TableGroupModelService;
 import org.dbsyncer.parser.strategy.FlushStrategy;
+import org.dbsyncer.parser.error.ErrorQueueService;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.parser.util.ConvertUtil;
@@ -27,6 +28,7 @@ import org.dbsyncer.sdk.config.ListenerConfig;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.enums.ChangedEventTypeEnum;
 import org.dbsyncer.sdk.enums.DDLOperationEnum;
+import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.listener.ChangedEvent;
 import org.dbsyncer.sdk.listener.Listener;
 import org.dbsyncer.sdk.plugin.SyncRow;
@@ -61,6 +63,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
     private TableGroupContext tableGroupContext;
     private LogService logService;
     private TableGroupModelService tableGroupModelService;
+    private ErrorQueueService errorQueueService;
 
     /**
      * 初始化时设置全局 LogService（一次设置，长期使用）
@@ -146,7 +149,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
                 // 1. 先处理 DDL，更新 TableGroup 的 fieldMapping
                 List<TableGroup> updatedTableGroups = pickers.stream().map(picker -> {
                     TableGroup tableGroup = picker.getTableGroup();
-                    parseDDl(response, mapping, tableGroup);
+                    parseDDl(response, meta, mapping, tableGroup);
                     return tableGroup;
                 }).collect(Collectors.toList());
 
@@ -163,12 +166,12 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
                 break;
             case SCAN:
                 pickers.forEach(picker -> {
-                    distributeTableGroup(response, mapping, picker, picker.getSourceFields(), false);
+                    distributeTableGroup(response, meta, mapping, picker, picker.getSourceFields(), false);
                 });
                 break;
             case ROW:
                 pickers.forEach(picker -> {
-                    distributeTableGroup(response, mapping, picker, picker.getSourceFields(), true);
+                    distributeTableGroup(response, meta, mapping, picker, picker.getSourceFields(), true);
                 });
                 break;
         }
@@ -303,39 +306,30 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         // 如果 pull() 中 distributeTableGroup() 失败，会在重试场景下抛出异常
     }
 
-    private void distributeTableGroup(WriterResponse response, Mapping mapping, TableGroupPicker tableGroupPicker, List<Field> sourceFields, boolean enableFilter) {
+    private void distributeTableGroup(WriterResponse response, Meta meta, Mapping mapping, TableGroupPicker tableGroupPicker, List<Field> sourceFields, boolean enableFilter) {
         if (response.getColumnNames() == null || response.getColumnNames().isEmpty()) {
             return;
         }
 
-        Result result;
         TableGroup tableGroup = tableGroupPicker.getTableGroup();
+        String metaId = meta.getId();
 
-        // 1、映射字段
-        // 构建字段名到行数据索引的映射，解决 CT 模式下用户删除字段后数据错位的问题
         Map<String, Integer> fieldIndexMap = buildFieldIndexMap(response.getColumnNames(), sourceFields);
 
-        // 检查是否有字段匹配成功
         if (fieldIndexMap.isEmpty()) {
             String msg = String.format("字段定位错误！mappingId: %s, 表名: %s, 列名: %s，未找到任何匹配字段",
                     mapping.getId(), response.getTableName(), response.getColumnNames());
             logger.error(msg);
             logService.log(mapping, LogType.UPDATE, msg);
-            // 重试场景下，如果有失败数据，先抛出异常，避免调用 flushIncrementData 写入错误数据
             if (response.isErrQueueRetry()) {
                 throw new RuntimeException("重试失败: " + msg);
             }
-            result = new Result();
-            result.error = msg;
-            result.setMappingId(mapping.getId());
-            result.setTableGroupId(tableGroup.getId());
-            result.setTargetTableGroupName(tableGroup.getTargetTable().getName());
-            result.addFailData(RowConverter.toListOfMaps(sourceFields, fieldIndexMap, response.getDataList()));
-            flushStrategy.flushIncrementData(mapping.getMetaId(), result, response.getEvent());
+            List<Map> failData = new ArrayList<>(RowConverter.toListOfMaps(sourceFields, fieldIndexMap, response.getDataList()));
+            errorQueueService.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
+                    response.getEvent(), failData, msg);
             return;
         }
 
-        // 从索引映射中获取实际匹配到的字段列表
         List<Field> actualSourceFields = sourceFields.stream()
                 .filter(f -> fieldIndexMap.containsKey(f.nameIgnoreCase()))
                 .collect(Collectors.toList());
@@ -344,69 +338,60 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         ConnectorConfig sourceConfig = getConnectorConfig(mapping.getSourceConnectorId());
         ConnectorService sourceConnector = connectorFactory.getConnectorService(sourceConfig.getConnectorType());
         AbstractPluginContext context;
-        List<Map> sourceDataList = new ArrayList<>();
         List<SyncRow> targetDataList;
         try {
-            // 先创建 context，以便 Picker 能将数据包装为 SyncRow
             context = new AbstractPluginContext();
             context.setSourceConnectorInstance(connectorFactory.connect(sourceConfig));
             context.setTargetConnectorInstance(connectorFactory.connect(getConnectorConfig(mapping.getTargetConnectorId())));
 
             targetDataList = tableGroupPicker.getPicker()
                     .setSourceResolver(enableSchemaResolver ? sourceConnector.getSchemaResolver() : null)
-                    .pickTargetData(actualSourceFields, fieldIndexMap, enableFilter, response.getDataList(), response.getBeforeRows(), sourceDataList, context);
-            // 设置 Mapping/TableGroup 引用（Step 3: SyncRow 直接持有配置模型）
+                    .pickTargetData(actualSourceFields, fieldIndexMap, enableFilter, response.getDataList(), response.getBeforeRows(), context);
             for (SyncRow row : targetDataList) {
                 row.setMapping(mapping);
                 row.setTableGroup(tableGroup);
-                // 传递列名信息（用于映射 beforeRow 中的值到字段名）
                 row.setColumnNames(response.getColumnNames());
             }
 
-            // 2、参数转换（ConvertUtil 直接操作 SyncRow）
             ConvertUtil.convert(tableGroup.getConvert(), targetDataList);
         } catch (Exception e) {
             String msg = String.format("异常！mappingId: %s，msg %s",
                     mapping.getId(), e.getMessage());
             logger.error(msg);
             logService.log(mapping, LogType.UPDATE, msg);
-            // 只在重试场景下设置重试标识
             if (response.isErrQueueRetry()) {
                 throw new RuntimeException("重试失败: " + msg);
             }
-            result = new Result();
-            result.error = msg;
-            result.setMappingId(mapping.getId());
-            result.setTableGroupId(tableGroup.getId());
-            result.addFailData(RowConverter.toListOfMaps(sourceFields, fieldIndexMap, response.getDataList()));
-            result.setTargetTableGroupName(tableGroup.getTargetTable().getName());
-            flushStrategy.flushIncrementData(mapping.getMetaId(), result, response.getEvent());
+            List<Map> failData = new ArrayList<>(RowConverter.toListOfMaps(sourceFields, fieldIndexMap, response.getDataList()));
+            errorQueueService.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
+                    response.getEvent(), failData, msg);
             return;
         }
         context.setEvent(response.getEvent());
         context.setEnablePrintTraceInfo(StringUtil.isNotBlank(response.getTraceId()));
         try {
-            // 4、批量执行同步（直接传递 syncRows，无需通过 context 中转）
-            result = connectorFactory.writeBatch(targetDataList);
+            Result result = connectorFactory.writeBatch(targetDataList);
 
-            // 5、持久化同步结果
             result.setMappingId(mapping.getId());
             result.setTableGroupId(tableGroup.getId());
             result.setTargetTableGroupName(tableGroup.getTargetTable().getName());
+
+            if (!CollectionUtils.isEmpty(result.getFailData())) {
+                errorQueueService.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
+                        response.getEvent(), result.getFailData(), result.error);
+            }
+            if (!CollectionUtils.isEmpty(result.getSuccessData())) {
+                flushStrategy.flushIncrementData(metaId, result, response.getEvent());
+            }
         } catch (Exception e) {
             logger.error("process batch data error:", e);
-            // 只在重试场景下设置重试标识
             if (response.isErrQueueRetry()) {
                 throw new RuntimeException("重试失败: " + e.getMessage());
             }
-            result = new Result();
-            result.error = e.getMessage();
-            result.setMappingId(mapping.getId());
-            result.setTableGroupId(tableGroup.getId());
-            result.setTargetTableGroupName(tableGroup.getTargetTable().getName());
-            result.addFailData(sourceDataList);  // 存储源数据，便于重试时直接使用
+            List<Map> failData = targetDataList.stream().map(SyncRow::getSourceData).collect(Collectors.toList());
+            errorQueueService.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
+                    response.getEvent(), failData, e.getMessage());
         }
-        flushStrategy.flushIncrementData(mapping.getMetaId(), result, response.getEvent());
     }
 
     /**
@@ -417,7 +402,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
      * @param mapping    Mapping配置，包含源和目标连接器ID
      * @param tableGroup TableGroup配置，包含表结构和字段映射
      */
-    public void parseDDl(WriterResponse response, Mapping mapping, TableGroup tableGroup) {
+    public void parseDDl(WriterResponse response, Meta meta, Mapping mapping, TableGroup tableGroup) {
         try {
             ListenerConfig listenerConfig = mapping.getListener();
 
@@ -465,13 +450,25 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             result.setMappingId(mapping.getId());
             result.setTableGroupId(tableGroup.getId());
             result.setTargetTableGroupName(tableGroup.getTargetTable().getName());
-            flushStrategy.flushIncrementData(mapping.getMetaId(), result, response.getEvent());
 
-            // 6. 如果 DDL 执行失败，提前返回，不更新字段映射
-            // refreshOffset 会在外部统一调用
             if (!StringUtil.isBlank(result.error)) {
+                String ddlConfigJson = null;
+                if (!CollectionUtils.isEmpty(result.getFailData())) {
+                    List<Map<String, Object>> failDataList = (List<Map<String, Object>>) (List<?>) result.getFailData();
+                    Object binlogData = failDataList.get(0).get(ConfigConstant.BINLOG_DATA);
+                    if (binlogData != null) {
+                        ddlConfigJson = binlogData instanceof String ? (String) binlogData : JsonUtil.objToJson(binlogData);
+                    }
+                }
+                if (ddlConfigJson == null) {
+                    ddlConfigJson = JsonUtil.objToJson(targetDDLConfig);
+                }
+                errorQueueService.handleDdlFailData(meta, tableGroup,
+                        tableGroup.getTargetTable().getName(), ddlConfigJson, result.error);
                 return;
             }
+
+            flushStrategy.flushIncrementData(mapping.getMetaId(), result, response.getEvent());
 
             // 7.更新表字段映射关系（含元数据刷新）
             // 注：表字段元数据刷新已收敛至 DDLParserImpl.refreshFiledMappings 内部
@@ -611,5 +608,9 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
 
     public void setLogService(LogService logService) {
         this.logService = logService;
+    }
+
+    public void setErrorQueueService(ErrorQueueService errorQueueService) {
+        this.errorQueueService = errorQueueService;
     }
 }

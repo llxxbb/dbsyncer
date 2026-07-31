@@ -22,7 +22,12 @@ public enum NotifyType {
     /**
      * 手动操作（停止/重置/重新同步等）
      */
-    MANUAL_OPERATION;
+    MANUAL_OPERATION,
+
+    /**
+     * 错误队列熔断
+     */
+    DATA_ERROR_CIRCUIT_BREAKER;
 
     /**
      * 获取通知类型的中文显示名称
@@ -37,6 +42,8 @@ public enum NotifyType {
                 return "数据错误";
             case MANUAL_OPERATION:
                 return "手动操作";
+            case DATA_ERROR_CIRCUIT_BREAKER:
+                return "错误队列熔断";
             default:
                 return name();
         }

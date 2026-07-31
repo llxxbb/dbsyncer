@@ -8,6 +8,7 @@ import org.dbsyncer.biz.ConnectorService;
 import org.dbsyncer.biz.DataSyncService;
 import org.dbsyncer.biz.MonitorService;
 import org.dbsyncer.biz.SystemConfigService;
+import org.dbsyncer.parser.error.ErrorQueueService;
 import org.dbsyncer.biz.enums.DiskMetricEnum;
 import org.dbsyncer.biz.enums.MetricEnum;
 import org.dbsyncer.biz.enums.StatisticEnum;
@@ -20,6 +21,8 @@ import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.DateFormatUtil;
 import org.dbsyncer.common.util.NumberUtil;
 import org.dbsyncer.manager.impl.PreloadTemplate;
+import org.dbsyncer.parser.ProfileComponent;
+import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.web.controller.BaseController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,6 +79,12 @@ public class MonitorController extends BaseController {
 
     @Resource
     private HealthEndpoint healthEndpoint;
+
+    @Resource
+    private ErrorQueueService errorQueueService;
+
+    @Resource
+    private ProfileComponent profileComponent;
 
     @Resource
     private HistoryStackValueFormatter cpuHistoryStackValueFormatterImpl;
@@ -180,6 +189,23 @@ public class MonitorController extends BaseController {
     public RestResult clearData(String id) {
         try {
             return RestResult.restSuccess(monitorService.clearData(id));
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
+        }
+    }
+
+    @PostMapping("/alignCount")
+    @ResponseBody
+    @PreAuthorize("hasRole('admin')")
+    public RestResult alignCount(String metaId) {
+        try {
+            Meta meta = profileComponent.getMeta(metaId);
+            if (meta == null) {
+                return RestResult.restFail("Meta不存在: " + metaId);
+            }
+            errorQueueService.alignCount(meta);
+            return RestResult.restSuccess("计数对齐完成");
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage(), e);
             return RestResult.restFail(e.getMessage());

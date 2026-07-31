@@ -14,7 +14,7 @@ import org.dbsyncer.common.util.*;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.flush.impl.BufferActuatorRouter;
 import org.dbsyncer.parser.flush.impl.MetaBufferActuator;
-import org.dbsyncer.sdk.model.Meta;
+import org.dbsyncer.parser.error.ErrorQueueService;
 import org.dbsyncer.parser.model.Picker;
 import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.config.DDLConfig;
@@ -26,6 +26,7 @@ import org.dbsyncer.sdk.filter.Query;
 import org.dbsyncer.sdk.listener.event.DDLChangedEvent;
 import org.dbsyncer.sdk.listener.event.RowChangedEvent;
 import org.dbsyncer.sdk.model.Field;
+import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.sdk.storage.StorageService;
 import org.dbsyncer.storage.binlog.proto.BinlogMap;
 import org.dbsyncer.storage.util.BinlogMessageUtil;
@@ -35,7 +36,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
 import javax.annotation.Resource;
-import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -62,6 +62,9 @@ public class DataSyncServiceImpl implements DataSyncService {
 
     @Resource
     private MonitorService monitorService;
+
+    @Resource
+    private ErrorQueueService errorQueueService;
 
     @Override
     public MessageVo getMessageVo(String metaId, String messageId) throws Exception {
@@ -191,6 +194,12 @@ public class DataSyncServiceImpl implements DataSyncService {
             throw new RuntimeException("TableGroup不存在");
         }
 
+        Meta meta = profileComponent.getMeta(metaId);
+        if (meta == null) {
+            logger.warn("重试失败：Meta不存在, metaId={}, messageId={}", metaId, messageId);
+            throw new RuntimeException("Meta不存在");
+        }
+
         if (tableGroup.getSourceTable() == null) {
             logger.warn("重试失败：TableGroup的源表为空, tableGroupId={}, metaId={}, messageId={}", tableGroupId, metaId, messageId);
             throw new RuntimeException("TableGroup源表为空");
@@ -275,27 +284,8 @@ public class DataSyncServiceImpl implements DataSyncService {
         // 执行成功后，删除存储中的失败数据并更新统计
         try {
             storageService.remove(StorageEnum.DATA, metaId, messageId);
-            // 更新统计数据：减少失败数，增加成功数
-            Meta meta = profileComponent.getMeta(metaId);
-            if (meta != null) {
-                meta.setFail(meta.getFail() - 1);
-                meta.setSuccess(meta.getSuccess() + 1);
-                meta.setUpdateTime(Instant.now().toEpochMilli());
-
-                // 减少失败数，增加成功数
-                tableGroup.setFail(Math.max(0, tableGroup.getFail() - 1));
-                tableGroup.setSuccess(tableGroup.getSuccess() + 1);
-                // 更新同步状态：根据失败计数判断（有失败记录则为"异常"，否则为"正常"）
-                tableGroup.setStatus(tableGroup.getFail() > 0 ? "异常" : "正常");
-                // 标记 TableGroup 计数发生变化
-                meta.markTableGroupChanged(tableGroupId);
-
-                profileComponent.editConfigModel(meta);
-            } else {
-                logger.warn("重试成功但Meta不存在，无法更新统计, metaId={}, messageId={}", metaId, messageId);
-            }
+            errorQueueService.onRetrySuccess(meta, tableGroup);
         } catch (Exception e) {
-            // 删除数据或更新统计失败，记录日志但不影响重试结果
             logger.error("重试成功但清理数据或更新统计失败, metaId={}, messageId={}, error={}", metaId, messageId, e.getMessage(), e);
         }
 

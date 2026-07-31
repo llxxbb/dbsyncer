@@ -120,28 +120,22 @@ public class KafkaConnector extends AbstractConnector implements ConnectorServic
         }
 
         Result result = new Result();
-        try {
-            String topic = syncRows.get(0).getTableGroup().getParams()
-                .getOrDefault("topic", connectorInstance.getConfig().getTopic());
+        String topic = syncRows.get(0).getTableGroup().getParams()
+            .getOrDefault("topic", connectorInstance.getConfig().getTopic());
 
-            if (topic == null || topic.isEmpty()) {
-                throw new KafkaException("Topic is required");
-            }
-            final KafkaClient kafkaClient = connectorInstance.getConnection();
-            final String finalTopic = topic;
-
-            String sourceTableName = syncRows.get(0).getTableGroup().getSourceTable().getName();
-            List<Map> formattedData = kafkaConvertor.formatMessages(context, data, pkFields, sourceTableName);
-
-            formattedData.forEach(row -> kafkaClient.send(finalTopic, String.valueOf(row.get(pkFieldName)), row));
-            kafkaClient.producer.flush();
-            logger.debug("----kafka wrote topic: {}, number: {}", finalTopic, formattedData.size());
-            result.addSuccessData(formattedData);
-        } catch (Exception e) {
-            result.addFailData(data);
-            result.error = e.getMessage();
-            logger.error(e.getMessage(), e);
+        if (topic == null || topic.isEmpty()) {
+            throw new KafkaException("Topic is required");
         }
+        final KafkaClient kafkaClient = connectorInstance.getConnection();
+        final String finalTopic = topic;
+
+        String sourceTableName = syncRows.get(0).getTableGroup().getSourceTable().getName();
+        List<Map> formattedData = kafkaConvertor.formatMessages(context, data, pkFields, sourceTableName);
+
+        formattedData.forEach(row -> kafkaClient.send(finalTopic, String.valueOf(row.get(pkFieldName)), row));
+        kafkaClient.producer.flush();
+        logger.debug("----kafka wrote topic: {}, number: {}", finalTopic, formattedData.size());
+        result.addSuccessData(formattedData);
         return result;
     }
 

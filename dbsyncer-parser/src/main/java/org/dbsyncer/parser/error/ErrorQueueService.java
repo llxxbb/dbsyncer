@@ -1,0 +1,211 @@
+package org.dbsyncer.parser.error;
+
+import org.dbsyncer.common.model.Paging;
+import org.dbsyncer.parser.MessageService;
+import org.dbsyncer.parser.ProfileComponent;
+import org.dbsyncer.parser.flush.BufferActuator;
+import org.dbsyncer.parser.model.StorageRequest;
+import org.dbsyncer.parser.service.CounterService;
+import org.dbsyncer.sdk.constant.ConfigConstant;
+import org.dbsyncer.sdk.constant.ConnectorConstant;
+import org.dbsyncer.sdk.enums.MetaEnum;
+import org.dbsyncer.sdk.enums.StorageEnum;
+import org.dbsyncer.sdk.filter.Query;
+import org.dbsyncer.sdk.model.Meta;
+import org.dbsyncer.sdk.model.TableGroup;
+import org.dbsyncer.sdk.notify.NotifyType;
+import org.dbsyncer.sdk.storage.StorageService;
+import org.dbsyncer.storage.enums.StorageDataStatusEnum;
+import org.dbsyncer.storage.impl.SnowflakeIdWorker;
+import org.dbsyncer.storage.util.BinlogMessageUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.stereotype.Component;
+
+import javax.annotation.Resource;
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@Component
+public class ErrorQueueService {
+
+    private final Logger logger = LoggerFactory.getLogger(getClass());
+
+    @Resource
+    private ProfileComponent profileComponent;
+
+    @Resource
+    private CounterService counterService;
+
+    @Resource
+    private ErrorQueueConfig errorQueueConfig;
+
+    @Resource
+    private MessageService messageService;
+
+    @Resource
+    private BufferActuator storageBufferActuator;
+
+    @Resource
+    private SnowflakeIdWorker snowflakeIdWorker;
+
+    @Resource
+    private ApplicationEventPublisher applicationEventPublisher;
+
+    @Resource
+    private StorageService storageService;
+
+    public void handleFailData(Meta meta, TableGroup tableGroup, String targetTableName,
+                               String event, List<Map> failData, String errorMsg) {
+        if (failData == null || failData.isEmpty()) {
+            return;
+        }
+        String metaId = meta.getId();
+        String tableGroupId = tableGroup != null ? tableGroup.getId() : null;
+
+        persistError(metaId, tableGroupId, targetTableName, event, failData, errorMsg);
+        counterService.incrementFail(meta, tableGroup, failData.size());
+        counterService.flush(meta, tableGroup);
+        notifyError(meta, targetTableName, errorMsg, failData.size());
+        checkCircuitBreaker(meta, meta.getMappingId());
+    }
+
+    public void handleDdlFailData(Meta meta, TableGroup tableGroup, String targetTableName,
+                                  String ddlConfigJson, String errorMsg) {
+        String metaId = meta.getId();
+        String tableGroupId = tableGroup != null ? tableGroup.getId() : null;
+
+        Map<String, Object> row = new HashMap<>();
+        row.put(ConfigConstant.BINLOG_DATA, ddlConfigJson);
+        persistErrorRow(metaId, tableGroupId, targetTableName, ConnectorConstant.OPERTION_ALTER, row, errorMsg);
+        counterService.incrementFail(meta, tableGroup, 1);
+        counterService.flush(meta, tableGroup);
+        notifyError(meta, targetTableName, errorMsg, 1);
+        checkCircuitBreaker(meta, meta.getMappingId());
+    }
+
+    public void onRetrySuccess(Meta meta, TableGroup tableGroup) {
+        counterService.decrementFail(meta, tableGroup);
+        counterService.flush(meta, tableGroup);
+    }
+
+    public void alignCount(Meta meta) {
+        String metaId = meta.getId();
+        String mappingId = meta.getMappingId();
+        long totalFail = 0;
+        try {
+            List<TableGroup> tableGroups = profileComponent.getTableGroupAll(mappingId);
+            for (TableGroup tg : tableGroups) {
+                long actualCount = queryFailCount(metaId, tg.getId());
+                long oldFail = tg.getFail();
+                if (oldFail != actualCount) {
+                    logger.info("计数对齐: tableGroupId={}, 旧值={}, 新值={}", tg.getId(), oldFail, actualCount);
+                }
+                tg.setFail(actualCount);
+                totalFail += actualCount;
+                profileComponent.editConfigModel(tg);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("计数对齐失败: " + e.getMessage(), e);
+        }
+        long oldMetaFail = meta.getFail();
+        meta.setFail(totalFail);
+        meta.setUpdateTime(Instant.now().toEpochMilli());
+        try {
+            profileComponent.editConfigModel(meta);
+        } catch (Exception e) {
+            throw new RuntimeException("保存Meta失败: " + e.getMessage(), e);
+        }
+        logger.info("计数对齐完成: metaId={}, Meta.fail 旧值={}, 新值={}", metaId, oldMetaFail, totalFail);
+    }
+
+    private void persistError(String metaId, String tableGroupId, String targetTableName,
+                              String event, List<Map> failData, String errorMsg) {
+        for (Map r : failData) {
+            Map<String, Object> row = buildErrorRow(metaId, tableGroupId, targetTableName, event, errorMsg);
+            try {
+                byte[] bytes = BinlogMessageUtil.toBinlogMap(r).toByteArray();
+                row.put(ConfigConstant.BINLOG_DATA, bytes);
+            } catch (Exception e) {
+                logger.warn("序列化错误数据失败: {}", r);
+            }
+            storageBufferActuator.offer(new StorageRequest(metaId, row));
+        }
+    }
+
+    private void persistErrorRow(String metaId, String tableGroupId, String targetTableName,
+                                 String event, Map<String, Object> data, String errorMsg) {
+        Map<String, Object> row = buildErrorRow(metaId, tableGroupId, targetTableName, event, errorMsg);
+        row.put(ConfigConstant.BINLOG_DATA, data.get(ConfigConstant.BINLOG_DATA));
+        storageBufferActuator.offer(new StorageRequest(metaId, row));
+    }
+
+    private Map<String, Object> buildErrorRow(String metaId, String tableGroupId, String targetTableName,
+                                               String event, String errorMsg) {
+        Map<String, Object> row = new HashMap<>();
+        row.put(ConfigConstant.CONFIG_MODEL_ID, String.valueOf(snowflakeIdWorker.nextId()));
+        row.put(ConfigConstant.DATA_SUCCESS, StorageDataStatusEnum.FAIL.getValue());
+        row.put(ConfigConstant.DATA_TABLE_GROUP_ID, tableGroupId);
+        row.put(ConfigConstant.DATA_TARGET_TABLE_NAME, targetTableName);
+        row.put(ConfigConstant.DATA_EVENT, event);
+        row.put(ConfigConstant.DATA_ERROR, errorMsg != null ? errorMsg : "");
+        row.put(ConfigConstant.CONFIG_MODEL_CREATE_TIME, Instant.now().toEpochMilli());
+        return row;
+    }
+
+    private void notifyError(Meta meta, String targetTableName, String errorMsg, int failCount) {
+        String mappingId = meta.getMappingId();
+        StringBuilder msg = new StringBuilder();
+        msg.append("### DBSyncer 数据同步异常\n\n");
+        msg.append("**错误类型**: ").append(NotifyType.DATA_ERROR_QUEUE.getName()).append("\n\n");
+        msg.append("**Mapping ID**: ").append(mappingId).append("\n\n");
+        msg.append("**目标表**: ").append(targetTableName).append("\n\n");
+        msg.append("**失败数量**: ").append(failCount).append(" 条\n\n");
+        msg.append("**错误原因**: ").append(errorMsg);
+        messageService.sendMessage("dbsyncer", msg.toString(), NotifyType.DATA_ERROR_QUEUE);
+    }
+
+    private void checkCircuitBreaker(Meta meta, String mappingId) {
+        int threshold = errorQueueConfig.getThreshold();
+        if (threshold <= 0) {
+            return;
+        }
+        if (meta.getFail() < threshold) {
+            return;
+        }
+        String reason = String.format("错误计数(%d)达到熔断阈值(%d)", meta.getFail(), threshold);
+        logger.warn("熔断触发: metaId={}, {}", meta.getId(), reason);
+        meta.saveState(MetaEnum.ERROR, reason);
+        try {
+            profileComponent.editConfigModel(meta);
+        } catch (Exception e) {
+            logger.error("熔断保存Meta状态失败: metaId={}", meta.getId(), e);
+        }
+        applicationEventPublisher.publishEvent(new CircuitBreakEvent(this, mappingId));
+
+        StringBuilder msg = new StringBuilder();
+        msg.append("### DBSyncer 错误队列熔断\n\n");
+        msg.append("**错误类型**: ").append(NotifyType.DATA_ERROR_CIRCUIT_BREAKER.getName()).append("\n\n");
+        msg.append("**Mapping ID**: ").append(mappingId).append("\n\n");
+        msg.append("**错误计数**: ").append(meta.getFail()).append("\n\n");
+        msg.append("**熔断阈值**: ").append(threshold).append("\n\n");
+        msg.append("**熔断原因**: ").append(reason);
+        messageService.sendMessage("dbsyncer", msg.toString(), NotifyType.DATA_ERROR_CIRCUIT_BREAKER);
+    }
+
+    private long queryFailCount(String metaId, String tableGroupId) {
+        Query query = new Query(1, 1);
+        query.setQueryTotal(true);
+        query.setType(StorageEnum.DATA);
+        query.setMetaId(metaId);
+        query.addFilter(ConfigConstant.DATA_SUCCESS, StorageDataStatusEnum.FAIL.getValue());
+        query.addFilter(ConfigConstant.DATA_TABLE_GROUP_ID, tableGroupId);
+        Paging paging = storageService.query(query);
+        return paging.getTotal();
+    }
+
+
+}

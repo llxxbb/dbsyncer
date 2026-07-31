@@ -13,6 +13,7 @@ import java.util.Map;
  */
 public class SyncRow {
     private Map<String, Object> data;
+    private Map<String, Object> sourceData;
     private PluginContext context;
     private Mapping mapping;
     private TableGroup tableGroup;
@@ -40,6 +41,14 @@ public class SyncRow {
 
     public void setData(Map<String, Object> data) {
         this.data = data;
+    }
+
+    public Map<String, Object> getSourceData() {
+        return sourceData;
+    }
+
+    public void setSourceData(Map<String, Object> sourceData) {
+        this.sourceData = sourceData;
     }
 
     public PluginContext getContext() {

@@ -249,14 +249,11 @@ public final class ElasticsearchConnector extends AbstractConnector implements C
         }
 
         PluginContext context = syncRows.get(0).getContext();
-        
-        // Extract data from SyncRow list
+
         List<Map> data = new java.util.ArrayList<>(syncRows.size());
         for (SyncRow row : syncRows) {
             data.add(row.getData());
         }
-
-        final List<Map> sourceList = data;  // 使用 SyncRow 数据作为源数据
 
         Result result = new Result();
         List<String> primaryKeys = syncRows.get(0).getTableGroup().getTargetTable().getPrimaryKeys();
@@ -265,32 +262,35 @@ public final class ElasticsearchConnector extends AbstractConnector implements C
             logger.warn("Elasticsearch writer missing primary key, will use first field as ID");
             throw new ElasticsearchException("Missing primary key in data");
         }
-        try {
-            final BulkRequest request = new BulkRequest();
-            final String indexName = syncRows.get(0).getTableGroup().getCommand().get(_TARGET_INDEX);
-            final String type = syncRows.get(0).getTableGroup().getCommand().get(_TYPE);
-            data.forEach(row -> addRequest(request, indexName, type, context.getEvent(), String.valueOf(row.get(pk)), row));
 
-            BulkResponse response = connectorInstance.getConnection().bulkWithVersion(request, RequestOptions.DEFAULT);
-            RestStatus restStatus = response.status();
-            if (restStatus.getStatus() != RestStatus.OK.getStatus()) {
-                throw new ElasticsearchException(String.format("error code:%s", restStatus.getStatus()));
-            }
-            BulkItemResponse[] items = response.getItems();
-            BulkItemResponse r = null;
-            for (int i = 0; i < items.length; i++) {
-                r = items[i];
-                if (r.isFailed()) {
-                    result.getFailData().add(sourceList.get(i));
-                    result.error = r.getFailureMessage();
-                }
+        final BulkRequest request = new BulkRequest();
+        final String indexName = syncRows.get(0).getTableGroup().getCommand().get(_TARGET_INDEX);
+        final String type = syncRows.get(0).getTableGroup().getCommand().get(_TYPE);
+        data.forEach(row -> addRequest(request, indexName, type, context.getEvent(), String.valueOf(row.get(pk)), row));
+
+        BulkResponse response;
+        try {
+            response = connectorInstance.getConnection().bulkWithVersion(request, RequestOptions.DEFAULT);
+        } catch (Exception e) {
+            throw new ElasticsearchException(e.getMessage(), e);
+        }
+        RestStatus restStatus = response.status();
+        if (restStatus.getStatus() != RestStatus.OK.getStatus()) {
+            throw new ElasticsearchException(String.format("error code:%s", restStatus.getStatus()));
+        }
+
+        BulkItemResponse[] items = response.getItems();
+        StringBuilder errorMsg = new StringBuilder();
+        for (int i = 0; i < items.length; i++) {
+            BulkItemResponse r = items[i];
+            if (r.isFailed()) {
+                errorMsg.append(r.getFailureMessage()).append("; ");
+            } else {
                 result.getSuccessData().add(data.get(i));
             }
-        } catch (Exception e) {
-            // 记录错误数据
-            result.addFailData(sourceList);  // 存储源数据，便于重试时直接使用
-            result.error = e.getMessage();
-            logger.error(e.getMessage());
+        }
+        if (errorMsg.length() > 0) {
+            throw new ElasticsearchException("Bulk has failed items: " + errorMsg.toString());
         }
         return result;
     }

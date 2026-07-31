@@ -15,6 +15,9 @@ import java.util.Set;
 
 public class TableGroup extends AbstractConfigModel {
 
+    public static final String STATUS_NORMAL = "正常";
+    public static final String STATUS_ERROR = "异常";
+
     public TableGroup() {
         super.setType(ConfigConstant.TABLE_GROUP);
         super.setName(ConfigConstant.TABLE_GROUP);
@@ -50,7 +53,7 @@ public class TableGroup extends AbstractConfigModel {
     private volatile long estimatedTotal;
     private volatile long incrementSuccess;
     private volatile long incrementFail;
-    private volatile String status = "正常";
+    private volatile String status = STATUS_NORMAL;
     private volatile long fullSuccess;
     private volatile long fullFail;
     private volatile long lastSyncTime;
@@ -130,7 +133,7 @@ public class TableGroup extends AbstractConfigModel {
         this.estimatedTotal = 0;
         this.incrementSuccess = 0;
         this.incrementFail = 0;
-        this.status = "正常";
+        this.status = STATUS_NORMAL;
         this.fullSuccess = 0;
         this.fullFail = 0;
         this.lastSyncTime = 0;

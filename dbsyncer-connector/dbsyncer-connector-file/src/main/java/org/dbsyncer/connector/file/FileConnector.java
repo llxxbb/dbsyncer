@@ -189,7 +189,6 @@ public final class FileConnector extends AbstractConnector
             throw new FileException("writer data can not be empty.");
         }
 
-        // Extract data from SyncRow list
         List<Map> data = new ArrayList<>(syncRows.size());
         for (SyncRow row : syncRows) {
             data.add(row.getData());
@@ -215,10 +214,9 @@ public final class FileConnector extends AbstractConnector
                 return StringUtil.join(array.toArray(), separator);
             }).collect(Collectors.toList());
             IOUtils.writeLines(lines, System.lineSeparator(), output, "UTF-8");
+            result.addSuccessData(data);
         } catch (Exception e) {
-            result.addFailData(data);
-            result.error = e.getMessage();
-            logger.error(e.getMessage());
+            throw new FileException(e.getMessage(), e);
         } finally {
             IOUtils.closeQuietly(output);
         }

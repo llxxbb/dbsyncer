@@ -1,12 +1,8 @@
 package org.dbsyncer.sdk.connector.database;
 
-import org.dbsyncer.common.config.RetryConfig;
 import org.dbsyncer.common.model.Result;
-import org.dbsyncer.common.retry.RetryInterceptor;
-import org.dbsyncer.common.retry.RetryPolicy;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
-import org.dbsyncer.common.util.SpringContextUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.sdk.SdkException;
 import org.dbsyncer.sdk.config.CommandConfig;
@@ -90,11 +86,6 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
      * 子类可以覆盖此字段来提供特定的验证器
      */
     protected ConfigValidator<?> configValidator = null;
-
-    /**
-     * 目标端重试拦截器
-     */
-    private static final RetryInterceptor writerRetryInterceptor = new RetryInterceptor();
 
     @Override
     public Class<DatabaseConfig> getConfigClass() {
@@ -362,25 +353,23 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
         if (CollectionUtils.isEmpty(fields)) {
             throw new SdkException("writer fields can not be empty.");
         }
-        // 获取重试配置
-        RetryConfig retryConfig = SpringContextUtil.getBean(RetryConfig.class);
-        RetryPolicy policy = retryConfig != null ? retryConfig.getGlobal() : new RetryPolicy();
 
+        int[] execute;
         try {
-            return writerRetryInterceptor.execute(() -> {
-                int[] execute = doExecuteBatch(connectorInstance, fields, syncRows);
-
-                Result result = new Result();
-                for (int i = 0; i < execute.length; i++) {
-                    if (execute[i] == 1 || execute[i] == -2) {
-                        result.getSuccessData().add(syncRows.get(i).getData());
-                    }
-                }
-                return result;
-            }, policy);
+            execute = doExecuteBatch(connectorInstance, fields, syncRows);
         } catch (Exception e) {
             throw new SdkException(e);
         }
+
+        Result result = new Result();
+        for (int i = 0; i < execute.length; i++) {
+            if (execute[i] == 1 || execute[i] == -2) {
+                result.getSuccessData().add(syncRows.get(i).getData());
+            } else {
+                result.getFailData().add(syncRows.get(i).getSourceData());
+            }
+        }
+        return result;
     }
 
     /**

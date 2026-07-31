@@ -6,17 +6,15 @@ package org.dbsyncer.parser.strategy.impl;
 import org.dbsyncer.common.model.Result;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.parser.CacheService;
-import org.dbsyncer.parser.MessageService;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.flush.BufferActuator;
+import org.dbsyncer.parser.service.CounterService;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.parser.model.StorageRequest;
 import org.dbsyncer.parser.model.SystemConfig;
 import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.parser.strategy.FlushStrategy;
-import org.dbsyncer.sdk.notify.NotifyType;
 import org.dbsyncer.sdk.constant.ConfigConstant;
-import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.storage.enums.StorageDataStatusEnum;
 import org.dbsyncer.storage.impl.SnowflakeIdWorker;
 import org.dbsyncer.storage.util.BinlogMessageUtil;
@@ -30,7 +28,6 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @Version 1.0.0
@@ -52,90 +49,78 @@ public final class FlushStrategyImpl implements FlushStrategy {
     private ProfileComponent profileComponent;
 
     @Resource
-    private LogService logService;
-
-    @Resource
     private BufferActuator storageBufferActuator;
 
     @Resource
-    private MessageService messageService;
+    private CounterService counterService;
 
     @Override
     public void flushFullData(String metaId, Result result, String event) {
-        refreshTotal(metaId, result);
-        flush(metaId, result, event);
+        Meta meta = cacheService.get(metaId, Meta.class);
+        if (meta == null) {
+            return;
+        }
+        TableGroup tableGroup = getTableGroup(result.getTableGroupId());
+
+        int successSize = result.getSuccessData().size();
+        if (successSize > 0 && tableGroup != null) {
+            counterService.incrementSuccess(meta, tableGroup, successSize);
+            updateTableGroupSpeed(tableGroup, successSize);
+            counterService.flush(meta, tableGroup);
+        }
+
+        writeSuccessData(metaId, result, event);
+        logWriteResult(result);
     }
 
     @Override
     public void flushIncrementData(String metaId, Result result, String event) {
-        // 为增量设置总数
         Meta meta = cacheService.get(metaId, Meta.class);
-        if (meta != null) {
-            long total = meta.getTotal();
-            total += result.getFailData().size();
-            total += result.getSuccessData().size();
-            meta.setTotal(total);
-
-            // 更新 TableGroup 的增量同步数量
-            updateTableGroupIncrementProgress(metaId, result);
-            
-            // 更新 Meta 的同步计数
-            updateMetaCounts(meta, result);
-        }
-
-        // 直接调用 asyncWrite 方法，不调用 flush 方法，避免更新 fullSuccess 和 fullFail 字段
-        flush(metaId, result, event);
-
-        // 错误数据通知
-        notifyOnError(result, event);
-    }
-
-    /**
-     * 更新 TableGroup 的增量同步进度
-     *
-     * @param metaId Meta ID
-     * @param result 同步结果，包含成功和失败的数据
-     */
-    private void updateTableGroupIncrementProgress(String metaId, Result result) {
-        if (result.getTableGroupId() == null) {
+        if (meta == null) {
             return;
         }
+        TableGroup tableGroup = getTableGroup(result.getTableGroupId());
 
-        try {
-            TableGroup tableGroup = profileComponent.getTableGroup(result.getTableGroupId());
-            if (tableGroup != null) {
-                int successSize = result.getSuccessData().size();
-                int failSize = result.getFailData().size();
-                long batchCount = successSize + failSize;
-                
-                tableGroup.setIncrementSuccess(tableGroup.getIncrementSuccess() + successSize);
-                tableGroup.setIncrementFail(tableGroup.getIncrementFail() + failSize);
-                tableGroup.setSuccess(tableGroup.getSuccess() + successSize);
-                tableGroup.setFail(tableGroup.getFail() + failSize);
-                
-                // 计算同步速度
-                long currentTime = System.currentTimeMillis();
-                long lastSyncTime = tableGroup.getLastSyncTime();
-                if (lastSyncTime > 0 && batchCount > 0) {
-                    long timeDiffMs = currentTime - lastSyncTime;
-                    if (timeDiffMs > 0) {
-                        double speed = (double) batchCount / (timeDiffMs / 1000.0);
-                        tableGroup.setCurrentSpeed(speed);
-                    }
-                }
-                
-                tableGroup.setLastSyncTime(currentTime);
-                tableGroup.setLastBatchCount(batchCount);
-                
-                // 标记 TableGroup 计数发生变化（将在 Meta 持久化时统一持久化）
-                Meta meta = cacheService.get(metaId, Meta.class);
-                if (meta != null) {
-                    meta.markTableGroupChanged(result.getTableGroupId());
-                }
-            }
-        } catch (Exception e) {
-            logger.error("更新 TableGroup 增量同步数量失败", e);
+        int successSize = result.getSuccessData().size();
+        if (successSize > 0 && tableGroup != null) {
+            counterService.incrementSuccess(meta, tableGroup, successSize);
+            meta.setTotal(meta.getTotal() + successSize);
+            updateTableGroupSpeed(tableGroup, successSize);
+            counterService.flush(meta, tableGroup);
         }
+
+        writeSuccessData(metaId, result, event);
+        logWriteResult(result);
+    }
+
+    private void writeSuccessData(String metaId, Result result, String event) {
+        SystemConfig systemConfig = profileComponent.getSystemConfig();
+        if (systemConfig.isEnableStorageWriteSuccess() && !CollectionUtils.isEmpty(result.getSuccessData())) {
+            asyncWrite(metaId, result.getTableGroupId(), result.getTargetTableGroupName(), event, true, result.getSuccessData(), "");
+        }
+    }
+
+    private void logWriteResult(Result result) {
+        if (result != null) {
+            int successCount = result.getSuccessData().size();
+            String targetTableName = result.getTargetTableGroupName();
+            logger.info("tableGroupName: {} 写入成功 {} 条", targetTableName, successCount);
+        }
+    }
+
+    private void updateTableGroupSpeed(TableGroup tableGroup, int successSize) {
+        long currentTime = System.currentTimeMillis();
+        long lastSyncTime = tableGroup.getLastSyncTime();
+        long batchCount = successSize;
+        if (lastSyncTime > 0 && batchCount > 0) {
+            long timeDiffMs = currentTime - lastSyncTime;
+            if (timeDiffMs > 0) {
+                double speed = (double) batchCount / (timeDiffMs / 1000.0);
+                tableGroup.setCurrentSpeed(speed);
+            }
+        }
+        tableGroup.setLastSyncTime(currentTime);
+        tableGroup.setLastBatchCount(batchCount);
     }
 
     private void asyncWrite(String metaId, String tableGroupId, String targetTableGroupName, String event, boolean success, List<Map> data, String error) {
@@ -159,197 +144,15 @@ public final class FlushStrategyImpl implements FlushStrategy {
         });
     }
 
-    private void refreshTotal(String metaId, Result writer) {
-        Assert.hasText(metaId, "Meta id can not be empty.");
-        Meta meta = cacheService.get(metaId, Meta.class);
-
-        // 记录写入日志
-        if (writer != null) {
-            int successCount = writer.getSuccessData().size();
-            int failCount = writer.getFailData().size();
-            int totalCount = successCount + failCount;
-            String targetTableName = writer.getTargetTableGroupName();
-            logger.info("tableGroupName: {} 写入 {} 条，失败 {} 条，总计 {} 条",
-                    targetTableName, successCount, failCount, totalCount);
-        }
-
-        // 更新 Meta 的总数
-        updateMetaCounts(meta, writer);
-
-        // 更新 TableGroup 的进度
-        if (writer.getTableGroupId() != null) {
-            updateTableGroupProgress(writer.getTableGroupId(), writer);
-        }
-    }
-
-    /**
-     * 更新 Meta 的同步计数
-     *
-     * @param meta   元数据对象，包含全局同步计数
-     * @param writer 同步结果，包含成功和失败的数据
-     */
-    private void updateMetaCounts(Meta meta, Result writer) {
-        meta.setFail(meta.getFail() + writer.getFailData().size());
-        meta.setSuccess(meta.getSuccess() + writer.getSuccessData().size());
-        meta.setUpdateTime(Instant.now().toEpochMilli());
-    }
-
-    /**
-     * 更新 TableGroup 的同步进度
-     *
-     * @param tableGroupId 表组 ID
-     * @param writer       同步结果，包含成功和失败的数据
-     */
-    private void updateTableGroupProgress(String tableGroupId, Result writer) {
-        TableGroup tableGroup = getTableGroup(tableGroupId);
-        if (tableGroup == null) {
-            return;
-        }
-
-        try {
-            // 更新计数
-            updateTableGroupCounts(tableGroup, writer);
-            
-            // 动态调整总数
-            adjustTotalCount(tableGroup);
-            
-            // 设置预计总数
-            setEstimatedTotal(tableGroup);
-            
-            // 更新状态
-            updateTableGroupStatus(tableGroup);
-            
-//            profileComponent.editConfigModel(tableGroup);
-        } catch (Exception e) {
-            logger.error("更新 TableGroup 进度失败", e);
-        }
-    }
-
-    /**
-     * 获取 TableGroup 实例
-     *
-     * @param tableGroupId 表组 ID
-     * @return TableGroup 实例，如果获取失败返回 null
-     */
     private TableGroup getTableGroup(String tableGroupId) {
+        if (tableGroupId == null) {
+            return null;
+        }
         try {
             return profileComponent.getTableGroup(tableGroupId);
         } catch (Exception e) {
             logger.error("获取 TableGroup 失败", e);
             return null;
-        }
-    }
-
-    /**
-     * 更新 TableGroup 的同步计数
-     *
-     * @param tableGroup 表组实例
-     * @param writer     同步结果，包含成功和失败的数据
-     */
-    private void updateTableGroupCounts(TableGroup tableGroup, Result writer) {
-        int successSize = writer.getSuccessData().size();
-        int failSize = writer.getFailData().size();
-        long batchCount = successSize + failSize;
-        
-        tableGroup.setSuccess(tableGroup.getSuccess() + successSize);
-        tableGroup.setFail(tableGroup.getFail() + failSize);
-        tableGroup.setFullSuccess(tableGroup.getFullSuccess() + successSize);
-        tableGroup.setFullFail(tableGroup.getFullFail() + failSize);
-        
-        // 计算同步速度
-        long currentTime = System.currentTimeMillis();
-        long lastSyncTime = tableGroup.getLastSyncTime();
-        if (lastSyncTime > 0 && batchCount > 0) {
-            long timeDiffMs = currentTime - lastSyncTime;
-            if (timeDiffMs > 0) {
-                double speed = (double) batchCount / (timeDiffMs / 1000.0);
-                tableGroup.setCurrentSpeed(speed);
-            }
-        }
-        
-        tableGroup.setLastSyncTime(currentTime);
-        tableGroup.setLastBatchCount(batchCount);
-    }
-
-    /**
-     * 动态调整 TableGroup 的总数
-     * 当已完成的同步数量超过当前总数时，更新总数为已完成数量
-     *
-     * @param tableGroup 表组实例
-     */
-    private void adjustTotalCount(TableGroup tableGroup) {
-        long completed = tableGroup.getFullSuccess() + tableGroup.getFullFail();
-        if (tableGroup.getTotal() < completed) {
-            tableGroup.setTotal(completed);
-        }
-    }
-
-    /**
-     * 设置 TableGroup 的预计总数
-     * 如果预计总数未设置，则根据源表计数或当前总数来设置
-     *
-     * @param tableGroup 表组实例
-     */
-    private void setEstimatedTotal(TableGroup tableGroup) {
-        if (tableGroup.getEstimatedTotal() != 0) {
-            return;
-        }
-
-        if (tableGroup.getSourceTable() != null && tableGroup.getSourceTable().getCount() > 0) {
-            tableGroup.setEstimatedTotal(tableGroup.getSourceTable().getCount());
-        } else {
-            tableGroup.setEstimatedTotal(tableGroup.getTotal());
-        }
-    }
-
-    /**
-     * 更新 TableGroup 的同步状态
-     * 根据失败计数判断同步状态：有失败记录则为"异常"，否则为"正常"
-     *
-     * @param tableGroup 表组实例
-     */
-    private void updateTableGroupStatus(TableGroup tableGroup) {
-        tableGroup.setStatus(tableGroup.getFail() > 0 ? "异常" : "正常");
-    }
-
-    /**
-     * 错误数据通知：当同步结果包含失败数据时发送告警
-     *
-     * @param result  同步结果
-     * @param event   事件类型
-     */
-    private void notifyOnError(Result result, String event) {
-        if (result == null || CollectionUtils.isEmpty(result.getFailData())) {
-            return;
-        }
-
-        String mappingId = result.getMappingId();
-        String tableGroup = result.getTargetTableGroupName();
-        String error = result.error;
-        int failCount = result.getFailData().size();
-        
-        // 构建格式化的消息
-        StringBuilder msg = new StringBuilder();
-        msg.append("### DBSyncer 数据同步异常\n\n");
-        msg.append("**错误类型**: ").append(NotifyType.DATA_ERROR_QUEUE.getName()).append("\n\n");
-        msg.append("**Mapping ID**: ").append(mappingId).append("\n\n");
-        msg.append("**目标表**: ").append(tableGroup).append("\n\n");
-        msg.append("**失败数量**: ").append(failCount).append(" 条\n\n");
-        msg.append("**错误原因**: ").append(error);
-        
-        messageService.sendMessage("dbsyncer", msg.toString(), NotifyType.DATA_ERROR_QUEUE);
-    }
-
-    private void flush(String metaId, Result result, String event) {
-        SystemConfig systemConfig = profileComponent.getSystemConfig();
-        // 是否写失败数据
-        if (systemConfig.isEnableStorageWriteFail() && !CollectionUtils.isEmpty(result.getFailData())) {
-            asyncWrite(metaId, result.getTableGroupId(), result.getTargetTableGroupName(), event, false, result.getFailData(), result.error);
-        }
-
-        // 是否写成功数据
-        if (systemConfig.isEnableStorageWriteSuccess() && !CollectionUtils.isEmpty(result.getSuccessData())) {
-            asyncWrite(metaId, result.getTableGroupId(), result.getTargetTableGroupName(), event, true, result.getSuccessData(), "");
         }
     }
 }

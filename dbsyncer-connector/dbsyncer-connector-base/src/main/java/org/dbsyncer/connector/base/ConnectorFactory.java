@@ -4,7 +4,10 @@
 package org.dbsyncer.connector.base;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.dbsyncer.common.config.RetryConfig;
 import org.dbsyncer.common.model.Result;
+import org.dbsyncer.common.retry.RetryInterceptor;
+import org.dbsyncer.common.retry.RetryPolicy;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.sdk.config.CommandConfig;
@@ -55,6 +58,11 @@ public class ConnectorFactory implements DisposableBean {
 
     @Resource
     private LogService logService;
+
+    @Resource
+    private RetryConfig retryConfig;
+
+    private static final RetryInterceptor retryInterceptor = new RetryInterceptor();
 
     @PostConstruct
     private void init() {
@@ -228,60 +236,61 @@ public class ConnectorFactory implements DisposableBean {
             event = ConnectorConstant.OPERTION_UPSERT;
             ctx.setEvent(event);
         }
-        switch (event) {
-            case ConnectorConstant.OPERTION_INSERT:
-                return executeWriterOperation(syncRows, (connector, instance, rows) -> connector.insert(instance, rows));
-            case ConnectorConstant.OPERTION_UPDATE:
-                return executeWriterOperation(syncRows, (connector, instance, rows) -> connector.update(instance, rows));
-            case ConnectorConstant.OPERTION_DELETE:
-                return executeWriterOperation(syncRows, (connector, instance, rows) -> connector.delete(instance, rows));
-            case ConnectorConstant.OPERTION_UPSERT:
-                return executeWriterOperation(syncRows, (connector, instance, rows) -> connector.upsert(instance, rows));
-            default:
-                throw new RuntimeException("不支持的事件类型：" + event);
+        RetryPolicy policy = retryConfig != null ? retryConfig.getGlobal() : new RetryPolicy();
+        String mappingId = syncRows.get(0).getMapping() != null ? syncRows.get(0).getMapping().getId() : null;
+        try {
+            switch (event) {
+                case ConnectorConstant.OPERTION_INSERT:
+                    return executeWriterOperation(syncRows, (connector, instance, rows) -> connector.insert(instance, rows), policy, mappingId);
+                case ConnectorConstant.OPERTION_UPDATE:
+                    return executeWriterOperation(syncRows, (connector, instance, rows) -> connector.update(instance, rows), policy, mappingId);
+                case ConnectorConstant.OPERTION_DELETE:
+                    return executeWriterOperation(syncRows, (connector, instance, rows) -> connector.delete(instance, rows), policy, mappingId);
+                case ConnectorConstant.OPERTION_UPSERT:
+                    return executeWriterOperation(syncRows, (connector, instance, rows) -> connector.upsert(instance, rows), policy, mappingId);
+                default:
+                    throw new RuntimeException("不支持的事件类型：" + event);
+            }
+        } catch (Exception e) {
+            Result result = new Result();
+            result.error = e.getMessage();
+            result.addFailData(syncRows.stream().map(SyncRow::getSourceData).collect(Collectors.toList()));
+            return result;
         }
     }
 
-    /**
-     * 执行写入操作的通用方法
-     */
-    private Result executeWriterOperation(List<SyncRow> syncRows, WriterOperation operation) {
+    private Result executeWriterOperation(List<SyncRow> syncRows, WriterOperation operation, RetryPolicy policy, String mappingId) throws Exception {
         PluginContext ctx = syncRows.get(0).getContext();
         ConnectorInstance targetInstance = ctx.getTargetConnectorInstance();
         Assert.notNull(targetInstance, "targetConnectorInstance can not null");
         ConnectorService targetConnector = getConnectorService(targetInstance.getConfig());
 
-        // 从 SyncRow 获取配置元数据
         SyncRow firstRow = syncRows.get(0);
         String tableName = firstRow.getTableGroup() != null
                 ? firstRow.getTableGroup().getSourceTable().getName() : "";
-        List<Map> sourceDataList = syncRows.stream().map(SyncRow::getData).collect(Collectors.toList());
 
         if (targetConnector instanceof AbstractConnector) {
             AbstractConnector conn = (AbstractConnector) targetConnector;
-            try {
-                // 支持标准解析器
-                if (ctx.isEnableSchemaResolver() && targetConnector.getSchemaResolver() != null) {
+            if (ctx.isEnableSchemaResolver() && targetConnector.getSchemaResolver() != null) {
+                try {
                     conn.convertProcessBeforeWriter(syncRows, targetConnector.getSchemaResolver());
+                } catch (Exception e) {
+                    Result result = new Result();
+                    result.error = e.getMessage();
+                    result.addFailData(syncRows.stream().map(SyncRow::getSourceData).collect(Collectors.toList()));
+                    logger.error("traceId:{}, tableName:{}, event:{}", ctx.getTraceId(), tableName,
+                                ctx.getEvent(), e);
+                    logService.log(firstRow.getMapping(), LogType.SYNC, LogLevel.ERROR, e.getMessage() + ExceptionUtils.getStackTrace(e));
+                    return result;
                 }
-            } catch (Exception e) {
-                Result result = new Result();
-                result.error = e.getMessage();
-                result.addFailData(sourceDataList);
-                logger.error("traceId:{}, tableName:{}, event:{}", ctx.getTraceId(), tableName,
-                            ctx.getEvent(), e);
-                logService.log(firstRow.getMapping(), LogType.SYNC, LogLevel.ERROR, e.getMessage() +  ExceptionUtils.getStackTrace(e));
-                return result;
             }
         }
 
-        Result result = operation.execute(targetConnector, targetInstance, syncRows);
-        if (ctx.isEnablePrintTraceInfo()) {
-            logger.info("traceId:{}, tableName:{}, event:{}, result:{}", ctx.getTraceId(), tableName,
-                    ctx.getEvent(), JsonUtil.objToJson(result));
-        }
-        Assert.notNull(result, "Connector writer batch result can not null");
-        return result;
+        return retryInterceptor.execute(() -> {
+            Result result = operation.execute(targetConnector, targetInstance, syncRows);
+            Assert.notNull(result, "Connector writer batch result can not null");
+            return result;
+        }, policy, mappingId);
     }
 
     /**
