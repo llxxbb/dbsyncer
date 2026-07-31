@@ -111,6 +111,9 @@
                                 <div class="row-fluid">
                                     <div class="span4"><span class="fa fa-arrow-right fa-3x"></span></div>
                                 </div>
+                                <div style="margin-top: 8px;">
+                                    <span class="label label-primary" style="font-size: 13px;">[[${T(org.dbsyncer.sdk.enums.ModelEnum).getModelName(mapping?.model)}]]同步</span>
+                                </div>
                             </div>
 
                             <div class="col-md-4">
@@ -172,7 +175,6 @@
 
                             <div class="col-md-2">
                                 <div  class="text-left" id ="metaModel">
-                                    <p>[[${T(org.dbsyncer.sdk.enums.ModelEnum).getModelName(mapping?.model)}]]同步</p>
                                     <p>总数:</p>
                                     <span class="highlight-number total-color">[[${total}]]</span>
                                 </div>
