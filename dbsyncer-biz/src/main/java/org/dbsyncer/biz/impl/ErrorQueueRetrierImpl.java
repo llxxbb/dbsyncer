@@ -4,7 +4,7 @@
 package org.dbsyncer.biz.impl;
 
 import org.apache.lucene.index.IndexableField;
-import org.dbsyncer.biz.DataSyncService;
+import org.dbsyncer.biz.ErrorQueueRetrier;
 import org.dbsyncer.biz.MonitorService;
 import org.dbsyncer.biz.vo.BinlogColumnVo;
 import org.dbsyncer.biz.vo.DataVo;
@@ -14,7 +14,7 @@ import org.dbsyncer.common.util.*;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.flush.impl.BufferActuatorRouter;
 import org.dbsyncer.parser.flush.impl.MetaBufferActuator;
-import org.dbsyncer.parser.error.ErrorQueueService;
+import org.dbsyncer.parser.error.ErrorQueueCollector;
 import org.dbsyncer.parser.model.Picker;
 import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.config.DDLConfig;
@@ -40,14 +40,14 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 数据同步服务
+ * 错误队列重试服务
  *
  * @author AE86
  * @version 1.0.0
  * @date 2022/12/19 23:56
  */
 @Service
-public class DataSyncServiceImpl implements DataSyncService {
+public class ErrorQueueRetrierImpl implements ErrorQueueRetrier {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -64,7 +64,7 @@ public class DataSyncServiceImpl implements DataSyncService {
     private MonitorService monitorService;
 
     @Resource
-    private ErrorQueueService errorQueueService;
+    private ErrorQueueCollector errorQueueCollector;
 
     @Override
     public MessageVo getMessageVo(String metaId, String messageId) throws Exception {
@@ -284,7 +284,7 @@ public class DataSyncServiceImpl implements DataSyncService {
         // 执行成功后，删除存储中的失败数据并更新统计
         try {
             storageService.remove(StorageEnum.DATA, metaId, messageId);
-            errorQueueService.onRetrySuccess(meta, tableGroup);
+            errorQueueCollector.onRetrySuccess(meta, tableGroup);
         } catch (Exception e) {
             logger.error("重试成功但清理数据或更新统计失败, metaId={}, messageId={}, error={}", metaId, messageId, e.getMessage(), e);
         }

@@ -4,7 +4,7 @@
 package org.dbsyncer.biz.impl;
 
 import org.apache.lucene.index.IndexableField;
-import org.dbsyncer.biz.DataSyncService;
+import org.dbsyncer.biz.ErrorQueueRetrier;
 import org.dbsyncer.biz.MonitorService;
 import org.dbsyncer.biz.SystemConfigService;
 import org.dbsyncer.biz.enums.BufferActuatorMetricEnum;
@@ -35,7 +35,6 @@ import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.parser.ProfileComponent;
-import org.dbsyncer.sdk.enums.MetaEnum;
 import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.sdk.constant.ConfigConstant;
@@ -83,7 +82,7 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob {
     private ProfileComponent profileComponent;
 
     @Resource
-    private DataSyncService dataSyncService;
+    private ErrorQueueRetrier errorQueueRetrier;
 
     @Resource
     private ScheduledTaskService scheduledTaskService;
@@ -197,7 +196,7 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob {
             for (Map row : data) {
                 try {
                     DataVo dataVo = convert2Vo(row, DataVo.class);
-                    Map binlogData = dataSyncService.getBinlogData(row, true);
+                    Map binlogData = errorQueueRetrier.getBinlogData(row, true);
                     dataVo.setJson(JsonUtil.objToJson(binlogData));
                     allData.add(dataVo);
                 } catch (Exception e) {

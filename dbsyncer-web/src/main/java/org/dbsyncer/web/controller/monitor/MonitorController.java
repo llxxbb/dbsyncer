@@ -5,10 +5,10 @@ package org.dbsyncer.web.controller.monitor;
 
 import org.dbsyncer.biz.BizException;
 import org.dbsyncer.biz.ConnectorService;
-import org.dbsyncer.biz.DataSyncService;
+import org.dbsyncer.biz.ErrorQueueRetrier;
 import org.dbsyncer.biz.MonitorService;
 import org.dbsyncer.biz.SystemConfigService;
-import org.dbsyncer.parser.error.ErrorQueueService;
+import org.dbsyncer.parser.error.ErrorQueueCollector;
 import org.dbsyncer.biz.enums.DiskMetricEnum;
 import org.dbsyncer.biz.enums.MetricEnum;
 import org.dbsyncer.biz.enums.StatisticEnum;
@@ -63,7 +63,7 @@ public class MonitorController extends BaseController {
     private MonitorService monitorService;
 
     @Resource
-    private DataSyncService dataSyncService;
+    private ErrorQueueRetrier errorQueueRetrier;
 
     @Resource
     private ConnectorService connectorService;
@@ -81,7 +81,7 @@ public class MonitorController extends BaseController {
     private HealthEndpoint healthEndpoint;
 
     @Resource
-    private ErrorQueueService errorQueueService;
+    private ErrorQueueCollector errorQueueCollector;
 
     @Resource
     private ProfileComponent profileComponent;
@@ -108,7 +108,7 @@ public class MonitorController extends BaseController {
     @PreAuthorize("hasRole('admin')")
     public String page(ModelMap model, String metaId, String messageId) throws Exception {
         model.put("meta", monitorService.getMetaVo(metaId));
-        model.put("message", dataSyncService.getMessageVo(metaId, messageId));
+        model.put("message", errorQueueRetrier.getMessageVo(metaId, messageId));
         return "monitor/retry.html";
     }
 
@@ -163,7 +163,7 @@ public class MonitorController extends BaseController {
     public RestResult sync(HttpServletRequest request) {
         try {
             Map<String, String> params = getParams(request);
-            return RestResult.restSuccess(dataSyncService.sync(params));
+            return RestResult.restSuccess(errorQueueRetrier.sync(params));
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage(), e);
             return RestResult.restFail(e.getMessage());
@@ -175,7 +175,7 @@ public class MonitorController extends BaseController {
     @PreAuthorize("hasRole('admin')")
     public RestResult retryAll(String metaId) {
         try {
-            Map<String, Object> result = dataSyncService.retryAll(metaId);
+            Map<String, Object> result = errorQueueRetrier.retryAll(metaId);
             return RestResult.restSuccess(result);
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage(), e);
@@ -204,7 +204,7 @@ public class MonitorController extends BaseController {
             if (meta == null) {
                 return RestResult.restFail("Meta不存在: " + metaId);
             }
-            errorQueueService.alignCount(meta);
+            errorQueueCollector.alignCount(meta);
             return RestResult.restSuccess("计数对齐完成");
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage(), e);

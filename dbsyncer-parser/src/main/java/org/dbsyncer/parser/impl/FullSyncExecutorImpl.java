@@ -14,7 +14,7 @@ import org.dbsyncer.sdk.model.*;
 import org.dbsyncer.parser.strategy.FlushStrategy;
 import org.dbsyncer.parser.util.ConvertUtil;
 import org.dbsyncer.parser.util.PickerUtil;
-import org.dbsyncer.parser.error.ErrorQueueService;
+import org.dbsyncer.parser.error.ErrorQueueCollector;
 
 import org.dbsyncer.sdk.connector.database.Database;
 import org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance;
@@ -60,7 +60,7 @@ public class FullSyncExecutorImpl implements FullSyncExecutor {
     private ProfileComponent profileComponent;
 
     @Resource
-    private ErrorQueueService errorQueueService;
+    private ErrorQueueCollector errorQueueCollector;
 
     // 移除ApplicationContext依赖，添加ProcessEvent依赖
     @Resource
@@ -189,7 +189,7 @@ public class FullSyncExecutorImpl implements FullSyncExecutor {
                 result.setTableGroupId(tableGroup.getId());
 
                 if (!CollectionUtils.isEmpty(result.getFailData())) {
-                    errorQueueService.handleFailData(meta, tableGroup, tableGroup.getName(),
+                    errorQueueCollector.handleFailData(meta, tableGroup, tableGroup.getName(),
                             ConnectorConstant.OPERTION_INSERT, result.getFailData(), result.error);
                 }
                 if (!CollectionUtils.isEmpty(result.getSuccessData())) {
@@ -199,7 +199,7 @@ public class FullSyncExecutorImpl implements FullSyncExecutor {
         } catch (Exception e) {
             logger.error("全量同步异常: tableGroup={}, error={}", tableGroup.getName(), e.getMessage(), e);
             List<Map> failData = target.stream().map(SyncRow::getSourceData).collect(Collectors.toList());
-            errorQueueService.handleFailData(meta, tableGroup, tableGroup.getName(),
+            errorQueueCollector.handleFailData(meta, tableGroup, tableGroup.getName(),
                     ConnectorConstant.OPERTION_INSERT, failData, e.getMessage());
         }
 

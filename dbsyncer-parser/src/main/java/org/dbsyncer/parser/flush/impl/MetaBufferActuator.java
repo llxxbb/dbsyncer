@@ -18,7 +18,7 @@ import org.dbsyncer.parser.model.*;
 import org.dbsyncer.sdk.model.*;
 import org.dbsyncer.parser.service.TableGroupModelService;
 import org.dbsyncer.parser.strategy.FlushStrategy;
-import org.dbsyncer.parser.error.ErrorQueueService;
+import org.dbsyncer.parser.error.ErrorQueueCollector;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.parser.util.ConvertUtil;
@@ -63,7 +63,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
     private TableGroupContext tableGroupContext;
     private LogService logService;
     private TableGroupModelService tableGroupModelService;
-    private ErrorQueueService errorQueueService;
+    private ErrorQueueCollector errorQueueCollector;
 
     /**
      * 初始化时设置全局 LogService（一次设置，长期使用）
@@ -325,7 +325,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
                 throw new RuntimeException("重试失败: " + msg);
             }
             List<Map> failData = new ArrayList<>(RowConverter.toListOfMaps(sourceFields, fieldIndexMap, response.getDataList()));
-            errorQueueService.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
+            errorQueueCollector.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
                     response.getEvent(), failData, msg);
             return;
         }
@@ -363,7 +363,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
                 throw new RuntimeException("重试失败: " + msg);
             }
             List<Map> failData = new ArrayList<>(RowConverter.toListOfMaps(sourceFields, fieldIndexMap, response.getDataList()));
-            errorQueueService.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
+            errorQueueCollector.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
                     response.getEvent(), failData, msg);
             return;
         }
@@ -377,7 +377,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             result.setTargetTableGroupName(tableGroup.getTargetTable().getName());
 
             if (!CollectionUtils.isEmpty(result.getFailData())) {
-                errorQueueService.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
+                errorQueueCollector.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
                         response.getEvent(), result.getFailData(), result.error);
             }
             if (!CollectionUtils.isEmpty(result.getSuccessData())) {
@@ -389,7 +389,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
                 throw new RuntimeException("重试失败: " + e.getMessage());
             }
             List<Map> failData = targetDataList.stream().map(SyncRow::getSourceData).collect(Collectors.toList());
-            errorQueueService.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
+            errorQueueCollector.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
                     response.getEvent(), failData, e.getMessage());
         }
     }
@@ -463,7 +463,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
                 if (ddlConfigJson == null) {
                     ddlConfigJson = JsonUtil.objToJson(targetDDLConfig);
                 }
-                errorQueueService.handleDdlFailData(meta, tableGroup,
+                errorQueueCollector.handleDdlFailData(meta, tableGroup,
                         tableGroup.getTargetTable().getName(), ddlConfigJson, result.error);
                 return;
             }
@@ -610,7 +610,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         this.logService = logService;
     }
 
-    public void setErrorQueueService(ErrorQueueService errorQueueService) {
-        this.errorQueueService = errorQueueService;
+    public void setErrorQueueCollector(ErrorQueueCollector errorQueueCollector) {
+        this.errorQueueCollector = errorQueueCollector;
     }
 }

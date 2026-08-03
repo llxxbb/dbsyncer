@@ -30,7 +30,7 @@ import java.util.List;
 import java.util.Map;
 
 @Component
-public class ErrorQueueService {
+public class ErrorQueueCollector {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -206,6 +206,5 @@ public class ErrorQueueService {
         Paging paging = storageService.query(query);
         return paging.getTotal();
     }
-
 
 }

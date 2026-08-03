@@ -3,36 +3,34 @@
  */
 package org.dbsyncer.biz;
 
-import com.google.protobuf.InvalidProtocolBufferException;
 import org.dbsyncer.biz.vo.MessageVo;
 
 import java.util.Map;
 
-public interface DataSyncService {
+public interface ErrorQueueRetrier {
 
     /**
-     * 获取同步数据
+     * 获取错误队列消息详情（供重试页面展示）
      *
-     * @param metaId
-     * @param messageId
-     * @return
+     * @param metaId    元数据ID
+     * @param messageId 消息ID
+     * @return 消息详情
      */
     MessageVo getMessageVo(String metaId, String messageId) throws Exception;
 
     /**
-     * 获取Binlog
+     * 获取Binlog数据
      *
-     * @param row
-     * @param prettyBytes
-     * @return
-     * @throws InvalidProtocolBufferException
+     * @param row         数据行
+     * @param prettyBytes 是否格式化字节数组
+     * @return Binlog数据
      */
     Map getBinlogData(Map row, boolean prettyBytes) throws Exception;
 
     /**
-     * 手动同步数据
+     * 单条重试
      *
-     * @param params
+     * @param params 重试参数
      * @return 成功的 messageId
      */
     String sync(Map<String, String> params) throws Exception;
@@ -42,7 +40,6 @@ public interface DataSyncService {
      *
      * @param metaId 元数据ID
      * @return 包含总数、成功数、失败数的Map
-     * @throws Exception
      */
     Map<String, Object> retryAll(String metaId) throws Exception;
 

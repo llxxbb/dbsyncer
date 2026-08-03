@@ -10,11 +10,10 @@ import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.TableGroupContext;
 import org.dbsyncer.parser.ddl.DDLParser;
-import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.parser.model.WriterRequest;
 import org.dbsyncer.parser.service.TableGroupModelService;
 import org.dbsyncer.parser.strategy.FlushStrategy;
-import org.dbsyncer.parser.error.ErrorQueueService;
+import org.dbsyncer.parser.error.ErrorQueueCollector;
 
 import org.dbsyncer.sdk.listener.ChangedEvent;
 import org.dbsyncer.sdk.spi.LogService;
@@ -24,7 +23,6 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -40,7 +38,7 @@ import java.util.concurrent.atomic.AtomicLong;
 @Component
 public final class BufferActuatorRouter implements DisposableBean {
 
-    @Autowired
+    @Resource
     private ProfileComponent profileComponent;
 
     @Resource
@@ -74,7 +72,7 @@ public final class BufferActuatorRouter implements DisposableBean {
     private TimeRegistry timeRegistry;
 
     @Resource
-    private ErrorQueueService errorQueueService;
+    private ErrorQueueCollector errorQueueCollector;
 
     /**
      * 每个 meta 独享的执行器
@@ -165,7 +163,7 @@ public final class BufferActuatorRouter implements DisposableBean {
         actuator.setTableGroupContext(tableGroupContext);
         actuator.setLogService(logService);
         actuator.setTableGroupModelService(tableGroupModelService);
-        actuator.setErrorQueueService(errorQueueService);
+        actuator.setErrorQueueCollector(errorQueueCollector);
         // 注入 AbstractBufferActuator 需要的依赖
         actuator.setScheduledTaskService(scheduledTaskService);
         actuator.setTimeRegistry(timeRegistry);
