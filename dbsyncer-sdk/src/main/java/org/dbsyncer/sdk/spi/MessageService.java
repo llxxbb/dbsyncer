@@ -1,7 +1,14 @@
-package org.dbsyncer.parser;
+package org.dbsyncer.sdk.spi;
 
 import org.dbsyncer.sdk.notify.NotifyType;
 
+/**
+ * 消息服务接口
+ *
+ * @version 1.0.0
+ * @Author AE86
+ * @Date 2020-05-21 23:18
+ */
 public interface MessageService {
 
     /**

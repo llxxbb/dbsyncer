@@ -1,6 +1,9 @@
 package org.dbsyncer.web.integration;
 
+import org.dbsyncer.sdk.model.Field;
+import org.dbsyncer.sdk.model.FieldMapping;
 import org.dbsyncer.sdk.model.Meta;
+import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.config.DatabaseConfig;
 import org.dbsyncer.web.Application;
@@ -995,9 +998,9 @@ public class MySQLToSQLServerDDLSyncIntegrationTest extends BaseDDLIntegrationTe
         }
         
         // 刷新表结构（从数据库重新获取字段信息）
-        org.dbsyncer.sdk.model.MetaInfo sourceMetaInfo = connectorFactory.getMetaInfo(
+        MetaInfo sourceMetaInfo = connectorFactory.getMetaInfo(
                 connectorFactory.connect(mysqlConfig), tableGroup.getSourceTable().getName());
-        org.dbsyncer.sdk.model.MetaInfo targetMetaInfo = connectorFactory.getMetaInfo(
+        MetaInfo targetMetaInfo = connectorFactory.getMetaInfo(
                 connectorFactory.connect(sqlServerConfig), tableGroup.getTargetTable().getName());
         
         tableGroup.getSourceTable().setColumn(sourceMetaInfo.getColumn());
@@ -1013,14 +1016,14 @@ public class MySQLToSQLServerDDLSyncIntegrationTest extends BaseDDLIntegrationTe
                 ));
         
         // 添加新字段的映射（如果源表和目标表中都有该字段，且字段名相同）
-        Map<String, org.dbsyncer.sdk.model.Field> sourceFieldMap = tableGroup.getSourceTable().getColumn().stream()
+        Map<String, Field> sourceFieldMap = tableGroup.getSourceTable().getColumn().stream()
                 .collect(java.util.stream.Collectors.toMap(
-                        org.dbsyncer.sdk.model.Field::getName,
+                        Field::getName,
                         field -> field
                 ));
-        Map<String, org.dbsyncer.sdk.model.Field> targetFieldMap = tableGroup.getTargetTable().getColumn().stream()
+        Map<String, Field> targetFieldMap = tableGroup.getTargetTable().getColumn().stream()
                 .collect(java.util.stream.Collectors.toMap(
-                        org.dbsyncer.sdk.model.Field::getName,
+                        Field::getName,
                         field -> field
                 ));
         
@@ -1028,10 +1031,10 @@ public class MySQLToSQLServerDDLSyncIntegrationTest extends BaseDDLIntegrationTe
         for (String sourceFieldName : sourceFieldMap.keySet()) {
             // 如果字段映射中不存在该字段，且目标表中也有同名字段，则添加映射
             if (!sourceToTargetFieldMap.containsKey(sourceFieldName)) {
-                org.dbsyncer.sdk.model.Field targetField = targetFieldMap.get(sourceFieldName);
+                Field targetField = targetFieldMap.get(sourceFieldName);
                 if (targetField != null) {
-                    org.dbsyncer.sdk.model.Field sourceField = sourceFieldMap.get(sourceFieldName);
-                    tableGroup.getFieldMapping().add(new org.dbsyncer.sdk.model.FieldMapping(sourceField, targetField));
+                    Field sourceField = sourceFieldMap.get(sourceFieldName);
+                    tableGroup.getFieldMapping().add(new FieldMapping(sourceField, targetField));
                     logger.info("添加新字段映射: {} -> {}", sourceFieldName, sourceFieldName);
                 }
             }
@@ -1184,7 +1187,7 @@ public class MySQLToSQLServerDDLSyncIntegrationTest extends BaseDDLIntegrationTe
 
         // 2. 检查目标表是否已存在
         try {
-            org.dbsyncer.sdk.model.MetaInfo existingTable = connectorFactory.getMetaInfo(targetConnectorInstance, targetTable);
+            MetaInfo existingTable = connectorFactory.getMetaInfo(targetConnectorInstance, targetTable);
             if (existingTable != null && existingTable.getColumn() != null && !existingTable.getColumn().isEmpty()) {
                 logger.info("目标表已存在，跳过创建: {}", targetTable);
                 return;
@@ -1194,7 +1197,7 @@ public class MySQLToSQLServerDDLSyncIntegrationTest extends BaseDDLIntegrationTe
         }
 
         // 3. 获取源表结构
-        org.dbsyncer.sdk.model.MetaInfo sourceMetaInfo = connectorFactory.getMetaInfo(sourceConnectorInstance, sourceTable);
+        MetaInfo sourceMetaInfo = connectorFactory.getMetaInfo(sourceConnectorInstance, sourceTable);
         assertNotNull("无法获取源表结构: " + sourceTable, sourceMetaInfo);
         assertFalse("源表没有字段: " + sourceTable, sourceMetaInfo.getColumn() == null || sourceMetaInfo.getColumn().isEmpty());
 
@@ -1208,16 +1211,16 @@ public class MySQLToSQLServerDDLSyncIntegrationTest extends BaseDDLIntegrationTe
         org.dbsyncer.sdk.schema.SyncConverter sourceSchemaResolver = sourceConnectorService.getSchemaResolver();
 
         // 创建标准化的 MetaInfo
-        org.dbsyncer.sdk.model.MetaInfo standardizedMetaInfo = new org.dbsyncer.sdk.model.MetaInfo();
+        MetaInfo standardizedMetaInfo = new MetaInfo();
         standardizedMetaInfo.setType(sourceMetaInfo.getType());
         standardizedMetaInfo.setSql(sourceMetaInfo.getSql());
         standardizedMetaInfo.setIndexType(sourceMetaInfo.getIndexType());
         standardizedMetaInfo.setPrimaryKeys(sourceMetaInfo.getPrimaryKeys());
 
         // 将源字段转换为标准类型（toStandardType 会自动保留所有元数据属性，包括 COMMENT）
-        List<org.dbsyncer.sdk.model.Field> standardizedFields = new ArrayList<>();
-        for (org.dbsyncer.sdk.model.Field sourceField : sourceMetaInfo.getColumn()) {
-            org.dbsyncer.sdk.model.Field standardField = sourceSchemaResolver.toStandardType(sourceField);
+        List<Field> standardizedFields = new ArrayList<>();
+        for (Field sourceField : sourceMetaInfo.getColumn()) {
+            Field standardField = sourceSchemaResolver.toStandardType(sourceField);
             standardizedFields.add(standardField);
         }
         standardizedMetaInfo.setColumn(standardizedFields);
@@ -1243,11 +1246,7 @@ public class MySQLToSQLServerDDLSyncIntegrationTest extends BaseDDLIntegrationTe
 
         org.dbsyncer.sdk.config.DDLConfig ddlConfig = new org.dbsyncer.sdk.config.DDLConfig();
         ddlConfig.setSql(createTableDDL);
-        try {
-            connectorFactory.writerDDL(targetConnectorInstance, ddlConfig, null);
-        } catch (Exception e) {
-            throw new RuntimeException("创建表失败: " + e.getMessage());
-        }
+        connectorFactory.writerDDL(targetConnectorInstance, ddlConfig, null, null);
 
         logger.info("成功创建目标表: {}", targetTable);
     }

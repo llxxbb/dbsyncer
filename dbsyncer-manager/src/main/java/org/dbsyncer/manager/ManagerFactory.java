@@ -2,7 +2,7 @@ package org.dbsyncer.manager;
 
 import org.dbsyncer.manager.impl.FullIncrementPuller;
 import org.dbsyncer.manager.impl.FullPuller;
-import org.dbsyncer.parser.MessageService;
+import org.dbsyncer.sdk.spi.MessageService;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.sdk.enums.MetaEnum;
 import org.dbsyncer.sdk.model.Mapping;

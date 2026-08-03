@@ -1,7 +1,7 @@
 package org.dbsyncer.parser.impl;
 
 import org.dbsyncer.common.util.StringUtil;
-import org.dbsyncer.parser.MessageService;
+import org.dbsyncer.sdk.spi.MessageService;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.model.UserConfig;
 import org.dbsyncer.sdk.notify.NotifyMessage;

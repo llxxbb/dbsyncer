@@ -53,7 +53,7 @@ public class ProjectGroupServiceImpl implements ProjectGroupService {
     private org.dbsyncer.sdk.spi.LogService logService;
 
     @Resource
-    private org.dbsyncer.parser.MessageService messageService;
+    private org.dbsyncer.sdk.spi.MessageService messageService;
 
     @Resource
     private Checker projectGroupChecker;

@@ -5,6 +5,7 @@ import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.config.DatabaseConfig;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.model.Field;
+import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.web.Application;
 import org.junit.*;
 import org.junit.runner.RunWith;
@@ -1200,7 +1201,7 @@ public class DDLSqlServerCTIntegrationTest extends BaseDDLIntegrationTest {
 
         // 2. 检查目标表是否已存在
         try {
-            org.dbsyncer.sdk.model.MetaInfo existingTable = connectorFactory.getMetaInfo(targetConnectorInstance, targetTable);
+            MetaInfo existingTable = connectorFactory.getMetaInfo(targetConnectorInstance, targetTable);
             if (existingTable != null && existingTable.getColumn() != null && !existingTable.getColumn().isEmpty()) {
                 logger.info("目标表已存在，跳过创建: {}", targetTable);
                 return;
@@ -1210,7 +1211,7 @@ public class DDLSqlServerCTIntegrationTest extends BaseDDLIntegrationTest {
         }
 
         // 3. 获取源表结构
-        org.dbsyncer.sdk.model.MetaInfo sourceMetaInfo = connectorFactory.getMetaInfo(sourceConnectorInstance, sourceTable);
+        MetaInfo sourceMetaInfo = connectorFactory.getMetaInfo(sourceConnectorInstance, sourceTable);
         assertNotNull("无法获取源表结构: " + sourceTable, sourceMetaInfo);
         assertFalse("源表没有字段: " + sourceTable, sourceMetaInfo.getColumn() == null || sourceMetaInfo.getColumn().isEmpty());
 
@@ -1242,11 +1243,7 @@ public class DDLSqlServerCTIntegrationTest extends BaseDDLIntegrationTest {
         // 6. 执行 CREATE TABLE DDL（如果DDL有重复IDENTITY，这里会失败）
         org.dbsyncer.sdk.config.DDLConfig ddlConfig = new org.dbsyncer.sdk.config.DDLConfig();
         ddlConfig.setSql(createTableDDL);
-        try {
-            connectorFactory.writerDDL(targetConnectorInstance, ddlConfig, null);
-        } catch (Exception e) {
-            throw new RuntimeException("创建表失败: " + e.getMessage() + "\n生成的DDL: " + createTableDDL);
-        }
+        connectorFactory.writerDDL(targetConnectorInstance, ddlConfig, null, null);
 
         logger.info("成功创建目标表: {}，生成的DDL: {}", targetTable, createTableDDL);
     }

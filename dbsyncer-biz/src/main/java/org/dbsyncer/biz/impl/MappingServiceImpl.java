@@ -103,7 +103,7 @@ public class MappingServiceImpl implements MappingService {
     private org.dbsyncer.sdk.storage.StorageService storageService;
 
     @Resource
-    private org.dbsyncer.parser.MessageService messageService;
+    private org.dbsyncer.sdk.spi.MessageService messageService;
 
     @Override
     public String add(Map<String, String> params) throws Exception {

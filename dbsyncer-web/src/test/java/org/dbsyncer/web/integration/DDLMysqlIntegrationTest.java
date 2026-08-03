@@ -1,6 +1,5 @@
 package org.dbsyncer.web.integration;
 
-import org.dbsyncer.common.model.Result;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.config.DDLConfig;
@@ -12,6 +11,7 @@ import org.dbsyncer.sdk.connector.database.sql.SqlTemplate;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.schema.SyncConverter;
+import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.web.Application;
 import org.junit.*;
 import org.junit.runner.RunWith;
@@ -1300,7 +1300,7 @@ public class DDLMysqlIntegrationTest extends BaseDDLIntegrationTest {
 
             // 获取目标连接器的 SqlTemplate
             // 注意：connectorFactory.getConnectorService() 返回的是 SDK 的 ConnectorService
-            org.dbsyncer.sdk.spi.ConnectorService targetConnectorService = connectorFactory.getConnectorService(targetType);
+            ConnectorService targetConnectorService = connectorFactory.getConnectorService(targetType);
             if (!(targetConnectorService instanceof AbstractDatabaseConnector)) {
                 throw new UnsupportedOperationException("目标连接器不支持直接访问 SqlTemplate: " + targetType);
             }
@@ -1330,8 +1330,8 @@ public class DDLMysqlIntegrationTest extends BaseDDLIntegrationTest {
             logger.debug("检测到不同类型数据库（{} -> {}），使用标准转换流程", sourceType, targetType);
 
             // 注意：connectorFactory.getConnectorService() 返回的是 SDK 的 ConnectorService
-            org.dbsyncer.sdk.spi.ConnectorService sourceConnectorService = connectorFactory.getConnectorService(sourceType);
-            org.dbsyncer.sdk.spi.ConnectorService targetConnectorService = connectorFactory.getConnectorService(targetType);
+            ConnectorService sourceConnectorService = connectorFactory.getConnectorService(sourceType);
+            ConnectorService targetConnectorService = connectorFactory.getConnectorService(targetType);
             SyncConverter sourceSchemaResolver = sourceConnectorService.getSchemaResolver();
 
             // 创建标准化的 MetaInfo
@@ -1359,11 +1359,7 @@ public class DDLMysqlIntegrationTest extends BaseDDLIntegrationTest {
 
         DDLConfig ddlConfig = new DDLConfig();
         ddlConfig.setSql(createTableDDL);
-        try {
-            connectorFactory.writerDDL(targetConnectorInstance, ddlConfig, null);
-        } catch (Exception e) {
-            throw new RuntimeException("创建表失败: " + e.getMessage());
-        }
+        connectorFactory.writerDDL(targetConnectorInstance, ddlConfig, null, null);
 
         logger.info("成功创建目标表: {}", targetTable);
     }

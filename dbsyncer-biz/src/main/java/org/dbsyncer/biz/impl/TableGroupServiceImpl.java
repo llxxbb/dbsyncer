@@ -23,6 +23,7 @@ import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.manager.ManagerFactory;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
+import org.dbsyncer.sdk.spi.MessageService;
 import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.parser.FullSyncExecutor;
 import org.dbsyncer.parser.ProfileComponent;
@@ -44,7 +45,6 @@ import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.spi.ConnectorService;
-import org.dbsyncer.common.model.Result;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -78,7 +78,7 @@ public class TableGroupServiceImpl implements TableGroupService {
     private ProfileComponent profileComponent;
 
     @Resource
-    private org.dbsyncer.parser.MessageService messageService;
+    private MessageService messageService;
 
     @Resource
     private FullSyncExecutor parserComponent;
@@ -530,17 +530,14 @@ public class TableGroupServiceImpl implements TableGroupService {
                 connectorFactory.writerDDL(
                         connectorFactory.connect(targetConnector.getConfig()),
                         ddlConfig,
-                        null);
-
-                logger.info("自定义字段 DDL 执行成功：{}.{}",
-                        tableGroup.getTargetTable().getName(), field.getName());
+                        null,
+                        mapping);
             } catch (Exception e) {
-                logger.error("DDL 执行异常：{}", field.getName(), e);
+                logger.error("添加自定义字段异常：{}", field.getName(), e);
                 // 持久化异常到数据库，带上 mappingId 便于定位
-                String mappingId = mapping != null ? mapping.getId() : "unknown";
-                logService.log(tableGroup, LogType.DELETE, LogLevel.ERROR,
-                        String.format("[mappingId=%s] DDL 执行异常：表=%s, 字段=%s, 错误=%s",
-                                mappingId, tableGroup.getTargetTable().getName(),
+                logService.log(mapping, LogType.SYNC, LogLevel.ERROR,
+                        String.format("添加自定义字段异常：表=%s, 字段=%s, 错误=%s",
+                                tableGroup.getTargetTable().getName(),
                                 field.getName(), e.getMessage()));
                 throw e;
             }
@@ -611,6 +608,9 @@ public class TableGroupServiceImpl implements TableGroupService {
         // 使用 SqlTemplate 构建 DDL（返回 List，某些数据库可能返回多条 SQL）
         List<String> sqlList = sqlTemplate.buildAlterPrimaryKeySql(tableName, oldPrimaryKeys, newPrimaryKeys, schema);
 
+        // 获取 Mapping 对象
+        Mapping mapping = profileComponent.getMapping(tableGroup.getMappingId());
+
         // 执行每条 SQL
         for (String sql : sqlList) {
             String trimmedSql = sql.trim();
@@ -626,12 +626,13 @@ public class TableGroupServiceImpl implements TableGroupService {
                 connectorFactory.writerDDL(
                         connectorFactory.connect(targetConnector.getConfig()),
                         ddlConfig,
-                        null);
+                        null,
+                        mapping);
             } catch (Exception e) {
                 // 持久化异常到数据库，带上 mappingId 便于定位
                 String mappingId = tableGroup.getMappingId();
-                logService.log(tableGroup, LogType.DELETE,
-                        String.format("[mappingId=%s] 修改主键约束失败：表=%s, SQL=%s, 错误=%s",
+                logService.log(mapping, LogType.SYNC,
+                        String.format("修改主键约束失败：表=%s, SQL=%s, 错误=%s",
                                 mappingId, tableGroup.getTargetTable().getName(),
                                 trimmedSql, e.getMessage()));
                 throw new RuntimeException("执行 DDL 失败：" + e.getMessage() + ", SQL: " + trimmedSql);
@@ -987,13 +988,15 @@ public class TableGroupServiceImpl implements TableGroupService {
                         DDLConfig ddlConfig = new DDLConfig();
                         ddlConfig.setSql(sql);
 
-                        connectorFactory.writerDDL(connectorInstance, ddlConfig, null);
-
-                        logger.info("DDL 执行成功 [tableGroupId={}]: {}", id, sql);
+                        connectorFactory.writerDDL(connectorInstance, ddlConfig, null, mapping);
                         successCount++;
                     } catch (Exception e) {
-                        logger.error("DDL 执行失败 [tableGroupId={}]: {}, 错误: {}", id, sql, e.getMessage());
-                        failedSqls.add(sql + " (错误: " + e.getMessage() + ")");
+                        logger.error("字段差异修正失败：{}", e);
+                        // 持久化异常到数据库，带上 mappingId 便于定位
+                        logService.log(mapping, LogType.SYNC, LogLevel.ERROR,
+                                String.format("字段差异修正失败：表=%s, 错误=%s",
+                                        tableGroup.getTargetTable().getName(),e.getMessage()));
+                        throw e;
                     }
                 }
 

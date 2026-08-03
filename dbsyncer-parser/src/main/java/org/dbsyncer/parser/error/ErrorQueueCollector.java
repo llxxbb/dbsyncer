@@ -1,7 +1,7 @@
 package org.dbsyncer.parser.error;
 
 import org.dbsyncer.common.model.Paging;
-import org.dbsyncer.parser.MessageService;
+import org.dbsyncer.sdk.spi.MessageService;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.flush.BufferActuator;
 import org.dbsyncer.parser.model.StorageRequest;

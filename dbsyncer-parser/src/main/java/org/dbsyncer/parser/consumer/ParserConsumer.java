@@ -1,6 +1,6 @@
 package org.dbsyncer.parser.consumer;
 
-import org.dbsyncer.parser.MessageService;
+import org.dbsyncer.sdk.spi.MessageService;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.spi.LogType;

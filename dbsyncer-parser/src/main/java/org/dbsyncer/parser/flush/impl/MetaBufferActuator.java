@@ -443,13 +443,10 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             
             Result result;
             try {
-                result = connectorFactory.writerDDL(tConnectorInstance, targetDDLConfig, context);
-                logger.info("目标 DDL 执行成功: table={}, sql={}", tableGroup.getTargetTable().getName(), targetDDLConfig.getSql());
-                
+                result = connectorFactory.writerDDL(tConnectorInstance, targetDDLConfig, context, mapping);
                 result.setMappingId(mapping.getId());
                 result.setTableGroupId(tableGroup.getId());
                 result.setTargetTableGroupName(tableGroup.getTargetTable().getName());
-                
                 flushStrategy.flushIncrementData(mapping.getMetaId(), result, response.getEvent());
             } catch (Exception e) {
                 logger.error("目标 DDL 执行失败: table={}, sql={}, error={}", tableGroup.getTargetTable().getName(), targetDDLConfig.getSql(), e.getMessage());

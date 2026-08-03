@@ -4,6 +4,8 @@ import org.dbsyncer.sdk.enums.MetaEnum;
 import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.sdk.model.TableGroup;
+import org.dbsyncer.sdk.schema.SyncConverter;
+import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.sdk.config.DatabaseConfig;
 import org.dbsyncer.web.Application;
 import org.junit.*;
@@ -1616,9 +1618,9 @@ public class SQLServerCTToMySQLDDLSyncIntegrationTest extends BaseDDLIntegration
         String targetType = mysqlConfig.getConnectorType();
         logger.debug("检测到不同类型数据库（{} -> {}），使用标准转换流程", sourceType, targetType);
 
-        org.dbsyncer.sdk.spi.ConnectorService sourceConnectorService = connectorFactory.getConnectorService(sourceType);
-        org.dbsyncer.sdk.spi.ConnectorService targetConnectorService = connectorFactory.getConnectorService(targetType);
-        org.dbsyncer.sdk.schema.SyncConverter sourceSchemaResolver = sourceConnectorService.getSchemaResolver();
+        ConnectorService sourceConnectorService = connectorFactory.getConnectorService(sourceType);
+        ConnectorService targetConnectorService = connectorFactory.getConnectorService(targetType);
+        SyncConverter sourceSchemaResolver = sourceConnectorService.getSchemaResolver();
 
         // 创建标准化的 MetaInfo
         org.dbsyncer.sdk.model.MetaInfo standardizedMetaInfo = new org.dbsyncer.sdk.model.MetaInfo();
@@ -1649,11 +1651,7 @@ public class SQLServerCTToMySQLDDLSyncIntegrationTest extends BaseDDLIntegration
 
         org.dbsyncer.sdk.config.DDLConfig ddlConfig = new org.dbsyncer.sdk.config.DDLConfig();
         ddlConfig.setSql(createTableDDL);
-        try {
-            connectorFactory.writerDDL(targetConnectorInstance, ddlConfig, null);
-        } catch (Exception e) {
-            throw new RuntimeException("创建表失败: " + e.getMessage());
-        }
+        connectorFactory.writerDDL(targetConnectorInstance, ddlConfig, null, null);
 
         logger.info("成功创建目标表: {}", targetTable);
     }

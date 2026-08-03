@@ -9,7 +9,6 @@ import org.dbsyncer.common.model.Result;
 import org.dbsyncer.common.retry.RetryInterceptor;
 import org.dbsyncer.common.retry.RetryPolicy;
 import org.dbsyncer.common.util.CollectionUtils;
-import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.sdk.config.CommandConfig;
 import org.dbsyncer.sdk.config.DDLConfig;
 import org.dbsyncer.sdk.connector.AbstractConnector;
@@ -17,14 +16,17 @@ import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.constant.ConnectorConstant;
 import org.dbsyncer.sdk.listener.Listener;
 import org.dbsyncer.sdk.model.ConnectorConfig;
+import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.plugin.SyncRow;
+import org.dbsyncer.sdk.notify.NotifyType;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
+import org.dbsyncer.sdk.spi.MessageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
@@ -36,7 +38,6 @@ import javax.annotation.Resource;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 /**
  * 连接器工厂
@@ -58,6 +59,9 @@ public class ConnectorFactory implements DisposableBean {
 
     @Resource
     private LogService logService;
+
+    @Resource
+    private MessageService messageService;
 
     @Resource
     private RetryConfig retryConfig;
@@ -302,12 +306,21 @@ public class ConnectorFactory implements DisposableBean {
         Result execute(ConnectorService connector, ConnectorInstance instance, List<SyncRow> syncRows);
     }
 
-    public Result writerDDL(ConnectorInstance connectorInstance, DDLConfig ddlConfig,
-            org.dbsyncer.sdk.plugin.PluginContext context) throws Exception {
+    public Result writerDDL(ConnectorInstance connectorInstance, DDLConfig ddlConfig, PluginContext context, Mapping mapping) throws Exception {
         Assert.notNull(connectorInstance, "ConnectorInstance can not null");
         Result result = getConnectorService(connectorInstance.getConfig()).writerDDL(connectorInstance, ddlConfig,
                 context);
         Assert.notNull(result, "Connector writer batch result can not null");
+        
+        logger.info("DDL 执行成功 [mappingId={}]: {}", mapping != null ? mapping.getId() : "unknown", ddlConfig.getSql());
+        StringBuilder msg = new StringBuilder();
+        msg.append("### DBSyncer 数据同步DDL事件\n\n");
+        msg.append("**Mapping ID**: ").append(mapping != null ? mapping.getId() : "unknown").append("\n\n");
+        msg.append("**Mapping name**: ").append(mapping != null ? mapping.getName() : "unknown").append("\n\n");
+        msg.append("**DDL 语句**: ").append(ddlConfig.getSql());
+        
+        logService.log(mapping, LogType.SYNC, LogLevel.INFO, msg.toString());
+        messageService.sendMessage("dbsyncer", msg.toString(), NotifyType.DDL);
         return result;
     }
 

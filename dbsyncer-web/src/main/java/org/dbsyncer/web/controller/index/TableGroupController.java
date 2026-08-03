@@ -24,6 +24,8 @@ import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.schema.SyncConverter;
 import org.dbsyncer.sdk.spi.ConnectorService;
+import org.dbsyncer.sdk.spi.LogService;
+import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.web.controller.BaseController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,6 +59,9 @@ public class TableGroupController extends BaseController {
 
     @Resource
     private ProfileComponent profileComponent;
+
+    @Resource
+    private LogService logService;
 
     @GetMapping("/page/{page}")
     public String page(ModelMap model, @PathVariable("page") String page, @RequestParam(value = "id") String id) throws Exception {
@@ -341,13 +346,11 @@ public class TableGroupController extends BaseController {
                 // 执行 CREATE TABLE DDL
                 DDLConfig ddlConfig = new DDLConfig();
                 ddlConfig.setSql(createTableDDL);
-                connectorFactory.writerDDL(targetConnectorInstance, ddlConfig, null);
-
-                logger.info("成功创建目标表: {}", targetTable);
+                connectorFactory.writerDDL(targetConnectorInstance, ddlConfig, null, mapping);
                 return RestResult.restSuccess("创建表成功");
-
             } catch (UnsupportedOperationException e) {
                 logger.error("建表失败： {}", targetConnector.getConfig().getConnectorType(), e);
+                logService.log(mapping, LogType.CREATE,  "建表失败： " + createTableDDL + "，原因：" + e.getMessage());
                 return RestResult.restFail("建表失败：: " + e.getMessage());
             }
 

@@ -11,7 +11,9 @@ import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.sdk.spi.LogType;
+import org.dbsyncer.sdk.spi.MessageService;
 import org.dbsyncer.sdk.spi.LogLevel;
+import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.model.ConfigModel;
 import org.dbsyncer.parser.model.ProjectGroup;
 import org.dbsyncer.parser.model.UserConfig;
@@ -39,7 +41,7 @@ public class UserGroupServiceImpl implements UserGroupService {
     private ProfileComponent profileComponent;
 
     @Resource
-    private org.dbsyncer.sdk.spi.LogService logService;
+    private LogService logService;
 
     @Resource
     private Checker userGroupChecker;
@@ -48,7 +50,7 @@ public class UserGroupServiceImpl implements UserGroupService {
     private UserConfigService userConfigService;
 
     @Resource
-    private org.dbsyncer.parser.MessageService messageService;
+    private MessageService messageService;
 
     @Override
     public String add(Map<String, String> params) throws Exception {

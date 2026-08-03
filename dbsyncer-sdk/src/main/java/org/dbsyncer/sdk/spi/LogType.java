@@ -12,6 +12,7 @@ package org.dbsyncer.sdk.spi;
  */
 public enum LogType {
     // 常规
+    CREATE("创建"), 
     INSERT("新增"),
     UPDATE("修改"),
     DELETE("删除"),

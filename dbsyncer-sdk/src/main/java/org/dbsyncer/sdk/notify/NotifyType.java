@@ -27,7 +27,9 @@ public enum NotifyType {
     /**
      * 错误队列熔断
      */
-    DATA_ERROR_CIRCUIT_BREAKER;
+    DATA_ERROR_CIRCUIT_BREAKER,
+    
+    DDL;
 
     /**
      * 获取通知类型的中文显示名称
@@ -44,6 +46,8 @@ public enum NotifyType {
                 return "手动操作";
             case DATA_ERROR_CIRCUIT_BREAKER:
                 return "错误队列熔断";
+            case DDL:
+                return "DDL操作";
             default:
                 return name();
         }
