@@ -378,7 +378,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
 
             if (!CollectionUtils.isEmpty(result.getFailData())) {
                 errorQueueCollector.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
-                        response.getEvent(), result.getFailData(), result.error);
+                        response.getEvent(), result.getFailData(), null);
             }
             if (!CollectionUtils.isEmpty(result.getSuccessData())) {
                 flushStrategy.flushIncrementData(metaId, result, response.getEvent());
@@ -440,35 +440,24 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
 
             // 5. 生成目标表执行SQL(支持异构数据库)
             ConnectorInstance tConnectorInstance = connectorFactory.connect(tConnConfig);
-            Result result = connectorFactory.writerDDL(tConnectorInstance, targetDDLConfig, context);
-            if (StringUtil.isBlank(result.error)) {
+            
+            Result result;
+            try {
+                result = connectorFactory.writerDDL(tConnectorInstance, targetDDLConfig, context);
                 logger.info("目标 DDL 执行成功: table={}, sql={}", tableGroup.getTargetTable().getName(), targetDDLConfig.getSql());
-            } else {
-                logger.error("目标 DDL 执行失败: table={}, sql={}, error={}", tableGroup.getTargetTable().getName(), targetDDLConfig.getSql(), result.error);
-            }
-            // 5.持久化增量事件数据(含错误信息)
-            result.setMappingId(mapping.getId());
-            result.setTableGroupId(tableGroup.getId());
-            result.setTargetTableGroupName(tableGroup.getTargetTable().getName());
-
-            if (!StringUtil.isBlank(result.error)) {
-                String ddlConfigJson = null;
-                if (!CollectionUtils.isEmpty(result.getFailData())) {
-                    List<Map<String, Object>> failDataList = (List<Map<String, Object>>) (List<?>) result.getFailData();
-                    Object binlogData = failDataList.get(0).get(ConfigConstant.BINLOG_DATA);
-                    if (binlogData != null) {
-                        ddlConfigJson = binlogData instanceof String ? (String) binlogData : JsonUtil.objToJson(binlogData);
-                    }
-                }
-                if (ddlConfigJson == null) {
-                    ddlConfigJson = JsonUtil.objToJson(targetDDLConfig);
-                }
+                
+                result.setMappingId(mapping.getId());
+                result.setTableGroupId(tableGroup.getId());
+                result.setTargetTableGroupName(tableGroup.getTargetTable().getName());
+                
+                flushStrategy.flushIncrementData(mapping.getMetaId(), result, response.getEvent());
+            } catch (Exception e) {
+                logger.error("目标 DDL 执行失败: table={}, sql={}, error={}", tableGroup.getTargetTable().getName(), targetDDLConfig.getSql(), e.getMessage());
+                String ddlConfigJson = JsonUtil.objToJson(targetDDLConfig);
                 errorQueueCollector.handleDdlFailData(meta, tableGroup,
-                        tableGroup.getTargetTable().getName(), ddlConfigJson, result.error);
+                        tableGroup.getTargetTable().getName(), ddlConfigJson, e.getMessage());
                 return;
             }
-
-            flushStrategy.flushIncrementData(mapping.getMetaId(), result, response.getEvent());
 
             // 7.更新表字段映射关系（含元数据刷新）
             // 注：表字段元数据刷新已收敛至 DDLParserImpl.refreshFiledMappings 内部

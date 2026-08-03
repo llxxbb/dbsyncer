@@ -322,7 +322,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
     @Override
     public Result update(DatabaseConnectorInstance connectorInstance, List<SyncRow> syncRows) {
         // 对于UPDATE操作，保留所有字段在SET子句中（包括主键字段）
-        // 这样支持主键修改场景：SET pk = new_value WHERE ... 
+        // 这样支持主键修改场景：SET pk = new_value WHERE ...
         List<Field> fields = new ArrayList<>(syncRows.get(0).getTargetFields());
         return executeWriter(connectorInstance, syncRows, fields);
     }
@@ -385,18 +385,18 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
             List<Field> fields, List<SyncRow> syncRows) throws Exception {
         String event = syncRows.get(0).getContext().getEvent();
         String executeSql = syncRows.get(0).getTableGroup().getCommand().get(event);
-        
+
         // 从 SyncRow 中提取数据用于参数绑定
         List<Map> data = new ArrayList<>(syncRows.size());
         for (SyncRow row : syncRows) {
             data.add(row.getData());
         }
-        
+
         // 如果是 UPDATE 事件且有 beforeRow，需要特殊处理主键修改场景
         if (ConnectorConstant.OPERTION_UPDATE.equals(event) && hasBeforeRow(syncRows)) {
             return doExecuteBatchForUpdate(connectorInstance, fields, syncRows, executeSql);
         }
-        
+
         return connectorInstance
                 .execute(databaseTemplate -> databaseTemplate.batchUpdate(executeSql, batchRows(fields, data)));
     }
@@ -420,53 +420,53 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
      */
     private int[] doExecuteBatchForUpdate(DatabaseConnectorInstance connectorInstance,
             List<Field> fields, List<SyncRow> syncRows, String executeSql) throws Exception {
-        
+
         return connectorInstance.execute(databaseTemplate -> {
             List<Object[]> batchArgs = new ArrayList<>();
-            
+
             for (SyncRow row : syncRows) {
                 List<Object> beforeRow = row.getBeforeRow();
                 List<String> columnNames = row.getColumnNames();
                 List<String> primaryKeys = row.getPrimaryKeys();
-                
+
                 // 如果没有足够的信息使用beforeRow，回退到普通逻辑
-                if (beforeRow == null || beforeRow.isEmpty() || 
-                    columnNames == null || columnNames.isEmpty() ||
-                    primaryKeys == null || primaryKeys.isEmpty()) {
+                if (beforeRow == null || beforeRow.isEmpty() ||
+                        columnNames == null || columnNames.isEmpty() ||
+                        primaryKeys == null || primaryKeys.isEmpty()) {
                     // 对于新SQL模板，参数数量是所有字段 + 主键
                     Object[] args = new Object[fields.size() + primaryKeys.size()];
                     int index = 0;
-                    
+
                     // SET子句：所有字段的新值
                     for (Field field : fields) {
                         args[index++] = row.getData().get(field.getName());
                     }
-                    
+
                     // WHERE子句：主键的新值（降级处理）
                     for (String pk : primaryKeys) {
                         args[index++] = row.getData().get(pk);
                     }
-                    
+
                     batchArgs.add(args);
                     continue;
                 }
-                
+
                 // 构建 beforeRow 的列名到值的映射
                 Map<String, Object> beforeValueMap = new java.util.HashMap<>();
                 for (int i = 0; i < columnNames.size() && i < beforeRow.size(); i++) {
                     beforeValueMap.put(columnNames.get(i), beforeRow.get(i));
                 }
-                
+
                 // SQL模板生成的参数顺序是：
                 // SET子句: 所有字段（包括主键的新值）+ WHERE子句: 主键旧值
                 Object[] args = new Object[fields.size() + primaryKeys.size()];
                 int index = 0;
-                
+
                 // SET子句：所有字段使用新值（包括主键）
                 for (Field field : fields) {
                     args[index++] = row.getData().get(field.getName());
                 }
-                
+
                 // WHERE子句：主键字段使用旧值（需要在primaryKeys列表中查找对应的旧值）
                 for (String pkName : primaryKeys) {
                     Object beforeValue = beforeValueMap.get(pkName);
@@ -477,10 +477,10 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
                         args[index++] = row.getData().get(pkName);
                     }
                 }
-                
+
                 batchArgs.add(args);
             }
-            
+
             return databaseTemplate.batchUpdate(executeSql, batchArgs);
         });
     }
@@ -953,31 +953,20 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
 
     @Override
     public Result writerDDL(DatabaseConnectorInstance connectorInstance, DDLConfig config,
-            org.dbsyncer.sdk.plugin.PluginContext context) {
-        Result result = new Result<DDLConfig>();
-        try {
-            Assert.hasText(config.getSql(), "执行SQL语句不能为空.");
-            logger.info("执行 DDL SQL: {}", config.getSql());
-            connectorInstance.execute(databaseTemplate -> {
-                // 执行ddl时, 带上dbs唯一标识码，防止双向同步导致死循环
-                String sql = config.getSql();
-                // 每个语句都带上dbs唯一标识码，防止双向同步导致死循环
-                databaseTemplate.execute("/*dbs*/".concat(sql));
-                return true;
-            });
-            logger.info("DDL SQL 执行成功: {}", config.getSql());
-            Map<String, String> successMap = new HashMap<>();
-            successMap.put(ConfigConstant.BINLOG_DATA, config.getSql());
-            result.addSuccessData(Collections.singletonList(successMap));
-        } catch (Exception e) {
-            logger.error("执行DDL失败: sql={}, error={}", config.getSql(), e.getMessage(), e);
-            // 将DDLConfig转换为Map格式，以便FlushStrategyImpl可以正确序列化
-            // 使用JSON序列化保存完整的DDLConfig信息，以便将来可以反序列化并重新处理
-            Map<String, Object> failMap = new HashMap<>();
-            failMap.put(ConfigConstant.BINLOG_DATA, JsonUtil.objToJson(config));
-            result.addFailData(Collections.singletonList(failMap));
-            result.error = String.format("执行ddl: %s, 异常：%s", config.getSql(), e.getMessage());
-        }
+            org.dbsyncer.sdk.plugin.PluginContext context) throws Exception {
+        Assert.hasText(config.getSql(), "执行SQL语句不能为空.");
+        logger.info("执行 DDL SQL: {}", config.getSql());
+        connectorInstance.execute(databaseTemplate -> {
+            String sql = config.getSql();
+            databaseTemplate.execute("/*dbs*/".concat(sql));
+            return true;
+        });
+        logger.info("DDL SQL 执行成功: {}", config.getSql());
+
+        Result result = new Result();
+        Map<String, String> successMap = new HashMap<>();
+        successMap.put(ConfigConstant.BINLOG_DATA, config.getSql());
+        result.addSuccessData(Collections.singletonList(successMap));
         return result;
     }
 

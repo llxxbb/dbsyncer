@@ -66,7 +66,8 @@ public class ConnectorFactory implements DisposableBean {
 
     @PostConstruct
     private void init() {
-        ServiceLoader<ConnectorService> services = ServiceLoader.load(ConnectorService.class, Thread.currentThread().getContextClassLoader());
+        ServiceLoader<ConnectorService> services = ServiceLoader.load(ConnectorService.class,
+                Thread.currentThread().getContextClassLoader());
         for (ConnectorService s : services) {
             service.putIfAbsent(s.getConnectorType(), s);
             connectorTypes.add(s.getConnectorType());
@@ -91,7 +92,7 @@ public class ConnectorFactory implements DisposableBean {
     /**
      * 建立连接，返回缓存连接对象
      *
-     * @param config    连接配置
+     * @param config     连接配置
      * @param checkAlive 是否检查连接是否存活。false 时跳过连接验证，用于初始化场景避免触发连接检查（如 kafka 连接异常）
      */
     public ConnectorInstance connect(ConnectorConfig config, boolean checkAlive) throws Exception {
@@ -172,7 +173,8 @@ public class ConnectorFactory implements DisposableBean {
         Assert.notNull(connectorInstance, "ConnectorInstance can not be null.");
         Assert.hasText(tableName, "tableName can not be empty.");
         List<Table> table = getTable(connectorInstance);
-        MetaInfo metaInfo = getConnectorService(connectorInstance.getConfig()).getMetaInfo(connectorInstance, tableName);
+        MetaInfo metaInfo = getConnectorService(connectorInstance.getConfig()).getMetaInfo(connectorInstance,
+                tableName);
         if (metaInfo == null) {
             return null;
         }
@@ -200,7 +202,8 @@ public class ConnectorFactory implements DisposableBean {
      * @param targetCommandConfig
      * @return
      */
-    public Map<String, String> getCommand(CommandConfig sourceCommandConfig, CommandConfig targetCommandConfig) throws Exception {
+    public Map<String, String> getCommand(CommandConfig sourceCommandConfig, CommandConfig targetCommandConfig)
+            throws Exception {
         Assert.notNull(sourceCommandConfig, "SourceCommandConfig can not be null.");
         Assert.notNull(targetCommandConfig, "TargetCommandConfig can not be null.");
         Map<String, String> map = new HashMap<>();
@@ -224,8 +227,9 @@ public class ConnectorFactory implements DisposableBean {
 
     /**
      * 批量写入数据到目标源
+     * @throws Exception 
      */
-    public Result writeBatch(List<SyncRow> syncRows) {
+    public Result writeBatch(List<SyncRow> syncRows) throws Exception {
         if (CollectionUtils.isEmpty(syncRows)) {
             return new Result();
         }
@@ -238,28 +242,26 @@ public class ConnectorFactory implements DisposableBean {
         }
         RetryPolicy policy = retryConfig != null ? retryConfig.getGlobal() : new RetryPolicy();
         String mappingId = syncRows.get(0).getMapping() != null ? syncRows.get(0).getMapping().getId() : null;
-        try {
-            switch (event) {
-                case ConnectorConstant.OPERTION_INSERT:
-                    return executeWriterOperation(syncRows, (connector, instance, rows) -> connector.insert(instance, rows), policy, mappingId);
-                case ConnectorConstant.OPERTION_UPDATE:
-                    return executeWriterOperation(syncRows, (connector, instance, rows) -> connector.update(instance, rows), policy, mappingId);
-                case ConnectorConstant.OPERTION_DELETE:
-                    return executeWriterOperation(syncRows, (connector, instance, rows) -> connector.delete(instance, rows), policy, mappingId);
-                case ConnectorConstant.OPERTION_UPSERT:
-                    return executeWriterOperation(syncRows, (connector, instance, rows) -> connector.upsert(instance, rows), policy, mappingId);
-                default:
-                    throw new RuntimeException("不支持的事件类型：" + event);
-            }
-        } catch (Exception e) {
-            Result result = new Result();
-            result.error = e.getMessage();
-            result.addFailData(syncRows.stream().map(SyncRow::getSourceData).collect(Collectors.toList()));
-            return result;
+        switch (event) {
+            case ConnectorConstant.OPERTION_INSERT:
+                return executeWriterOperation(syncRows, (connector, instance, rows) -> connector.insert(instance, rows),
+                        policy, mappingId);
+            case ConnectorConstant.OPERTION_UPDATE:
+                return executeWriterOperation(syncRows, (connector, instance, rows) -> connector.update(instance, rows),
+                        policy, mappingId);
+            case ConnectorConstant.OPERTION_DELETE:
+                return executeWriterOperation(syncRows, (connector, instance, rows) -> connector.delete(instance, rows),
+                        policy, mappingId);
+            case ConnectorConstant.OPERTION_UPSERT:
+                return executeWriterOperation(syncRows, (connector, instance, rows) -> connector.upsert(instance, rows),
+                        policy, mappingId);
+            default:
+                throw new RuntimeException("不支持的事件类型：" + event);
         }
     }
 
-    private Result executeWriterOperation(List<SyncRow> syncRows, WriterOperation operation, RetryPolicy policy, String mappingId) throws Exception {
+    private Result executeWriterOperation(List<SyncRow> syncRows, WriterOperation operation, RetryPolicy policy,
+            String mappingId) throws Exception {
         PluginContext ctx = syncRows.get(0).getContext();
         ConnectorInstance targetInstance = ctx.getTargetConnectorInstance();
         Assert.notNull(targetInstance, "targetConnectorInstance can not null");
@@ -267,7 +269,8 @@ public class ConnectorFactory implements DisposableBean {
 
         SyncRow firstRow = syncRows.get(0);
         String tableName = firstRow.getTableGroup() != null
-                ? firstRow.getTableGroup().getSourceTable().getName() : "";
+                ? firstRow.getTableGroup().getSourceTable().getName()
+                : "";
 
         if (targetConnector instanceof AbstractConnector) {
             AbstractConnector conn = (AbstractConnector) targetConnector;
@@ -275,13 +278,11 @@ public class ConnectorFactory implements DisposableBean {
                 try {
                     conn.convertProcessBeforeWriter(syncRows, targetConnector.getSchemaResolver());
                 } catch (Exception e) {
-                    Result result = new Result();
-                    result.error = e.getMessage();
-                    result.addFailData(syncRows.stream().map(SyncRow::getSourceData).collect(Collectors.toList()));
                     logger.error("traceId:{}, tableName:{}, event:{}", ctx.getTraceId(), tableName,
-                                ctx.getEvent(), e);
-                    logService.log(firstRow.getMapping(), LogType.SYNC, LogLevel.ERROR, e.getMessage() + ExceptionUtils.getStackTrace(e));
-                    return result;
+                            ctx.getEvent(), e);
+                    logService.log(firstRow.getMapping(), LogType.SYNC, LogLevel.ERROR,
+                            e.getMessage() + ExceptionUtils.getStackTrace(e));
+                    throw e;
                 }
             }
         }
@@ -301,9 +302,11 @@ public class ConnectorFactory implements DisposableBean {
         Result execute(ConnectorService connector, ConnectorInstance instance, List<SyncRow> syncRows);
     }
 
-    public Result writerDDL(ConnectorInstance connectorInstance, DDLConfig ddlConfig, org.dbsyncer.sdk.plugin.PluginContext context) {
+    public Result writerDDL(ConnectorInstance connectorInstance, DDLConfig ddlConfig,
+            org.dbsyncer.sdk.plugin.PluginContext context) throws Exception {
         Assert.notNull(connectorInstance, "ConnectorInstance can not null");
-        Result result = getConnectorService(connectorInstance.getConfig()).writerDDL(connectorInstance, ddlConfig, context);
+        Result result = getConnectorService(connectorInstance.getConfig()).writerDDL(connectorInstance, ddlConfig,
+                context);
         Assert.notNull(result, "Connector writer batch result can not null");
         return result;
     }

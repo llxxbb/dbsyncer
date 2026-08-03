@@ -190,7 +190,7 @@ public class FullSyncExecutorImpl implements FullSyncExecutor {
 
                 if (!CollectionUtils.isEmpty(result.getFailData())) {
                     errorQueueCollector.handleFailData(meta, tableGroup, tableGroup.getName(),
-                            ConnectorConstant.OPERTION_INSERT, result.getFailData(), result.error);
+                            ConnectorConstant.OPERTION_INSERT, result.getFailData(), null);
                 }
                 if (!CollectionUtils.isEmpty(result.getSuccessData())) {
                     flushStrategy.flushFullData(metaId, result, ConnectorConstant.OPERTION_INSERT);

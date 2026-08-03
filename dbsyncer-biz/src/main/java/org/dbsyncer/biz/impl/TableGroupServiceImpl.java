@@ -527,17 +527,10 @@ public class TableGroupServiceImpl implements TableGroupService {
                 DDLConfig ddlConfig = new DDLConfig();
                 ddlConfig.setSql(ddl);
 
-                // 使用 connectorFactory 执行 DDL
-                Result result = connectorFactory.writerDDL(
+                connectorFactory.writerDDL(
                         connectorFactory.connect(targetConnector.getConfig()),
                         ddlConfig,
                         null);
-
-                // 检查执行结果
-                if (result != null && result.error != null) {
-                    String errorMsg = "执行自定义字段 DDL 失败：" + result.error;
-                    throw new Exception(errorMsg);
-                }
 
                 logger.info("自定义字段 DDL 执行成功：{}.{}",
                         tableGroup.getTargetTable().getName(), field.getName());
@@ -629,19 +622,19 @@ public class TableGroupServiceImpl implements TableGroupService {
             DDLConfig ddlConfig = new DDLConfig();
             ddlConfig.setSql("/*dbs*/" + trimmedSql); // 添加前缀防止双向同步循环
 
-            Result result = connectorFactory.writerDDL(
-                    connectorFactory.connect(targetConnector.getConfig()),
-                    ddlConfig,
-                    null);
-
-            if (StringUtil.isNotBlank(result.error)) {
+            try {
+                connectorFactory.writerDDL(
+                        connectorFactory.connect(targetConnector.getConfig()),
+                        ddlConfig,
+                        null);
+            } catch (Exception e) {
                 // 持久化异常到数据库，带上 mappingId 便于定位
                 String mappingId = tableGroup.getMappingId();
                 logService.log(tableGroup, LogType.DELETE,
                         String.format("[mappingId=%s] 修改主键约束失败：表=%s, SQL=%s, 错误=%s",
                                 mappingId, tableGroup.getTargetTable().getName(),
-                                trimmedSql, result.error));
-                throw new RuntimeException("执行 DDL 失败：" + result.error + ", SQL: " + trimmedSql);
+                                trimmedSql, e.getMessage()));
+                throw new RuntimeException("执行 DDL 失败：" + e.getMessage() + ", SQL: " + trimmedSql);
             }
         }
 
@@ -994,19 +987,13 @@ public class TableGroupServiceImpl implements TableGroupService {
                         DDLConfig ddlConfig = new DDLConfig();
                         ddlConfig.setSql(sql);
 
-                        Result result = connectorFactory.writerDDL(connectorInstance,
-                                ddlConfig, null);
+                        connectorFactory.writerDDL(connectorInstance, ddlConfig, null);
 
-                        if (result.error != null && !result.error.isEmpty()) {
-                            logger.error("DDL 执行失败 [tableGroupId={}]: {}, 错误: {}", id, sql, result.error);
-                            failedSqls.add(sql + " (错误: " + result.error + ")");
-                        } else {
-                            logger.info("DDL 执行成功 [tableGroupId={}]: {}", id, sql);
-                            successCount++;
-                        }
+                        logger.info("DDL 执行成功 [tableGroupId={}]: {}", id, sql);
+                        successCount++;
                     } catch (Exception e) {
-                        logger.error("DDL 执行异常 [tableGroupId={}]: {}", id, sql, e);
-                        failedSqls.add(sql + " (异常: " + e.getMessage() + ")");
+                        logger.error("DDL 执行失败 [tableGroupId={}]: {}, 错误: {}", id, sql, e.getMessage());
+                        failedSqls.add(sql + " (错误: " + e.getMessage() + ")");
                     }
                 }
 

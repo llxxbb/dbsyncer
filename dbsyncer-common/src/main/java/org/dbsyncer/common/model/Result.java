@@ -16,11 +16,6 @@ public class Result<T> {
     private final List<T> failData = new LinkedList<>();
 
     /**
-     * 错误日志
-     */
-    public String error = null;
-
-    /**
      * 驱动表映射关系ID
      */
     private String tableGroupId;

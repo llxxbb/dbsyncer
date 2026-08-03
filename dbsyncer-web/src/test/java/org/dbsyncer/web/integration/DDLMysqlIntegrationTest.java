@@ -1359,10 +1359,10 @@ public class DDLMysqlIntegrationTest extends BaseDDLIntegrationTest {
 
         DDLConfig ddlConfig = new DDLConfig();
         ddlConfig.setSql(createTableDDL);
-        Result result = connectorFactory.writerDDL(targetConnectorInstance, ddlConfig, null);
-
-        if (result != null && result.error != null && !result.error.trim().isEmpty()) {
-            throw new RuntimeException("创建表失败: " + result.error);
+        try {
+            connectorFactory.writerDDL(targetConnectorInstance, ddlConfig, null);
+        } catch (Exception e) {
+            throw new RuntimeException("创建表失败: " + e.getMessage());
         }
 
         logger.info("成功创建目标表: {}", targetTable);
