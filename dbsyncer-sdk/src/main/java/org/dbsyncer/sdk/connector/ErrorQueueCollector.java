@@ -17,6 +17,6 @@ public interface ErrorQueueCollector {
 
     void onRetrySuccess(Meta meta, TableGroup tableGroup);
 
-    void alignCount(Meta meta);
+    void alignCount(Meta meta) throws Exception;
 
 }
