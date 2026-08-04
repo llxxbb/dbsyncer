@@ -11,7 +11,7 @@ import org.dbsyncer.sdk.model.Filter;
 import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.schema.SyncConverter;
 import org.dbsyncer.sdk.util.RowConverter;
-
+import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.plugin.SyncRow;
 
 import java.sql.Date;
@@ -46,33 +46,25 @@ public class Picker {
         }
     }
 
-    public List<SyncRow> pickTargetData(List<Map> source, org.dbsyncer.sdk.plugin.PluginContext context) {
-        List<Map<String, Object>> sourceMaps = new ArrayList<>(source.size());
-        for (Map row : source) {
-            sourceMaps.add(row);
-        }
-        return pickTargetDataFromMaps(sourceMaps, null, false, context);
+    public List<SyncRow> pickTargetData(List<Map> source, PluginContext context) {
+        return pickTargetDataFromMaps((List<Map<String, Object>>) (List<?>) source, null, false, context);
     }
 
     public List<SyncRow> pickTargetData(List<Field> sourceOriginalFields, Map<String, Integer> fieldIndexMap,
                                         boolean enableFilter, List<List<Object>> rows,
                                         List<List<Object>> beforeRows,
-                                        org.dbsyncer.sdk.plugin.PluginContext context) throws Exception {
+                                        PluginContext context) throws Exception {
         if (CollectionUtils.isEmpty(rows)) {
             return new ArrayList<>();
         }
         List<Map<String, Object>> sourceMaps = RowConverter.toListOfMaps(sourceOriginalFields, fieldIndexMap, rows);
-        List<SyncRow> result = pickTargetDataFromMaps(sourceMaps, beforeRows, enableFilter, context);
-        if (result.isEmpty()) {
-            throw new Exception("数据提取失败");
-        }
-        return result;
+        return pickTargetDataFromMaps(sourceMaps, beforeRows, enableFilter, context);
     }
 
     private List<SyncRow> pickTargetDataFromMaps(List<Map<String, Object>> sourceMaps,
                                                   List<List<Object>> beforeRows,
                                                   boolean enableFilter,
-                                                  org.dbsyncer.sdk.plugin.PluginContext context) {
+                                                  PluginContext context) {
         List<SyncRow> targetList = new ArrayList<>(sourceMaps.size());
         for (int i = 0; i < sourceMaps.size(); i++) {
             Map<String, Object> sourceMap = sourceMaps.get(i);
