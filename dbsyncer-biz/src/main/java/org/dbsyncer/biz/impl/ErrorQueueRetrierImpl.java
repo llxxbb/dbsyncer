@@ -14,7 +14,7 @@ import org.dbsyncer.common.util.*;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.flush.impl.BufferActuatorRouter;
 import org.dbsyncer.parser.flush.impl.MetaBufferActuator;
-import org.dbsyncer.parser.error.ErrorQueueCollector;
+import org.dbsyncer.sdk.connector.ErrorQueueCollector;
 import org.dbsyncer.parser.model.Picker;
 import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.config.DDLConfig;

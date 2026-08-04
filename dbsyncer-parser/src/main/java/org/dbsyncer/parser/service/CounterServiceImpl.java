@@ -1,6 +1,7 @@
 package org.dbsyncer.parser.service;
 
 import org.dbsyncer.parser.ProfileComponent;
+import org.dbsyncer.sdk.connector.CounterService;
 import org.dbsyncer.sdk.enums.SyncPhaseEnum;
 import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.model.Meta;
@@ -13,13 +14,14 @@ import javax.annotation.Resource;
 import java.time.Instant;
 
 @Component
-public class CounterService {
+public class CounterServiceImpl implements CounterService {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     @Resource
     private ProfileComponent profileComponent;
 
+    @Override
     public void incrementSuccess(Meta meta, TableGroup tg, int count) {
         if (count <= 0) {
             return;
@@ -40,6 +42,7 @@ public class CounterService {
         }
     }
 
+    @Override
     public void incrementFail(Meta meta, TableGroup tg, int count) {
         if (count <= 0) {
             return;
@@ -60,6 +63,7 @@ public class CounterService {
         }
     }
 
+    @Override
     public void decrementFail(Meta meta, TableGroup tg) {
         synchronized (meta) {
             meta.setFail(Math.max(0, meta.getFail() - 1));
@@ -70,6 +74,7 @@ public class CounterService {
         }
     }
 
+    @Override
     public void flush(Meta meta, TableGroup tg) {
         try {
             meta.setUpdateTime(Instant.now().toEpochMilli());

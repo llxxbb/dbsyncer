@@ -4,17 +4,15 @@
 package org.dbsyncer.parser.impl;
 
 import org.dbsyncer.common.ProcessEvent;
-import org.dbsyncer.common.model.Result;
-import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.parser.FullSyncExecutor;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.model.*;
 import org.dbsyncer.sdk.model.*;
-import org.dbsyncer.parser.service.CounterService;
+import org.dbsyncer.sdk.connector.CounterService;
 import org.dbsyncer.parser.util.ConvertUtil;
 import org.dbsyncer.parser.util.PickerUtil;
-import org.dbsyncer.parser.error.ErrorQueueCollector;
+import org.dbsyncer.sdk.connector.ErrorQueueCollector;
 
 import org.dbsyncer.sdk.connector.database.Database;
 import org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance;
@@ -29,9 +27,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.ArgumentPreparedStatementSetter;
 import org.springframework.jdbc.core.ColumnMapRowMapper;
 
-import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
-
 
 import java.util.List;
 import java.util.Map;
@@ -66,7 +62,7 @@ public class FullSyncExecutorImpl implements FullSyncExecutor {
     @Resource
     private ProcessEvent fullProcessEvent;
 
-        // 保存间隔（毫秒）
+    // 保存间隔（毫秒）
     private static final long SAVE_INTERVAL_MS = 3000L;
 
     /**
@@ -114,20 +110,22 @@ public class FullSyncExecutorImpl implements FullSyncExecutor {
                 .getConnectorService(context.getSourceConnectorInstance().getConfig());
 
         // 执行流式处理
-        ((DatabaseConnectorInstance) context.getSourceConnectorInstance()).execute(databaseTemplate ->
-                executeTableGroupWithStreaming(metaId, tableGroup, group, mapping, context, picker, db, primaryKeys, querySql, databaseTemplate));
+        ((DatabaseConnectorInstance) context.getSourceConnectorInstance())
+                .execute(databaseTemplate -> executeTableGroupWithStreaming(metaId, tableGroup, group, mapping, context,
+                        picker, db, primaryKeys, querySql, databaseTemplate));
     }
 
-    private Object executeTableGroupWithStreaming(String metaId, TableGroup tableGroup, TableGroup group, Mapping mapping,
-                                                  AbstractPluginContext context,
-                                                  Picker picker, Database db, List<String> primaryKeys,
-                                                  String querySql, DatabaseTemplate databaseTemplate) {
+    private Object executeTableGroupWithStreaming(String metaId, TableGroup tableGroup, TableGroup group,
+            Mapping mapping,
+            AbstractPluginContext context,
+            Picker picker, Database db, List<String> primaryKeys,
+            String querySql, DatabaseTemplate databaseTemplate) {
         // 获取流式处理的fetchSize
         Integer fetchSize = db.getStreamingFetchSize(context);
         databaseTemplate.setFetchSize(fetchSize);
 
         // 上次保存时间（局域化，仅在当前任务执行期间有效）
-        long[] lastSaveTime = {0L};
+        long[] lastSaveTime = { 0L };
 
         try (Stream<Map<String, Object>> stream = databaseTemplate.queryForStream(querySql,
                 new ArgumentPreparedStatementSetter(tableGroup.getCursors()),
@@ -148,19 +146,22 @@ public class FullSyncExecutorImpl implements FullSyncExecutor {
 
                 // 达到批次大小时处理数据
                 if (batch.size() >= mapping.getBatchNum()) {
-                    processTableGroupDataBatch(metaId, batch, tableGroup, group, mapping, context, picker, primaryKeys, lastSaveTime);
+                    processTableGroupDataBatch(metaId, batch, tableGroup, group, mapping, context, picker, primaryKeys,
+                            lastSaveTime);
                     batch = new ArrayList<>();
                 }
             }
             // 处理最后一批数据
             if (!batch.isEmpty()) {
-                processTableGroupDataBatch(metaId, batch, tableGroup, group, mapping, context, picker, primaryKeys, lastSaveTime);
+                processTableGroupDataBatch(metaId, batch, tableGroup, group, mapping, context, picker, primaryKeys,
+                        lastSaveTime);
             }
             // 标记流式处理完成，强制保存一次
             tableGroup.setFullCompleted(true);
             profileComponent.editConfigModel(tableGroup);
         } catch (Exception e) {
-            throw new RuntimeException("source table: " + tableGroup.getSourceTable().getName() + "target table: " + tableGroup.getTargetTable().getName(), e);
+            throw new RuntimeException("source table: " + tableGroup.getSourceTable().getName() + "target table: "
+                    + tableGroup.getTargetTable().getName(), e);
         }
         return null;
     }
@@ -168,9 +169,10 @@ public class FullSyncExecutorImpl implements FullSyncExecutor {
     /**
      * TableGroup专用的数据处理逻辑
      */
-    private void processTableGroupDataBatch(String metaId, List<Map> source, TableGroup tableGroup, TableGroup group, Mapping mapping,
-                                             AbstractPluginContext context, Picker picker, List<String> primaryKeys,
-                                             long[] lastSaveTime) throws Exception {
+    private void processTableGroupDataBatch(String metaId, List<Map> source, TableGroup tableGroup, TableGroup group,
+            Mapping mapping,
+            AbstractPluginContext context, Picker picker, List<String> primaryKeys,
+            long[] lastSaveTime) throws Exception {
         List<SyncRow> target = picker.pickTargetData(source, context);
         for (SyncRow row : target) {
             row.setMapping(mapping);
@@ -180,35 +182,13 @@ public class FullSyncExecutorImpl implements FullSyncExecutor {
         ConvertUtil.convert(tableGroup.getConvert(), target);
         Meta meta = profileComponent.getMeta(metaId);
 
-        try {
-            Result result = connectorFactory.writeBatch(target);
-
-            if (result != null) {
-                result.setMappingId(meta.getMappingId());
-                result.setTargetTableGroupName(tableGroup.getName());
-                result.setTableGroupId(tableGroup.getId());
-
-                if (!CollectionUtils.isEmpty(result.getFailData())) {
-                    errorQueueCollector.handleFailData(meta, tableGroup, tableGroup.getName(),
-                            ConnectorConstant.OPERTION_INSERT, result.getFailData(), null);
-                }
-                if (!CollectionUtils.isEmpty(result.getSuccessData())) {
-                    int successSize = result.getSuccessData().size();
-                    counterService.incrementSuccess(meta, tableGroup, successSize);
-                    counterService.flush(meta, tableGroup);
-                }
-            }
-        } catch (Exception e) {
-            logger.error("全量同步异常: tableGroup={}, error={}", tableGroup.getName(), e.getMessage(), e);
-            List<Map> failData = target.stream().map(SyncRow::getSourceData).collect(Collectors.toList());
-            errorQueueCollector.handleFailData(meta, tableGroup, tableGroup.getName(),
-                    ConnectorConstant.OPERTION_INSERT, failData, e.getMessage());
-        }
+        connectorFactory.writeBatch(target, meta, mapping, tableGroup, counterService, errorQueueCollector, false);
 
         Object[] newCursors = PrimaryKeyUtil.getLastCursors(source, primaryKeys);
         tableGroup.setCursors(newCursors);
         saveTableGroupIfNeeded(tableGroup, lastSaveTime);
     }
+
     private ConnectorConfig getConnectorConfig(String connectorId) {
         return profileComponent.getConnector(connectorId).getConfig();
     }

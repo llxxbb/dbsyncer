@@ -13,12 +13,16 @@ import org.dbsyncer.sdk.config.CommandConfig;
 import org.dbsyncer.sdk.config.DDLConfig;
 import org.dbsyncer.sdk.connector.AbstractConnector;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
+import org.dbsyncer.sdk.connector.ErrorQueueCollector;
+import org.dbsyncer.sdk.connector.CounterService;
 import org.dbsyncer.sdk.constant.ConnectorConstant;
 import org.dbsyncer.sdk.listener.Listener;
 import org.dbsyncer.sdk.model.ConnectorConfig;
 import org.dbsyncer.sdk.model.Mapping;
+import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.model.Table;
+import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.plugin.SyncRow;
 import org.dbsyncer.sdk.notify.NotifyType;
@@ -231,11 +235,12 @@ public class ConnectorFactory implements DisposableBean {
 
     /**
      * 批量写入数据到目标源
-     * @throws Exception 
      */
-    public Result writeBatch(List<SyncRow> syncRows) throws Exception {
+    public void writeBatch(List<SyncRow> syncRows, Meta meta, Mapping mapping, TableGroup tableGroup,
+                             CounterService counter, ErrorQueueCollector errorHandler,
+                             boolean enableFailQueue) {
         if (CollectionUtils.isEmpty(syncRows)) {
-            return new Result();
+            return;
         }
         PluginContext ctx = syncRows.get(0).getContext();
         String event = ctx.getEvent();
@@ -246,21 +251,48 @@ public class ConnectorFactory implements DisposableBean {
         }
         RetryPolicy policy = retryConfig != null ? retryConfig.getGlobal() : new RetryPolicy();
         String mappingId = syncRows.get(0).getMapping() != null ? syncRows.get(0).getMapping().getId() : null;
-        switch (event) {
-            case ConnectorConstant.OPERTION_INSERT:
-                return executeWriterOperation(syncRows, (connector, instance, rows) -> connector.insert(instance, rows),
-                        policy, mappingId);
-            case ConnectorConstant.OPERTION_UPDATE:
-                return executeWriterOperation(syncRows, (connector, instance, rows) -> connector.update(instance, rows),
-                        policy, mappingId);
-            case ConnectorConstant.OPERTION_DELETE:
-                return executeWriterOperation(syncRows, (connector, instance, rows) -> connector.delete(instance, rows),
-                        policy, mappingId);
-            case ConnectorConstant.OPERTION_UPSERT:
-                return executeWriterOperation(syncRows, (connector, instance, rows) -> connector.upsert(instance, rows),
-                        policy, mappingId);
-            default:
-                throw new RuntimeException("不支持的事件类型：" + event);
+        Result result;
+        try {
+            switch (event) {
+                case ConnectorConstant.OPERTION_INSERT:
+                    result = executeWriterOperation(syncRows, (connector, instance, rows) -> connector.insert(instance, rows),
+                            policy, mappingId);
+                    break;
+                case ConnectorConstant.OPERTION_UPDATE:
+                    result = executeWriterOperation(syncRows, (connector, instance, rows) -> connector.update(instance, rows),
+                            policy, mappingId);
+                    break;
+                case ConnectorConstant.OPERTION_DELETE:
+                    result = executeWriterOperation(syncRows, (connector, instance, rows) -> connector.delete(instance, rows),
+                            policy, mappingId);
+                    break;
+                case ConnectorConstant.OPERTION_UPSERT:
+                    result = executeWriterOperation(syncRows, (connector, instance, rows) -> connector.upsert(instance, rows),
+                            policy, mappingId);
+                    break;
+                default:
+                    throw new RuntimeException("不支持的事件类型：" + event);
+            }
+
+            if (result != null) {
+                result.setMappingId(mapping.getId());
+                result.setTableGroupId(tableGroup.getId());
+                result.setTargetTableGroupName(tableGroup.getTargetTable().getName());
+
+                if (!CollectionUtils.isEmpty(result.getFailData()) && enableFailQueue) {
+                    errorHandler.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
+                            event, result.getFailData(), "条件未命中");
+                }
+                if (!CollectionUtils.isEmpty(result.getSuccessData())) {
+                    int successSize = result.getSuccessData().size();
+                    counter.incrementSuccess(meta, tableGroup, successSize);
+                    counter.flush(meta, tableGroup);
+                }
+            }
+        } catch (Exception e) {
+            List<Map> failData = syncRows.stream().map(SyncRow::getSourceData).collect(java.util.stream.Collectors.toList());
+            errorHandler.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
+                    event, failData, e.getMessage());
         }
     }
 

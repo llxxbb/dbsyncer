@@ -17,8 +17,8 @@ import org.dbsyncer.parser.flush.BufferRequest;
 import org.dbsyncer.parser.model.*;
 import org.dbsyncer.sdk.model.*;
 import org.dbsyncer.parser.service.TableGroupModelService;
-import org.dbsyncer.parser.service.CounterService;
-import org.dbsyncer.parser.error.ErrorQueueCollector;
+import org.dbsyncer.sdk.connector.CounterService;
+import org.dbsyncer.sdk.connector.ErrorQueueCollector;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.parser.util.ConvertUtil;
@@ -28,7 +28,6 @@ import org.dbsyncer.sdk.config.ListenerConfig;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.enums.ChangedEventTypeEnum;
 import org.dbsyncer.sdk.enums.DDLOperationEnum;
-import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.listener.ChangedEvent;
 import org.dbsyncer.sdk.listener.Listener;
 import org.dbsyncer.sdk.plugin.SyncRow;
@@ -369,31 +368,8 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         }
         context.setEvent(response.getEvent());
         context.setEnablePrintTraceInfo(StringUtil.isNotBlank(response.getTraceId()));
-        try {
-            Result result = connectorFactory.writeBatch(targetDataList);
-
-            result.setMappingId(mapping.getId());
-            result.setTableGroupId(tableGroup.getId());
-            result.setTargetTableGroupName(tableGroup.getTargetTable().getName());
-
-            if (!CollectionUtils.isEmpty(result.getFailData()) && !response.isErrQueueRetry()) {
-                errorQueueCollector.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
-                        response.getEvent(), result.getFailData(), "条件未命中");
-            }
-            if (!CollectionUtils.isEmpty(result.getSuccessData())) {
-                int successSize = result.getSuccessData().size();
-                counterService.incrementSuccess(meta, tableGroup, successSize);
-                counterService.flush(meta, tableGroup);
-            }
-        } catch (Exception e) {
-            logger.error("process batch data error:", e);
-            if (response.isErrQueueRetry()) {
-                throw new RuntimeException("重试失败: " + e.getMessage());
-            }
-            List<Map> failData = targetDataList.stream().map(SyncRow::getSourceData).collect(Collectors.toList());
-            errorQueueCollector.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
-                    response.getEvent(), failData, e.getMessage());
-        }
+        connectorFactory.writeBatch(targetDataList, meta, mapping, tableGroup,
+                    counterService, errorQueueCollector, !response.isErrQueueRetry());
     }
 
     /**
@@ -456,9 +432,8 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
                 }
             } catch (Exception e) {
                 logger.error("目标 DDL 执行失败: table={}, sql={}, error={}", tableGroup.getTargetTable().getName(), targetDDLConfig.getSql(), e.getMessage());
-                String ddlConfigJson = JsonUtil.objToJson(targetDDLConfig);
                 errorQueueCollector.handleDdlFailData(meta, tableGroup,
-                        tableGroup.getTargetTable().getName(), ddlConfigJson, e.getMessage());
+                        tableGroup.getTargetTable().getName(), targetDDLConfig, e.getMessage());
                 return;
             }
 

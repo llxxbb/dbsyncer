@@ -8,7 +8,7 @@ import org.dbsyncer.biz.ConnectorService;
 import org.dbsyncer.biz.ErrorQueueRetrier;
 import org.dbsyncer.biz.MonitorService;
 import org.dbsyncer.biz.SystemConfigService;
-import org.dbsyncer.parser.error.ErrorQueueCollector;
+import org.dbsyncer.sdk.connector.ErrorQueueCollector;
 import org.dbsyncer.biz.enums.DiskMetricEnum;
 import org.dbsyncer.biz.enums.MetricEnum;
 import org.dbsyncer.biz.enums.StatisticEnum;

@@ -1,11 +1,14 @@
 package org.dbsyncer.parser.error;
 
 import org.dbsyncer.common.model.Paging;
+import org.dbsyncer.common.util.JsonUtil;
+import org.dbsyncer.sdk.config.DDLConfig;
+import org.dbsyncer.sdk.connector.ErrorQueueCollector;
 import org.dbsyncer.sdk.spi.MessageService;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.flush.BufferActuator;
 import org.dbsyncer.parser.model.StorageRequest;
-import org.dbsyncer.parser.service.CounterService;
+import org.dbsyncer.sdk.connector.CounterService;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.constant.ConnectorConstant;
 import org.dbsyncer.sdk.enums.MetaEnum;
@@ -30,7 +33,7 @@ import java.util.List;
 import java.util.Map;
 
 @Component
-public class ErrorQueueCollector {
+public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -58,6 +61,7 @@ public class ErrorQueueCollector {
     @Resource
     private StorageService storageService;
 
+    @Override
     public void handleFailData(Meta meta, TableGroup tableGroup, String targetTableName,
                                String event, List<Map> failData, String errorMsg) {
         if (failData == null || failData.isEmpty()) {
@@ -74,12 +78,12 @@ public class ErrorQueueCollector {
     }
 
     public void handleDdlFailData(Meta meta, TableGroup tableGroup, String targetTableName,
-                                  String ddlConfigJson, String errorMsg) {
+                                  DDLConfig ddlConfig, String errorMsg) {
         String metaId = meta.getId();
         String tableGroupId = tableGroup != null ? tableGroup.getId() : null;
 
         Map<String, Object> row = new HashMap<>();
-        row.put(ConfigConstant.BINLOG_DATA, ddlConfigJson);
+        row.put(ConfigConstant.BINLOG_DATA, JsonUtil.objToJson(ddlConfig));
         persistErrorRow(metaId, tableGroupId, targetTableName, ConnectorConstant.OPERTION_ALTER, row, errorMsg);
         counterService.incrementFail(meta, tableGroup, 1);
         counterService.flush(meta, tableGroup);

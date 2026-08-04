@@ -12,8 +12,8 @@ import org.dbsyncer.parser.TableGroupContext;
 import org.dbsyncer.parser.ddl.DDLParser;
 import org.dbsyncer.parser.model.WriterRequest;
 import org.dbsyncer.parser.service.TableGroupModelService;
-import org.dbsyncer.parser.service.CounterService;
-import org.dbsyncer.parser.error.ErrorQueueCollector;
+import org.dbsyncer.sdk.connector.CounterService;
+import org.dbsyncer.sdk.connector.ErrorQueueCollector;
 
 import org.dbsyncer.sdk.listener.ChangedEvent;
 import org.dbsyncer.sdk.spi.LogService;
