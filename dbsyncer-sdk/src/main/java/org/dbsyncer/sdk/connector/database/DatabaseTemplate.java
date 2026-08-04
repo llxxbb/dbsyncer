@@ -70,7 +70,6 @@ import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -979,17 +978,6 @@ public class DatabaseTemplate implements JdbcOperations {
                     }
 
                     int[] executeBatch = ps.executeBatch();
-                    // Oracle批量执行的结果, 不管成功或失败都是[-2, -2, ..]. 这里进行反射，获取真实的行数，如果影响行数不符合预期，统一返回[0, 0, ..]
-                    if (connection.isOracleDriver()) {
-                        // oracle.jdbc.driver.OraclePreparedStatementWrapper.preparedStatement(T4CPreparedStatement<OraclePreparedStatement<OracleStatement.rowsProcessed)
-                        Object preparedStatement = invoke(ps, 0, "preparedStatement");
-                        Long rowsProcessed = (Long) invoke(preparedStatement, 2, "rowsProcessed");
-                        // 不符合预期值（实际处理的行数少于提交的行数）
-                        if (batchSize != rowsProcessed.longValue()) {
-                            Arrays.fill(executeBatch, 0);
-                            return executeBatch;
-                        }
-                    }
                     return executeBatch;
                 } else {
                     List<Integer> rowsAffected = new ArrayList<>();

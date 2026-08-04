@@ -3,7 +3,6 @@
  */
 package org.dbsyncer.sdk.connector.database.ds;
 
-import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.sdk.SdkException;
 import org.dbsyncer.sdk.util.DatabaseUtil;
 
@@ -39,8 +38,6 @@ public class SimpleDataSource implements DataSource, AutoCloseable {
     private int maxActive;
     // 连接有效期(ms)
     private long keepAlive;
-    // 是否是Oracle连接
-    private boolean oracleDriver;
 
     public SimpleDataSource(String driverClassName, String url, String username, String password, int maxActive, long keepAlive) {
         this.driverClassName = driverClassName;
@@ -49,7 +46,6 @@ public class SimpleDataSource implements DataSource, AutoCloseable {
         this.password = password;
         this.maxActive = maxActive;
         this.keepAlive = keepAlive;
-        oracleDriver = StringUtil.equals(driverClassName, "oracle.jdbc.OracleDriver");
         activeNum = new AtomicInteger(0);
         pool = new LinkedBlockingQueue<>(maxActive);
     }
@@ -177,7 +173,7 @@ public class SimpleDataSource implements DataSource, AutoCloseable {
     private SimpleConnection createConnection() {
         SimpleConnection simpleConnection = null;
         try {
-            simpleConnection = new SimpleConnection(DatabaseUtil.getConnection(driverClassName, url, username, password), oracleDriver);
+            simpleConnection = new SimpleConnection(DatabaseUtil.getConnection(driverClassName, url, username, password));
             activeNum.incrementAndGet();
         } catch (SQLException e) {
             throw new SdkException(e);

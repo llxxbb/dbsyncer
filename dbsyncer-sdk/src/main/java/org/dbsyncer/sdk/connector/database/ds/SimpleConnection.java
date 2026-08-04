@@ -28,11 +28,9 @@ import java.util.concurrent.Executor;
 public class SimpleConnection implements Connection {
     private final Connection connection;
     private final long ACTIVE_TIME = Instant.now().toEpochMilli();
-    private boolean oracleDriver;
 
-    public SimpleConnection(Connection connection, boolean oracleDriver) {
+    public SimpleConnection(Connection connection) {
         this.connection = connection;
-        this.oracleDriver = oracleDriver;
     }
 
     @Override
@@ -316,9 +314,5 @@ public class SimpleConnection implements Connection {
 
     public long getActiveTime() {
         return ACTIVE_TIME;
-    }
-
-    public boolean isOracleDriver() {
-        return oracleDriver;
     }
 }
