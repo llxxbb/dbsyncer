@@ -286,7 +286,6 @@ public class ConnectorFactory implements DisposableBean {
                 if (!CollectionUtils.isEmpty(result.getSuccessData())) {
                     int successSize = result.getSuccessData().size();
                     counter.incrementSuccess(meta, tableGroup, successSize);
-                    counter.flush(meta, tableGroup);
                 }
             }
         } catch (Exception e) {

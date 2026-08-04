@@ -37,6 +37,7 @@ public class CounterServiceImpl implements CounterService {
                 tg.setIncrementSuccess(tg.getIncrementSuccess() + count);
             }
             updateTableGroupSpeed(tg, count);
+            meta.markTableGroupChanged(tg.getId());
             Mapping mapping = profileComponent.getMapping(meta.getMappingId());
             logger.info("mappingId {}, tgId {}, 写入条数：{}", mapping.getId(), tg.getId(), count);
         }
@@ -58,6 +59,7 @@ public class CounterServiceImpl implements CounterService {
                 tg.setIncrementFail(tg.getIncrementFail() + count);
                 meta.setTotal(meta.getTotal() + count);
             }
+            meta.markTableGroupChanged(tg.getId());
             Mapping mapping = profileComponent.getMapping(meta.getMappingId());
             logger.info("mappingId {}, tgId {}, 失败条数：{}", mapping.getId(), tg.getId(), count);
         }

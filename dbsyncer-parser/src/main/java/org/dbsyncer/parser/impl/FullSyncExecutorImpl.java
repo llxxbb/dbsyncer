@@ -186,7 +186,7 @@ public class FullSyncExecutorImpl implements FullSyncExecutor {
 
         Object[] newCursors = PrimaryKeyUtil.getLastCursors(source, primaryKeys);
         tableGroup.setCursors(newCursors);
-        saveTableGroupIfNeeded(tableGroup, lastSaveTime);
+        saveTableGroupIfNeeded(meta, tableGroup, lastSaveTime);
     }
 
     private ConnectorConfig getConnectorConfig(String connectorId) {
@@ -194,24 +194,23 @@ public class FullSyncExecutorImpl implements FullSyncExecutor {
     }
 
     /**
-     * 检查并保存 TableGroup（每3秒保存一次，减少频繁IO）
+     * 检查并保存 TableGroup 和 Meta（每3秒保存一次，减少频繁IO）
      *
+     * @param metaId       Meta ID
      * @param tableGroup   TableGroup 对象
      * @param lastSaveTime 上次保存时间（使用数组以便修改）
+     * @throws Exception 
      */
-    private void saveTableGroupIfNeeded(TableGroup tableGroup, long[] lastSaveTime) {
+    private void saveTableGroupIfNeeded(Meta meta, TableGroup tableGroup, long[] lastSaveTime) throws Exception {
         long currentTime = System.currentTimeMillis();
         long lastSave = lastSaveTime[0];
 
         // 如果距离上次保存超过3秒，则执行保存
         if (currentTime - lastSave >= SAVE_INTERVAL_MS) {
-            try {
-                profileComponent.editConfigModel(tableGroup);
-                logger.info("保存表 {} 全量同步", tableGroup.getName());
-                lastSaveTime[0] = currentTime;
-            } catch (Exception e) {
-                logger.error("保存 TableGroup [{}] 失败: {}", tableGroup.getId(), e.getMessage(), e);
-            }
+            profileComponent.editConfigModel(tableGroup);
+            profileComponent.editConfigModel(meta);
+            logger.info("保存表 {} 全量同步", tableGroup.getName());
+            lastSaveTime[0] = currentTime;
         }
     }
 }

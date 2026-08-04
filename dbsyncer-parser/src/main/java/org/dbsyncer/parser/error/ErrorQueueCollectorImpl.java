@@ -72,7 +72,6 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
 
         persistError(metaId, tableGroupId, targetTableName, event, failData, errorMsg);
         counterService.incrementFail(meta, tableGroup, failData.size());
-        counterService.flush(meta, tableGroup);
         notifyError(meta, targetTableName, errorMsg, failData.size());
         checkCircuitBreaker(meta, meta.getMappingId());
     }
@@ -86,7 +85,6 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
         row.put(ConfigConstant.BINLOG_DATA, JsonUtil.objToJson(ddlConfig));
         persistErrorRow(metaId, tableGroupId, targetTableName, ConnectorConstant.OPERTION_ALTER, row, errorMsg);
         counterService.incrementFail(meta, tableGroup, 1);
-        counterService.flush(meta, tableGroup);
         notifyError(meta, targetTableName, errorMsg, 1);
         checkCircuitBreaker(meta, meta.getMappingId());
     }
@@ -130,12 +128,8 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
                               String event, List<Map> failData, String errorMsg) {
         for (Map r : failData) {
             Map<String, Object> row = buildErrorRow(metaId, tableGroupId, targetTableName, event, errorMsg);
-            try {
-                byte[] bytes = BinlogMessageUtil.toBinlogMap(r).toByteArray();
-                row.put(ConfigConstant.BINLOG_DATA, bytes);
-            } catch (Exception e) {
-                logger.warn("序列化错误数据失败: {}", r);
-            }
+            byte[] bytes = BinlogMessageUtil.toBinlogMap(r).toByteArray();
+            row.put(ConfigConstant.BINLOG_DATA, bytes);
             storageBufferActuator.offer(new StorageRequest(metaId, row));
         }
     }
