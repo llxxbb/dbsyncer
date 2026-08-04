@@ -17,7 +17,7 @@ import org.dbsyncer.parser.flush.BufferRequest;
 import org.dbsyncer.parser.model.*;
 import org.dbsyncer.sdk.model.*;
 import org.dbsyncer.parser.service.TableGroupModelService;
-import org.dbsyncer.parser.strategy.FlushStrategy;
+import org.dbsyncer.parser.service.CounterService;
 import org.dbsyncer.parser.error.ErrorQueueCollector;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
@@ -58,7 +58,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
     private GeneralBufferConfig generalBufferConfig;
     private Executor generalExecutor;
     private ConnectorFactory connectorFactory;
-    private FlushStrategy flushStrategy;
+    private CounterService counterService;
     private DDLParser ddlParser;
     private TableGroupContext tableGroupContext;
     private LogService logService;
@@ -381,7 +381,9 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
                         response.getEvent(), result.getFailData(), "条件未命中");
             }
             if (!CollectionUtils.isEmpty(result.getSuccessData())) {
-                flushStrategy.flushIncrementData(metaId, result, response.getEvent());
+                int successSize = result.getSuccessData().size();
+                counterService.incrementSuccess(meta, tableGroup, successSize);
+                counterService.flush(meta, tableGroup);
             }
         } catch (Exception e) {
             logger.error("process batch data error:", e);
@@ -447,7 +449,11 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
                 result.setMappingId(mapping.getId());
                 result.setTableGroupId(tableGroup.getId());
                 result.setTargetTableGroupName(tableGroup.getTargetTable().getName());
-                flushStrategy.flushIncrementData(mapping.getMetaId(), result, response.getEvent());
+                int successSize = result.getSuccessData().size();
+                if (successSize > 0) {
+                    counterService.incrementSuccess(meta, tableGroup, successSize);
+                    counterService.flush(meta, tableGroup);
+                }
             } catch (Exception e) {
                 logger.error("目标 DDL 执行失败: table={}, sql={}, error={}", tableGroup.getTargetTable().getName(), targetDDLConfig.getSql(), e.getMessage());
                 String ddlConfigJson = JsonUtil.objToJson(targetDDLConfig);
@@ -576,8 +582,8 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         this.connectorFactory = connectorFactory;
     }
 
-    public void setFlushStrategy(FlushStrategy flushStrategy) {
-        this.flushStrategy = flushStrategy;
+    public void setCounterService(CounterService counterService) {
+        this.counterService = counterService;
     }
 
     public void setTableGroupModelService(TableGroupModelService tableGroupModelService) {

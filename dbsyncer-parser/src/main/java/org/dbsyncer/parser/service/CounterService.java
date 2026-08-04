@@ -2,6 +2,7 @@ package org.dbsyncer.parser.service;
 
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.sdk.enums.SyncPhaseEnum;
+import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.sdk.model.TableGroup;
 import org.slf4j.Logger;
@@ -33,7 +34,9 @@ public class CounterService {
                 meta.setIncrementSuccess(meta.getIncrementSuccess() + count);
                 tg.setIncrementSuccess(tg.getIncrementSuccess() + count);
             }
-            syncStatus(tg);
+            updateTableGroupSpeed(tg, count);
+            Mapping mapping = profileComponent.getMapping(meta.getMappingId());
+            logger.info("mappingId {}, tgId {}, 写入条数：{}", mapping.getId(), tg.getId(), count);
         }
     }
 
@@ -50,8 +53,10 @@ public class CounterService {
             } else {
                 meta.setIncrementFail(meta.getIncrementFail() + count);
                 tg.setIncrementFail(tg.getIncrementFail() + count);
+                meta.setTotal(meta.getTotal() + count);
             }
-            syncStatus(tg);
+            Mapping mapping = profileComponent.getMapping(meta.getMappingId());
+            logger.info("mappingId {}, tgId {}, 失败条数：{}", mapping.getId(), tg.getId(), count);
         }
     }
 
@@ -79,5 +84,19 @@ public class CounterService {
 
     private void syncStatus(TableGroup tg) {
         tg.setStatus(tg.getFail() > 0 ? TableGroup.STATUS_ERROR : TableGroup.STATUS_NORMAL);
+    }
+
+    private void updateTableGroupSpeed(TableGroup tableGroup, int successSize) {
+        long currentTime = System.currentTimeMillis();
+        long lastSyncTime = tableGroup.getLastSyncTime();
+        long batchCount = successSize;
+        if (lastSyncTime > 0 && batchCount > 0) {
+            long timeDiffMs = currentTime - lastSyncTime;
+            if (timeDiffMs > 0) {
+                double speed = (double) batchCount / (timeDiffMs / 1000.0);
+                tableGroup.setCurrentSpeed(speed);
+            }
+        }
+        tableGroup.setLastSyncTime(currentTime);
     }
 }

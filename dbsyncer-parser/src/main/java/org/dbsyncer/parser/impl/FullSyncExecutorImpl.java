@@ -11,7 +11,7 @@ import org.dbsyncer.parser.FullSyncExecutor;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.model.*;
 import org.dbsyncer.sdk.model.*;
-import org.dbsyncer.parser.strategy.FlushStrategy;
+import org.dbsyncer.parser.service.CounterService;
 import org.dbsyncer.parser.util.ConvertUtil;
 import org.dbsyncer.parser.util.PickerUtil;
 import org.dbsyncer.parser.error.ErrorQueueCollector;
@@ -54,7 +54,7 @@ public class FullSyncExecutorImpl implements FullSyncExecutor {
     private ConnectorFactory connectorFactory;
 
     @Resource
-    private FlushStrategy flushStrategy;
+    private CounterService counterService;
 
     @Resource
     private ProfileComponent profileComponent;
@@ -193,7 +193,9 @@ public class FullSyncExecutorImpl implements FullSyncExecutor {
                             ConnectorConstant.OPERTION_INSERT, result.getFailData(), null);
                 }
                 if (!CollectionUtils.isEmpty(result.getSuccessData())) {
-                    flushStrategy.flushFullData(metaId, result, ConnectorConstant.OPERTION_INSERT);
+                    int successSize = result.getSuccessData().size();
+                    counterService.incrementSuccess(meta, tableGroup, successSize);
+                    counterService.flush(meta, tableGroup);
                 }
             }
         } catch (Exception e) {

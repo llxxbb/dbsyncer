@@ -58,7 +58,6 @@ public class TableGroup extends AbstractConfigModel {
     private volatile long fullFail;
     private volatile long lastSyncTime;
     private volatile double currentSpeed;
-    private volatile long lastBatchCount;
     private String errorMessage;
     private boolean fullCompleted;
 
@@ -138,7 +137,6 @@ public class TableGroup extends AbstractConfigModel {
         this.fullFail = 0;
         this.lastSyncTime = 0;
         this.currentSpeed = 0;
-        this.lastBatchCount = 0;
     }
 
     public int getIndex() {
@@ -286,14 +284,6 @@ public class TableGroup extends AbstractConfigModel {
 
     public void setCurrentSpeed(double currentSpeed) {
         this.currentSpeed = currentSpeed;
-    }
-
-    public long getLastBatchCount() {
-        return lastBatchCount;
-    }
-
-    public void setLastBatchCount(long lastBatchCount) {
-        this.lastBatchCount = lastBatchCount;
     }
 
     public String getErrorMessage() {

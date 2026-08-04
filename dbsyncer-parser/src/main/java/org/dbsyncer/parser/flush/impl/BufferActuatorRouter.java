@@ -12,13 +12,12 @@ import org.dbsyncer.parser.TableGroupContext;
 import org.dbsyncer.parser.ddl.DDLParser;
 import org.dbsyncer.parser.model.WriterRequest;
 import org.dbsyncer.parser.service.TableGroupModelService;
-import org.dbsyncer.parser.strategy.FlushStrategy;
+import org.dbsyncer.parser.service.CounterService;
 import org.dbsyncer.parser.error.ErrorQueueCollector;
 
 import org.dbsyncer.sdk.listener.ChangedEvent;
 import org.dbsyncer.sdk.spi.LogService;
 import org.springframework.beans.factory.DisposableBean;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
@@ -51,7 +50,7 @@ public final class BufferActuatorRouter implements DisposableBean {
     private ConnectorFactory connectorFactory;
 
     @Resource
-    private FlushStrategy flushStrategy;
+    private CounterService counterService;
 
     @Resource
     private DDLParser ddlParser;
@@ -158,7 +157,7 @@ public final class BufferActuatorRouter implements DisposableBean {
         actuator.setGeneralExecutor(generalExecutor);
         actuator.setConnectorFactory(connectorFactory);
         actuator.setProfileComponent(profileComponent);
-        actuator.setFlushStrategy(flushStrategy);
+        actuator.setCounterService(counterService);
         actuator.setDdlParser(ddlParser);
         actuator.setTableGroupContext(tableGroupContext);
         actuator.setLogService(logService);
