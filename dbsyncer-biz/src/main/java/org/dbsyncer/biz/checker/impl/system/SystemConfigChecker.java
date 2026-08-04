@@ -53,7 +53,6 @@ public class SystemConfigChecker extends AbstractChecker {
     public ConfigModel checkEditConfigModel(Map<String, String> params) {
         logger.info("params:{}", params);
         Assert.notEmpty(params, "Config check params is null.");
-        params.put("enableStorageWriteSuccess", StringUtil.isNotBlank(params.get("enableStorageWriteSuccess")) ? "true" : "false");
         params.put("enableStorageWriteFail", StringUtil.isNotBlank(params.get("enableStorageWriteFail")) ? "true" : "false");
         params.put("enableWatermark", StringUtil.isNotBlank(params.get("enableWatermark")) ? "true" : "false");
         params.put("enableSchemaResolver", StringUtil.isNotBlank(params.get("enableSchemaResolver")) ? "true" : "false");

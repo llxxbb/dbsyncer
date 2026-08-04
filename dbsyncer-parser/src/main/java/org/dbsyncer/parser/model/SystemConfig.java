@@ -31,17 +31,12 @@ public class SystemConfig extends ConfigModel {
     private int expireLogDays = 30;
 
     /**
-     * 刷新页面间隔（秒）
+     * 刷新页面间隔 (秒)
      */
     private int refreshIntervalSeconds = 5;
 
     /**
-     * 是否记录同步成功数据（false-关闭; true-开启）
-     */
-    private boolean enableStorageWriteSuccess;
-
-    /**
-     * 是否记录同步失败数据（false-关闭; true-开启）
+     * 是否记录同步失败数据 (false-关闭; true-开启)
      */
     private boolean enableStorageWriteFail = true;
 
@@ -98,14 +93,6 @@ public class SystemConfig extends ConfigModel {
 
     public void setRefreshIntervalSeconds(int refreshIntervalSeconds) {
         this.refreshIntervalSeconds = refreshIntervalSeconds;
-    }
-
-    public boolean isEnableStorageWriteSuccess() {
-        return enableStorageWriteSuccess;
-    }
-
-    public void setEnableStorageWriteSuccess(boolean enableStorageWriteSuccess) {
-        this.enableStorageWriteSuccess = enableStorageWriteSuccess;
     }
 
     public boolean isEnableStorageWriteFail() {

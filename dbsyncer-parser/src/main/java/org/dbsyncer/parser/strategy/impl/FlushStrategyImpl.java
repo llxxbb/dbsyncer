@@ -69,7 +69,6 @@ public final class FlushStrategyImpl implements FlushStrategy {
             counterService.flush(meta, tableGroup);
         }
 
-        writeSuccessData(metaId, result, event);
         logWriteResult(result);
     }
 
@@ -89,15 +88,7 @@ public final class FlushStrategyImpl implements FlushStrategy {
             counterService.flush(meta, tableGroup);
         }
 
-        writeSuccessData(metaId, result, event);
         logWriteResult(result);
-    }
-
-    private void writeSuccessData(String metaId, Result result, String event) {
-        SystemConfig systemConfig = profileComponent.getSystemConfig();
-        if (systemConfig.isEnableStorageWriteSuccess() && !CollectionUtils.isEmpty(result.getSuccessData())) {
-            asyncWrite(metaId, result.getTableGroupId(), result.getTargetTableGroupName(), event, true, result.getSuccessData(), "");
-        }
     }
 
     private void logWriteResult(Result result) {

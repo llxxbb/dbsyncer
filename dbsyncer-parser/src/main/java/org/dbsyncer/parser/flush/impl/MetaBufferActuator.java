@@ -376,9 +376,9 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             result.setTableGroupId(tableGroup.getId());
             result.setTargetTableGroupName(tableGroup.getTargetTable().getName());
 
-            if (!CollectionUtils.isEmpty(result.getFailData())) {
+            if (!CollectionUtils.isEmpty(result.getFailData()) && !response.isErrQueueRetry()) {
                 errorQueueCollector.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
-                        response.getEvent(), result.getFailData(), null);
+                        response.getEvent(), result.getFailData(), "条件未命中");
             }
             if (!CollectionUtils.isEmpty(result.getSuccessData())) {
                 flushStrategy.flushIncrementData(metaId, result, response.getEvent());
