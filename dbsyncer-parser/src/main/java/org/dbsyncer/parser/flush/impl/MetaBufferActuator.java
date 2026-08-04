@@ -28,6 +28,7 @@ import org.dbsyncer.sdk.config.ListenerConfig;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.enums.ChangedEventTypeEnum;
 import org.dbsyncer.sdk.enums.DDLOperationEnum;
+import org.dbsyncer.sdk.enums.MetaEnum;
 import org.dbsyncer.sdk.listener.ChangedEvent;
 import org.dbsyncer.sdk.listener.Listener;
 import org.dbsyncer.sdk.plugin.SyncRow;
@@ -126,6 +127,10 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         // 所有任务事件处理完成后，由 process 方法统一刷新偏移量
         Meta meta = profileComponent.getMeta(response.getChangedOffset().getMetaId());
         assert meta != null;
+        if (!MetaEnum.isRunning(meta.getState())) {
+            logger.warn("任务已停止，跳过批次处理: metaId={}, 分区={}", meta.getId(), response.getTableName());
+            return;
+        }
         // 打印trace信息
         printTraceInfo(response);
         final Mapping mapping = profileComponent.getMapping(meta.getMappingId());
