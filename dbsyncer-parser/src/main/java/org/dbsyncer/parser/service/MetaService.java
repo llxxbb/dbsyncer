@@ -117,18 +117,6 @@ public class MetaService {
     }
 
     /**
-     * 更新 Meta 的同步阶段（全量/增量/混合）
-     * 
-     * @param meta  需要更新的 Meta 对象
-     * @param phase 新的同步阶段
-     * @throws Exception 持久化异常
-     */
-    public void updateSyncPhase(Meta meta, SyncPhaseEnum phase) throws Exception {
-        meta.updateSyncPhase(phase);
-        profileComponent.editConfigModel(meta);
-    }
-
-    /**
      * 记录增量同步的起始点（cursor 信息）
      * 
      * @param meta     需要记录的 Meta 对象

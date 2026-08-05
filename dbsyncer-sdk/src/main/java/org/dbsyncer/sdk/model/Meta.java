@@ -114,12 +114,7 @@ public class Meta extends ConfigModel {
         }
     }
 
-    public void updateSyncPhase(SyncPhaseEnum phase) {
-        this.syncPhase = phase;
-    }
-
     public void recordIncrementStartPoint(Map<String, String> position) {
-        this.syncPhase = SyncPhaseEnum.INCREMENTAL;
         if (null != position && !position.isEmpty()) {
             if (null == snapshot) {
                 snapshot = new ConcurrentHashMap<>();
