@@ -699,6 +699,7 @@ public class MappingServiceImpl implements MappingService {
 
             // 重置元数据
             meta.clear(mapping.getModel());
+            profileComponent.editConfigModel(meta);
 
             // 清理错误队列（dbsyncer_data 表中的失败数据）
             storageService.clear(StorageEnum.DATA, meta.getId());
@@ -720,7 +721,6 @@ public class MappingServiceImpl implements MappingService {
                     LogType.RESET.getType() + ":" + mapping.getName());
 
             // 发送重置驱动通知消息
-            String model = ModelEnum.getModelEnum(mapping.getModel()).getName();
             String mappingId = mapping.getId();
 
             StringBuilder msg = new StringBuilder();
