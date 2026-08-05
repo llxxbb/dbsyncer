@@ -293,9 +293,11 @@ public class ConnectorFactory implements DisposableBean {
                 }
             }
         } catch (Exception e) {
-            List<Map> failData = syncRows.stream().map(SyncRow::getSourceData).collect(java.util.stream.Collectors.toList());
-            errorHandler.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
-                    event, failData, e.getMessage());
+            if (!isErrQueueRetry) {
+                List<Map> failData = syncRows.stream().map(SyncRow::getSourceData).collect(java.util.stream.Collectors.toList());
+                errorHandler.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
+                        event, failData, e.getMessage());
+            }
         }
     }
 
