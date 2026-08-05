@@ -51,11 +51,7 @@ public class TableGroup extends AbstractConfigModel {
     private volatile long fail;
     private volatile long total;
     private volatile long estimatedTotal;
-    private volatile long incrementSuccess;
-    private volatile long incrementFail;
     private volatile String status = STATUS_NORMAL;
-    private volatile long fullSuccess;
-    private volatile long fullFail;
     private volatile long lastSyncTime;
     private volatile double currentSpeed;
     private String errorMessage;
@@ -130,11 +126,7 @@ public class TableGroup extends AbstractConfigModel {
         this.fail = 0;
         this.total = 0;
         this.estimatedTotal = 0;
-        this.incrementSuccess = 0;
-        this.incrementFail = 0;
         this.status = STATUS_NORMAL;
-        this.fullSuccess = 0;
-        this.fullFail = 0;
         this.lastSyncTime = 0;
         this.currentSpeed = 0;
     }
@@ -230,44 +222,12 @@ public class TableGroup extends AbstractConfigModel {
         this.estimatedTotal = estimatedTotal;
     }
 
-    public long getIncrementSuccess() {
-        return incrementSuccess;
-    }
-
-    public void setIncrementSuccess(long incrementSuccess) {
-        this.incrementSuccess = incrementSuccess;
-    }
-
-    public long getIncrementFail() {
-        return incrementFail;
-    }
-
-    public void setIncrementFail(long incrementFail) {
-        this.incrementFail = incrementFail;
-    }
-
     public String getStatus() {
         return status;
     }
 
     public void setStatus(String status) {
         this.status = status;
-    }
-
-    public long getFullSuccess() {
-        return fullSuccess;
-    }
-
-    public void setFullSuccess(long fullSuccess) {
-        this.fullSuccess = fullSuccess;
-    }
-
-    public long getFullFail() {
-        return fullFail;
-    }
-
-    public void setFullFail(long fullFail) {
-        this.fullFail = fullFail;
     }
 
     public long getLastSyncTime() {

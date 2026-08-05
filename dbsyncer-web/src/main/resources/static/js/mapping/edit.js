@@ -1473,10 +1473,8 @@ function updateTableGroups(mappingId, total, successCount, failCount) {
                         var sourceTableName = tableGroup.sourceTable ? tableGroup.sourceTable.name : '';
                         var targetTableName = tableGroup.targetTable ? tableGroup.targetTable.name : '';
 
-                        // 计算总同步数量（包括全量和增量）
-                        var fullSuccess = tableGroup.fullSuccess || 0;
-                        var incrementSuccess = tableGroup.incrementSuccess || 0;
-                        var totalSyncCount = fullSuccess + incrementSuccess;
+                        // 计算总同步数量
+                        var totalSyncCount = tableGroup.success || 0;
 
                         // 获取状态
                         var status = tableGroup.status || '正常';

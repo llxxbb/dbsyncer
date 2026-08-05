@@ -28,13 +28,8 @@ public class CounterServiceImpl implements CounterService {
         synchronized (meta) {
             meta.setSuccess(meta.getSuccess() + count);
             tg.setSuccess(tg.getSuccess() + count);
-            if (meta.getSyncPhase() == SyncPhaseEnum.FULL) {
-                meta.setFullSuccess(meta.getFullSuccess() + count);
-                tg.setFullSuccess(tg.getFullSuccess() + count);
-            } else {
-                tg.setIncrementSuccess(tg.getIncrementSuccess() + count);
+            if (meta.getSyncPhase() == SyncPhaseEnum.INCREMENTAL) {
                 tg.setTotal(tg.getTotal() + count);
-                meta.setIncrementSuccess(meta.getIncrementSuccess() + count);
                 meta.setTotal(meta.getTotal() + count);
             }
             updateTableGroupSpeed(tg, count);
@@ -52,13 +47,8 @@ public class CounterServiceImpl implements CounterService {
         synchronized (meta) {
             meta.setFail(meta.getFail() + count);
             tg.setFail(tg.getFail() + count);
-            if (meta.getSyncPhase() == SyncPhaseEnum.FULL) {
-                meta.setFullFail(meta.getFullFail() + count);
-                tg.setFullFail(tg.getFullFail() + count);
-            } else {
-                tg.setIncrementFail(tg.getIncrementFail() + count);
+            if (meta.getSyncPhase() == SyncPhaseEnum.INCREMENTAL) {
                 tg.setTotal(tg.getTotal() + count);
-                meta.setIncrementFail(meta.getIncrementFail() + count);
                 meta.setTotal(meta.getTotal() + count);
             }
             meta.markTableGroupChanged(tg.getId());

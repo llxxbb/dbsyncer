@@ -26,10 +26,6 @@ public class Meta extends ConfigModel {
     private volatile long total;
     private volatile long success;
     private volatile long fail;
-    private volatile long fullSuccess;
-    private volatile long fullFail;
-    private volatile long incrementSuccess;
-    private volatile long incrementFail;
     @JsonIgnore
     private Listener listener;
     private Map<String, String> snapshot;
@@ -90,22 +86,6 @@ public class Meta extends ConfigModel {
         this.fail += val;
     }
 
-    public void updateFullSuccess(long val) {
-        this.fullSuccess += val;
-    }
-
-    public void updateFullFail(long val) {
-        this.fullFail += val;
-    }
-
-    public void updateIncrementSuccess(long val) {
-        this.incrementSuccess += val;
-    }
-
-    public void updateIncrementFail(long val) {
-        this.incrementFail += val;
-    }
-
     public void updateFullTotal(List<TableGroup> allTableGroups) {
         if (!CollectionUtils.isEmpty(allTableGroups)) {
             long sum = 0;
@@ -152,10 +132,6 @@ public class Meta extends ConfigModel {
         this.total = 0;
         this.success = 0;
         this.fail = 0;
-        this.fullSuccess = 0;
-        this.fullFail = 0;
-        this.incrementSuccess = 0;
-        this.incrementFail = 0;
         this.state = MetaEnum.READY.getCode();
         this.syncPhase = SyncPhaseEnum.FULL;
         this.errorMessage = "";
@@ -183,10 +159,6 @@ public class Meta extends ConfigModel {
             sum += g.getTotal();
         }
         this.total = sum;
-        this.fullSuccess = 0;
-        this.fullFail = 0;
-        this.incrementSuccess = 0;
-        this.incrementFail = 0;
         this.success = 0;
         this.fail = 0;
         this.state = MetaEnum.READY.getCode();
@@ -286,38 +258,6 @@ public class Meta extends ConfigModel {
 
     public void setFail(long fail) {
         this.fail = fail;
-    }
-
-    public long getFullSuccess() {
-        return fullSuccess;
-    }
-
-    public void setFullSuccess(long fullSuccess) {
-        this.fullSuccess = fullSuccess;
-    }
-
-    public long getFullFail() {
-        return fullFail;
-    }
-
-    public void setFullFail(long fullFail) {
-        this.fullFail = fullFail;
-    }
-
-    public long getIncrementSuccess() {
-        return incrementSuccess;
-    }
-
-    public void setIncrementSuccess(long incrementSuccess) {
-        this.incrementSuccess = incrementSuccess;
-    }
-
-    public long getIncrementFail() {
-        return incrementFail;
-    }
-
-    public void setIncrementFail(long incrementFail) {
-        this.incrementFail = incrementFail;
     }
 
     public Listener getListener() {
