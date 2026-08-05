@@ -97,7 +97,6 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
 
     public void onRetrySuccess(Meta meta, TableGroup tableGroup) {
         counterService.decrementFail(meta, tableGroup);
-        counterService.flush(meta, tableGroup);
     }
 
     public void alignCount(Meta meta) throws Exception {
@@ -113,6 +112,7 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
                     logger.info("计数对齐: tableGroupId={}, 旧值={}, 新值={}", tg.getId(), oldFail, actualCount);
                 }
                 tg.setFail(actualCount);
+                tg.setTotal(tg.getSuccess() + tg.getFail());
                 totalFail += actualCount;
                 profileComponent.editConfigModel(tg);
             }
@@ -121,6 +121,7 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
         }
         long oldMetaFail = meta.getFail();
         meta.setFail(totalFail);
+        meta.setTotal(meta.getSuccess() + meta.getFail());
         meta.setUpdateTime(Instant.now().toEpochMilli());
         profileComponent.editConfigModel(meta);
         logger.info("计数对齐完成: metaId={}, Meta.fail 旧值={}, 新值={}", metaId, oldMetaFail, totalFail);

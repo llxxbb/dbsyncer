@@ -11,7 +11,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
-import java.time.Instant;
 
 @Component
 public class CounterServiceImpl implements CounterService {
@@ -33,8 +32,10 @@ public class CounterServiceImpl implements CounterService {
                 meta.setFullSuccess(meta.getFullSuccess() + count);
                 tg.setFullSuccess(tg.getFullSuccess() + count);
             } else {
-                meta.setIncrementSuccess(meta.getIncrementSuccess() + count);
                 tg.setIncrementSuccess(tg.getIncrementSuccess() + count);
+                tg.setTotal(tg.getTotal() + count);
+                meta.setIncrementSuccess(meta.getIncrementSuccess() + count);
+                meta.setTotal(meta.getTotal() + count);
             }
             updateTableGroupSpeed(tg, count);
             meta.markTableGroupChanged(tg.getId());
@@ -55,8 +56,9 @@ public class CounterServiceImpl implements CounterService {
                 meta.setFullFail(meta.getFullFail() + count);
                 tg.setFullFail(tg.getFullFail() + count);
             } else {
-                meta.setIncrementFail(meta.getIncrementFail() + count);
                 tg.setIncrementFail(tg.getIncrementFail() + count);
+                tg.setTotal(tg.getTotal() + count);
+                meta.setIncrementFail(meta.getIncrementFail() + count);
                 meta.setTotal(meta.getTotal() + count);
             }
             meta.markTableGroupChanged(tg.getId());
@@ -73,19 +75,6 @@ public class CounterServiceImpl implements CounterService {
             tg.setFail(Math.max(0, tg.getFail() - 1));
             tg.setSuccess(tg.getSuccess() + 1);
             syncStatus(tg);
-        }
-    }
-
-    @Override
-    public void flush(Meta meta, TableGroup tg) {
-        try {
-            meta.setUpdateTime(Instant.now().toEpochMilli());
-            profileComponent.editConfigModel(meta);
-            if (tg != null) {
-                profileComponent.editConfigModel(tg);
-            }
-        } catch (Exception e) {
-            logger.error("刷新计数失败: metaId={}", meta.getId(), e);
         }
     }
 

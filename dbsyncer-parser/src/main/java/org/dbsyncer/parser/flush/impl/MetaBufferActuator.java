@@ -433,7 +433,6 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
                 int successSize = result.getSuccessData().size();
                 if (successSize > 0) {
                     counterService.incrementSuccess(meta, tableGroup, successSize);
-                    counterService.flush(meta, tableGroup);
                 }
             } catch (Exception e) {
                 logger.error("目标 DDL 执行失败: table={}, sql={}, error={}", tableGroup.getTargetTable().getName(), targetDDLConfig.getSql(), e.getMessage());

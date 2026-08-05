@@ -10,6 +10,4 @@ public interface CounterService {
     void incrementFail(Meta meta, TableGroup tg, int count);
 
     void decrementFail(Meta meta, TableGroup tg);
-
-    void flush(Meta meta, TableGroup tg);
 }
