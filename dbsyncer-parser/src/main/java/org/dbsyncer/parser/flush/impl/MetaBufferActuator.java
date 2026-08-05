@@ -124,23 +124,27 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
 
     @Override
     public void pull(WriterResponse response) {
-        // 所有任务事件处理完成后，由 process 方法统一刷新偏移量
         Meta meta = profileComponent.getMeta(response.getChangedOffset().getMetaId());
-        assert meta != null;
+        final Mapping mapping = profileComponent.getMapping(meta.getMappingId());
+        try{
+            pullNoCatch(response, meta, mapping);
+        } catch (Exception e) {
+            logger.error("pull() 处理异常: mappingId={}, tableName={}, event={}, error={}", mapping.getId(), response.getTableName(), response.getEvent(), e.getMessage(), e);
+            // TODO 错误队列处理
+        }
+    }
+    private void pullNoCatch(WriterResponse response, Meta meta, Mapping mapping) {
+        // 所有任务事件处理完成后，由 process 方法统一刷新偏移量
         if (!MetaEnum.isRunning(meta.getState())) {
             logger.warn("任务已停止，跳过批次处理: metaId={}, 分区={}", meta.getId(), response.getTableName());
             return;
         }
         // 打印trace信息
         printTraceInfo(response);
-        final Mapping mapping = profileComponent.getMapping(meta.getMappingId());
         List<TableGroupPicker> pickers = tableGroupContext.getTableGroupPickers(meta.getId(), response.getTableName());
         if (pickers.isEmpty()) {
             String msg = String.format("pickers 不能为空！mappingId: %s, 源表名: %s",
                     mapping.getId(), response.getTableName());
-            logger.error(msg);
-            logService.log(mapping, LogType.SYNC, LogLevel.ERROR, msg);
-            // 重试场景下，如果有失败数据，先抛出异常，避免调用 flushIncrementData 写入错误数据
             throw new RuntimeException(msg);
         }
         switch (response.getTypeEnum()) {
