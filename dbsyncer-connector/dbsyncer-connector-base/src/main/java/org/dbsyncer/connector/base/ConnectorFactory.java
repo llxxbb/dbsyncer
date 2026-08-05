@@ -238,7 +238,7 @@ public class ConnectorFactory implements DisposableBean {
      */
     public void writeBatch(List<SyncRow> syncRows, Meta meta, Mapping mapping, TableGroup tableGroup,
                              CounterService counter, ErrorQueueCollector errorHandler,
-                             boolean enableFailQueue) {
+                             boolean isErrQueueRetry) {
         if (CollectionUtils.isEmpty(syncRows)) {
             return;
         }
@@ -279,13 +279,17 @@ public class ConnectorFactory implements DisposableBean {
                 result.setTableGroupId(tableGroup.getId());
                 result.setTargetTableGroupName(tableGroup.getTargetTable().getName());
 
-                if (!CollectionUtils.isEmpty(result.getFailData()) && enableFailQueue) {
+                if (!CollectionUtils.isEmpty(result.getFailData()) && !isErrQueueRetry) {
                     errorHandler.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
                             event, result.getFailData(), "条件未命中");
                 }
                 if (!CollectionUtils.isEmpty(result.getSuccessData())) {
                     int successSize = result.getSuccessData().size();
-                    counter.incrementSuccess(meta, tableGroup, successSize);
+                    if (isErrQueueRetry){
+                        counter.decrementFail(meta, tableGroup);;
+                    }else{
+                        counter.incrementSuccess(meta, tableGroup, successSize);
+                    }
                 }
             }
         } catch (Exception e) {

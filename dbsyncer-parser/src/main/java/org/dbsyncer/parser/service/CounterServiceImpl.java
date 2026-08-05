@@ -14,8 +14,6 @@ import javax.annotation.Resource;
 
 /**
  * 计数服务
- * 注意不要使用传入的 tableGroup 对象因为这个是复制出来的，不是缓存里的。
- * CounterServiceImpl
  */
 @Component
 public class CounterServiceImpl implements CounterService {
@@ -72,12 +70,8 @@ public class CounterServiceImpl implements CounterService {
             meta.setSuccess(meta.getSuccess() + 1);
             tg.setFail(Math.max(0, tg.getFail() - 1));
             tg.setSuccess(tg.getSuccess() + 1);
-            syncStatus(tg);
+            meta.markTableGroupChanged(tg.getId());
         }
-    }
-
-    private void syncStatus(TableGroup tg) {
-        tg.setStatus(tg.getFail() > 0 ? TableGroup.STATUS_ERROR : TableGroup.STATUS_NORMAL);
     }
 
     private void updateTableGroupSpeed(TableGroup tableGroup, int successSize) {
@@ -95,6 +89,10 @@ public class CounterServiceImpl implements CounterService {
         tg.setLastSyncTime(currentTime);
     }
 
+    /**
+     * 注意不要使用传入的 tableGroup 对象因为这个是复制出来的，不是缓存里的。
+     * @param tableGroup
+     */
     private TableGroup getTableGroup(TableGroup tableGroup) {
         TableGroup tg = null;
         try {

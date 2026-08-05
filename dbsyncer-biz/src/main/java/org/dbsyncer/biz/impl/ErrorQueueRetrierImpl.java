@@ -14,7 +14,6 @@ import org.dbsyncer.common.util.*;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.flush.impl.BufferActuatorRouter;
 import org.dbsyncer.parser.flush.impl.MetaBufferActuator;
-import org.dbsyncer.sdk.connector.ErrorQueueCollector;
 import org.dbsyncer.parser.model.Picker;
 import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.config.DDLConfig;
@@ -62,9 +61,6 @@ public class ErrorQueueRetrierImpl implements ErrorQueueRetrier {
 
     @Resource
     private MonitorService monitorService;
-
-    @Resource
-    private ErrorQueueCollector errorQueueCollector;
 
     @Override
     public MessageVo getMessageVo(String metaId, String messageId) throws Exception {
@@ -284,7 +280,6 @@ public class ErrorQueueRetrierImpl implements ErrorQueueRetrier {
         // 执行成功后，删除存储中的失败数据并更新统计
         try {
             storageService.remove(StorageEnum.DATA, metaId, messageId);
-            errorQueueCollector.onRetrySuccess(meta, tableGroup);
         } catch (Exception e) {
             logger.error("重试成功但清理数据或更新统计失败, metaId={}, messageId={}, error={}", metaId, messageId, e.getMessage(), e);
         }

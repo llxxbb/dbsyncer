@@ -95,10 +95,6 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
         checkCircuitBreaker(meta, meta.getMappingId());
     }
 
-    public void onRetrySuccess(Meta meta, TableGroup tableGroup) {
-        counterService.decrementFail(meta, tableGroup);
-    }
-
     public void alignCount(Meta meta) throws Exception {
         String metaId = meta.getId();
         String mappingId = meta.getMappingId();

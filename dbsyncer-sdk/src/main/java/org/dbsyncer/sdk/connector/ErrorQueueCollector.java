@@ -15,8 +15,5 @@ public interface ErrorQueueCollector {
     void handleDdlFailData(Meta meta, TableGroup tableGroup, String targetTableName,
                            DDLConfig ddlConfig, String errorMsg);
 
-    void onRetrySuccess(Meta meta, TableGroup tableGroup);
-
     void alignCount(Meta meta) throws Exception;
-
 }

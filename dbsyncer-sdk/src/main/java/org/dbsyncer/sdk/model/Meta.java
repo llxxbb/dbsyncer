@@ -74,10 +74,6 @@ public class Meta extends ConfigModel {
         this.state = MetaEnum.READY.getCode();
     }
 
-    public void updateTotal(long val) {
-        this.total += val;
-    }
-
     public void updateSuccess(long val) {
         this.success += val;
     }

@@ -316,7 +316,6 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         }
 
         TableGroup tableGroup = tableGroupPicker.getTableGroup();
-        String metaId = meta.getId();
 
         Map<String, Integer> fieldIndexMap = buildFieldIndexMap(response.getColumnNames(), sourceFields);
 
@@ -374,7 +373,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         context.setEvent(response.getEvent());
         context.setEnablePrintTraceInfo(StringUtil.isNotBlank(response.getTraceId()));
         connectorFactory.writeBatch(targetDataList, meta, mapping, tableGroup,
-                    counterService, errorQueueCollector, !response.isErrQueueRetry());
+                    counterService, errorQueueCollector, response.isErrQueueRetry());
     }
 
     /**
