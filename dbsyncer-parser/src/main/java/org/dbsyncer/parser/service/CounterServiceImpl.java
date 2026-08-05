@@ -12,6 +12,11 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
 
+/**
+ * 计数服务
+ * 注意不要使用传入的 tableGroup 对象因为这个是复制出来的，不是缓存里的。
+ * CounterServiceImpl
+ */
 @Component
 public class CounterServiceImpl implements CounterService {
 
@@ -21,10 +26,11 @@ public class CounterServiceImpl implements CounterService {
     private ProfileComponent profileComponent;
 
     @Override
-    public void incrementSuccess(Meta meta, TableGroup tg, int count) {
+    public void incrementSuccess(Meta meta, TableGroup tableGroup, int count) {
         if (count <= 0) {
             return;
         }
+        TableGroup tg = getTableGroup(tableGroup);
         synchronized (meta) {
             meta.setSuccess(meta.getSuccess() + count);
             tg.setSuccess(tg.getSuccess() + count);
@@ -40,10 +46,11 @@ public class CounterServiceImpl implements CounterService {
     }
 
     @Override
-    public void incrementFail(Meta meta, TableGroup tg, int count) {
+    public void incrementFail(Meta meta, TableGroup tableGroup, int count) {
         if (count <= 0) {
             return;
         }
+        TableGroup tg = getTableGroup(tableGroup);
         synchronized (meta) {
             meta.setFail(meta.getFail() + count);
             tg.setFail(tg.getFail() + count);
@@ -58,7 +65,8 @@ public class CounterServiceImpl implements CounterService {
     }
 
     @Override
-    public void decrementFail(Meta meta, TableGroup tg) {
+    public void decrementFail(Meta meta, TableGroup tableGroup) {
+        TableGroup tg = getTableGroup(tableGroup);
         synchronized (meta) {
             meta.setFail(Math.max(0, meta.getFail() - 1));
             meta.setSuccess(meta.getSuccess() + 1);
@@ -73,16 +81,26 @@ public class CounterServiceImpl implements CounterService {
     }
 
     private void updateTableGroupSpeed(TableGroup tableGroup, int successSize) {
+        TableGroup tg = getTableGroup(tableGroup);
         long currentTime = System.currentTimeMillis();
-        long lastSyncTime = tableGroup.getLastSyncTime();
+        long lastSyncTime = tg.getLastSyncTime();
         long batchCount = successSize;
         if (lastSyncTime > 0 && batchCount > 0) {
             long timeDiffMs = currentTime - lastSyncTime;
             if (timeDiffMs > 0) {
                 double speed = (double) batchCount / (timeDiffMs / 1000.0);
-                tableGroup.setCurrentSpeed(speed);
+                tg.setCurrentSpeed(speed);
             }
         }
-        tableGroup.setLastSyncTime(currentTime);
+        tg.setLastSyncTime(currentTime);
+    }
+
+    private TableGroup getTableGroup(TableGroup tableGroup) {
+        TableGroup tg = null;
+        try {
+            tg = profileComponent.getTableGroup(tableGroup.getId());
+        } catch (Exception ignore) {
+        }
+        return tg;
     }
 }
