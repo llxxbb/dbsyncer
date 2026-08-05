@@ -39,9 +39,6 @@ public class Table {
      */
     private String sql;
 
-    // 总数
-    private long count;
-
     /**
      * 索引类型（ES）
      */
@@ -99,15 +96,6 @@ public class Table {
 
     public Table setSql(String sql) {
         this.sql = sql;
-        return this;
-    }
-
-    public long getCount() {
-        return count;
-    }
-
-    public Table setCount(long count) {
-        this.count = count;
         return this;
     }
 

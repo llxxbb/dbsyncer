@@ -107,14 +107,6 @@ public class TableGroupModelService {
 
             return;
         }
-
-        // 如果 estimatedTotal 为 0，则设置为 sourceTable.getCount()
-        if (tableGroup.getEstimatedTotal() == 0
-                && tableGroup.getSourceTable() != null
-                && tableGroup.getSourceTable().getCount() > 0) {
-            tableGroup.setEstimatedTotal(tableGroup.getSourceTable().getCount());
-            profileComponent.editConfigModel(tableGroup);
-        }
         tableGroup.isInit = true;
     }
 

@@ -58,7 +58,7 @@ public abstract class AbstractCountTask extends AbstractDispatchTask {
         TableGroup group = PickerUtil.mergeTableGroupConfig(mapping, tableGroup);
         Connector connector = profileComponent.getConnector(mapping.getSourceConnectorId());
         long count = connectorFactory.getCount(connectorFactory.connect(connector.getConfig()), group.getCommand());
-        tableGroup.getSourceTable().setCount(count);
+        tableGroup.setTotal(count);
         profileComponent.editConfigModel(tableGroup);
         logger.info("{}表{}, 总数:{}, {}ms", mapping.getName(), tableGroup.getSourceTable().getName(), count, (Instant.now().toEpochMilli() - now));
     }

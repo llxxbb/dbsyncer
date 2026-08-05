@@ -116,7 +116,6 @@ public class MetaInfo extends Table {
                 getSql(),
                 getIndexType(),
                 primaryKeys != null ? new ArrayList<>(primaryKeys) : null);
-        cloned.setCount(getCount());
         return cloned;
     }
 

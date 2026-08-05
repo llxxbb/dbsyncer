@@ -50,7 +50,6 @@ public class TableGroup extends AbstractConfigModel {
     private volatile long success;
     private volatile long fail;
     private volatile long total;
-    private volatile long estimatedTotal;
     private volatile String status = STATUS_NORMAL;
     private volatile long lastSyncTime;
     private volatile double currentSpeed;
@@ -125,7 +124,6 @@ public class TableGroup extends AbstractConfigModel {
         this.success = 0;
         this.fail = 0;
         this.total = 0;
-        this.estimatedTotal = 0;
         this.status = STATUS_NORMAL;
         this.lastSyncTime = 0;
         this.currentSpeed = 0;
@@ -212,14 +210,6 @@ public class TableGroup extends AbstractConfigModel {
 
     public void setTotal(long total) {
         this.total = total;
-    }
-
-    public long getEstimatedTotal() {
-        return estimatedTotal;
-    }
-
-    public void setEstimatedTotal(long estimatedTotal) {
-        this.estimatedTotal = estimatedTotal;
     }
 
     public String getStatus() {
