@@ -193,7 +193,7 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
         }
         String reason = String.format("错误计数(%d)达到熔断阈值(%d)", meta.getFail(), threshold);
         logger.warn("熔断触发: metaId={}, {}", meta.getId(), reason);
-        closeTask(meta, mappingId, reason, threshold, null);
+        closeTask(meta, mappingId, reason, threshold, NotifyType.DATA_ERROR_CIRCUIT_BREAKER);
     }
 
     private long queryFailCount(String metaId, String tableGroupId) {
