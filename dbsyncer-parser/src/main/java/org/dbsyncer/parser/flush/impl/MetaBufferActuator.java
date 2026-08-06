@@ -16,11 +16,14 @@ import org.dbsyncer.parser.flush.AbstractBufferActuator;
 import org.dbsyncer.parser.flush.BufferRequest;
 import org.dbsyncer.parser.model.*;
 import org.dbsyncer.sdk.model.*;
+import org.dbsyncer.sdk.notify.NotifyType;
 import org.dbsyncer.parser.service.TableGroupModelService;
 import org.dbsyncer.sdk.connector.CounterService;
 import org.dbsyncer.sdk.connector.ErrorQueueCollector;
+import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
+import org.dbsyncer.sdk.spi.MessageService;
 import org.dbsyncer.parser.util.ConvertUtil;
 import org.dbsyncer.sdk.plugin.AbstractPluginContext;
 import org.dbsyncer.sdk.config.DDLConfig;
@@ -53,7 +56,6 @@ import java.util.stream.Collectors;
  */
 public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, WriterResponse> {
 
-
     private String metaId;
     private GeneralBufferConfig generalBufferConfig;
     private Executor generalExecutor;
@@ -64,6 +66,8 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
     private LogService logService;
     private TableGroupModelService tableGroupModelService;
     private ErrorQueueCollector errorQueueCollector;
+    public MessageService messageService;
+
 
     /**
      * 初始化时设置全局 LogService（一次设置，长期使用）
@@ -71,7 +75,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
     @PostConstruct
     public void init() {
         if (null != logService) {
-            org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector.setStaticLogService(logService);
+            AbstractDatabaseConnector.setStaticLogService(logService);
         }
     }
 
@@ -110,7 +114,8 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             // 传递列名信息（从第一个请求中获取）
             response.setColumnNames(request.getColumnNames());
             response.setMerged(true);
-        } else if (profileComponent.getSystemConfig().isEnablePrintTraceInfo() && StringUtil.isNotBlank(request.getTraceId())) {
+        } else if (profileComponent.getSystemConfig().isEnablePrintTraceInfo()
+                && StringUtil.isNotBlank(request.getTraceId())) {
             logger.info("traceId:{} merge into traceId:{}", request.getTraceId(), response.getTraceId());
         }
     }
@@ -119,20 +124,24 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
     protected boolean skipPartition(WriterRequest nextRequest, WriterResponse response) {
         // 并发场景，同一条数据可能连续触发Insert > Delete > Insert，批处理任务中出现不同事件时，跳过分区处理
         // 跳过表结构修改事件（保证表结构修改原子性）
-        return !StringUtil.equals(nextRequest.getEvent(), response.getEvent()) || ChangedEventTypeEnum.isDDL(response.getTypeEnum());
+        return !StringUtil.equals(nextRequest.getEvent(), response.getEvent())
+                || ChangedEventTypeEnum.isDDL(response.getTypeEnum());
     }
 
     @Override
     public void pull(WriterResponse response) {
         Meta meta = profileComponent.getMeta(response.getChangedOffset().getMetaId());
         final Mapping mapping = profileComponent.getMapping(meta.getMappingId());
-        try{
+        try {
             pullNoCatch(response, meta, mapping);
         } catch (Exception e) {
-            logger.error("pull() 处理异常: mappingId={}, tableName={}, event={}, error={}", mapping.getId(), response.getTableName(), response.getEvent(), e.getMessage(), e);
-            // TODO 错误队列处理
+            String msg = "pull() 处理异常" + e.getMessage();
+            logger.error("mappingId={}, tableName={}, error={}", mapping.getId(),
+                    response.getTableName(), msg, e);
+            errorQueueCollector.closeTask(meta, response.getTableName(), msg, getBufferWriterCount(), NotifyType.TASK_INTERRUPTED);
         }
     }
+
     private void pullNoCatch(WriterResponse response, Meta meta, Mapping mapping) {
         // 所有任务事件处理完成后，由 process 方法统一刷新偏移量
         if (!MetaEnum.isRunning(meta.getState())) {
@@ -164,13 +173,6 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
                 // 2. 强制刷新缓存，确保后续的 DML 事件使用最新的 fieldMapping
                 // 注意：这里使用更新后的 TableGroup，确保 fieldMapping 已同步
                 tableGroupContext.update(mapping, updatedTableGroups);
-
-                // 3. 验证缓存已更新（可选，用于调试）
-                if (logger.isDebugEnabled()) {
-                    List<TableGroupPicker> refreshedPickers = tableGroupContext.getTableGroupPickers(meta.getId(), response.getTableName());
-                    logger.debug("DDL 处理完成，已刷新 TableGroupPicker 缓存。表名: {}, 缓存数量: {}",
-                            response.getTableName(), refreshedPickers.size());
-                }
                 break;
             case SCAN:
                 pickers.forEach(picker -> {
@@ -314,7 +316,8 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         // 如果 pull() 中 distributeTableGroup() 失败，会在重试场景下抛出异常
     }
 
-    private void distributeTableGroup(WriterResponse response, Meta meta, Mapping mapping, TableGroupPicker tableGroupPicker, List<Field> sourceFields, boolean enableFilter) {
+    private void distributeTableGroup(WriterResponse response, Meta meta, Mapping mapping,
+            TableGroupPicker tableGroupPicker, List<Field> sourceFields, boolean enableFilter) {
         if (response.getColumnNames() == null || response.getColumnNames().isEmpty()) {
             return;
         }
@@ -324,16 +327,9 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         Map<String, Integer> fieldIndexMap = buildFieldIndexMap(response.getColumnNames(), sourceFields);
 
         if (fieldIndexMap.isEmpty()) {
-            String msg = String.format("字段定位错误！mappingId: %s, 表名: %s, 列名: %s，未找到任何匹配字段",
-                    mapping.getId(), response.getTableName(), response.getColumnNames());
-            logger.error(msg);
-            logService.log(mapping, LogType.UPDATE, msg);
-            if (response.isErrQueueRetry()) {
-                throw new RuntimeException("重试失败: " + msg);
-            }
-            List<Map> failData = new ArrayList<>(RowConverter.toListOfMaps(sourceFields, fieldIndexMap, response.getDataList()));
-            errorQueueCollector.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
-                    response.getEvent(), failData, msg);
+            String message = String.format("字段定位错误！表名: %s, 列名: %s，未找到任何匹配字段",
+                    response.getTableName(), response.getColumnNames());
+            handleFailData(response, meta, mapping, tableGroup, sourceFields, fieldIndexMap, message, false);
             return;
         }
 
@@ -349,11 +345,13 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         try {
             context = new AbstractPluginContext();
             context.setSourceConnectorInstance(connectorFactory.connect(sourceConfig));
-            context.setTargetConnectorInstance(connectorFactory.connect(getConnectorConfig(mapping.getTargetConnectorId())));
+            context.setTargetConnectorInstance(
+                    connectorFactory.connect(getConnectorConfig(mapping.getTargetConnectorId())));
 
             targetDataList = tableGroupPicker.getPicker()
                     .setSourceResolver(enableSchemaResolver ? sourceConnector.getSchemaResolver() : null)
-                    .pickTargetData(actualSourceFields, fieldIndexMap, enableFilter, response.getDataList(), response.getBeforeRows(), context);
+                    .pickTargetData(actualSourceFields, fieldIndexMap, enableFilter, response.getDataList(),
+                            response.getBeforeRows(), context);
             for (SyncRow row : targetDataList) {
                 row.setMapping(mapping);
                 row.setTableGroup(tableGroup);
@@ -362,22 +360,15 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
 
             ConvertUtil.convert(tableGroup.getConvert(), targetDataList);
         } catch (Exception e) {
-            String msg = String.format("异常！mappingId: %s，msg %s",
-                    mapping.getId(), e.getMessage());
-            logger.error(msg);
-            logService.log(mapping, LogType.UPDATE, msg);
-            if (response.isErrQueueRetry()) {
-                throw new RuntimeException("重试失败: " + msg);
-            }
-            List<Map> failData = new ArrayList<>(RowConverter.toListOfMaps(sourceFields, fieldIndexMap, response.getDataList()));
-            errorQueueCollector.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
-                    response.getEvent(), failData, msg);
+            String message = String.format("异常！表名: %s, 列名: %s，msg %s",
+                    response.getTableName(), response.getColumnNames(), e.getMessage());
+            handleFailData(response, meta, mapping, tableGroup, sourceFields, fieldIndexMap, message, true);
             return;
         }
         context.setEvent(response.getEvent());
         context.setEnablePrintTraceInfo(StringUtil.isNotBlank(response.getTraceId()));
         connectorFactory.writeBatch(targetDataList, meta, mapping, tableGroup,
-                    counterService, errorQueueCollector, response.isErrQueueRetry());
+                counterService, errorQueueCollector, response.isErrQueueRetry());
     }
 
     /**
@@ -400,7 +391,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             ConnectorService connectorService = connectorFactory.getConnectorService(tConnType);
             // 传递源和目标连接器类型信息给 DDL 解析器
             DDLConfig targetDDLConfig = ddlParser.parse(connectorService, tableGroup, response.getSql());
-            
+
             // 复制 tableGroup 的 params 到 DDLConfig，这样 writerDDL 可以访问 mapping 配置的 topic
             ddlParser.copyParamsToDDLConfig(tableGroup, targetDDLConfig);
 
@@ -426,7 +417,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
 
             // 5. 生成目标表执行SQL(支持异构数据库)
             ConnectorInstance tConnectorInstance = connectorFactory.connect(tConnConfig);
-            
+
             Result result;
             try {
                 result = connectorFactory.writerDDL(tConnectorInstance, targetDDLConfig, context, mapping);
@@ -438,7 +429,8 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
                     counterService.incrementSuccess(meta, tableGroup, successSize);
                 }
             } catch (Exception e) {
-                logger.error("目标 DDL 执行失败: table={}, sql={}, error={}", tableGroup.getTargetTable().getName(), targetDDLConfig.getSql(), e.getMessage());
+                logger.error("目标 DDL 执行失败: table={}, sql={}, error={}", tableGroup.getTargetTable().getName(),
+                        targetDDLConfig.getSql(), e.getMessage());
                 errorQueueCollector.handleDdlFailData(meta, tableGroup,
                         tableGroup.getTargetTable().getName(), targetDDLConfig, e.getMessage());
                 return;
@@ -518,9 +510,6 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             if (field != null && addedFieldNames.add(columnNameKey)) {
                 fieldIndexMap.put(columnNameKey, rowIndex);
             }
-/*            else if (field == null) {
-                logger.warn("事件中的列名 '{}' 在 TableGroup 中未找到对应的字段信息", columnName);
-            }*/
             rowIndex++;
         }
 
@@ -538,9 +527,37 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
     }
 
     private void printTraceInfo(WriterResponse response) {
-        if (profileComponent.getSystemConfig().isEnablePrintTraceInfo() && StringUtil.isNotBlank(response.getTraceId())) {
-            logger.info("traceId:{}, tableName:{}, event:{}, offset:{}, row:{}", response.getTraceId(), response.getTableName(), response.getEvent(), JsonUtil.objToJson(response.getChangedOffset()), response.getDataList());
+        if (profileComponent.getSystemConfig().isEnablePrintTraceInfo()
+                && StringUtil.isNotBlank(response.getTraceId())) {
+            logger.info("traceId:{}, tableName:{}, event:{}, offset:{}, row:{}", response.getTraceId(),
+                    response.getTableName(), response.getEvent(), JsonUtil.objToJson(response.getChangedOffset()),
+                    response.getDataList());
         }
+    }
+
+    private void handleFailData(WriterResponse response, Meta meta, Mapping mapping,
+            TableGroup tableGroup, List<Field> sourceFields, Map<String, Integer> fieldIndexMap,
+            String message, boolean throwOnRetry) {
+        logger.error(message);
+        logService.log(mapping, LogType.SYNC, message);
+        sendNotify(mapping, message);
+        if (response.isErrQueueRetry()) {
+            return;
+        }
+        List<Map> failData = new ArrayList<>(
+                RowConverter.toListOfMaps(sourceFields, fieldIndexMap, response.getDataList()));
+        errorQueueCollector.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
+                response.getEvent(), failData, message);
+    }
+
+    private void sendNotify(Mapping mapping, String message) {
+        StringBuilder msg = new StringBuilder();
+        msg.append("### DBSyncer\n\n");
+        msg.append("**通知类型**: 数据同步异常\n\n");
+        msg.append("**Mapping ID**: ").append(mapping.getId()).append("\n\n");
+        msg.append("**任务名称**: ").append(mapping.getName()).append("\n\n");
+        msg.append("**异常内容**: ").append(message).append("\n\n");
+        messageService.sendMessage("dbsyncer", msg.toString(), NotifyType.DATA_SYNC_EXCEPTION);
     }
 
     // Getters and Setters

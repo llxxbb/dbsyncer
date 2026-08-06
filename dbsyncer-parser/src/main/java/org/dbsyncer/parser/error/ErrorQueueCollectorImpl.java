@@ -167,7 +167,8 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
         messageService.sendMessage("dbsyncer", msg.toString(), notifyType);
     }
 
-    private void closeTask(Meta meta, String targetTableName, String errorMsg,
+    @Override
+    public void closeTask(Meta meta, String targetTableName, String errorMsg,
             int failCount, NotifyType notifyType) {
 
         notifyError(meta, targetTableName, errorMsg, failCount, notifyType);
@@ -180,8 +181,6 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
             logger.error("关闭任务失败: metaId={}", meta.getId(), e);
         }
         applicationEventPublisher.publishEvent(new CircuitBreakEvent(this, meta.getMappingId()));
-        closeTask(meta, targetTableName, errorMsg, failCount, NotifyType.DATA_ERROR_QUEUE);
-
     }
 
     private void checkCircuitBreaker(Meta meta, String mappingId) {

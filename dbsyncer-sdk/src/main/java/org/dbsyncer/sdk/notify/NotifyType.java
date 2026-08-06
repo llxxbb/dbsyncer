@@ -29,7 +29,7 @@ public enum NotifyType {
      */
     DATA_ERROR_CIRCUIT_BREAKER,
     
-    DDL;
+    DDL, DATA_SYNC_EXCEPTION;
 
     /**
      * 获取通知类型的中文显示名称
@@ -48,6 +48,8 @@ public enum NotifyType {
                 return "错误队列熔断";
             case DDL:
                 return "DDL操作";
+            case DATA_SYNC_EXCEPTION:
+                return "数据同步异常";
             default:
                 return name();
         }

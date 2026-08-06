@@ -17,6 +17,7 @@ import org.dbsyncer.sdk.connector.ErrorQueueCollector;
 
 import org.dbsyncer.sdk.listener.ChangedEvent;
 import org.dbsyncer.sdk.spi.LogService;
+import org.dbsyncer.sdk.spi.MessageService;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.stereotype.Component;
 
@@ -72,6 +73,9 @@ public final class BufferActuatorRouter implements DisposableBean {
 
     @Resource
     private ErrorQueueCollector errorQueueCollector;
+
+    @Resource
+    private MessageService messageService;
 
     /**
      * 每个 meta 独享的执行器
@@ -163,6 +167,7 @@ public final class BufferActuatorRouter implements DisposableBean {
         actuator.setLogService(logService);
         actuator.setTableGroupModelService(tableGroupModelService);
         actuator.setErrorQueueCollector(errorQueueCollector);
+        actuator.messageService = messageService;
         // 注入 AbstractBufferActuator 需要的依赖
         actuator.setScheduledTaskService(scheduledTaskService);
         actuator.setTimeRegistry(timeRegistry);
