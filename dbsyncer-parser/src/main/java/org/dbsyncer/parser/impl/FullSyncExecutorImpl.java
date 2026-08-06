@@ -8,9 +8,10 @@ import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.parser.FullSyncExecutor;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.model.*;
+import org.dbsyncer.parser.pipeline.SyncPipeline;
+import org.dbsyncer.parser.pipeline.SyncTask;
 import org.dbsyncer.sdk.model.*;
 import org.dbsyncer.sdk.connector.CounterService;
-import org.dbsyncer.parser.util.ConvertUtil;
 import org.dbsyncer.parser.util.PickerUtil;
 import org.dbsyncer.sdk.connector.ErrorQueueCollector;
 
@@ -19,7 +20,6 @@ import org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance;
 import org.dbsyncer.sdk.connector.database.DatabaseTemplate;
 import org.dbsyncer.sdk.constant.ConnectorConstant;
 import org.dbsyncer.sdk.plugin.AbstractPluginContext;
-import org.dbsyncer.sdk.plugin.SyncRow;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.sdk.util.PrimaryKeyUtil;
 import org.slf4j.Logger;
@@ -146,15 +146,13 @@ public class FullSyncExecutorImpl implements FullSyncExecutor {
 
                 // 达到批次大小时处理数据
                 if (batch.size() >= mapping.getBatchNum()) {
-                    processTableGroupDataBatch(metaId, batch, tableGroup, group, mapping, context, picker, primaryKeys,
-                            lastSaveTime);
+                    processBatch(batch, metaId, mapping, group, picker, context, tableGroup, primaryKeys, lastSaveTime);
                     batch = new ArrayList<>();
                 }
             }
             // 处理最后一批数据
             if (!batch.isEmpty()) {
-                processTableGroupDataBatch(metaId, batch, tableGroup, group, mapping, context, picker, primaryKeys,
-                        lastSaveTime);
+                processBatch(batch, metaId, mapping, group, picker, context, tableGroup, primaryKeys, lastSaveTime);
             }
             // 标记流式处理完成，强制保存一次
             tableGroup.setFullCompleted(true);
@@ -166,25 +164,14 @@ public class FullSyncExecutorImpl implements FullSyncExecutor {
         return null;
     }
 
-    /**
-     * TableGroup专用的数据处理逻辑
-     */
-    private void processTableGroupDataBatch(String metaId, List<Map> source, TableGroup tableGroup, TableGroup group,
-            Mapping mapping,
-            AbstractPluginContext context, Picker picker, List<String> primaryKeys,
-            long[] lastSaveTime) throws Exception {
-        List<SyncRow> target = picker.pickTargetData(source, context);
-        for (SyncRow row : target) {
-            row.setMapping(mapping);
-            row.setTableGroup(group);
-        }
-
-        ConvertUtil.convert(tableGroup.getConvert(), target);
+    private void processBatch(List<Map> batch, String metaId, Mapping mapping, TableGroup group,
+                              Picker picker, AbstractPluginContext context, TableGroup tableGroup,
+                              List<String> primaryKeys, long[] lastSaveTime) throws Exception {
         Meta meta = profileComponent.getMeta(metaId);
-
-        connectorFactory.writeBatch(target, meta, mapping, tableGroup, counterService, errorQueueCollector, false);
-
-        Object[] newCursors = PrimaryKeyUtil.getLastCursors(source, primaryKeys);
+        SyncTask task = new SyncTask(mapping, group, meta, picker, context, null, false);
+        new SyncPipeline(connectorFactory, counterService, errorQueueCollector)
+                .execute(task, batch, null, null, false, null, null);
+        Object[] newCursors = PrimaryKeyUtil.getLastCursors(batch, primaryKeys);
         tableGroup.setCursors(newCursors);
         saveTableGroupIfNeeded(meta, tableGroup, lastSaveTime);
     }

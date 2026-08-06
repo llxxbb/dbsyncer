@@ -237,8 +237,8 @@ public class ConnectorFactory implements DisposableBean {
      * 批量写入数据到目标源
      */
     public void writeBatch(List<SyncRow> syncRows, Meta meta, Mapping mapping, TableGroup tableGroup,
-                             CounterService counter, ErrorQueueCollector errorHandler,
-                             boolean isErrQueueRetry) {
+            CounterService counter, ErrorQueueCollector errorHandler,
+            boolean isErrQueueRetry) throws Exception {
         if (CollectionUtils.isEmpty(syncRows)) {
             return;
         }
@@ -252,51 +252,48 @@ public class ConnectorFactory implements DisposableBean {
         RetryPolicy policy = retryConfig != null ? retryConfig.getGlobal() : new RetryPolicy();
         String mappingId = syncRows.get(0).getMapping() != null ? syncRows.get(0).getMapping().getId() : null;
         Result result;
-        try {
-            switch (event) {
-                case ConnectorConstant.OPERTION_INSERT:
-                    result = executeWriterOperation(syncRows, (connector, instance, rows) -> connector.insert(instance, rows),
-                            policy, mappingId);
-                    break;
-                case ConnectorConstant.OPERTION_UPDATE:
-                    result = executeWriterOperation(syncRows, (connector, instance, rows) -> connector.update(instance, rows),
-                            policy, mappingId);
-                    break;
-                case ConnectorConstant.OPERTION_DELETE:
-                    result = executeWriterOperation(syncRows, (connector, instance, rows) -> connector.delete(instance, rows),
-                            policy, mappingId);
-                    break;
-                case ConnectorConstant.OPERTION_UPSERT:
-                    result = executeWriterOperation(syncRows, (connector, instance, rows) -> connector.upsert(instance, rows),
-                            policy, mappingId);
-                    break;
-                default:
-                    throw new RuntimeException("不支持的事件类型：" + event);
-            }
+        switch (event) {
+            case ConnectorConstant.OPERTION_INSERT:
+                result = executeWriterOperation(syncRows,
+                        (connector, instance, rows) -> connector.insert(instance, rows),
+                        policy, mappingId);
+                break;
+            case ConnectorConstant.OPERTION_UPDATE:
+                result = executeWriterOperation(syncRows,
+                        (connector, instance, rows) -> connector.update(instance, rows),
+                        policy, mappingId);
+                break;
+            case ConnectorConstant.OPERTION_DELETE:
+                result = executeWriterOperation(syncRows,
+                        (connector, instance, rows) -> connector.delete(instance, rows),
+                        policy, mappingId);
+                break;
+            case ConnectorConstant.OPERTION_UPSERT:
+                result = executeWriterOperation(syncRows,
+                        (connector, instance, rows) -> connector.upsert(instance, rows),
+                        policy, mappingId);
+                break;
+            default:
+                throw new RuntimeException("不支持的事件类型：" + event);
+        }
 
-            if (result != null) {
-                result.setMappingId(mapping.getId());
-                result.setTableGroupId(tableGroup.getId());
-                result.setTargetTableGroupName(tableGroup.getTargetTable().getName());
+        if (result != null) {
+            result.setMappingId(mapping.getId());
+            result.setTableGroupId(tableGroup.getId());
+            result.setTargetTableGroupName(tableGroup.getTargetTable().getName());
 
-                if (!CollectionUtils.isEmpty(result.getFailData()) && !isErrQueueRetry) {
-                    errorHandler.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
-                            event, result.getFailData(), "条件未命中");
-                }
-                if (!CollectionUtils.isEmpty(result.getSuccessData())) {
-                    int successSize = result.getSuccessData().size();
-                    if (isErrQueueRetry){
-                        counter.decrementFail(meta, tableGroup);;
-                    }else{
-                        counter.incrementSuccess(meta, tableGroup, successSize);
-                    }
-                }
-            }
-        } catch (Exception e) {
-            if (!isErrQueueRetry) {
-                List<Map> failData = syncRows.stream().map(SyncRow::getSourceData).collect(java.util.stream.Collectors.toList());
+            if (!CollectionUtils.isEmpty(result.getFailData()) && !isErrQueueRetry) {
                 errorHandler.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
-                        event, failData, e.getMessage());
+                        event, result.getFailData(), "条件未命中");
+            }
+            if (!CollectionUtils.isEmpty(result.getSuccessData())) {
+                int successSize = result.getSuccessData().size();
+                if (isErrQueueRetry) {
+                    counter.decrementFail(meta, tableGroup);
+                    ;
+                } else {
+                    counter.incrementSuccess(meta, tableGroup, successSize);
+                }
             }
         }
     }
@@ -343,19 +340,20 @@ public class ConnectorFactory implements DisposableBean {
         Result execute(ConnectorService connector, ConnectorInstance instance, List<SyncRow> syncRows);
     }
 
-    public Result writerDDL(ConnectorInstance connectorInstance, DDLConfig ddlConfig, PluginContext context, Mapping mapping) throws Exception {
+    public Result writerDDL(ConnectorInstance connectorInstance, DDLConfig ddlConfig, PluginContext context,
+            Mapping mapping) throws Exception {
         Assert.notNull(connectorInstance, "ConnectorInstance can not null");
         Result result = getConnectorService(connectorInstance.getConfig()).writerDDL(connectorInstance, ddlConfig,
                 context);
         Assert.notNull(result, "Connector writer batch result can not null");
-        
+
         logger.info("DDL 执行成功 [mappingId={}]: {}", mapping != null ? mapping.getId() : "unknown", ddlConfig.getSql());
         StringBuilder msg = new StringBuilder();
         msg.append("### DBSyncer 数据同步DDL事件\n\n");
         msg.append("**Mapping ID**: ").append(mapping != null ? mapping.getId() : "unknown").append("\n\n");
         msg.append("**Mapping name**: ").append(mapping != null ? mapping.getName() : "unknown").append("\n\n");
         msg.append("**DDL 语句**: ").append(ddlConfig.getSql());
-        
+
         logService.log(mapping, LogType.SYNC, LogLevel.INFO, msg.toString());
         messageService.sendMessage("dbsyncer", msg.toString(), NotifyType.DDL);
         return result;

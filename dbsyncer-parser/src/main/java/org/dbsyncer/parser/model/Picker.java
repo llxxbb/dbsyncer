@@ -39,10 +39,13 @@ public class Picker {
         this.tFieldSize = targetFields.size();
         // 解析过滤条件
         List<Filter> filter = tableGroup.getFilter();
-        enabledFilter = !CollectionUtils.isEmpty(filter) && filter.stream().noneMatch(f -> StringUtil.equals(f.getOperation(), OperationEnum.SQL.getName()));
+        enabledFilter = !CollectionUtils.isEmpty(filter)
+                && filter.stream().noneMatch(f -> StringUtil.equals(f.getOperation(), OperationEnum.SQL.getName()));
         if (enabledFilter) {
-            add = filter.stream().filter(f -> StringUtil.equals(f.getOperation(), OperationEnum.AND.getName())).collect(Collectors.toList());
-            or = filter.stream().filter(f -> StringUtil.equals(f.getOperation(), OperationEnum.OR.getName())).collect(Collectors.toList());
+            add = filter.stream().filter(f -> StringUtil.equals(f.getOperation(), OperationEnum.AND.getName()))
+                    .collect(Collectors.toList());
+            or = filter.stream().filter(f -> StringUtil.equals(f.getOperation(), OperationEnum.OR.getName()))
+                    .collect(Collectors.toList());
         }
     }
 
@@ -51,9 +54,9 @@ public class Picker {
     }
 
     public List<SyncRow> pickTargetData(List<Field> sourceOriginalFields, Map<String, Integer> fieldIndexMap,
-                                        boolean enableFilter, List<List<Object>> rows,
-                                        List<List<Object>> beforeRows,
-                                        PluginContext context) throws Exception {
+            boolean enableFilter, List<List<Object>> rows,
+            List<List<Object>> beforeRows,
+            PluginContext context) {
         if (CollectionUtils.isEmpty(rows)) {
             return new ArrayList<>();
         }
@@ -62,9 +65,9 @@ public class Picker {
     }
 
     private List<SyncRow> pickTargetDataFromMaps(List<Map<String, Object>> sourceMaps,
-                                                  List<List<Object>> beforeRows,
-                                                  boolean enableFilter,
-                                                  PluginContext context) {
+            List<List<Object>> beforeRows,
+            boolean enableFilter,
+            PluginContext context) {
         List<SyncRow> targetList = new ArrayList<>(sourceMaps.size());
         for (int i = 0; i < sourceMaps.size(); i++) {
             Map<String, Object> sourceMap = sourceMaps.get(i);
@@ -92,7 +95,8 @@ public class Picker {
     }
 
     public Map<String, Field> getTargetFieldMap() {
-        return targetFields.stream().filter(Objects::nonNull).collect(Collectors.toMap(Field::nameIgnoreCase, f -> f, (k1, k2) -> k1));
+        return targetFields.stream().filter(Objects::nonNull)
+                .collect(Collectors.toMap(Field::nameIgnoreCase, f -> f, (k1, k2) -> k1));
     }
 
     private boolean filter(Map<String, Object> row) {
@@ -150,7 +154,8 @@ public class Picker {
         if (comparedValue instanceof Timestamp) {
             Timestamp comparedTimestamp = (Timestamp) comparedValue;
             Timestamp filterTimestamp = DateFormatUtil.stringToTimestamp(filter.getValue());
-            return compareFilter.compare(String.valueOf(comparedTimestamp.getTime()), String.valueOf(filterTimestamp.getTime()));
+            return compareFilter.compare(String.valueOf(comparedTimestamp.getTime()),
+                    String.valueOf(filterTimestamp.getTime()));
         }
         if (comparedValue instanceof java.sql.Date) {
             java.sql.Date comparedDate = (java.sql.Date) comparedValue;
@@ -161,7 +166,8 @@ public class Picker {
         return compareFilter.compare(String.valueOf(comparedValue), filter.getValue());
     }
 
-    private void exchange(int sFieldSize, int tFieldSize, List<Field> sFields, List<Field> tFields, Map<String, Object> source, Map<String, Object> target) {
+    private void exchange(int sFieldSize, int tFieldSize, List<Field> sFields, List<Field> tFields,
+            Map<String, Object> source, Map<String, Object> target) {
         Field sField = null;
         Field tField = null;
         Object v = null;

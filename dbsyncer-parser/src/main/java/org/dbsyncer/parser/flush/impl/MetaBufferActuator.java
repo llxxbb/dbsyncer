@@ -15,6 +15,8 @@ import org.dbsyncer.parser.ddl.DDLParser;
 import org.dbsyncer.parser.flush.AbstractBufferActuator;
 import org.dbsyncer.parser.flush.BufferRequest;
 import org.dbsyncer.parser.model.*;
+import org.dbsyncer.parser.pipeline.SyncPipeline;
+import org.dbsyncer.parser.pipeline.SyncTask;
 import org.dbsyncer.sdk.model.*;
 import org.dbsyncer.sdk.notify.NotifyType;
 import org.dbsyncer.parser.service.TableGroupModelService;
@@ -24,7 +26,6 @@ import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.spi.MessageService;
-import org.dbsyncer.parser.util.ConvertUtil;
 import org.dbsyncer.sdk.plugin.AbstractPluginContext;
 import org.dbsyncer.sdk.config.DDLConfig;
 import org.dbsyncer.sdk.config.ListenerConfig;
@@ -34,9 +35,7 @@ import org.dbsyncer.sdk.enums.DDLOperationEnum;
 import org.dbsyncer.sdk.enums.MetaEnum;
 import org.dbsyncer.sdk.listener.ChangedEvent;
 import org.dbsyncer.sdk.listener.Listener;
-import org.dbsyncer.sdk.plugin.SyncRow;
 import org.dbsyncer.sdk.spi.ConnectorService;
-import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.util.RowConverter;
 import org.springframework.util.Assert;
 
@@ -67,7 +66,6 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
     private TableGroupModelService tableGroupModelService;
     private ErrorQueueCollector errorQueueCollector;
     public MessageService messageService;
-
 
     /**
      * 初始化时设置全局 LogService（一次设置，长期使用）
@@ -138,7 +136,8 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             String msg = "pull() 处理异常" + e.getMessage();
             logger.error("mappingId={}, tableName={}, error={}", mapping.getId(),
                     response.getTableName(), msg, e);
-            errorQueueCollector.closeTask(meta, response.getTableName(), msg, getBufferWriterCount(), NotifyType.TASK_INTERRUPTED);
+            errorQueueCollector.closeTask(meta, response.getTableName(), msg, getBufferWriterCount(),
+                    NotifyType.TASK_INTERRUPTED);
         }
     }
 
@@ -340,35 +339,26 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         boolean enableSchemaResolver = profileComponent.getSystemConfig().isEnableSchemaResolver();
         ConnectorConfig sourceConfig = getConnectorConfig(mapping.getSourceConnectorId());
         ConnectorService sourceConnector = connectorFactory.getConnectorService(sourceConfig.getConnectorType());
-        AbstractPluginContext context;
-        List<SyncRow> targetDataList;
         try {
-            context = new AbstractPluginContext();
+            AbstractPluginContext context = new AbstractPluginContext();
             context.setSourceConnectorInstance(connectorFactory.connect(sourceConfig));
             context.setTargetConnectorInstance(
                     connectorFactory.connect(getConnectorConfig(mapping.getTargetConnectorId())));
+            context.setEvent(response.getEvent());
+            context.setEnablePrintTraceInfo(StringUtil.isNotBlank(response.getTraceId()));
 
-            targetDataList = tableGroupPicker.getPicker()
-                    .setSourceResolver(enableSchemaResolver ? sourceConnector.getSchemaResolver() : null)
-                    .pickTargetData(actualSourceFields, fieldIndexMap, enableFilter, response.getDataList(),
-                            response.getBeforeRows(), context);
-            for (SyncRow row : targetDataList) {
-                row.setMapping(mapping);
-                row.setTableGroup(tableGroup);
-                row.setColumnNames(response.getColumnNames());
-            }
-
-            ConvertUtil.convert(tableGroup.getConvert(), targetDataList);
+            SyncTask task = new SyncTask(mapping, tableGroup, meta,
+                    tableGroupPicker.getPicker()
+                            .setSourceResolver(enableSchemaResolver ? sourceConnector.getSchemaResolver() : null),
+                    context, response.getColumnNames(), response.isErrQueueRetry());
+            new SyncPipeline(connectorFactory, counterService, errorQueueCollector)
+                    .execute(task, null, actualSourceFields, fieldIndexMap, enableFilter,
+                            response.getDataList(), response.getBeforeRows());
         } catch (Exception e) {
             String message = String.format("异常！表名: %s, 列名: %s，msg %s",
                     response.getTableName(), response.getColumnNames(), e.getMessage());
             handleFailData(response, meta, mapping, tableGroup, sourceFields, fieldIndexMap, message, true);
-            return;
         }
-        context.setEvent(response.getEvent());
-        context.setEnablePrintTraceInfo(StringUtil.isNotBlank(response.getTraceId()));
-        connectorFactory.writeBatch(targetDataList, meta, mapping, tableGroup,
-                counterService, errorQueueCollector, response.isErrQueueRetry());
     }
 
     /**

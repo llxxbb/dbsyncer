@@ -18,27 +18,20 @@
 ### 流程骨架
 
 ```
-DataPicker.pick() → enrichRows() → ConvertUtil.convert() → writeBatch()
+Picker.pickTargetData() → enrichRows() → ConvertUtil.convert() → writeBatch()
 ```
 
 ### 类结构
 
 ```
 pipeline/
-├── DataPicker.java    # @FunctionalInterface，抹平 pick 签名差异
 ├── SyncTask.java      # 值对象：Mapping + TableGroup + Meta
-└── SyncPipeline.java  # 管线，无扩展点
+└── SyncPipeline.java  # 管线，提供两个重载 execute 方法
 ```
 
 ### 核心接口
 
 ```java
-// 数据抽取接口
-@FunctionalInterface
-public interface DataPicker {
-    List<SyncRow> pick() throws Exception;
-}
-
 // 同步任务值对象
 public class SyncTask {
     private final Mapping mapping;
@@ -48,28 +41,15 @@ public class SyncTask {
 
 // 管线
 public class SyncPipeline {
-    private final ConnectorFactory connectorFactory;
-    private final CounterService counterService;
-    private final ErrorQueueCollector errorQueueCollector;
+    // 全量同步
+    public void execute(Picker picker, List<Map> source, SyncTask task,
+                        AbstractPluginContext context, boolean isErrQueueRetry);
 
-    public void execute(DataPicker picker, SyncTask task,
-                        List<String> columnNames,
-                        AbstractPluginContext context,
-                        boolean isErrQueueRetry) throws Exception {
-        List<SyncRow> target = picker.pick();
-        enrichRows(target, task, columnNames);
-        ConvertUtil.convert(task.getTableGroup().getConvert(), target);
-        connectorFactory.writeBatch(target, task.getMeta(), task.getMapping(),
-                task.getTableGroup(), counterService, errorQueueCollector, isErrQueueRetry);
-    }
-
-    private void enrichRows(List<SyncRow> rows, SyncTask task, List<String> columnNames) {
-        for (SyncRow row : rows) {
-            row.setMapping(task.getMapping());
-            row.setTableGroup(task.getTableGroup());
-            if (columnNames != null) row.setColumnNames(columnNames);
-        }
-    }
+    // 增量同步
+    public void execute(Picker picker, List<Field> sourceFields, Map<String, Integer> fieldIndexMap,
+                        boolean enableFilter, List<List<Object>> rows, List<List<Object>> beforeRows,
+                        List<String> columnNames, SyncTask task,
+                        AbstractPluginContext context, boolean isErrQueueRetry);
 }
 ```
 
@@ -77,17 +57,13 @@ public class SyncPipeline {
 
 **FullSyncExecutorImpl**（cursor 持久化留在调用方）：
 ```java
-// 执行管线
 new SyncPipeline(connectorFactory, counterService, errorQueueCollector)
-    .execute(() -> picker.pickTargetData(batch, context), syncTask, null, context, false);
+    .execute(picker, batch, task, context, false);
 
 // cursor 持久化（全量独有）
-Object[] cursors = PrimaryKeyUtil.getLastCursors(sourceData, primaryKeys);
+Object[] cursors = PrimaryKeyUtil.getLastCursors(batch, primaryKeys);
 tableGroup.setCursors(cursors);
-if (shouldSave()) {
-    profileComponent.editConfigModel(tableGroup);
-    profileComponent.editConfigModel(meta);
-}
+if (shouldSave()) { ... }
 ```
 
 **MetaBufferActuator**（注意 context 设置时序）：
@@ -98,11 +74,10 @@ context.setEnablePrintTraceInfo(StringUtil.isNotBlank(response.getTraceId()));
 
 // 执行管线
 new SyncPipeline(connectorFactory, counterService, errorQueueCollector)
-    .execute(() -> tableGroupPicker.getPicker()
-            .setSourceResolver(enableSchemaResolver ? sourceConnector.getSchemaResolver() : null)
-            .pickTargetData(actualSourceFields, fieldIndexMap, enableFilter,
-                    response.getDataList(), response.getBeforeRows(), context),
-            syncTask, response.getColumnNames(), context, response.isErrQueueRetry());
+    .execute(picker.setSourceResolver(schemaResolver),
+             actualSourceFields, fieldIndexMap, enableFilter,
+             response.getDataList(), response.getBeforeRows(),
+             response.getColumnNames(), task, context, response.isErrQueueRetry());
 ```
 
 ## 风险点
