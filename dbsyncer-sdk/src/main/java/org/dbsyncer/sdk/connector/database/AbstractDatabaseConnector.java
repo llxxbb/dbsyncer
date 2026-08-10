@@ -361,9 +361,15 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
             throw new SdkException(e);
         }
 
+        String event = syncRows.get(0).getContext().getEvent();
+        boolean isDelete = ConnectorConstant.isDelete(event);
+
         Result result = new Result();
         for (int i = 0; i < execute.length; i++) {
             if (execute[i] == 1 || execute[i] == -2) {
+                result.getSuccessData().add(syncRows.get(i).getData());
+            } else if (isDelete && execute[i] == 0) {
+                // DELETE 影响为 0 表示目标端行已不存在（CT 操作合并的正常结果），视为幂等成功
                 result.getSuccessData().add(syncRows.get(i).getData());
             } else {
                 result.getFailData().add(syncRows.get(i).getSourceData());
