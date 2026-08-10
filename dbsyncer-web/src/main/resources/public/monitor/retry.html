@@ -10,6 +10,7 @@ xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
         <div class="page-header">
           <h3>重试[[${meta?.mappingName}]]</h3>
           <input type="hidden" name="metaId" id="metaId" th:value="${meta?.id}"/>
+          <input type="hidden" id="mappingId" th:value="${meta?.mappingId}"/>
           <input type="hidden" name="messageId" th:value="${message?.id}"/>
           <input type="hidden" id="retryDataParams" name="retryDataParams"/>
         </div>

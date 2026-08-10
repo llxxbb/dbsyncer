@@ -10,7 +10,7 @@ function submit(data) {
 }
 
 function backMonitorPage() {
-    doLoader('/monitor?id=' + $("#metaId").val());
+    doLoader('/mapping/page/edit?id=' + $("#mappingId").val() + '&classOn=3');
 }
 
 // 修改增量数据

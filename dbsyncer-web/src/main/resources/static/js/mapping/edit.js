@@ -1363,18 +1363,9 @@ function doPostForEditPage(url) {
 
 // 切换到指定的映射关系标签页
 function nextToMapping(str) {
-    // 获取映射关系标签页及对应链接
-    const $baseConfigTab = $('#' + str);
     const $baseConfigLink = $('a[href="#' + str + '"]');
-
-    if ($baseConfigTab.length && $baseConfigLink.length) {
-        // 移除所有tab-pane的active类，再为目标标签页添加active
-        $('.tab-pane').removeClass('active');
-        $('.nav-tabs li').removeClass('active');
-        $baseConfigTab.addClass('active');
-
-        // 激活对应的tab链接及其父元素（通常是li）
-        $baseConfigLink.addClass('active').parent().addClass('active');
+    if ($baseConfigLink.length) {
+        $baseConfigLink.tab('show');
     }
 }
 
@@ -1390,6 +1381,7 @@ $(function () {
             nextToMapping('mappingSuperConfig');
         } else if(classOnVal == 3){
             nextToMapping('mappingErrorQueue');
+            initErrorQueue();
         }
         // classOnVal为0或其他值时，默认显示概括标签页（不需要切换）
     }
