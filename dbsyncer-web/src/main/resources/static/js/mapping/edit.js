@@ -1743,6 +1743,43 @@ function bindErrorQueueQueryErrorDetailEvent() {
     });
 }
 
+// 错误队列删除单条数据
+function bindErrorQueueQueryDataDeleteEvent() {
+    let $delete = $("#mappingErrorQueue .deleteData");
+    $delete.unbind("click");
+    $delete.click(function () {
+        let messageId = $(this).attr("id");
+        let mappingId = $("#mappingId").val();
+        BootstrapDialog.show({
+            title: "提示",
+            message: "确认删除该条数据？",
+            type: BootstrapDialog.TYPE_WARNING,
+            buttons: [{
+                label: "取消",
+                action: function (dialog) {
+                    dialog.close();
+                }
+            }, {
+                label: "确定",
+                action: function (dialog) {
+                    doPoster('/monitor/deleteData', {
+                        "id": mappingId,
+                        "messageId": messageId
+                    }, function (data) {
+                        if (data.success == true) {
+                            bootGrowl("删除成功", "success");
+                            $("#errorQueueQueryBtn").click();
+                        } else {
+                            bootGrowl(data.resultValue, "danger");
+                        }
+                    });
+                    dialog.close();
+                }
+            }]
+        });
+    });
+}
+
 // 错误队列显示更多
 function errorQueueShowMore($this, $url, $params, $call) {
     $params.pageNum = parseInt($this.attr("num")) + 1;
@@ -1775,6 +1812,7 @@ function errorQueueShowData($dataList, arr, append) {
             html += '<td>' + formatErrorQueueDate(arr[i].createTime) + '</td>';
             html += '<td><div class="hidden">' + arr[i].json + '</div><a href="javascript:;" class="label label-info queryData">查看数据</a>&nbsp;';
             html += (arr[i].success ? '' : '<a id="' + arr[i].id + '" href="javascript:;" class="label label-warning retryData">重试</a>');
+            html += '&nbsp;<a id="' + arr[i].id + '" href="javascript:;" class="label label-danger deleteData">删除</a>';
             html += '</td>';
             html += '</tr>';
         }
@@ -1797,6 +1835,7 @@ function errorQueueRefreshDataList(resultValue, append) {
     bindErrorQueueQueryDataDetailEvent();
     bindErrorQueueQueryDataRetryEvent();
     bindErrorQueueQueryErrorDetailEvent();
+    bindErrorQueueQueryDataDeleteEvent();
 }
 
 // 错误队列查询数据

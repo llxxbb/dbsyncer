@@ -187,12 +187,12 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob {
         Paging paging = new Paging(pageNum, pageSize);
         List<DataVo> allData = new ArrayList<>();
         int total = 0;
-        
+
         for (String metaId : metaIds) {
             Paging tempPaging = queryData(metaId, pageNum, pageSize, error, dataStatus);
             List<Map> data = (List<Map>) tempPaging.getData();
             total += tempPaging.getTotal();
-            
+
             for (Map row : data) {
                 try {
                     DataVo dataVo = convert2Vo(row, DataVo.class);
@@ -204,7 +204,7 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob {
                 }
             }
         }
-        
+
         paging.setData(allData);
         paging.setTotal(total);
         return paging;
@@ -213,7 +213,7 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob {
     @Override
     public String clearData(String id) {
         Assert.hasText(id, "驱动不存在.");
-        
+
         // 如果id是mappingId，通过mappingId获取对应的metaId
         String metaId = id;
         try {
@@ -227,25 +227,42 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob {
             logger.debug("未能通过 id 映射，将 id 视为 metaId：{}", id, e);
             metaId = id;
         }
-        
+
         Meta meta = profileComponent.getMeta(metaId);
         Mapping mapping = profileComponent.getMapping(meta.getMappingId());
-        logService.log(mapping, LogType.CLEAR, LogLevel.INFO, String.format("%s:%s(%s)", LogType.CLEAR.getType(), mapping.getName(), mapping.getModel()));
+        logService.log(mapping, LogType.CLEAR, LogLevel.INFO,
+                String.format("%s:%s(%s)", LogType.CLEAR.getType(), mapping.getName(), mapping.getModel()));
         storageService.clear(StorageEnum.DATA, metaId);
         return "清空同步数据成功";
+    }
+
+    @Override
+    public String deleteData(String id, String messageId) throws Exception {
+        Assert.hasText(id, "驱动不存在.");
+        Assert.hasText(messageId, "消息ID不存在.");
+
+        // 如果id是mappingId，通过mappingId获取对应的metaId
+        String metaId = null;
+        Mapping mappingObj = profileComponent.getMapping(id);
+        if (mappingObj != null && StringUtil.isNotBlank(mappingObj.getMetaId())) {
+            metaId = mappingObj.getMetaId();
+        }
+
+        storageService.remove(StorageEnum.DATA, metaId, messageId);
+        return "删除成功";
     }
 
     @Override
     public Paging queryLog(Map<String, String> params) {
         String modelId = params.get(ConfigConstant.CONFIG_MODEL_ID);
         Assert.hasText(modelId, "modelId 是必填参数");
-        
+
         int pageNum = NumberUtil.toInt(params.get("pageNum"), 1);
         int pageSize = NumberUtil.toInt(params.get("pageSize"), 10);
         String type = params.get("type");
         String logLevel = params.get("logLevel");
         String json = params.get(ConfigConstant.CONFIG_MODEL_JSON);
-        
+
         Query query = new Query(pageNum, pageSize);
         query.addFilter(ConfigConstant.LOG_MODEL_ID, modelId, false);
         if (StringUtil.isNotBlank(type)) {
@@ -270,7 +287,7 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob {
     public String clearLog(Map<String, String> params) {
         String modelId = params.get(ConfigConstant.CONFIG_MODEL_ID);
         Assert.hasText(modelId, "modelId 是必填参数");
-        
+
         Query query = new Query();
         query.addFilter(ConfigConstant.LOG_MODEL_ID, modelId, false);
         query.setType(StorageEnum.LOG);
@@ -312,7 +329,8 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob {
         }
         Query query = new Query(pageNum, pageSize);
         Map<String, FieldResolver> fieldResolvers = new ConcurrentHashMap<>();
-        fieldResolvers.put(ConfigConstant.BINLOG_DATA, (FieldResolver<IndexableField>) field -> field.binaryValue().bytes);
+        fieldResolvers.put(ConfigConstant.BINLOG_DATA,
+                (FieldResolver<IndexableField>) field -> field.binaryValue().bytes);
         query.setFieldResolverMap(fieldResolvers);
 
         // 查询异常信息
@@ -335,7 +353,8 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob {
             query.setType(StorageEnum.DATA);
             int expireDataDays = systemConfigService.getSystemConfig().getExpireDataDays();
             long expiredTime = Timestamp.valueOf(LocalDateTime.now().minusDays(expireDataDays)).getTime();
-            LongFilter expiredFilter = new LongFilter(ConfigConstant.CONFIG_MODEL_CREATE_TIME, FilterEnum.LT, expiredTime);
+            LongFilter expiredFilter = new LongFilter(ConfigConstant.CONFIG_MODEL_CREATE_TIME, FilterEnum.LT,
+                    expiredTime);
             query.setBooleanFilter(new BooleanFilter().add(expiredFilter));
             metaAll.forEach(metaVo -> {
                 query.setMetaId(metaVo.getId());
@@ -359,7 +378,8 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob {
         if (mapping == null) {
             String msg = String.format("mapping missing, id: %s, metaId: %s", meta.getMappingId(), meta.getId());
             logger.error(msg);
-            logService.log(mapping, LogType.UPDATE, LogLevel.INFO, String.format("mapping missing, id: %s, metaId: %s", meta.getMappingId(), meta.getId()));
+            logService.log(mapping, LogType.UPDATE, LogLevel.INFO,
+                    String.format("mapping missing, id: %s, metaId: %s", meta.getMappingId(), meta.getId()));
             return new MetaVo("异常", msg);
         }
         ModelEnum modelEnum = ModelEnum.getModelEnum(mapping.getModel());

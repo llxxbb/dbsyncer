@@ -195,6 +195,18 @@ public class MonitorController extends BaseController {
         }
     }
 
+    @PostMapping("/deleteData")
+    @ResponseBody
+    @PreAuthorize("hasRole('admin')")
+    public RestResult deleteData(String id, String messageId) {
+        try {
+            return RestResult.restSuccess(monitorService.deleteData(id, messageId));
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
+        }
+    }
+
     @PostMapping("/alignCount")
     @ResponseBody
     @PreAuthorize("hasRole('admin')")

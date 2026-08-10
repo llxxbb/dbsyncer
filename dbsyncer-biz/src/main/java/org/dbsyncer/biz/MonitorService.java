@@ -60,6 +60,16 @@ public interface MonitorService {
     String clearData(String id);
 
     /**
+     * 删除单条错误队列数据
+     *
+     * @param id        驱动ID（mappingId或metaId）
+     * @param messageId 消息ID
+     * @return
+     * @throws Exception 
+     */
+    String deleteData(String id, String messageId) throws Exception;
+
+    /**
      * 查询操作日志
      *
      * @param params 参数包含 modelId(必填), pageNum, pageSize, type, logLevel, json
