@@ -281,18 +281,12 @@ public class ConnectorFactory implements DisposableBean {
             result.setMappingId(mapping.getId());
             result.setTableGroupId(tableGroup.getId());
             result.setTargetTableGroupName(tableGroup.getTargetTable().getName());
-            if (!CollectionUtils.isEmpty(result.getFailData()) && !isErrQueueRetry) {
+            if (!CollectionUtils.isEmpty(result.getFailData())) {
                 errorHandler.handleFailData(mapping, meta, tableGroup, tableGroup.getTargetTable().getName(),
-                        event, result.getFailData(), "条件未命中");
+                        event, result.getFailData(), "目标表影响行数异常", isErrQueueRetry);
             }
             if (!CollectionUtils.isEmpty(result.getSuccessData())) {
-                int successSize = result.getSuccessData().size();
-                if (isErrQueueRetry) {
-                    counter.decrementFail(meta, tableGroup);
-                    ;
-                } else {
-                    counter.incrementSuccess(meta, tableGroup, successSize);
-                }
+                counter.incrementSuccess(meta, tableGroup, result.getSuccessData().size(), isErrQueueRetry);
             }
         }
     }

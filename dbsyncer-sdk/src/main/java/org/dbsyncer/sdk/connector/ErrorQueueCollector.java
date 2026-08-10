@@ -12,10 +12,10 @@ import java.util.Map;
 public interface ErrorQueueCollector {
 
     void handleFailData(Mapping mapping, Meta meta, TableGroup tableGroup, String targetTableName,
-                        String event, List<Map> failData, String errorMsg);
+                        String event, List<Map> failData, String errorMsg, boolean isErrQueueRetry);
 
     void handleDdlFailData(Mapping mapping, Meta meta, TableGroup tableGroup, String targetTableName,
-                           DDLConfig ddlConfig, String errorMsg);
+                           DDLConfig ddlConfig, String errorMsg, boolean isErrQueueRetry);
 
     void alignCount(Meta meta) throws Exception;
 

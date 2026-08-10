@@ -69,13 +69,18 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
 
     @Override
     public void handleFailData(Mapping mapping, Meta meta, TableGroup tableGroup, String targetTableName,
-            String event, List<Map> failData, String errorMsg) {
+            String event, List<Map> failData, String errorMsg, boolean isErrQueueRetry) {
         if (failData == null || failData.isEmpty()) {
+            return;
+        }
+        logger.error("mappingId={}: tableName={}, error={}", mapping.getId(), targetTableName, errorMsg);
+        logService.log(mapping, LogType.SYNC, errorMsg);
+        notifyError(meta, targetTableName, errorMsg, failData.size(), NotifyType.DATA_ERROR_QUEUE);
+        if (isErrQueueRetry) {
             return;
         }
         String metaId = meta.getId();
         String tableGroupId = tableGroup != null ? tableGroup.getId() : null;
-        logService.log(mapping, LogType.SYNC, errorMsg);
         try {
             persistError(metaId, tableGroupId, targetTableName, event, failData, errorMsg);
         } catch (Exception e) {
@@ -84,20 +89,23 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
             return;
         }
         counterService.incrementFail(meta, tableGroup, failData.size());
-        notifyError(meta, targetTableName, errorMsg, failData.size(), NotifyType.DATA_ERROR_QUEUE);
         checkCircuitBreaker(meta, meta.getMappingId());
     }
 
     public void handleDdlFailData(Mapping mapping, Meta meta, TableGroup tableGroup, String targetTableName,
-            DDLConfig ddlConfig, String errorMsg) {
+            DDLConfig ddlConfig, String errorMsg, boolean isErrQueueRetry) {
         String metaId = meta.getId();
         String tableGroupId = tableGroup != null ? tableGroup.getId() : null;
+        logger.error("mappingId={}: tableName={}, error={}", mapping.getId(), targetTableName, errorMsg);
         logService.log(mapping, LogType.SYNC, errorMsg);
+        notifyError(meta, targetTableName, errorMsg, 1, NotifyType.DATA_ERROR_QUEUE);
+        if (isErrQueueRetry) {
+            return;
+        }
         Map<String, Object> row = new HashMap<>();
         row.put(ConfigConstant.BINLOG_DATA, JsonUtil.objToJson(ddlConfig));
         persistErrorRow(metaId, tableGroupId, targetTableName, ConnectorConstant.OPERTION_ALTER, row, errorMsg);
         counterService.incrementFail(meta, tableGroup, 1);
-        notifyError(meta, targetTableName, errorMsg, 1, NotifyType.DATA_ERROR_QUEUE);
         checkCircuitBreaker(meta, meta.getMappingId());
     }
 

@@ -24,7 +24,6 @@ import org.dbsyncer.sdk.connector.CounterService;
 import org.dbsyncer.sdk.connector.ErrorQueueCollector;
 import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
 import org.dbsyncer.sdk.spi.LogService;
-import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.spi.MessageService;
 import org.dbsyncer.sdk.plugin.AbstractPluginContext;
 import org.dbsyncer.sdk.config.DDLConfig;
@@ -415,14 +414,12 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
                 result.setTableGroupId(tableGroup.getId());
                 result.setTargetTableGroupName(tableGroup.getTargetTable().getName());
                 int successSize = result.getSuccessData().size();
-                if (successSize > 0) {
-                    counterService.incrementSuccess(meta, tableGroup, successSize);
-                }
+                counterService.incrementSuccess(meta, tableGroup, successSize, response.isErrQueueRetry());
             } catch (Exception e) {
                 logger.error("目标 DDL 执行失败: table={}, sql={}, error={}", tableGroup.getTargetTable().getName(),
                         targetDDLConfig.getSql(), e.getMessage());
                 errorQueueCollector.handleDdlFailData(mapping, meta, tableGroup,
-                        tableGroup.getTargetTable().getName(), targetDDLConfig, e.getMessage());
+                        tableGroup.getTargetTable().getName(), targetDDLConfig, e.getMessage(), response.isErrQueueRetry());
                 return;
             }
 
@@ -528,16 +525,10 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
     private void handleFailData(WriterResponse response, Meta meta, Mapping mapping,
             TableGroup tableGroup, List<Field> sourceFields, Map<String, Integer> fieldIndexMap,
             String message, boolean throwOnRetry) {
-        logger.error(message);
-        logService.log(mapping, LogType.SYNC, message);
-        sendNotify(mapping, message);
-        if (response.isErrQueueRetry()) {
-            return;
-        }
         List<Map> failData = new ArrayList<>(
                 RowConverter.toListOfMaps(sourceFields, fieldIndexMap, response.getDataList()));
         errorQueueCollector.handleFailData(mapping, meta, tableGroup, tableGroup.getTargetTable().getName(),
-                response.getEvent(), failData, message);
+                response.getEvent(), failData, message, response.isErrQueueRetry());
     }
 
     private void sendNotify(Mapping mapping, String message) {

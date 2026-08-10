@@ -48,16 +48,16 @@ public class SyncPipeline {
                     task.getTableGroup(), counterService, errorQueueCollector, task.isErrQueueRetry());
         } catch (Exception e) {
             logger.error("同步异常！", e);
-            if (!task.isErrQueueRetry()) {
-                if (target == null) {
-                    errorQueueCollector.closeTask(task.getMeta(), task.getTableGroup().getTargetTable().getName(),
-                            e.getMessage(), 0, NotifyType.TASK_INTERRUPTED);
-                }
-                String event = target.get(0).getContext().getEvent();
-                List<Map> failData = target.stream().map(SyncRow::getSourceData).collect(Collectors.toList());
-                errorQueueCollector.handleFailData(task.getMapping(), task.getMeta(), task.getTableGroup(),
-                        task.getTableGroup().getTargetTable().getName(), event, failData, e.getMessage());
+            if (target == null) {
+                errorQueueCollector.closeTask(task.getMeta(), task.getTableGroup().getTargetTable().getName(),
+                        e.getMessage(), 0, NotifyType.TASK_INTERRUPTED);
+                return;
             }
+            String event = target.get(0).getContext().getEvent();
+            List<Map> failData = target.stream().map(SyncRow::getSourceData).collect(Collectors.toList());
+            errorQueueCollector.handleFailData(task.getMapping(), task.getMeta(), task.getTableGroup(),
+                    task.getTableGroup().getTargetTable().getName(), event, failData, e.getMessage(),
+                    task.isErrQueueRetry());
         }
     }
 

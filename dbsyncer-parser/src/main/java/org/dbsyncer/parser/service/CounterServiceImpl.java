@@ -23,7 +23,6 @@ public class CounterServiceImpl implements CounterService {
     @Resource
     private ProfileComponent profileComponent;
 
-    @Override
     public void incrementSuccess(Meta meta, TableGroup tableGroup, int count) {
         if (count <= 0) {
             return;
@@ -62,14 +61,16 @@ public class CounterServiceImpl implements CounterService {
         }
     }
 
-    @Override
-    public void decrementFail(Meta meta, TableGroup tableGroup) {
+    private void decrementFailBatch(Meta meta, TableGroup tableGroup, int count) {
+        if (count <= 0) {
+            return;
+        }
         TableGroup tg = getTableGroup(tableGroup);
         synchronized (meta) {
-            meta.setFail(Math.max(0, meta.getFail() - 1));
-            meta.setSuccess(meta.getSuccess() + 1);
-            tg.setFail(Math.max(0, tg.getFail() - 1));
-            tg.setSuccess(tg.getSuccess() + 1);
+            meta.setFail(Math.max(0, meta.getFail() - count));
+            meta.setSuccess(meta.getSuccess() + count);
+            tg.setFail(Math.max(0, tg.getFail() - count));
+            tg.setSuccess(tg.getSuccess() + count);
             meta.markTableGroupChanged(tg.getId());
         }
     }
@@ -87,6 +88,18 @@ public class CounterServiceImpl implements CounterService {
             }
         }
         tg.setLastSyncTime(currentTime);
+    }
+
+    @Override
+    public void incrementSuccess(Meta meta, TableGroup tableGroup, int successCount, boolean isErrQueueRetry) {
+        if (successCount <= 0) {
+            return;
+        }
+        if (isErrQueueRetry) {
+            decrementFailBatch(meta, tableGroup, successCount);
+        } else {
+            incrementSuccess(meta, tableGroup, successCount);
+        }
     }
 
     /**
