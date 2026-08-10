@@ -4,6 +4,8 @@ import org.dbsyncer.common.model.Paging;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.sdk.config.DDLConfig;
 import org.dbsyncer.sdk.connector.ErrorQueueCollector;
+import org.dbsyncer.sdk.spi.LogService;
+import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.spi.MessageService;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.flush.BufferActuator;
@@ -14,6 +16,7 @@ import org.dbsyncer.sdk.constant.ConnectorConstant;
 import org.dbsyncer.sdk.enums.MetaEnum;
 import org.dbsyncer.sdk.enums.StorageEnum;
 import org.dbsyncer.sdk.filter.Query;
+import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.notify.NotifyType;
@@ -59,17 +62,20 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
     private ApplicationEventPublisher applicationEventPublisher;
 
     @Resource
+    private LogService logService;
+
+    @Resource
     private StorageService storageService;
 
     @Override
-    public void handleFailData(Meta meta, TableGroup tableGroup, String targetTableName,
+    public void handleFailData(Mapping mapping, Meta meta, TableGroup tableGroup, String targetTableName,
             String event, List<Map> failData, String errorMsg) {
         if (failData == null || failData.isEmpty()) {
             return;
         }
         String metaId = meta.getId();
         String tableGroupId = tableGroup != null ? tableGroup.getId() : null;
-
+        logService.log(mapping, LogType.SYNC, errorMsg);
         try {
             persistError(metaId, tableGroupId, targetTableName, event, failData, errorMsg);
         } catch (Exception e) {
@@ -82,11 +88,11 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
         checkCircuitBreaker(meta, meta.getMappingId());
     }
 
-    public void handleDdlFailData(Meta meta, TableGroup tableGroup, String targetTableName,
+    public void handleDdlFailData(Mapping mapping, Meta meta, TableGroup tableGroup, String targetTableName,
             DDLConfig ddlConfig, String errorMsg) {
         String metaId = meta.getId();
         String tableGroupId = tableGroup != null ? tableGroup.getId() : null;
-
+        logService.log(mapping, LogType.SYNC, errorMsg);
         Map<String, Object> row = new HashMap<>();
         row.put(ConfigConstant.BINLOG_DATA, JsonUtil.objToJson(ddlConfig));
         persistErrorRow(metaId, tableGroupId, targetTableName, ConnectorConstant.OPERTION_ALTER, row, errorMsg);

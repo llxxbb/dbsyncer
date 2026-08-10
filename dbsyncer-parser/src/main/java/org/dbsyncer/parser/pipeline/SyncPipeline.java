@@ -55,7 +55,7 @@ public class SyncPipeline {
                 }
                 String event = target.get(0).getContext().getEvent();
                 List<Map> failData = target.stream().map(SyncRow::getSourceData).collect(Collectors.toList());
-                errorQueueCollector.handleFailData(task.getMeta(), task.getTableGroup(),
+                errorQueueCollector.handleFailData(task.getMapping(), task.getMeta(), task.getTableGroup(),
                         task.getTableGroup().getTargetTable().getName(), event, failData, e.getMessage());
             }
         }

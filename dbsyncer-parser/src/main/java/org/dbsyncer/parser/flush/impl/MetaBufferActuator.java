@@ -421,7 +421,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             } catch (Exception e) {
                 logger.error("目标 DDL 执行失败: table={}, sql={}, error={}", tableGroup.getTargetTable().getName(),
                         targetDDLConfig.getSql(), e.getMessage());
-                errorQueueCollector.handleDdlFailData(meta, tableGroup,
+                errorQueueCollector.handleDdlFailData(mapping, meta, tableGroup,
                         tableGroup.getTargetTable().getName(), targetDDLConfig, e.getMessage());
                 return;
             }
@@ -536,7 +536,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         }
         List<Map> failData = new ArrayList<>(
                 RowConverter.toListOfMaps(sourceFields, fieldIndexMap, response.getDataList()));
-        errorQueueCollector.handleFailData(meta, tableGroup, tableGroup.getTargetTable().getName(),
+        errorQueueCollector.handleFailData(mapping, meta, tableGroup, tableGroup.getTargetTable().getName(),
                 response.getEvent(), failData, message);
     }
 
