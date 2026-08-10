@@ -37,6 +37,7 @@ import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.model.Meta;
+import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.enums.FilterEnum;
 import org.dbsyncer.sdk.enums.ModelEnum;
@@ -98,6 +99,9 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob {
 
     @Resource
     private MetricGroupProcessor metricGroupProcessor;
+
+    @Resource
+    private org.dbsyncer.sdk.connector.CounterService counterService;
 
     private final Map<String, MetricDetailFormatter> metricMap = new ConcurrentHashMap<>();
 
@@ -211,7 +215,7 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob {
     }
 
     @Override
-    public String clearData(String id) {
+    public String clearData(String id) throws Exception {
         Assert.hasText(id, "驱动不存在.");
 
         // 如果id是mappingId，通过mappingId获取对应的metaId
@@ -232,7 +236,16 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob {
         Mapping mapping = profileComponent.getMapping(meta.getMappingId());
         logService.log(mapping, LogType.CLEAR, LogLevel.INFO,
                 String.format("%s:%s(%s)", LogType.CLEAR.getType(), mapping.getName(), mapping.getModel()));
+
         storageService.clear(StorageEnum.DATA, metaId);
+        // 清空前重置所有tableGroup的失败计数
+        List<TableGroup> allTableGroups = profileComponent.getTableGroupAll(mapping.getId());
+        for (TableGroup tg : allTableGroups) {
+            int failCount = (int) tg.getFail();
+            if (failCount > 0) {
+                counterService.decrementFail(meta, tg, failCount);
+            }
+        }
         return "清空同步数据成功";
     }
 
@@ -243,12 +256,33 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob {
 
         // 如果id是mappingId，通过mappingId获取对应的metaId
         String metaId = null;
-        Mapping mappingObj = profileComponent.getMapping(id);
-        if (mappingObj != null && StringUtil.isNotBlank(mappingObj.getMetaId())) {
-            metaId = mappingObj.getMetaId();
+        Mapping mapping = profileComponent.getMapping(id);
+        if (mapping != null && StringUtil.isNotBlank(mapping.getMetaId())) {
+            metaId = mapping.getMetaId();
         }
 
+        // 查询数据获取tableGroupId，用于扣减计数
+        Query query = new Query(1, 1);
+        query.addFilter(ConfigConstant.CONFIG_MODEL_ID, messageId);
+        query.setMetaId(metaId);
+        query.setType(StorageEnum.DATA);
+        Paging paging = storageService.query(query);
+        if (CollectionUtils.isEmpty(paging.getData())) {
+            throw new RuntimeException("数据不存在");
+        }
+
+        logService.log(mapping, LogType.CLEAR, LogLevel.INFO,
+                String.format("%s:%s(%s)", LogType.CLEAR.getType(), mapping.getName(), mapping.getModel()));
+
         storageService.remove(StorageEnum.DATA, metaId, messageId);
+
+        // 扣减错误计数和总数
+        List<Map> dataList = (List<Map>) paging.getData();
+        Map row = dataList.get(0);
+        Meta meta = profileComponent.getMeta(metaId);
+        String tableGroupId = (String) row.get(ConfigConstant.DATA_TABLE_GROUP_ID);
+        TableGroup tg = profileComponent.getTableGroup(tableGroupId);
+        counterService.decrementFail(meta, tg, 1);
         return "删除成功";
     }
 

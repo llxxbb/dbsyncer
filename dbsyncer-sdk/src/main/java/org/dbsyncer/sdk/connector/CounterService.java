@@ -8,4 +8,6 @@ public interface CounterService {
     void incrementFail(Meta meta, TableGroup tg, int count);
 
     void incrementSuccess(Meta meta, TableGroup tg, int successCount, boolean isErrQueueRetry);
+
+    void decrementFail(Meta meta, TableGroup tg, int count);
 }

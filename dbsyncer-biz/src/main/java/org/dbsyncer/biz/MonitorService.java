@@ -56,8 +56,9 @@ public interface MonitorService {
      *
      * @param id
      * @return
+     * @throws Exception 
      */
-    String clearData(String id);
+    String clearData(String id) throws Exception;
 
     /**
      * 删除单条错误队列数据
