@@ -39,6 +39,8 @@ import org.dbsyncer.sdk.util.RowConverter;
 import org.springframework.util.Assert;
 
 import javax.annotation.PostConstruct;
+
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executor;
@@ -127,10 +129,12 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
 
     @Override
     public void pull(WriterResponse response) {
+        long now = Instant.now().toEpochMilli();
         Meta meta = profileComponent.getMeta(response.getChangedOffset().getMetaId());
         final Mapping mapping = profileComponent.getMapping(meta.getMappingId());
         try {
             pullNoCatch(response, meta, mapping);
+            logger.info("mappingId {}, {}目标表，{}, {}条, {}ms", meta.getMappingId(), response.getTableName(), response.getSuffixName(), response.getTaskSize(), (Instant.now().toEpochMilli() - now));
         } catch (Exception e) {
             String msg = "pull() 处理异常" + e.getMessage();
             logger.error("mappingId={}, tableName={}, error={}", mapping.getId(),
@@ -311,7 +315,6 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
 
         // 直接调用pull方法处理
         pull(response);
-        // 如果 pull() 中 distributeTableGroup() 失败，会在重试场景下抛出异常
     }
 
     private void distributeTableGroup(WriterResponse response, Meta meta, Mapping mapping,

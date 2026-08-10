@@ -222,15 +222,8 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
 
         // 处理所有排序后的响应
         for (Map.Entry<String, Response> entry : sortedEntries) {
-            String key = entry.getKey();
             Response response = entry.getValue();
-            long now = Instant.now().toEpochMilli();
-            try {
-                pull(response);
-            } catch (Exception e) {
-                logger.error(e.getMessage(), e);
-            }
-            logger.info("[{}{}] {}, {}ms", key, response.getSuffixName(), response.getTaskSize(), (Instant.now().toEpochMilli() - now));
+            pull(response);
         }
 
         // 获取最后一个响应（如果有）作为最大偏移量响应，传递给后置处理
