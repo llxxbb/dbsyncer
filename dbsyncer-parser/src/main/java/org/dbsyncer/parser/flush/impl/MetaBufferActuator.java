@@ -144,7 +144,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         }
     }
 
-    private void pullNoCatch(WriterResponse response, Meta meta, Mapping mapping) {
+    private void pullNoCatch(WriterResponse response, Meta meta, Mapping mapping) throws Exception {
         // 所有任务事件处理完成后，由 process 方法统一刷新偏移量
         if (!MetaEnum.isRunning(meta.getState())) {
             logger.warn("任务已停止，跳过批次处理: metaId={}, 分区={}", meta.getId(), response.getTableName());
@@ -177,14 +177,14 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
                 tableGroupContext.update(mapping, updatedTableGroups);
                 break;
             case SCAN:
-                pickers.forEach(picker -> {
+                for(TableGroupPicker picker : pickers) {
                     distributeTableGroup(response, meta, mapping, picker, picker.getSourceFields(), false);
-                });
+                }
                 break;
             case ROW:
-                pickers.forEach(picker -> {
+                for(TableGroupPicker picker : pickers) {
                     distributeTableGroup(response, meta, mapping, picker, picker.getSourceFields(), true);
-                });
+                }
                 break;
         }
     }
@@ -313,12 +313,14 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         // 分区处理
         partition(request, response);
 
-        // 直接调用pull方法处理
-        pull(response);
+        // 直接调用核心处理方法，异常自然抛出
+        Meta meta = profileComponent.getMeta(response.getChangedOffset().getMetaId());
+        final Mapping mapping = profileComponent.getMapping(meta.getMappingId());
+        pullNoCatch(response, meta, mapping);
     }
 
     private void distributeTableGroup(WriterResponse response, Meta meta, Mapping mapping,
-            TableGroupPicker tableGroupPicker, List<Field> sourceFields, boolean enableFilter) {
+            TableGroupPicker tableGroupPicker, List<Field> sourceFields, boolean enableFilter) throws Exception {
         if (response.getColumnNames() == null || response.getColumnNames().isEmpty()) {
             return;
         }
@@ -330,7 +332,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         if (fieldIndexMap.isEmpty()) {
             String message = String.format("字段定位错误！表名: %s, 列名: %s，未找到任何匹配字段",
                     response.getTableName(), response.getColumnNames());
-            handleFailData(response, meta, mapping, tableGroup, sourceFields, fieldIndexMap, message, false);
+            handleFailData(response, meta, mapping, tableGroup, sourceFields, fieldIndexMap, new RuntimeException(message), false);
             return;
         }
 
@@ -357,9 +359,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
                     .execute(task, null, actualSourceFields, fieldIndexMap, enableFilter,
                             response.getDataList(), response.getBeforeRows());
         } catch (Exception e) {
-            String message = String.format("异常！表名: %s, 列名: %s，msg %s",
-                    response.getTableName(), response.getColumnNames(), e.getMessage());
-            handleFailData(response, meta, mapping, tableGroup, sourceFields, fieldIndexMap, message, true);
+            handleFailData(response, meta, mapping, tableGroup, sourceFields, fieldIndexMap, e, true);
         }
     }
 
@@ -419,10 +419,8 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
                 int successSize = result.getSuccessData().size();
                 counterService.incrementSuccess(meta, tableGroup, successSize, response.isErrQueueRetry());
             } catch (Exception e) {
-                logger.error("目标 DDL 执行失败: table={}, sql={}, error={}", tableGroup.getTargetTable().getName(),
-                        targetDDLConfig.getSql(), e.getMessage());
                 errorQueueCollector.handleDdlFailData(mapping, meta, tableGroup,
-                        tableGroup.getTargetTable().getName(), targetDDLConfig, e.getMessage(), response.isErrQueueRetry());
+                        tableGroup.getTargetTable().getName(), targetDDLConfig, e, response.isErrQueueRetry());
                 return;
             }
 
@@ -527,11 +525,11 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
 
     private void handleFailData(WriterResponse response, Meta meta, Mapping mapping,
             TableGroup tableGroup, List<Field> sourceFields, Map<String, Integer> fieldIndexMap,
-            String message, boolean throwOnRetry) {
+            Exception e, boolean throwOnRetry) throws Exception {
         List<Map> failData = new ArrayList<>(
                 RowConverter.toListOfMaps(sourceFields, fieldIndexMap, response.getDataList()));
         errorQueueCollector.handleFailData(mapping, meta, tableGroup, tableGroup.getTargetTable().getName(),
-                response.getEvent(), failData, message, response.isErrQueueRetry());
+                response.getEvent(), failData, e, response.isErrQueueRetry());
     }
 
     private void sendNotify(Mapping mapping, String message) {

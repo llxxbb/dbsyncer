@@ -69,22 +69,22 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
 
     @Override
     public void handleFailData(Mapping mapping, Meta meta, TableGroup tableGroup, String targetTableName,
-            String event, List<Map> failData, String errorMsg, boolean isErrQueueRetry) {
+            String event, List<Map> failData, Exception e, boolean isErrQueueRetry) throws Exception {
         if (failData == null || failData.isEmpty()) {
             return;
         }
-        logger.error("mappingId={}: tableName={}, error={}", mapping.getId(), targetTableName, errorMsg);
-        logService.log(mapping, LogType.SYNC, errorMsg);
-        notifyError(meta, targetTableName, errorMsg, failData.size(), NotifyType.DATA_ERROR_QUEUE);
+        logger.error("mappingId={}: tableName={}, error={}", mapping.getId(), targetTableName, e);
+        logService.log(mapping, LogType.SYNC, e.getMessage());
+        notifyError(meta, targetTableName, e.getMessage(), failData.size(), NotifyType.DATA_ERROR_QUEUE);
         if (isErrQueueRetry) {
-            return;
+            throw e;
         }
         String metaId = meta.getId();
         String tableGroupId = tableGroup != null ? tableGroup.getId() : null;
         try {
-            persistError(metaId, tableGroupId, targetTableName, event, failData, errorMsg);
-        } catch (Exception e) {
-            closeTask(meta, targetTableName, "无法写入错误队列：" + e.getMessage(),
+            persistError(metaId, tableGroupId, targetTableName, event, failData, e.getMessage());
+        } catch (Exception e2) {
+            closeTask(meta, targetTableName, "无法写入错误队列：" + e2.getMessage(),
                     failData.size(), NotifyType.DATA_ERROR_QUEUE);
             return;
         }
@@ -93,18 +93,18 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
     }
 
     public void handleDdlFailData(Mapping mapping, Meta meta, TableGroup tableGroup, String targetTableName,
-            DDLConfig ddlConfig, String errorMsg, boolean isErrQueueRetry) {
+            DDLConfig ddlConfig, Exception e, boolean isErrQueueRetry) throws Exception {
         String metaId = meta.getId();
         String tableGroupId = tableGroup != null ? tableGroup.getId() : null;
-        logger.error("mappingId={}: tableName={}, error={}", mapping.getId(), targetTableName, errorMsg);
-        logService.log(mapping, LogType.SYNC, errorMsg);
-        notifyError(meta, targetTableName, errorMsg, 1, NotifyType.DATA_ERROR_QUEUE);
+        logger.error("mappingId={}: tableName={}, error={}", mapping.getId(), targetTableName, e);
+        logService.log(mapping, LogType.SYNC, e.getMessage());
+        notifyError(meta, targetTableName, e.getMessage(), 1, NotifyType.DATA_ERROR_QUEUE);
         if (isErrQueueRetry) {
-            return;
+            throw e;
         }
         Map<String, Object> row = new HashMap<>();
         row.put(ConfigConstant.BINLOG_DATA, JsonUtil.objToJson(ddlConfig));
-        persistErrorRow(metaId, tableGroupId, targetTableName, ConnectorConstant.OPERTION_ALTER, row, errorMsg);
+        persistErrorRow(metaId, tableGroupId, targetTableName, ConnectorConstant.OPERTION_ALTER, row, e.getMessage());
         counterService.incrementFail(meta, tableGroup, 1);
         checkCircuitBreaker(meta, meta.getMappingId());
     }

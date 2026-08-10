@@ -33,7 +33,7 @@ public class SyncPipeline {
 
     public void execute(SyncTask task, List<Map> source, List<Field> sourceFields,
             Map<String, Integer> fieldIndexMap, boolean enableFilter,
-            List<List<Object>> rows, List<List<Object>> beforeRows) {
+            List<List<Object>> rows, List<List<Object>> beforeRows) throws Exception {
         List<SyncRow> target = null;
         try {
             if (sourceFields == null) {
@@ -47,7 +47,6 @@ public class SyncPipeline {
             connectorFactory.writeBatch(target, task.getMeta(), task.getMapping(),
                     task.getTableGroup(), counterService, errorQueueCollector, task.isErrQueueRetry());
         } catch (Exception e) {
-            logger.error("同步异常！", e);
             if (target == null) {
                 errorQueueCollector.closeTask(task.getMeta(), task.getTableGroup().getTargetTable().getName(),
                         e.getMessage(), 0, NotifyType.TASK_INTERRUPTED);
@@ -56,7 +55,7 @@ public class SyncPipeline {
             String event = target.get(0).getContext().getEvent();
             List<Map> failData = target.stream().map(SyncRow::getSourceData).collect(Collectors.toList());
             errorQueueCollector.handleFailData(task.getMapping(), task.getMeta(), task.getTableGroup(),
-                    task.getTableGroup().getTargetTable().getName(), event, failData, e.getMessage(),
+                    task.getTableGroup().getTargetTable().getName(), event, failData, e,
                     task.isErrQueueRetry());
         }
     }

@@ -266,15 +266,9 @@ public class ErrorQueueRetrierImpl implements ErrorQueueRetrier {
             // 设置ChangedOffset的metaId（changedOffset是final的，需要通过getChangedOffset()获取后设置）
             changedEvent.getChangedOffset().setMetaId(metaId);
 
-            try {
-                // 直接执行数据重做（不走队列，同步执行）
-                MetaBufferActuator actuator = bufferActuatorRouter.getOrCreateActuator(metaId);
-                actuator.executeDirectly(changedEvent);
-
-            } catch (Exception e) {
-                logger.error("数据重做失败, messageId={}, error={}", messageId, e.getMessage(), e);
-                throw new RuntimeException("数据重做执行失败: " + e.getMessage(), e);
-            }
+            // 直接执行数据重做（不走队列，同步执行）
+            MetaBufferActuator actuator = bufferActuatorRouter.getOrCreateActuator(metaId);
+            actuator.executeDirectly(changedEvent);
         }
 
         // 执行成功后，删除存储中的失败数据并更新统计
