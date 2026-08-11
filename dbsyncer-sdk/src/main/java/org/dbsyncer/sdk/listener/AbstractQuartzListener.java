@@ -107,6 +107,7 @@ public abstract class AbstractQuartzListener extends AbstractListener implements
     public void close() {
         scheduledTaskService.stop(taskKey);
         running = false;
+        super.close();
     }
 
     private void execute(TableGroupQuartzCommand cmd, int index) {

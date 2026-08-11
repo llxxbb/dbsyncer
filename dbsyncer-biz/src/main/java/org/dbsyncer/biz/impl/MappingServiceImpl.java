@@ -380,7 +380,7 @@ public class MappingServiceImpl implements MappingService {
                 profileComponent.editConfigModel(tableGroup);
             }
 
-            this.logService.log(mapping, LogType.STOP, LogLevel.INFO, LogType.STOP.getType() + ":" + mapping.getName());
+            this.logService.log(mapping, LogType.STOP, LogLevel.INFO, "停止同步任务");
 
             // 发送关闭驱动通知消息
             String mappingId = mapping.getId();

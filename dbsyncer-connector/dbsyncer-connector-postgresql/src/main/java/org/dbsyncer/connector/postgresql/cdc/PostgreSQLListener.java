@@ -130,6 +130,7 @@ public class PostgreSQLListener extends AbstractDatabaseListener {
             DatabaseUtil.close(stream);
             DatabaseUtil.close(connection);
             dropReplicationSlot();
+            super.close();
         } catch (Exception e) {
             logger.error("关闭失败:{}", e.getMessage());
         }

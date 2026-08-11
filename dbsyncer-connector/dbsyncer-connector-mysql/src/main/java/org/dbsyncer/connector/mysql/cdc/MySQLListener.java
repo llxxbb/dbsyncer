@@ -79,6 +79,7 @@ public class MySQLListener extends AbstractDatabaseListener {
             if (client != null && client.isConnected()) {
                 client.disconnect();
             }
+            super.close();
         } catch (Exception e) {
             logger.error("关闭失败:{}", e.getMessage());
         } finally {

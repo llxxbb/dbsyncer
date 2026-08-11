@@ -2,7 +2,6 @@ package org.dbsyncer.sdk.connector.database;
 
 import org.dbsyncer.common.model.Result;
 import org.dbsyncer.common.util.CollectionUtils;
-import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.sdk.SdkException;
 import org.dbsyncer.sdk.config.CommandConfig;
@@ -23,7 +22,6 @@ import org.dbsyncer.sdk.enums.TableTypeEnum;
 import org.dbsyncer.sdk.model.*;
 import org.dbsyncer.sdk.parser.ddl.converter.IRToTargetConverter;
 import org.dbsyncer.sdk.parser.ddl.converter.SourceToIRConverter;
-import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.plugin.ReaderContext;
 import org.dbsyncer.sdk.plugin.SyncRow;
 import org.dbsyncer.sdk.spi.ConnectorService;
@@ -42,7 +40,6 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.sql.Types;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -57,23 +54,10 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
     protected final Logger logger = LoggerFactory.getLogger(getClass());
     public SqlTemplate sqlTemplate;
 
-    /**
-     * 全局 LogService（单例，应用启动时设置一次）
-     */
-    protected static org.dbsyncer.sdk.spi.LogService staticLogService;
 
     public SourceToIRConverter sourceToIRConverter;
 
     public IRToTargetConverter irToTargetConverter;
-
-    /**
-     * 设置全局日志服务（应用启动时设置一次）
-     *
-     * @param logService 日志服务
-     */
-    public static void setStaticLogService(org.dbsyncer.sdk.spi.LogService logService) {
-        staticLogService = logService;
-    }
 
     /**
      * 是否为DQL连接器

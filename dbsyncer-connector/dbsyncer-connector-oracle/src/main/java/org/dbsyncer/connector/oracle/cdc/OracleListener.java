@@ -11,7 +11,6 @@ import net.sf.jsqlparser.statement.alter.Alter;
 import net.sf.jsqlparser.statement.delete.Delete;
 import net.sf.jsqlparser.statement.insert.Insert;
 import net.sf.jsqlparser.statement.update.Update;
-import org.dbsyncer.common.QueueOverflowException;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.oracle.OracleException;
 import org.dbsyncer.connector.oracle.logminer.LogMiner;
@@ -22,7 +21,6 @@ import org.dbsyncer.connector.oracle.logminer.parser.impl.UpdateSql;
 import org.dbsyncer.sdk.config.DatabaseConfig;
 import org.dbsyncer.sdk.constant.ConnectorConstant;
 import org.dbsyncer.sdk.listener.AbstractDatabaseListener;
-import org.dbsyncer.sdk.listener.ChangedEvent;
 import org.dbsyncer.sdk.listener.event.DDLChangedEvent;
 import org.dbsyncer.sdk.listener.event.RowChangedEvent;
 import org.dbsyncer.sdk.model.ChangedOffset;
@@ -33,8 +31,6 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 /**
  * @Author AE86
@@ -146,6 +142,7 @@ public class OracleListener extends AbstractDatabaseListener {
         if (logMiner != null) {
             logMiner.close();
         }
+        super.close();
     }
 
     @Override

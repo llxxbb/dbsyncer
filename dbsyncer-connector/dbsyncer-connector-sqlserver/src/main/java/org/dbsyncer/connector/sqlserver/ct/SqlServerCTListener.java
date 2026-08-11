@@ -147,6 +147,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
             }
             connected = false;
         }
+        super.close();
     }
 
     /**

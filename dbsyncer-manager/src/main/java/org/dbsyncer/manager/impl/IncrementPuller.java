@@ -227,6 +227,8 @@ public final class IncrementPuller implements Puller {
             abstractListener.setSourceTable(sourceTable);
             abstractListener.setSnapshot(meta.getSnapshot());
             abstractListener.setMetaId(meta.getId());
+            abstractListener.setStaticLogService(logService);
+            abstractListener.setMapping(mapping);
         }
 
         listener.init();

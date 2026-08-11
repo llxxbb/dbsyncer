@@ -164,7 +164,6 @@ public final class BufferActuatorRouter implements DisposableBean {
         actuator.setCounterService(counterService);
         actuator.setDdlParser(ddlParser);
         actuator.setTableGroupContext(tableGroupContext);
-        actuator.setLogService(logService);
         actuator.setTableGroupModelService(tableGroupModelService);
         actuator.setErrorQueueCollector(errorQueueCollector);
         actuator.messageService = messageService;

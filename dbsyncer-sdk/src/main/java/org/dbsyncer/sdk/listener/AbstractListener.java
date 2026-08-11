@@ -10,8 +10,11 @@ import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.constant.ConnectorConstant;
 import org.dbsyncer.sdk.model.ChangedOffset;
 import org.dbsyncer.sdk.model.ConnectorConfig;
+import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.spi.ConnectorService;
+import org.dbsyncer.sdk.spi.LogService;
+import org.dbsyncer.sdk.spi.LogType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 public abstract class AbstractListener<C extends ConnectorInstance> implements Listener {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
+    protected static LogService staticLogService;
     protected ConnectorInstance connectorInstance;
     protected ConnectorInstance targetConnectorInstance;
     protected ConnectorService connectorService;
@@ -39,6 +43,7 @@ public abstract class AbstractListener<C extends ConnectorInstance> implements L
     protected List<Table> sourceTable;
     protected Map<String, String> snapshot;
     protected String metaId;
+    protected Mapping mapping;
     private Watcher watcher;
     // 保存上次持久化的 snapshot，用于判断是否发生变化
     private Map<String, String> lastFlushedSnapshot;
@@ -225,6 +230,19 @@ public abstract class AbstractListener<C extends ConnectorInstance> implements L
 
     public void setMetaId(String metaId) {
         this.metaId = metaId;
+    }
+
+    public static void setStaticLogService(LogService logService) {
+        staticLogService = logService;
+    }
+
+    public void setMapping(Mapping mapping) {
+        this.mapping = mapping;
+    }
+
+    @Override
+    public void close() {
+        staticLogService.log(mapping, LogType.STOP, "结束增量同步");
     }
 
 }

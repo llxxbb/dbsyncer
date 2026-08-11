@@ -127,6 +127,7 @@ public class FileListener extends AbstractListener {
                 worker.interrupt();
                 worker = null;
             }
+            super.close();
         } catch (Exception e) {
             logger.error("关闭失败:{}", e.getMessage());
         }

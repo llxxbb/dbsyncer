@@ -22,8 +22,6 @@ import org.dbsyncer.sdk.notify.NotifyType;
 import org.dbsyncer.parser.service.TableGroupModelService;
 import org.dbsyncer.sdk.connector.CounterService;
 import org.dbsyncer.sdk.connector.ErrorQueueCollector;
-import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
-import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.MessageService;
 import org.dbsyncer.sdk.plugin.AbstractPluginContext;
 import org.dbsyncer.sdk.config.DDLConfig;
@@ -37,8 +35,6 @@ import org.dbsyncer.sdk.listener.Listener;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.sdk.util.RowConverter;
 import org.springframework.util.Assert;
-
-import javax.annotation.PostConstruct;
 
 import java.time.Instant;
 import java.util.*;
@@ -63,20 +59,9 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
     private CounterService counterService;
     private DDLParser ddlParser;
     private TableGroupContext tableGroupContext;
-    private LogService logService;
     private TableGroupModelService tableGroupModelService;
     private ErrorQueueCollector errorQueueCollector;
     public MessageService messageService;
-
-    /**
-     * 初始化时设置全局 LogService（一次设置，长期使用）
-     */
-    @PostConstruct
-    public void init() {
-        if (null != logService) {
-            AbstractDatabaseConnector.setStaticLogService(logService);
-        }
-    }
 
     /**
      * 是否有待处理的任务（事件进入队列时设置为 true，队列为空时设置为 false）
@@ -532,16 +517,6 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
                 response.getEvent(), failData, e, response.isErrQueueRetry());
     }
 
-    private void sendNotify(Mapping mapping, String message) {
-        StringBuilder msg = new StringBuilder();
-        msg.append("### DBSyncer\n\n");
-        msg.append("**通知类型**: 数据同步异常\n\n");
-        msg.append("**Mapping ID**: ").append(mapping.getId()).append("\n\n");
-        msg.append("**任务名称**: ").append(mapping.getName()).append("\n\n");
-        msg.append("**异常内容**: ").append(message).append("\n\n");
-        messageService.sendMessage("dbsyncer", msg.toString(), NotifyType.DATA_SYNC_EXCEPTION);
-    }
-
     // Getters and Setters
     public String getMetaId() {
         return metaId;
@@ -577,10 +552,6 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
 
     public void setTableGroupContext(TableGroupContext tableGroupContext) {
         this.tableGroupContext = tableGroupContext;
-    }
-
-    public void setLogService(LogService logService) {
-        this.logService = logService;
     }
 
     public void setErrorQueueCollector(ErrorQueueCollector errorQueueCollector) {

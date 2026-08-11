@@ -141,6 +141,7 @@ public class SqlServerListener extends AbstractDatabaseListener {
             }
             connected = false;
         }
+        super.close();
     }
 
     @Override
