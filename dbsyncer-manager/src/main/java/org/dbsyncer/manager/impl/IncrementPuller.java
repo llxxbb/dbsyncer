@@ -23,6 +23,7 @@ import org.dbsyncer.sdk.config.ListenerConfig;
 import org.dbsyncer.sdk.enums.ListenerTypeEnum;
 import org.dbsyncer.sdk.listener.AbstractListener;
 import org.dbsyncer.sdk.listener.AbstractQuartzListener;
+import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.listener.Listener;
@@ -119,7 +120,6 @@ public final class IncrementPuller implements Puller {
             try {
                 Listener listener = meta.getListener();
                 if (listener == null) {
-                    logger.info("开始增量同步：{}, {}", metaId, mapping.getName());
                     long now = Instant.now().toEpochMilli();
                     meta.setBeginTime(now);
                     meta.setEndTime(now);
@@ -130,6 +130,7 @@ public final class IncrementPuller implements Puller {
                     meta.setListener(listener);
                 }
                 logger.info("starting increment puller for mappingId: {}", mappingId);
+                logService.log(mapping, LogType.START, LogLevel.INFO, "开始增量同步");
                 listener.start();
             } catch (Exception e) {
                 // 记录运行时异常状态和异常信息
@@ -140,8 +141,8 @@ public final class IncrementPuller implements Puller {
                     throw new RuntimeException(ex);
                 }
                 logService.log(mapping, LogType.START, String.format("启动异常：mappingId=%s, metaId=%s, 错误信息=%s", mapping.getId(), metaId, e.getMessage()));
-                logger.error("运行异常，结束增量同步：{}", metaId, e);
-            }
+                logger.error("运行异常，结束增量同步：{}", mappingId, e);
+            } 
         });
         worker.setName("increment-worker-" + mapping.getId());
         worker.setDaemon(false);

@@ -4,6 +4,7 @@ import org.dbsyncer.common.model.Paging;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.sdk.config.DDLConfig;
 import org.dbsyncer.sdk.connector.ErrorQueueCollector;
+import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.spi.MessageService;
@@ -101,7 +102,7 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
         String metaId = meta.getId();
         String tableGroupId = tableGroup != null ? tableGroup.getId() : null;
         logger.error("mappingId={}: tableName={}, error={}", mapping.getId(), targetTableName, e);
-        logService.log(mapping, LogType.SYNC, e.getMessage());
+        logService.log(mapping, LogType.SYNC, LogLevel.ERROR, e.getMessage());
         notifyError(meta, targetTableName, e.getMessage(), 1, NotifyType.DATA_ERROR_QUEUE);
         if (isErrQueueRetry) {
             throw e;

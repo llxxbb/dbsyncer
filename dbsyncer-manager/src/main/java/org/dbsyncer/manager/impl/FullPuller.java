@@ -78,6 +78,7 @@ public final class FullPuller implements org.dbsyncer.manager.Puller, ProcessEve
             assert meta != null;
             try {
                 logger.info("开始全量同步：{}, {}", metaId, mapping.getName());
+                logService.log(mapping, LogType.START, LogLevel.INFO, "开始全量同步");
                 doTask(metaId, mapping, list, executor, tableGroupIdsToSync);
             } catch (Exception e) {
                 // 记录运行时异常状态和异常信息
