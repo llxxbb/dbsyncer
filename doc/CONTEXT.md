@@ -59,6 +59,14 @@ DBSyncer 是一款开源的数据同步中间件，支持 MySQL、Oracle、SqlSe
 - `同步源字段名`：来自 `Picker.sourceFields = TableGroup.getSyncSourceFields()`，仅包含配置了同步映射的字段
 - `原始类型值`：保持 binlog 原始类型，未经 `ConvertUtil.convert()` 目标类型转换
 
+### Fatal Keywords (致命关键字)
+
+预定义的错误消息模式列表。当错误消息匹配任一致命关键字时，立即终止同步任务，跳过错误队列写入。
+
+用于处理本质上不可恢复的错误（如数据损坏、约束违反），避免产生更多垃圾数据。
+
+与 ErrorQueue（可恢复）和 CircuitBreaker（累积阈值）并列，属于第三种错误处理策略——即时判定。
+
 ### AbstractDataType (抽象数据类型)
 
 统一的类型系统，用于跨数据库类型转换：
@@ -174,16 +182,6 @@ DBSyncer 是一款开源的数据同步中间件，支持 MySQL、Oracle、SqlSe
 - **Monitor**: 同步监控数据
 - **Progress**: 同步进度信息
 
-## 架构决策参考
-
-相关 ADR 文档：
-
-- [0001-Field Mapping 高级配置](./adr/0001-field-mapping-advanced-config.md) - 自定义字段元数据编辑
-- [0008-字段表名大小写不敏感](./adr/0008-field-table-case-insensitive.md) - 大小写处理
-- [0009-字段差异分析](./adr/0009-字段差异分析增加 MAPPING_ONLY 检测与修复.md) - 字段差异检测
-- [0018-引入上下文感知的数据模型](./adr/0018-引入上下文感知的数据模型.md) - 数据模型重构
-- [0021-字段差异修复弹窗公共化](./adr/0021-字段差异修复弹窗公共化.md) - 修复预览弹窗下沉到公共组件
-- [0023-错误队列数据一致性修复](./adr/0023-错误队列数据一致性修复.md) - 统一错误队列服务、熔断机制、对账功能
 
 ## 业务规则
 

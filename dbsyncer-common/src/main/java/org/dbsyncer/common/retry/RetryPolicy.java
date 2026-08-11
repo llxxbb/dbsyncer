@@ -1,5 +1,7 @@
 package org.dbsyncer.common.retry;
 
+import org.dbsyncer.common.util.MatchMode;
+
 import java.util.List;
 
 /**
@@ -46,20 +48,6 @@ public class RetryPolicy {
 
     /** 缓存的排除关键字匹配器 */
     private volatile KeywordMatcher excludeMatcher;
-
-    /**
-     * 关键字匹配模式
-     */
-    public enum MatchMode {
-        /** 精确匹配 */
-        EXACT,
-        /** 包含匹配 */
-        CONTAINS,
-        /** 精确匹配（忽略大小写） */
-        CASE_INSENSITIVE,
-        /** 包含匹配（忽略大小写） */
-        CONTAINS_IGNORE_CASE
-    }
 
     public boolean isDisable() {
         return disable;

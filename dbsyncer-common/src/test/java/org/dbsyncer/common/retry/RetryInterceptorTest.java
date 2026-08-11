@@ -1,5 +1,6 @@
 package org.dbsyncer.common.retry;
 
+import org.dbsyncer.common.util.MatchMode;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -112,7 +113,7 @@ public class RetryInterceptorTest {
         policy.setMultiplier(1.0);
         policy.setUseKeyword(true);
         policy.setKeywords(Arrays.asList("deadlock"));
-        policy.setMatchMode(RetryPolicy.MatchMode.CONTAINS);
+        policy.setMatchMode(MatchMode.CONTAINS);
 
         String result = interceptor.execute(op, policy);
 
@@ -135,7 +136,7 @@ public class RetryInterceptorTest {
         policy.setMultiplier(1.0);
         policy.setUseKeyword(true);
         policy.setKeywords(Arrays.asList("deadlock"));
-        policy.setMatchMode(RetryPolicy.MatchMode.CONTAINS);
+        policy.setMatchMode(MatchMode.CONTAINS);
 
         try {
             interceptor.execute(op, policy);
@@ -357,7 +358,7 @@ public class RetryInterceptorTest {
         policy.setUseKeyword(true);
         policy.setKeywords(Arrays.asList("deadlock"));       // 命中 - 应重试
         policy.setExcludeKeywords(Arrays.asList("fatal"));   // 命中 - 不重试
-        policy.setMatchMode(RetryPolicy.MatchMode.CONTAINS);
+        policy.setMatchMode(MatchMode.CONTAINS);
 
         try {
             interceptor.execute(op, policy);
@@ -387,7 +388,7 @@ public class RetryInterceptorTest {
         policy.setUseKeyword(true);
         policy.setKeywords(Arrays.asList("timeout"));         // 不命中
         policy.setExcludeKeywords(Arrays.asList("deadlock")); // 命中
-        policy.setMatchMode(RetryPolicy.MatchMode.CONTAINS);
+        policy.setMatchMode(MatchMode.CONTAINS);
 
         try {
             interceptor.execute(op, policy);
@@ -418,7 +419,7 @@ public class RetryInterceptorTest {
         policy.setMultiplier(1.0);
         policy.setUseKeyword(false);  // 关闭关键字匹配
         policy.setKeywords(Arrays.asList("deadlock"));
-        policy.setMatchMode(RetryPolicy.MatchMode.CONTAINS);
+        policy.setMatchMode(MatchMode.CONTAINS);
 
         String result = interceptor.execute(op, policy);
 
@@ -445,7 +446,7 @@ public class RetryInterceptorTest {
         policy.setUseKeyword(true);
         policy.setKeywords(Arrays.asList("deadlock"));
         policy.setExcludeKeywords(null);  // excludeKeywords 为 null
-        policy.setMatchMode(RetryPolicy.MatchMode.CONTAINS);
+        policy.setMatchMode(MatchMode.CONTAINS);
 
         String result = interceptor.execute(op, policy);
 
@@ -472,7 +473,7 @@ public class RetryInterceptorTest {
         policy.setUseKeyword(true);
         policy.setKeywords(Arrays.asList());       // 空
         policy.setExcludeKeywords(Arrays.asList()); // 空
-        policy.setMatchMode(RetryPolicy.MatchMode.CONTAINS);
+        policy.setMatchMode(MatchMode.CONTAINS);
 
         // useKeyword=true 且 keywords 为空时，isKeywordMatch 返回 false
         // 因此不重试，直接抛出异常

@@ -1,5 +1,6 @@
 package org.dbsyncer.common.retry;
 
+import org.dbsyncer.common.util.MatchMode;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -21,7 +22,7 @@ public class RetryPolicyTest {
         RetryPolicy policy = new RetryPolicy();
         policy.setUseKeyword(true);
         policy.setKeywords(Arrays.asList("deadlock", "timeout"));
-        policy.setMatchMode(RetryPolicy.MatchMode.EXACT);
+        policy.setMatchMode(MatchMode.EXACT);
 
         assertTrue(policy.isKeywordMatch("deadlock"));
         assertTrue(policy.isKeywordMatch("timeout"));
@@ -34,7 +35,7 @@ public class RetryPolicyTest {
         RetryPolicy policy = new RetryPolicy();
         policy.setUseKeyword(true);
         policy.setKeywords(Arrays.asList("deadlock", "timeout"));
-        policy.setMatchMode(RetryPolicy.MatchMode.CONTAINS);
+        policy.setMatchMode(MatchMode.CONTAINS);
 
         assertTrue(policy.isKeywordMatch("a deadlock occurred"));
         assertTrue(policy.isKeywordMatch("request timeout"));
@@ -46,7 +47,7 @@ public class RetryPolicyTest {
         RetryPolicy policy = new RetryPolicy();
         policy.setUseKeyword(true);
         policy.setKeywords(Arrays.asList("deadlock", "timeout"));
-        policy.setMatchMode(RetryPolicy.MatchMode.CASE_INSENSITIVE);
+        policy.setMatchMode(MatchMode.CASE_INSENSITIVE);
 
         assertTrue(policy.isKeywordMatch("DEADLOCK"));
         assertTrue(policy.isKeywordMatch("Timeout"));
@@ -58,7 +59,7 @@ public class RetryPolicyTest {
         RetryPolicy policy = new RetryPolicy();
         policy.setUseKeyword(true);
         policy.setKeywords(Arrays.asList("deadlock", "timeout"));
-        policy.setMatchMode(RetryPolicy.MatchMode.CONTAINS_IGNORE_CASE);
+        policy.setMatchMode(MatchMode.CONTAINS_IGNORE_CASE);
 
         assertTrue(policy.isKeywordMatch("A DeadLock Occurred"));
         assertTrue(policy.isKeywordMatch("TIMEOUT error"));
@@ -78,7 +79,7 @@ public class RetryPolicyTest {
         RetryPolicy policy = new RetryPolicy();
         policy.setUseKeyword(true);
         policy.setKeywords(Arrays.asList("deadlock"));
-        policy.setMatchMode(RetryPolicy.MatchMode.CONTAINS);
+        policy.setMatchMode(MatchMode.CONTAINS);
 
         assertFalse(policy.isKeywordMatch(""));
         assertFalse(policy.isKeywordMatch(null));
@@ -105,7 +106,7 @@ public class RetryPolicyTest {
     public void testIsExcludeKeywordMatchExact() {
         RetryPolicy policy = new RetryPolicy();
         policy.setExcludeKeywords(Arrays.asList("illegal", "critical"));
-        policy.setMatchMode(RetryPolicy.MatchMode.EXACT);
+        policy.setMatchMode(MatchMode.EXACT);
 
         assertTrue(policy.isExcludeKeywordMatch("illegal"));
         assertTrue(policy.isExcludeKeywordMatch("critical"));
@@ -117,7 +118,7 @@ public class RetryPolicyTest {
     public void testIsExcludeKeywordMatchContainsIgnoreCase() {
         RetryPolicy policy = new RetryPolicy();
         policy.setExcludeKeywords(Arrays.asList("deadlock", "oom"));
-        policy.setMatchMode(RetryPolicy.MatchMode.CONTAINS_IGNORE_CASE);
+        policy.setMatchMode(MatchMode.CONTAINS_IGNORE_CASE);
 
         assertTrue(policy.isExcludeKeywordMatch("a deadlock occurred"));
         assertTrue(policy.isExcludeKeywordMatch("DEADLOCK in thread"));
@@ -153,7 +154,7 @@ public class RetryPolicyTest {
         RetryPolicy policy = new RetryPolicy();
         policy.setUseKeyword(true);
         policy.setKeywords(Arrays.asList("deadlock", "timeout"));
-        policy.setMatchMode(RetryPolicy.MatchMode.CONTAINS_IGNORE_CASE);
+        policy.setMatchMode(MatchMode.CONTAINS_IGNORE_CASE);
 
         // 第一次调用应初始化 matcher
         org.dbsyncer.common.retry.KeywordMatcher matcher1 = policy.getMatcher();
@@ -168,7 +169,7 @@ public class RetryPolicyTest {
     public void testGetExcludeMatcherCacheInitialization() {
         RetryPolicy policy = new RetryPolicy();
         policy.setExcludeKeywords(Arrays.asList("fatal", "critical"));
-        policy.setMatchMode(RetryPolicy.MatchMode.CONTAINS_IGNORE_CASE);
+        policy.setMatchMode(MatchMode.CONTAINS_IGNORE_CASE);
 
         // 第一次调用应初始化 excludeMatcher
         org.dbsyncer.common.retry.KeywordMatcher matcher1 = policy.getExcludeMatcher();
@@ -211,7 +212,7 @@ public class RetryPolicyTest {
     public void testSetKeywordsClearsMatcherCache() {
         RetryPolicy policy = new RetryPolicy();
         policy.setKeywords(Arrays.asList("deadlock"));
-        policy.setMatchMode(RetryPolicy.MatchMode.CONTAINS);
+        policy.setMatchMode(MatchMode.CONTAINS);
 
         // 获取初始 matcher
         org.dbsyncer.common.retry.KeywordMatcher matcher1 = policy.getMatcher();
@@ -232,7 +233,7 @@ public class RetryPolicyTest {
     public void testSetExcludeKeywordsClearsExcludeMatcherCache() {
         RetryPolicy policy = new RetryPolicy();
         policy.setExcludeKeywords(Arrays.asList("fatal"));
-        policy.setMatchMode(RetryPolicy.MatchMode.CONTAINS);
+        policy.setMatchMode(MatchMode.CONTAINS);
 
         // 获取初始 excludeMatcher
         org.dbsyncer.common.retry.KeywordMatcher matcher1 = policy.getExcludeMatcher();
@@ -253,7 +254,7 @@ public class RetryPolicyTest {
     public void testSetMatchModeClearsBothMatchers() {
         RetryPolicy policy = new RetryPolicy();
         policy.setKeywords(Arrays.asList("deadlock"));
-        policy.setMatchMode(RetryPolicy.MatchMode.CONTAINS);
+        policy.setMatchMode(MatchMode.CONTAINS);
 
         // 获取初始 matchers
         org.dbsyncer.common.retry.KeywordMatcher matcher1 = policy.getMatcher();
@@ -261,7 +262,7 @@ public class RetryPolicyTest {
         org.dbsyncer.common.retry.KeywordMatcher excludeMatcher1 = policy.getExcludeMatcher();
 
         // 修改 matchMode 应清空两个 matcher
-        policy.setMatchMode(RetryPolicy.MatchMode.CONTAINS_IGNORE_CASE);
+        policy.setMatchMode(MatchMode.CONTAINS_IGNORE_CASE);
         org.dbsyncer.common.retry.KeywordMatcher matcher2 = policy.getMatcher();
         org.dbsyncer.common.retry.KeywordMatcher excludeMatcher2 = policy.getExcludeMatcher();
 
@@ -275,7 +276,7 @@ public class RetryPolicyTest {
         RetryPolicy policy = new RetryPolicy();
         policy.setUseKeyword(true);
         policy.setKeywords(null);
-        policy.setMatchMode(RetryPolicy.MatchMode.CONTAINS);
+        policy.setMatchMode(MatchMode.CONTAINS);
 
         assertFalse(policy.isKeywordMatch(null));
         assertFalse(policy.isKeywordMatch(""));

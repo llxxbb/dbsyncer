@@ -1,5 +1,6 @@
 package org.dbsyncer.common.retry;
 
+import org.dbsyncer.common.util.MatchMode;
 import org.dbsyncer.common.util.StringUtil;
 
 import java.util.List;
@@ -11,9 +12,9 @@ import java.util.List;
 public class KeywordMatcher {
 
     private final List<String> keywords;
-    private final RetryPolicy.MatchMode matchMode;
+    private final MatchMode matchMode;
 
-    public KeywordMatcher(List<String> keywords, RetryPolicy.MatchMode matchMode) {
+    public KeywordMatcher(List<String> keywords, MatchMode matchMode) {
         this.keywords = keywords;
         this.matchMode = matchMode;
     }
