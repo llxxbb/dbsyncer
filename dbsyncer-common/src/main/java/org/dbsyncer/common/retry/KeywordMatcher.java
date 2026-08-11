@@ -20,14 +20,14 @@ public class KeywordMatcher {
     }
 
     /**
-     * 判断消息是否匹配任一关键字
+     * 查找消息中匹配的关键字
      *
      * @param message 待匹配的消息
-     * @return 是否匹配
+     * @return 匹配到的关键字，未匹配返回 null
      */
-    public boolean matches(String message) {
+    public String findMatch(String message) {
         if (message == null || keywords == null || keywords.isEmpty()) {
-            return false;
+            return null;
         }
 
         for (String keyword : keywords) {
@@ -35,10 +35,10 @@ public class KeywordMatcher {
                 continue;
             }
             if (match(message, keyword)) {
-                return true;
+                return keyword;
             }
         }
-        return false;
+        return null;
     }
 
     boolean match(String message, String keyword) {

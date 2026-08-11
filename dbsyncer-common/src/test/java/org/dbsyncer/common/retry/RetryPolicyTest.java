@@ -189,8 +189,8 @@ public class RetryPolicyTest {
         org.dbsyncer.common.retry.KeywordMatcher matcher = policy.getMatcher();
         assertNotNull(matcher);
 
-        // 匹配任何消息都应返回 false
-        assertFalse(matcher.matches("anything"));
+        // 匹配任何消息都应返回 null
+        assertNull(matcher.findMatch("anything"));
     }
 
     @Test
@@ -202,8 +202,8 @@ public class RetryPolicyTest {
         org.dbsyncer.common.retry.KeywordMatcher matcher = policy.getExcludeMatcher();
         assertNotNull(matcher);
 
-        // 匹配任何消息都应返回 false
-        assertFalse(matcher.matches("anything"));
+        // 匹配任何消息都应返回 null
+        assertNull(matcher.findMatch("anything"));
     }
 
     // ==================== setKeywords/setExcludeKeywords 清空缓存测试 ====================
@@ -225,8 +225,8 @@ public class RetryPolicyTest {
         assertNotSame(matcher1, matcher2);
 
         // 验证新 matcher 能匹配 timeout 但不能匹配 deadlock
-        assertTrue(matcher2.matches("a timeout occurred"));
-        assertFalse(matcher2.matches("a deadlock occurred"));
+        assertNotNull(matcher2.findMatch("a timeout occurred"));
+        assertNull(matcher2.findMatch("a deadlock occurred"));
     }
 
     @Test
@@ -246,8 +246,8 @@ public class RetryPolicyTest {
         assertNotSame(matcher1, matcher2);
 
         // 验证新 excludeMatcher 能匹配 critical 但不能匹配 fatal
-        assertTrue(matcher2.matches("a critical error"));
-        assertFalse(matcher2.matches("a fatal error"));
+        assertNotNull(matcher2.findMatch("a critical error"));
+        assertNull(matcher2.findMatch("a fatal error"));
     }
 
     @Test

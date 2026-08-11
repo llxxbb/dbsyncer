@@ -80,10 +80,8 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
             throw e;
         }
         if (errorQueueConfig.isFatalError(e.getMessage())) {
-            String reason = String.format("错误消息匹配致命关键字: %s", e.getMessage());
-            logger.warn("致命错误触发: metaId={}, {}", meta.getId(), reason);
-            closeTask(meta, targetTableName, reason, failData.size(), NotifyType.DATA_ERROR_FATAL);
-            return;
+            closeTask(meta, targetTableName, e.getMessage(), failData.size(), NotifyType.DATA_ERROR_FATAL);
+            throw e;
         }
         String metaId = meta.getId();
         String tableGroupId = tableGroup != null ? tableGroup.getId() : null;
@@ -109,10 +107,8 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
             throw e;
         }
         if (errorQueueConfig.isFatalError(e.getMessage())) {
-            String reason = String.format("DDL错误消息匹配致命关键字: %s", e.getMessage());
-            logger.warn("致命错误触发: metaId={}, {}", meta.getId(), reason);
-            closeTask(meta, targetTableName, reason, 1, NotifyType.DATA_ERROR_FATAL);
-            return;
+            closeTask(meta, targetTableName, e.getMessage(), 1, NotifyType.DATA_ERROR_FATAL);
+            throw e;
         }
         Map<String, Object> row = new HashMap<>();
         row.put(ConfigConstant.BINLOG_DATA, JsonUtil.objToJson(ddlConfig));

@@ -190,7 +190,7 @@ public class RetryPolicy {
             return false;
         }
         // 处理：使用缓存的匹配器进行匹配
-        return getMatcher().matches(message);
+        return getMatcher().findMatch(message) != null;
     }
 
     /**
@@ -207,6 +207,6 @@ public class RetryPolicy {
             return false;
         }
         // 处理：使用缓存的排除关键字匹配器进行匹配
-        return getExcludeMatcher().matches(message);
+        return getExcludeMatcher().findMatch(message) != null;
     }
 }

@@ -66,6 +66,10 @@ public class ErrorQueueConfig {
                 }
             }
         }
-        return fatalMatcher.matches(message);
+        String matched = fatalMatcher.findMatch(message);
+        if (matched != null) {
+            logger.warn("检测到致命错误消息: keyword={}, message={}", matched, message);
+        }
+        return matched != null;
     }
 }

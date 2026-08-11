@@ -171,35 +171,23 @@ public class RetryInterceptor {
      * - 未命中任何关键字：返回 null
      */
     private String findMatchedKeyword(String message, RetryPolicy policy) {
-        // 验证：message 为空时直接返回
         if (message == null) {
             return null;
         }
 
-        // 处理 1：优先检查排除关键字
         List<String> excludeKeywords = policy.getExcludeKeywords();
         if (excludeKeywords != null && !excludeKeywords.isEmpty()) {
-            KeywordMatcher excludeMatcher = policy.getExcludeMatcher();
-            for (String keyword : excludeKeywords) {
-                if (keyword != null && excludeMatcher.match(message, keyword)) {
-                    return "EXCLUDED:" + keyword;
-                }
+            String matched = policy.getExcludeMatcher().findMatch(message);
+            if (matched != null) {
+                return "EXCLUDED:" + matched;
             }
         }
 
-        // 处理 2：再检查重试关键字
         List<String> keywords = policy.getKeywords();
         if (keywords == null || keywords.isEmpty()) {
             return null;
         }
-        KeywordMatcher matcher = policy.getMatcher();
-        for (String keyword : keywords) {
-            if (keyword != null && matcher.match(message, keyword)) {
-                return keyword;
-            }
-        }
-        // 返回：未命中任何关键字
-        return null;
+        return policy.getMatcher().findMatch(message);
     }
 
     /**
