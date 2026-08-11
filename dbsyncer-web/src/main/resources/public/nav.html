@@ -9,23 +9,23 @@
         </div>
         <div>
             <ul id="menu" class="nav navbar-nav">
-                <li class="active"><a href="javascript:void(0);"  data-route="1" url="/index?projectGroupId="><span
+                <li><a href="javascript:void(0);"  data-route="1" data-path="/index" url="/index?projectGroupId="><span
                         class="fa fa-tachometer"></span>任务</a>
                 </li>
-                <li th:if="${currentUser?.roleCode eq 'admin'}"><a href="javascript:void(0);" url="/index/abnormalTasks" data-route="1"><span
+                <li th:if="${currentUser?.roleCode eq 'admin'}"><a href="javascript:void(0);" data-path="/index/abnormalTasks" url="/index/abnormalTasks" data-route="1"><span
                         class="fa fa-exclamation-triangle"></span>异常任务</a>
                 </li>
-                 <li th:if="${currentUser?.roleCode eq 'admin'}"><a href="javascript:void(0);" url="/datasource" data-route="2"><span class="fa fa-database"></span>数据源</a></li>
-                <li th:if="${currentUser?.roleCode eq 'admin'}"><a href="javascript:void(0);" url="/monitor" data-route="3"><span class="fa fa-line-chart"></span>监控</a></li>
-                <li><a href="javascript:void(0);" url="/helpDoc" data-route="6"><span class="fa fa-book" aria-hidden="true"></span>帮助文档</a></li>
+                 <li th:if="${currentUser?.roleCode eq 'admin'}"><a href="javascript:void(0);" data-path="/datasource" url="/datasource" data-route="2"><span class="fa fa-database"></span>数据源</a></li>
+                <li th:if="${currentUser?.roleCode eq 'admin'}"><a href="javascript:void(0);" data-path="/monitor" url="/monitor" data-route="3"><span class="fa fa-line-chart"></span>监控</a></li>
+                <li><a href="javascript:void(0);" data-path="/helpDoc" url="/helpDoc" data-route="6"><span class="fa fa-book" aria-hidden="true"></span>帮助文档</a></li>
                 <li th:if="${currentUser?.roleCode eq 'admin'}" class="dropdown">
                     <a href="javascript:void(0);" class="dropdown-toggle" data-toggle="dropdown">配置<b class="caret"></b></a>
                     <ul class="dropdown-menu">
-                        <li><a href="javascript:void(0);" url="/system" data-route="5"><span class="fa fa-cog"></span>系统参数</a></li>
-                        <li><a href="javascript:void(0);" url="/user" data-route="5"><span class="fa fa-users"></span>用户管理</a></li>
-                        <li><a href="javascript:void(0);" url="/userGroup" data-route="5"><span class="fa fa-object-group"></span>用户组管理</a></li>
-                        <li><a href="javascript:void(0);" url="/config" data-route="5"><span class="fa fa-file-code-o" aria-hidden="true"></span>配置管理</a></li>
-                        <li><a href="javascript:void(0);" url="/license" data-route="5"><span class="fa fa-key" aria-hidden="true"></span>授权许可</a></li>
+                        <li><a href="javascript:void(0);" data-path="/system" url="/system" data-route="5"><span class="fa fa-cog"></span>系统参数</a></li>
+                        <li><a href="javascript:void(0);" data-path="/user" url="/user" data-route="5"><span class="fa fa-users"></span>用户管理</a></li>
+                        <li><a href="javascript:void(0);" data-path="/userGroup" url="/userGroup" data-route="5"><span class="fa fa-object-group"></span>用户组管理</a></li>
+                        <li><a href="javascript:void(0);" data-path="/config" url="/config" data-route="5"><span class="fa fa-file-code-o" aria-hidden="true"></span>配置管理</a></li>
+                        <li><a href="javascript:void(0);" data-path="/license" url="/license" data-route="5"><span class="fa fa-key"></span>授权许可</a></li>
                     </ul>
                 </li>
             </ul>

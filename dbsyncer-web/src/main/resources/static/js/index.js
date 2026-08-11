@@ -120,16 +120,17 @@ function handleHashChange() {
     const $menu = $("#menu > li");
     $menu.removeClass('active');
     
-    // 查找匹配的菜单项并设置为活动状态
-    const baseUrl = url.split('?')[0];
-    const matchingMenuItem = $("#menu li a[url^='" + baseUrl + "']").parent();
+    // 使用data-path精确匹配菜单项
+    const urlPath = url.split('?')[0];
+    const $matchingLink = $("#menu li a[data-path='" + urlPath + "']");
     
-    if (matchingMenuItem.length > 0) {
+    if ($matchingLink.length > 0) {
+        const $matchingLi = $matchingLink.parent();
         // 如果是下拉菜单中的菜单项，也需要给父菜单项添加active类
-        if (matchingMenuItem.parents('.dropdown').length > 0) {
-            matchingMenuItem.parents('.dropdown').addClass('active');
+        if ($matchingLi.parents('.dropdown').length > 0) {
+            $matchingLi.parents('.dropdown').addClass('active');
         } else {
-            matchingMenuItem.addClass('active');
+            $matchingLi.addClass('active');
         }
     }
     
