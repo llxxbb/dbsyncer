@@ -32,7 +32,7 @@ public enum NotifyType {
     /**
      * 致命错误（匹配致命关键字）
      */
-    DATA_ERROR_FATAL,
+    FATAL_MATCHED,
     
     DDL, DATA_SYNC_EXCEPTION;
 
@@ -51,8 +51,8 @@ public enum NotifyType {
                 return "手动操作";
             case DATA_ERROR_CIRCUIT_BREAKER:
                 return "错误队列熔断";
-            case DATA_ERROR_FATAL:
-                return "致命错误";
+            case FATAL_MATCHED:
+                return "致命关键字命中";
             case DDL:
                 return "DDL操作";
             case DATA_SYNC_EXCEPTION:

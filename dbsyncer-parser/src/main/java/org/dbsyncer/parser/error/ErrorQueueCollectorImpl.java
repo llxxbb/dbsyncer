@@ -81,7 +81,7 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
             throw e;
         }
         if (errorQueueConfig.isFatalError(e.getMessage())) {
-            closeTask(meta, targetTableName, e, failData.size(), NotifyType.DATA_ERROR_FATAL);
+            closeTask(meta, targetTableName, e, failData.size(), NotifyType.FATAL_MATCHED);
             throw e;
         }
         String metaId = meta.getId();
@@ -107,7 +107,7 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
             throw e;
         }
         if (errorQueueConfig.isFatalError(e.getMessage())) {
-            closeTask(meta, targetTableName, e, 1, NotifyType.DATA_ERROR_FATAL);
+            closeTask(meta, targetTableName, e, 1, NotifyType.FATAL_MATCHED);
             throw e;
         }
         Map<String, Object> row = new HashMap<>();
