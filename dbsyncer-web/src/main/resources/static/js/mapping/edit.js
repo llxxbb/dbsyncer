@@ -2608,7 +2608,7 @@ function loadLogTypeOptions() {
 
 var currentMappingId = null;
 
-function doQueryLog(pageNum, append) {
+function doQueryLog(pageNum, append, callback) {
     if (!currentMappingId) return;
     var logType = $('#logTypeFilter').val();
     var logLevel = $('#logLevelFilter').val();
@@ -2622,6 +2622,7 @@ function doQueryLog(pageNum, append) {
         if (data.success === true) {
             if (append) {
                 refreshLogList(data.resultValue, true);
+                if (data.resultValue.data.length > 0 && callback) callback();
             } else {
                 refreshLogList(data.resultValue);
             }
@@ -2642,8 +2643,12 @@ function bindMappingLogEvent(mappingId) {
     
     // 显示更多
     $('#queryLogMore').click(function () {
-        var num = parseInt($(this).attr('num'));
-        doQueryLog(num + 1, true);
+        var $this = $(this);
+        var num = parseInt($this.attr('num'));
+        var nextPage = num + 1;
+        doQueryLog(nextPage, true, function() {
+            $this.attr('num', nextPage);
+        });
     });
     
     // 清空日志
