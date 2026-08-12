@@ -2690,6 +2690,27 @@ function formatDate(time) {
     }).replace(/\//g, '-');
 }
 
+function bindLogContentDetailEvent() {
+    var $queryLogContent = $("#mappingLog .queryLogContent");
+    $queryLogContent.unbind("click");
+    $queryLogContent.click(function () {
+        var content = $(this).text();
+        var html = '<div class="row driver_break_word">' + content + '</div>';
+        BootstrapDialog.show({
+            title: "日志内容",
+            size: BootstrapDialog.SIZE_WIDE,
+            message: html,
+            type: BootstrapDialog.TYPE_INFO,
+            buttons: [{
+                label: "关闭",
+                action: function (dialog) {
+                    dialog.close();
+                }
+            }]
+        });
+    });
+}
+
 function refreshLogList(resultValue, append) {
     var $logList = $('#logList');
     var $logTotal = $('#logTotal');
@@ -2701,6 +2722,7 @@ function refreshLogList(resultValue, append) {
         $('#queryLogMore').attr('num', 1);
     }
     $logTotal.html(resultValue.total);
+    bindLogContentDetailEvent();
 }
 
 function showLog($logList, arr, append) {
@@ -2713,7 +2735,7 @@ function showLog($logList, arr, append) {
             html += '<td>' + (start + i + 1) + '</td>';
             html += '<td>' + (arr[i].logType || '-') + '</td>';
             html += '<td>' + (arr[i].logLevel || '-') + '</td>';
-            html += '<td>' + (arr[i].json || '') + '</td>';
+            html += '<td style="max-width:100px;" class="dbsyncer_over_hidden"><a href="javascript:;" class="dbsyncer_pointer queryLogContent">' + (arr[i].json || '') + '</a></td>';
             html += '<td>' + formatDate(arr[i].createTime) + '</td>';
             html += '</tr>';
         }
