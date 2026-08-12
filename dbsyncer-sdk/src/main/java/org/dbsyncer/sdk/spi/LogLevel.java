@@ -9,7 +9,8 @@ package org.dbsyncer.sdk.spi;
 public enum LogLevel {
     INFO("信息"),
     WARN("警告"),
-    ERROR("错误");
+    ERROR("错误"),
+    FATAL("致命错误");
 
     private final String levelName;
 

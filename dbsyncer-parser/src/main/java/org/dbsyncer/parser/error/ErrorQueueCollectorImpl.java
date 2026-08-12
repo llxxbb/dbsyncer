@@ -75,7 +75,7 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
             return;
         }
         logger.error("mappingId={}: tableName={}, error={}", mapping.getId(), targetTableName, e);
-        logService.log(mapping, LogType.SYNC, e.getMessage());
+        logService.log(mapping, LogType.SYNC, LogLevel.ERROR, "数量：" + failData.size() + "，错误：" + e.getMessage());
         notifyError(meta, targetTableName, e.getMessage(), failData.size(), NotifyType.DATA_ERROR_QUEUE);
         if (isErrQueueRetry) {
             throw e;
