@@ -236,6 +236,10 @@ public abstract class AbstractListener<C extends ConnectorInstance> implements L
         staticLogService = logService;
     }
 
+    public static LogService getStaticLogService() {
+        return staticLogService;
+    }
+
     public void setMapping(Mapping mapping) {
         this.mapping = mapping;
     }

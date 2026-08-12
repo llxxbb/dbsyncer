@@ -24,7 +24,11 @@ import org.dbsyncer.sdk.parser.ddl.converter.IRToTargetConverter;
 import org.dbsyncer.sdk.parser.ddl.converter.SourceToIRConverter;
 import org.dbsyncer.sdk.plugin.ReaderContext;
 import org.dbsyncer.sdk.plugin.SyncRow;
+import org.dbsyncer.sdk.listener.AbstractListener;
 import org.dbsyncer.sdk.spi.ConnectorService;
+import org.dbsyncer.sdk.spi.LogLevel;
+import org.dbsyncer.sdk.spi.LogService;
+import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.util.DatabaseUtil;
 import org.dbsyncer.sdk.util.PrimaryKeyUtil;
 import org.slf4j.Logger;
@@ -53,7 +57,6 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
     public SqlTemplate sqlTemplate;
-
 
     public SourceToIRConverter sourceToIRConverter;
 
@@ -345,19 +348,33 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
             throw new SdkException(e);
         }
 
-        String event = syncRows.get(0).getContext().getEvent();
-        boolean isDelete = ConnectorConstant.isDelete(event);
-
         Result result = new Result();
         for (int i = 0; i < execute.length; i++) {
-            if (execute[i] == 1 || execute[i] == -2) {
-                result.getSuccessData().add(syncRows.get(i).getData());
-            } else if (isDelete && execute[i] == 0) {
-                // DELETE 影响为 0 表示目标端行已不存在（CT 操作合并的正常结果），视为幂等成功
-                result.getSuccessData().add(syncRows.get(i).getData());
+            result.getSuccessData().add(syncRows.get(i).getData());
+            int affectedRows = execute[i];
+            SyncRow row = syncRows.get(i);
+            String rowEvent = row.getContext() != null ? row.getContext().getEvent() : StringUtil.EMPTY;
+            if (affectedRows == 1 || affectedRows == -2 || affectedRows == 0 || 
+                (affectedRows == 2 && ConnectorConstant.OPERTION_UPSERT.equals(rowEvent))) {
+                // 1、affectedRows == 1：表示成功执行一条记录
+                // 2、affectedRows == -2：表示成功执行批量操作（JDBC驱动返回-2表示批量操作成功）
+                // 3、affectedRows == 0：源端 sql server CT 模式合并DML合并导致的空操作
+                // 4、affectedRows == 2 && event=UPsert：目标端 mysql 命中且改变了数据会返回2，命中但未改变数据会返回0 
             } else {
-                result.addFailData(syncRows.get(i).getSourceData(),
-                        String.format("影响行数异常: 【%d】条", execute[i]));
+                // 记录影响行数异常，打印日志，但不写入错误队列。
+                Mapping mapping = row.getMapping();
+                List<String> primaryKeys = row.getPrimaryKeys();
+                StringBuilder pkInfo = new StringBuilder();
+                if (!CollectionUtils.isEmpty(primaryKeys) && row.getData() != null) {
+                    for (String pk : primaryKeys) {
+                        pkInfo.append(pk).append("=").append(row.getData().get(pk)).append(", ");
+                    }
+                }
+                LogService logService = AbstractListener.getStaticLogService();
+                if (logService != null) {
+                    logService.log(mapping, LogType.SYNC, LogLevel.WARN,
+                            String.format("影响行数异常: 【%d】条, event=%s, 主键值: %s", affectedRows, rowEvent, pkInfo));
+                }
             }
         }
         return result;

@@ -107,17 +107,9 @@ public class RetryInterceptor {
                     lastMatchedKeyword != null ? lastMatchedKeyword : "无条件",
                     message
                 );
-
-                // 如果 sleep 被中断，立即抛出 lastException，避免继续循环
-                if (sleep(interval)) {
-                    logger.error(
-                        "重试被中断 | mappingId={} | 尝试次数={} | 最终异常={}",
-                        id,
-                        attempt,
-                        lastException.getMessage()
-                    );
-                    throw lastException;
-                }
+                // TODO ：使用 LogService 记录重试日志，便于后续分析
+                // TODO ：使用 MessageService 发送通知
+                sleep(interval);
             }
         }
     }
