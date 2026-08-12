@@ -20,7 +20,7 @@ public interface ErrorQueueCollector {
 
     void alignCount(Meta meta) throws Exception;
 
-    void closeTask(Meta meta, String targetTableName, String errorMsg,
+    void closeTask(Meta meta, String targetTableName, Exception e,
             int failCount, NotifyType notifyType);
 
 }

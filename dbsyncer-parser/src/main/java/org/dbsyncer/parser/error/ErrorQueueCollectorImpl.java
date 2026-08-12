@@ -81,7 +81,7 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
             throw e;
         }
         if (errorQueueConfig.isFatalError(e.getMessage())) {
-            closeTask(meta, targetTableName, e.getMessage(), failData.size(), NotifyType.DATA_ERROR_FATAL);
+            closeTask(meta, targetTableName, e, failData.size(), NotifyType.DATA_ERROR_FATAL);
             throw e;
         }
         String metaId = meta.getId();
@@ -89,8 +89,7 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
         try {
             persistError(metaId, tableGroupId, targetTableName, event, failData, failReasons, e.getMessage());
         } catch (Exception e2) {
-            closeTask(meta, targetTableName, "无法写入错误队列：" + e2.getMessage(),
-                    failData.size(), NotifyType.DATA_ERROR_QUEUE);
+            closeTask(meta, targetTableName, e2, failData.size(), NotifyType.DATA_ERROR_QUEUE);
             return;
         }
         counterService.incrementFail(meta, tableGroup, failData.size());
@@ -108,7 +107,7 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
             throw e;
         }
         if (errorQueueConfig.isFatalError(e.getMessage())) {
-            closeTask(meta, targetTableName, e.getMessage(), 1, NotifyType.DATA_ERROR_FATAL);
+            closeTask(meta, targetTableName, e, 1, NotifyType.DATA_ERROR_FATAL);
             throw e;
         }
         Map<String, Object> row = new HashMap<>();
@@ -194,17 +193,20 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
     }
 
     @Override
-    public void closeTask(Meta meta, String targetTableName, String errorMsg,
+    public void closeTask(Meta meta, String targetTableName, Exception e,
             int failCount, NotifyType notifyType) {
-
+        String errorMsg = e.getMessage();
+        logger.error("[FATAL] 任务关闭: mappingId={}, targetTable={}", meta.getMappingId(), targetTableName,  e);
+        logService.log(meta, LogType.SYNC, LogLevel.FATAL,
+                String.format("目标表:%s, 原因:%s", targetTableName, errorMsg));
         notifyError(meta, targetTableName, errorMsg, failCount, notifyType);
         // 关闭任务
         meta.saveState(MetaEnum.ERROR, errorMsg);
         try {
             profileComponent.editConfigModel(meta);
-        } catch (Exception e) {
+        } catch (Exception ex) {
             // 不能再抛异常，否则可能无法关闭任务
-            logger.error("关闭任务失败: metaId={}", meta.getId(), e);
+            logger.error("关闭任务失败: metaId={}", meta.getId(), ex);
         }
         applicationEventPublisher.publishEvent(new CircuitBreakEvent(this, meta.getMappingId()));
     }
@@ -219,7 +221,7 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
         }
         String reason = String.format("错误计数(%d)达到熔断阈值(%d)", meta.getFail(), threshold);
         logger.warn("熔断触发: metaId={}, {}", meta.getId(), reason);
-        closeTask(meta, mappingId, reason, threshold, NotifyType.DATA_ERROR_CIRCUIT_BREAKER);
+        closeTask(meta, mappingId, new RuntimeException(reason), threshold, NotifyType.DATA_ERROR_CIRCUIT_BREAKER);
     }
 
     private long queryFailCount(String metaId, String tableGroupId) {

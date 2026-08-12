@@ -121,10 +121,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             pullNoCatch(response, meta, mapping);
             logger.info("mappingId {}, {}目标表，{}, {}条, {}ms", meta.getMappingId(), response.getTableName(), response.getSuffixName(), response.getTaskSize(), (Instant.now().toEpochMilli() - now));
         } catch (Exception e) {
-            String msg = "pull() 处理异常" + e.getMessage();
-            logger.error("mappingId={}, tableName={}, error={}", mapping.getId(),
-                    response.getTableName(), msg, e);
-            errorQueueCollector.closeTask(meta, response.getTableName(), msg, getBufferWriterCount(),
+            errorQueueCollector.closeTask(meta, response.getTableName(), e, getBufferWriterCount(),
                     NotifyType.TASK_INTERRUPTED);
         }
     }

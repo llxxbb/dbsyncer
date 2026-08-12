@@ -49,7 +49,7 @@ public class SyncPipeline {
         } catch (Exception e) {
             if (target == null) {
                 errorQueueCollector.closeTask(task.getMeta(), task.getTableGroup().getTargetTable().getName(),
-                        e.getMessage(), 0, NotifyType.TASK_INTERRUPTED);
+                        e, 0, NotifyType.TASK_INTERRUPTED);
                 return;
             }
             String event = target.get(0).getContext().getEvent();
