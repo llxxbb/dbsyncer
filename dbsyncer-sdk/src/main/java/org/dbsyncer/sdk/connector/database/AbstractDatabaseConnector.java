@@ -356,7 +356,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
                 // DELETE 影响为 0 表示目标端行已不存在（CT 操作合并的正常结果），视为幂等成功
                 result.getSuccessData().add(syncRows.get(i).getData());
             } else {
-                result.getFailData().add(syncRows.get(i).getSourceData());
+                result.addFailData(syncRows.get(i).getSourceData(),
+                        String.format("影响行数异常: 【%d】条", execute[i]));
             }
         }
         return result;

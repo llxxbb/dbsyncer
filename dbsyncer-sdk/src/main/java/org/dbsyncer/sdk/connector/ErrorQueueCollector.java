@@ -12,7 +12,8 @@ import java.util.Map;
 public interface ErrorQueueCollector {
 
     void handleFailData(Mapping mapping, Meta meta, TableGroup tableGroup, String targetTableName,
-                        String event, List<Map> failData, Exception e, boolean isErrQueueRetry) throws Exception;
+                        String event, List<Map> failData, List<String> failReasons,
+                        Exception e, boolean isErrQueueRetry) throws Exception;
 
     void handleDdlFailData(Mapping mapping, Meta meta, TableGroup tableGroup, String targetTableName,
                            DDLConfig ddlConfig, Exception e, boolean isErrQueueRetry) throws Exception;

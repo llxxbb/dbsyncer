@@ -514,7 +514,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         List<Map> failData = new ArrayList<>(
                 RowConverter.toListOfMaps(sourceFields, fieldIndexMap, response.getDataList()));
         errorQueueCollector.handleFailData(mapping, meta, tableGroup, tableGroup.getTargetTable().getName(),
-                response.getEvent(), failData, e, response.isErrQueueRetry());
+                response.getEvent(), failData, null, e, response.isErrQueueRetry());
     }
 
     // Getters and Setters

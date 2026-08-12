@@ -16,6 +16,11 @@ public class Result<T> {
     private final List<T> failData = new LinkedList<>();
 
     /**
+     * 每条错误数据对应的失败原因（与 failData 一一对应）
+     */
+    private final List<String> failReasons = new LinkedList<>();
+
+    /**
      * 驱动表映射关系ID
      */
     private String tableGroupId;
@@ -47,6 +52,23 @@ public class Result<T> {
         return failData;
     }
 
+    public List<String> getFailReasons() {
+        return failReasons;
+    }
+
+    /**
+     * 线程安全添加单条错误数据及其原因
+     *
+     * @param data   错误数据
+     * @param reason 失败原因
+     */
+    public void addFailData(T data, String reason) {
+        synchronized (LOCK) {
+            this.failData.add(data);
+            this.failReasons.add(reason);
+        }
+    }
+
     /**
      * 线程安全添加集合
      *
@@ -55,6 +77,9 @@ public class Result<T> {
     public void addFailData(List failData) {
         synchronized (LOCK) {
             this.failData.addAll(failData);
+            for (int i = 0; i < failData.size(); i++) {
+                this.failReasons.add(null);
+            }
         }
     }
 

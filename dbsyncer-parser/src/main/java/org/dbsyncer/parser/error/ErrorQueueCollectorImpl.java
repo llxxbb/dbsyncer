@@ -70,7 +70,7 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
 
     @Override
     public void handleFailData(Mapping mapping, Meta meta, TableGroup tableGroup, String targetTableName,
-            String event, List<Map> failData, Exception e, boolean isErrQueueRetry) throws Exception {
+            String event, List<Map> failData, List<String> failReasons, Exception e, boolean isErrQueueRetry) throws Exception {
         if (failData == null || failData.isEmpty()) {
             return;
         }
@@ -87,7 +87,7 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
         String metaId = meta.getId();
         String tableGroupId = tableGroup != null ? tableGroup.getId() : null;
         try {
-            persistError(metaId, tableGroupId, targetTableName, event, failData, e.getMessage());
+            persistError(metaId, tableGroupId, targetTableName, event, failData, failReasons, e.getMessage());
         } catch (Exception e2) {
             closeTask(meta, targetTableName, "无法写入错误队列：" + e2.getMessage(),
                     failData.size(), NotifyType.DATA_ERROR_QUEUE);
@@ -147,10 +147,13 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
     }
 
     private void persistError(String metaId, String tableGroupId, String targetTableName,
-            String event, List<Map> failData, String errorMsg) throws Exception {
+            String event, List<Map> failData, List<String> failReasons, String defaultErrorMsg) throws Exception {
         List<Map> dataList = new java.util.ArrayList<>();
-        for (Map r : failData) {
-            Map<String, Object> row = buildErrorRow(metaId, tableGroupId, targetTableName, event, errorMsg);
+        for (int i = 0; i < failData.size(); i++) {
+            Map r = failData.get(i);
+            String rowReason = (failReasons != null && i < failReasons.size() && failReasons.get(i) != null)
+                    ? failReasons.get(i) : defaultErrorMsg;
+            Map<String, Object> row = buildErrorRow(metaId, tableGroupId, targetTableName, event, rowReason);
             byte[] bytes = BinlogMessageUtil.toBinlogMap(r).toByteArray();
             row.put(ConfigConstant.BINLOG_DATA, bytes);
             dataList.add(row);
