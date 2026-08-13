@@ -93,7 +93,7 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
             return;
         }
         counterService.incrementFail(meta, tableGroup, failData.size());
-        checkCircuitBreaker(meta, meta.getMappingId());
+        checkCircuitBreaker(meta, targetTableName);
     }
 
     public void handleDdlFailData(Mapping mapping, Meta meta, TableGroup tableGroup, String targetTableName,
@@ -114,7 +114,7 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
         row.put(ConfigConstant.BINLOG_DATA, JsonUtil.objToJson(ddlConfig));
         persistErrorRow(metaId, tableGroupId, targetTableName, ConnectorConstant.OPERTION_ALTER, row, e.getMessage());
         counterService.incrementFail(meta, tableGroup, 1);
-        checkCircuitBreaker(meta, meta.getMappingId());
+        checkCircuitBreaker(meta, targetTableName);
     }
 
     public void alignCount(Meta meta) throws Exception {
@@ -211,7 +211,7 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
         applicationEventPublisher.publishEvent(new CircuitBreakEvent(this, meta.getMappingId()));
     }
 
-    private void checkCircuitBreaker(Meta meta, String mappingId) {
+    private void checkCircuitBreaker(Meta meta, String tableName) {
         int threshold = errorQueueConfig.getThreshold();
         if (threshold <= 0) {
             return;
@@ -221,7 +221,7 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
         }
         String reason = String.format("错误计数(%d)达到熔断阈值(%d)", meta.getFail(), threshold);
         logger.warn("熔断触发: metaId={}, {}", meta.getId(), reason);
-        closeTask(meta, mappingId, new RuntimeException(reason), threshold, NotifyType.DATA_ERROR_CIRCUIT_BREAKER);
+        closeTask(meta, tableName, new RuntimeException(reason), threshold, NotifyType.DATA_ERROR_CIRCUIT_BREAKER);
     }
 
     private long queryFailCount(String metaId, String tableGroupId) {
