@@ -41,7 +41,7 @@ public final class RetryCallbacks {
      * @param type           通知类型
      * @return 回调实现
      */
-    public static RetryAfter messageService(MessageService messageService, Mapping mapping, String title, NotifyType type) {
+    public static RetryAfter messageService(MessageService messageService, Mapping mapping, NotifyType type) {
         if (messageService == null) {
             return ctx -> {
             };
@@ -55,7 +55,7 @@ public final class RetryCallbacks {
             msg.append("**重试次数**: 第").append(ctx.getAttempt()).append("次\n\n");
             msg.append("**重试间隔**: ").append(ctx.getIntervalMs()).append("ms\n\n");
             msg.append("**异常信息**: ").append(ctx.getException().getMessage()).append("\n\n");
-            messageService.sendMessage(title, msg.toString(), type);
+            messageService.sendMessage("dbsyncer", msg.toString(), type);
         };
     }
 }

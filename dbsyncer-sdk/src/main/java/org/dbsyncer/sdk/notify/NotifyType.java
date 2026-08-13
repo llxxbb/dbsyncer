@@ -34,7 +34,9 @@ public enum NotifyType {
      */
     FATAL_MATCHED,
     
-    DDL, TARGET_EXCEPTION, SOURCE_EXCEPTION;
+    DDL, 
+    TARGET_EXCEPTION,
+    SOURCE_EXCEPTION;
 
     /**
      * 获取通知类型的中文显示名称

@@ -165,7 +165,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
         this.retryAfter = RetryAfter.compose(
                 RetryAfter.slf4j(logger),
                 RetryCallbacks.logService(staticLogService, mapping),
-                RetryCallbacks.messageService(staticMessageService, mapping, "数据源异常", NotifyType.SOURCE_EXCEPTION)
+                RetryCallbacks.messageService(staticMessageService, mapping, NotifyType.SOURCE_EXCEPTION)
         );
     }
 

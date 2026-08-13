@@ -717,8 +717,7 @@ public class MappingServiceImpl implements MappingService {
             mapping.setUpdateTime(Instant.now().toEpochMilli());
             profileComponent.editConfigModel(mapping);
 
-            this.logService.log(mapping, LogType.RESET, LogLevel.INFO,
-                    LogType.RESET.getType() + ":" + mapping.getName());
+            this.logService.log(mapping, LogType.RESET, LogLevel.INFO, "任务重置");
 
             // 发送重置驱动通知消息
             String mappingId = mapping.getId();
