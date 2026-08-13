@@ -152,8 +152,10 @@ public class MappingServiceImpl implements MappingService {
         if (StringUtil.isNotBlank(tableGroups)) {
             matchCustomizedTableGroups(model, tableGroups);
         }
-        // 统计总数
-        submitMappingCountTask((Mapping) model);
+        // 统计总数（增量模式不统计）
+        if (!StringUtil.equals(((Mapping) model).getModel(), ModelEnum.INCREMENT.getCode())) {
+            submitMappingCountTask((Mapping) model);
+        }
         logService.log(model, LogType.CONFIG, LogLevel.INFO, String.format("创建配置 (操作人：%s)", getCurrentUsername()));
 
         return id;
@@ -170,7 +172,9 @@ public class MappingServiceImpl implements MappingService {
         this.logService.log(newMapping, LogType.COPY, LogLevel.INFO,
                 LogType.COPY.getType() + ":" + newMapping.getName());
 
-        submitMappingCountTask(newMapping);
+        if (!StringUtil.equals(newMapping.getModel(), ModelEnum.INCREMENT.getCode())) {
+            submitMappingCountTask(newMapping);
+        }
         return String.format("复制成功[%s]", newMapping.getName());
     }
 
@@ -191,8 +195,12 @@ public class MappingServiceImpl implements MappingService {
             // 更新meta
             mappingModelService.updateSnapshot(mapping, metaSnapshot);
         }
-        submitMappingCountTask(mapping);
-        this.logService.log(mapping, LogType.CONFIG, LogLevel.INFO, String.format("变更配置 (操作人：%s)", getCurrentUsername()));
+        // 统计总数（增量模式不统计）
+        if (!StringUtil.equals(mapping.getModel(), ModelEnum.INCREMENT.getCode())) {
+            submitMappingCountTask(mapping);
+        }
+        this.logService.log(mapping, LogType.CONFIG, LogLevel.INFO,
+                String.format("变更配置 (操作人：%s)", getCurrentUsername()));
         return id;
     }
 
@@ -362,7 +370,8 @@ public class MappingServiceImpl implements MappingService {
             // 启动
             managerFactory.start(mapping);
 
-            this.logService.log(mapping, LogType.START, LogLevel.INFO, String.format("启动同步任务 (操作人：%s)", getCurrentUsername()));
+            this.logService.log(mapping, LogType.START, LogLevel.INFO,
+                    String.format("启动同步任务 (操作人：%s)", getCurrentUsername()));
         }
         return "驱动启动成功";
     }
@@ -383,7 +392,8 @@ public class MappingServiceImpl implements MappingService {
                 profileComponent.editConfigModel(tableGroup);
             }
 
-            this.logService.log(mapping, LogType.STOP, LogLevel.INFO, String.format("停止同步任务 (操作人：%s)", getCurrentUsername()));
+            this.logService.log(mapping, LogType.STOP, LogLevel.INFO,
+                    String.format("停止同步任务 (操作人：%s)", getCurrentUsername()));
 
             // 发送关闭驱动通知消息
             String mappingId = mapping.getId();
@@ -720,7 +730,8 @@ public class MappingServiceImpl implements MappingService {
             mapping.setUpdateTime(Instant.now().toEpochMilli());
             profileComponent.editConfigModel(mapping);
 
-            this.logService.log(mapping, LogType.RESET, LogLevel.INFO, String.format("任务重置 (操作人：%s)", getCurrentUsername()));
+            this.logService.log(mapping, LogType.RESET, LogLevel.INFO,
+                    String.format("任务重置 (操作人：%s)", getCurrentUsername()));
 
             // 发送重置驱动通知消息
             String mappingId = mapping.getId();
@@ -732,8 +743,9 @@ public class MappingServiceImpl implements MappingService {
             msg.append("**任务名称**: ").append(mapping.getName()).append("\n\n");
             messageService.sendMessage("dbsyncer", msg.toString(), NotifyType.MANUAL_OPERATION);
         }
-        submitMappingCountTask(mapping);
-
+        if (!StringUtil.equals(mapping.getModel(), ModelEnum.INCREMENT.getCode())) {
+            submitMappingCountTask(mapping);
+        }
         return "重置成功";
     }
 
