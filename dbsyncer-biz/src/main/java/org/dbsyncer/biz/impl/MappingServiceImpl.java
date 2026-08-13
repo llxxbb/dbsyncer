@@ -39,6 +39,8 @@ import org.dbsyncer.storage.impl.SnowflakeIdWorker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
@@ -108,7 +110,6 @@ public class MappingServiceImpl implements MappingService {
     @Override
     public String add(Map<String, String> params) throws Exception {
         ConfigModel model = mappingChecker.checkAddConfigModel(params);
-        this.logService.log(model, LogType.INSERT, LogLevel.INFO, LogType.INSERT.getType() + ":" + model.getName());
 
         // 先保存 Mapping，确保 Mapping 保存成功
         String id = profileComponent.addConfigModel(model);
@@ -153,6 +154,8 @@ public class MappingServiceImpl implements MappingService {
         }
         // 统计总数
         submitMappingCountTask((Mapping) model);
+        logService.log(model, LogType.CONFIG, LogLevel.INFO, String.format("创建配置 (操作人：%s)", getCurrentUsername()));
+
         return id;
     }
 
@@ -183,13 +186,13 @@ public class MappingServiceImpl implements MappingService {
             // 在保存之前，检查所有已存在的表映射关系的目标表是否存在
             checkAllTargetTablesExist(mapping);
 
-            Mapping model = (Mapping) mappingChecker.checkEditConfigModel(params);
-            this.logService.log(model, LogType.UPDATE, LogLevel.INFO, LogType.UPDATE.getType() + ":" + model.getName());
+            mappingChecker.checkEditConfigModel(params);
 
             // 更新meta
             mappingModelService.updateSnapshot(mapping, metaSnapshot);
         }
         submitMappingCountTask(mapping);
+        this.logService.log(mapping, LogType.CONFIG, LogLevel.INFO, String.format("变更配置 (操作人：%s)", getCurrentUsername()));
         return id;
     }
 
@@ -359,7 +362,7 @@ public class MappingServiceImpl implements MappingService {
             // 启动
             managerFactory.start(mapping);
 
-            this.logService.log(mapping, LogType.START, LogLevel.INFO, "启动同步任务");
+            this.logService.log(mapping, LogType.START, LogLevel.INFO, String.format("启动同步任务 (操作人：%s)", getCurrentUsername()));
         }
         return "驱动启动成功";
     }
@@ -380,7 +383,7 @@ public class MappingServiceImpl implements MappingService {
                 profileComponent.editConfigModel(tableGroup);
             }
 
-            this.logService.log(mapping, LogType.STOP, LogLevel.INFO, "停止同步任务");
+            this.logService.log(mapping, LogType.STOP, LogLevel.INFO, String.format("停止同步任务 (操作人：%s)", getCurrentUsername()));
 
             // 发送关闭驱动通知消息
             String mappingId = mapping.getId();
@@ -717,7 +720,7 @@ public class MappingServiceImpl implements MappingService {
             mapping.setUpdateTime(Instant.now().toEpochMilli());
             profileComponent.editConfigModel(mapping);
 
-            this.logService.log(mapping, LogType.RESET, LogLevel.INFO, "任务重置");
+            this.logService.log(mapping, LogType.RESET, LogLevel.INFO, String.format("任务重置 (操作人：%s)", getCurrentUsername()));
 
             // 发送重置驱动通知消息
             String mappingId = mapping.getId();
@@ -793,5 +796,17 @@ public class MappingServiceImpl implements MappingService {
         } catch (Exception e) {
             logger.error("TRUNCATE 目标表操作失败: {}", e.getMessage(), e);
         }
+    }
+
+    private String getCurrentUsername() {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated()) {
+                return authentication.getName();
+            }
+        } catch (Exception e) {
+            logger.warn("获取当前登录用户失败: {}", e.getMessage());
+        }
+        return "unknown";
     }
 }
