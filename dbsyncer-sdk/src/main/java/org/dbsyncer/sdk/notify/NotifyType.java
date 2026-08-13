@@ -34,7 +34,7 @@ public enum NotifyType {
      */
     FATAL_MATCHED,
     
-    DDL, DATA_SYNC_EXCEPTION;
+    DDL, TARGET_EXCEPTION, SOURCE_EXCEPTION;
 
     /**
      * 获取通知类型的中文显示名称
@@ -55,8 +55,10 @@ public enum NotifyType {
                 return "致命关键字命中";
             case DDL:
                 return "DDL操作";
-            case DATA_SYNC_EXCEPTION:
-                return "数据同步异常";
+            case TARGET_EXCEPTION:
+                return "目标异常";
+            case SOURCE_EXCEPTION:
+                return "数据源异常";
             default:
                 return name();
         }

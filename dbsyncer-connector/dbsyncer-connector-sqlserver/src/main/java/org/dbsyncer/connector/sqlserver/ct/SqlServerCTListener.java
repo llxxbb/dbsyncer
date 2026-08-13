@@ -2,6 +2,7 @@ package org.dbsyncer.connector.sqlserver.ct;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.dbsyncer.common.config.RetryConfig;
+import org.dbsyncer.common.retry.RetryAfter;
 import org.dbsyncer.common.retry.RetryInterceptor;
 import org.dbsyncer.common.retry.RetryPolicy;
 import org.dbsyncer.common.util.CollectionUtils;
@@ -24,6 +25,8 @@ import org.dbsyncer.sdk.listener.event.RowChangedEvent;
 import org.dbsyncer.sdk.model.ChangedOffset;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.MetaInfo;
+import org.dbsyncer.sdk.notify.NotifyType;
+import org.dbsyncer.sdk.util.RetryCallbacks;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.UncategorizedSQLException;
@@ -73,6 +76,8 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
     private final AtomicBoolean stopRequested = new AtomicBoolean(false);
     // 统一重试拦截器
     private final RetryInterceptor retryInterceptor = new RetryInterceptor();
+    // 重试后回调
+    private RetryAfter retryAfter;
     private String serverName;
     private String schema;
     private String realDatabaseName;
@@ -123,6 +128,9 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
             // 启动时初始化所有表的 schema 缓存
             initializeSchemaCache();
 
+            // 初始化重试回调
+            initRetryAfter();
+
             worker = new Worker();
             worker.setName(new StringBuilder("ct-parser-").append(serverName).append("_").append(worker.hashCode())
                     .toString());
@@ -148,6 +156,17 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
             connected = false;
         }
         super.close();
+    }
+
+    /**
+     * 初始化重试回调
+     */
+    private void initRetryAfter() {
+        this.retryAfter = RetryAfter.compose(
+                RetryAfter.slf4j(logger),
+                RetryCallbacks.logService(staticLogService, mapping),
+                RetryCallbacks.messageService(staticMessageService, mapping, "数据源异常", NotifyType.SOURCE_EXCEPTION)
+        );
     }
 
     /**
@@ -1276,7 +1295,9 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
                                 pull(lastSuccessfulVersion, maxVersion);
                                 return null;
                             },
-                            retryPolicy
+                            retryPolicy,
+                            mapping != null ? mapping.getId() : null,
+                            retryAfter
                     );
                 } catch (InterruptedException e) {
                     break;

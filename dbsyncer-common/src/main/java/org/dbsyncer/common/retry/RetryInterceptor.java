@@ -1,8 +1,6 @@
 package org.dbsyncer.common.retry;
 
 import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * 统一重试拦截器
@@ -10,31 +8,14 @@ import org.slf4j.LoggerFactory;
  */
 public class RetryInterceptor {
 
-    private static final Logger logger = LoggerFactory.getLogger(
-        RetryInterceptor.class
-    );
-
     /**
      * 执行操作并支持重试（允许操作抛出 Exception）
      *
-     * @param operation 待执行的操作
-     * @param policy    重试策略
-     * @param <T>       返回类型
-     * @return 操作结果
-     * @throws Exception 重试耗尽后抛出原始异常
-     */
-    public <T> T execute(ThrowingSupplier<T> operation, RetryPolicy policy)
-        throws Exception {
-        return execute(operation, policy, null);
-    }
-
-    /**
-     * 执行操作并支持重试（允许操作抛出 Exception）
-     *
-     * @param operation 待执行的操作
-     * @param policy    重试策略
-     * @param mappingId 映射 ID（用于日志）
-     * @param <T>       返回类型
+     * @param operation  待执行的操作
+     * @param policy     重试策略
+     * @param mappingId  映射 ID（用于日志）
+     * @param retryAfter 重试后回调（用于记录日志、发送通知等）
+     * @param <T>        返回类型
      * @return 操作结果
      * @throws Exception 重试耗尽后抛出原始异常
      *
@@ -48,13 +29,13 @@ public class RetryInterceptor {
     public <T> T execute(
         ThrowingSupplier<T> operation,
         RetryPolicy policy,
-        String mappingId
+        String mappingId,
+        RetryAfter retryAfter
     ) throws Exception {
         if (policy.isDisable()) {
             return operation.get();
         }
 
-        Exception lastException = null;
         String lastMatchedKeyword = null;
         int attempt = 0;
         long startMs = System.currentTimeMillis();
@@ -65,7 +46,6 @@ public class RetryInterceptor {
                 return operation.get();
             } catch (Exception e) {
                 // 【核心】异常路径：进入重试决策
-                lastException = e;
                 String message = e.getMessage();
 
                 // 次数约束检查（仅在异常时执行，且仅在非 MAX_DURATION 模式下）
@@ -97,32 +77,17 @@ public class RetryInterceptor {
                 long interval = policy.calculateInterval(attempt);
                 lastMatchedKeyword = findMatchedKeyword(message, policy);
 
-                String id = mappingId != null ? mappingId : "-";
-                logger.warn(
-                    "触发重试 | mappingId={} | 第{}/{}次 | 间隔={}ms | 关键字={} | 异常={}",
-                    id,
+                RetryContext ctx = new RetryContext(
+                    mappingId != null ? mappingId : "-",
                     attempt,
-                    getMaxAttemptsDisplay(policy),
                     interval,
-                    lastMatchedKeyword != null ? lastMatchedKeyword : "无条件",
-                    message
+                    lastMatchedKeyword,
+                    e
                 );
-                // TODO ：使用 LogService 记录重试日志，便于后续分析
-                // TODO ：使用 MessageService 发送通知
+                retryAfter.onRetry(ctx);
                 sleep(interval);
             }
         }
-    }
-
-    /**
-     * 获取日志显示的最大次数
-     */
-    private int getMaxAttemptsDisplay(RetryPolicy policy) {
-        TerminationMode mode = policy.getTerminationMode();
-        if (mode == TerminationMode.MAX_DURATION) {
-            return -1; // 表示不限次数
-        }
-        return policy.getMaxAttempts();
     }
 
     /**

@@ -6,6 +6,7 @@ package org.dbsyncer.connector.base;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.dbsyncer.common.config.RetryConfig;
 import org.dbsyncer.common.model.Result;
+import org.dbsyncer.common.retry.RetryAfter;
 import org.dbsyncer.common.retry.RetryInterceptor;
 import org.dbsyncer.common.retry.RetryPolicy;
 import org.dbsyncer.common.util.CollectionUtils;
@@ -31,6 +32,7 @@ import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.spi.MessageService;
+import org.dbsyncer.sdk.util.RetryCallbacks;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
@@ -319,11 +321,18 @@ public class ConnectorFactory implements DisposableBean {
             }
         }
 
+        Mapping mapping = firstRow.getMapping();
+        RetryAfter retryAfter = RetryAfter.compose(
+                RetryAfter.slf4j(logger),
+                RetryCallbacks.logService(logService, mapping),
+                RetryCallbacks.messageService(messageService, mapping, "写入异常", NotifyType.TARGET_EXCEPTION)
+        );
+
         return retryInterceptor.execute(() -> {
             Result result = operation.execute(targetConnector, targetInstance, syncRows);
             Assert.notNull(result, "Connector writer batch result can not null");
             return result;
-        }, policy, mappingId);
+        }, policy, mappingId, retryAfter);
     }
 
     /**

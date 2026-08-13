@@ -15,6 +15,7 @@ import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
+import org.dbsyncer.sdk.spi.MessageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,6 +34,7 @@ public abstract class AbstractListener<C extends ConnectorInstance> implements L
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
     protected static LogService staticLogService;
+    protected static MessageService staticMessageService;
     protected ConnectorInstance connectorInstance;
     protected ConnectorInstance targetConnectorInstance;
     protected ConnectorService connectorService;
@@ -238,6 +240,14 @@ public abstract class AbstractListener<C extends ConnectorInstance> implements L
 
     public static LogService getStaticLogService() {
         return staticLogService;
+    }
+
+    public static void setStaticMessageService(MessageService messageService) {
+        staticMessageService = messageService;
+    }
+
+    public static MessageService getStaticMessageService() {
+        return staticMessageService;
     }
 
     public void setMapping(Mapping mapping) {

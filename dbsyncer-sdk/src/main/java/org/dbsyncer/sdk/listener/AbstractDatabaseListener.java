@@ -4,7 +4,6 @@
 package org.dbsyncer.sdk.listener;
 
 import org.dbsyncer.common.QueueOverflowException;
-import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
 import org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance;
 import org.dbsyncer.sdk.model.Field;
@@ -144,41 +143,6 @@ public abstract class AbstractDatabaseListener extends AbstractListener<Database
             }
         }
         return list;
-    }
-
-    private void queryDqlData(DqlMapper dqlMapper, List<Object> data) throws Exception {
-        if (!CollectionUtils.isEmpty(data)) {
-            Map<String, Object> row = dqlMapper.instance.execute(databaseTemplate -> {
-                int size = dqlMapper.tablePKIndex.size();
-                Object[] args = new Object[size];
-                for (int i = 0; i < size; i++) {
-                    args[i] = data.get(dqlMapper.tablePKIndex.get(i));
-                }
-                return databaseTemplate.queryForMap(dqlMapper.sql, args);
-            });
-            if (!CollectionUtils.isEmpty(row)) {
-                data.clear();
-                dqlMapper.column.forEach(field -> data.add(row.get(field.getName())));
-            }
-        }
-    }
-
-    private void getPKData(DqlMapper dqlMapper, List<Object> data) {
-        if (!CollectionUtils.isEmpty(data)) {
-            int size = dqlMapper.column.size();
-            List<Object> row = new ArrayList<>(size);
-            for (int i = 0; i < size; i++) {
-                if (dqlMapper.sqlPKIndexMap.containsKey(i)) {
-                    row.add(data.get(dqlMapper.sqlPKIndexMap.get(i)));
-                    continue;
-                }
-                row.add(null);
-            }
-            if (!CollectionUtils.isEmpty(row)) {
-                data.clear();
-                data.addAll(row);
-            }
-        }
     }
 
     static final class DqlMapper {

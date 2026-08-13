@@ -11,6 +11,7 @@ import static org.junit.Assert.*;
 public class RetryInterceptorTest {
 
     private final RetryInterceptor interceptor = new RetryInterceptor();
+    private final RetryAfter noopRetryAfter = ctx -> {};
 
     @Test
     public void testSuccessOnFirstAttempt() throws Exception {
@@ -21,7 +22,7 @@ public class RetryInterceptorTest {
         };
 
         RetryPolicy policy = new RetryPolicy();
-        String result = interceptor.execute(op, policy);
+        String result = interceptor.execute(op, policy, null, noopRetryAfter);
 
         assertEquals("success", result);
         assertEquals(1, counter.get());
@@ -44,7 +45,7 @@ public class RetryInterceptorTest {
         policy.setMultiplier(1.0);
         policy.setUseKeyword(false);
 
-        String result = interceptor.execute(op, policy);
+        String result = interceptor.execute(op, policy, null, noopRetryAfter);
 
         assertEquals("success", result);
         assertEquals(3, counter.get());
@@ -66,7 +67,7 @@ public class RetryInterceptorTest {
         policy.setUseKeyword(false);
 
         try {
-            interceptor.execute(op, policy);
+            interceptor.execute(op, policy, null, noopRetryAfter);
             fail("should throw");
         } catch (RuntimeException e) {
             assertEquals(4, counter.get());
@@ -87,7 +88,7 @@ public class RetryInterceptorTest {
         policy.setDisable(true);
 
         try {
-            interceptor.execute(op, policy);
+            interceptor.execute(op, policy, null, noopRetryAfter);
             fail("should throw");
         } catch (RuntimeException e) {
             assertEquals(1, counter.get());
@@ -115,7 +116,7 @@ public class RetryInterceptorTest {
         policy.setKeywords(Arrays.asList("deadlock"));
         policy.setMatchMode(MatchMode.CONTAINS);
 
-        String result = interceptor.execute(op, policy);
+        String result = interceptor.execute(op, policy, null, noopRetryAfter);
 
         assertEquals("success", result);
         assertEquals(3, counter.get());
@@ -139,7 +140,7 @@ public class RetryInterceptorTest {
         policy.setMatchMode(MatchMode.CONTAINS);
 
         try {
-            interceptor.execute(op, policy);
+            interceptor.execute(op, policy, null, noopRetryAfter);
             fail("should throw");
         } catch (RuntimeException e) {
             // Should NOT retry because keyword doesn't match
@@ -209,7 +210,7 @@ public class RetryInterceptorTest {
         policy.setMaxDurationMs(0L);        // 极短超时，应被忽略
 
         try {
-            interceptor.execute(op, policy);
+            interceptor.execute(op, policy, null, noopRetryAfter);
             fail("should throw");
         } catch (RuntimeException e) {
             // 关键断言：执行次数 = 3，证明 maxDuration=1ms 被忽略
@@ -238,7 +239,7 @@ public class RetryInterceptorTest {
         policy.setMaxDurationMs(60000L);  // 60秒，不会先到
 
         try {
-            interceptor.execute(op, policy);
+            interceptor.execute(op, policy, null, noopRetryAfter);
             fail("should throw");
         } catch (RuntimeException e) {
             assertEquals(4, counter.get());
@@ -270,7 +271,7 @@ public class RetryInterceptorTest {
         policy.setMaxDurationMs(100L);        // 100ms 约够 4-5 次
 
         try {
-            interceptor.execute(op, policy);
+            interceptor.execute(op, policy, null, noopRetryAfter);
             fail("should throw");
         } catch (RuntimeException e) {
             // 被 maxDuration 截断，远少于 maxAttempts=100
@@ -302,7 +303,7 @@ public class RetryInterceptorTest {
         policy.setTerminationMode(TerminationMode.WHICHEVER_FIRST);
         policy.setMaxDurationMs(0L);      // 不限制
 
-        String result = interceptor.execute(op, policy);
+        String result = interceptor.execute(op, policy, null, noopRetryAfter);
         assertEquals("success", result);
         assertEquals(3, counter.get());
     }
@@ -328,7 +329,7 @@ public class RetryInterceptorTest {
         policy.setUseKeyword(false);
 
         try {
-            interceptor.execute(op, policy);
+            interceptor.execute(op, policy, null, noopRetryAfter);
             fail("should throw");
         } catch (RuntimeException e) {
             // 中断后退出循环，尝试次数远小于 maxAttempts=10
@@ -361,7 +362,7 @@ public class RetryInterceptorTest {
         policy.setMatchMode(MatchMode.CONTAINS);
 
         try {
-            interceptor.execute(op, policy);
+            interceptor.execute(op, policy, null, noopRetryAfter);
             fail("should throw");
         } catch (RuntimeException e) {
             // 应只执行 1 次，因为排除关键字优先级更高
@@ -391,7 +392,7 @@ public class RetryInterceptorTest {
         policy.setMatchMode(MatchMode.CONTAINS);
 
         try {
-            interceptor.execute(op, policy);
+            interceptor.execute(op, policy, null, noopRetryAfter);
             fail("should throw");
         } catch (RuntimeException e) {
             // 应只执行 1 次，因为命中排除关键字
@@ -421,7 +422,7 @@ public class RetryInterceptorTest {
         policy.setKeywords(Arrays.asList("deadlock"));
         policy.setMatchMode(MatchMode.CONTAINS);
 
-        String result = interceptor.execute(op, policy);
+        String result = interceptor.execute(op, policy, null, noopRetryAfter);
 
         assertEquals("success", result);
         assertEquals(3, counter.get());
@@ -448,7 +449,7 @@ public class RetryInterceptorTest {
         policy.setExcludeKeywords(null);  // excludeKeywords 为 null
         policy.setMatchMode(MatchMode.CONTAINS);
 
-        String result = interceptor.execute(op, policy);
+        String result = interceptor.execute(op, policy, null, noopRetryAfter);
 
         assertEquals("success", result);
         assertEquals(2, counter.get());
@@ -478,12 +479,73 @@ public class RetryInterceptorTest {
         // useKeyword=true 且 keywords 为空时，isKeywordMatch 返回 false
         // 因此不重试，直接抛出异常
         try {
-            interceptor.execute(op, policy);
+            interceptor.execute(op, policy, null, noopRetryAfter);
             fail("should throw");
         } catch (RuntimeException e) {
             assertEquals(1, counter.get());
         } catch (Exception e) {
             fail("unexpected: " + e.getMessage());
         }
+    }
+
+    // ==================== RetryAfter 回调测试 ====================
+
+    @Test
+    public void testRetryAfterCallbackInvoked() throws Exception {
+        AtomicInteger counter = new AtomicInteger(0);
+        AtomicInteger callbackCount = new AtomicInteger(0);
+        String[] capturedMappingId = new String[1];
+        int[] capturedAttempt = new int[1];
+        long[] capturedInterval = new long[1];
+        String[] capturedKeyword = new String[1];
+        Exception[] capturedException = new Exception[1];
+
+        ThrowingSupplier<String> op = () -> {
+            if (counter.incrementAndGet() < 3) {
+                throw new RuntimeException("deadlock detected");
+            }
+            return "success";
+        };
+
+        RetryPolicy policy = new RetryPolicy();
+        policy.setDisable(false);
+        policy.setMaxAttempts(5);
+        policy.setInitialIntervalMs(10L);
+        policy.setMultiplier(1.0);
+        policy.setUseKeyword(true);
+        policy.setKeywords(Arrays.asList("deadlock"));
+        policy.setMatchMode(MatchMode.CONTAINS);
+
+        RetryAfter callback = ctx -> {
+            callbackCount.incrementAndGet();
+            capturedMappingId[0] = ctx.getMappingId();
+            capturedAttempt[0] = ctx.getAttempt();
+            capturedInterval[0] = ctx.getIntervalMs();
+            capturedKeyword[0] = ctx.getMatchedKeyword();
+            capturedException[0] = ctx.getException();
+        };
+
+        String result = interceptor.execute(op, policy, "test-mapping-id", callback);
+
+        assertEquals("success", result);
+        assertEquals(3, counter.get());
+        assertEquals(2, callbackCount.get());
+        assertEquals("test-mapping-id", capturedMappingId[0]);
+        assertEquals(2, capturedAttempt[0]);
+        assertEquals("deadlock", capturedKeyword[0]);
+        assertNotNull(capturedException[0]);
+        assertEquals("deadlock detected", capturedException[0].getMessage());
+    }
+
+    @Test
+    public void testRetryAfterNotInvokedOnFirstAttemptSuccess() throws Exception {
+        AtomicInteger callbackCount = new AtomicInteger(0);
+        RetryAfter callback = ctx -> callbackCount.incrementAndGet();
+
+        RetryPolicy policy = new RetryPolicy();
+        String result = interceptor.execute(() -> "ok", policy, null, callback);
+
+        assertEquals("ok", result);
+        assertEquals(0, callbackCount.get());
     }
 }
