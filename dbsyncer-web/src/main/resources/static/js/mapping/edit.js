@@ -959,6 +959,8 @@ function getMappping(id) {
                 // 更新 metaId 隐藏字段
                 $("#metaId").val(metaId);
 
+                updateMetaDuration(meta.beginTime || 0, meta.endTime || 0, meta.state || 0);
+
                 // 更新表映射关系数据
                 updateTableGroups(mid, total, successCount, failCount);
             }
@@ -1024,6 +1026,9 @@ function getMappping(id) {
                                         stateHtmlContent += '<span class="highlight-number error-color">异常</span>';
                                     }
                                     $("#mappingState").html(stateHtmlContent);
+
+                                    var endTime = meta.endTime || 0;
+                                    updateMetaDuration(beginTime, endTime, state);
 
                                     // 更新重新同步按钮状态
                                     var $resyncBtn = $("#tableGroupResyncBtn");
@@ -1103,6 +1108,47 @@ function clearTimer() {
     }
     currentMappingId = null;
 }
+
+function updateMetaDuration(beginTime, endTime, state) {
+    var $duration = $("#metaDuration");
+    if (!$duration.length) return;
+    $duration.attr('data-begin-time', beginTime);
+    $duration.attr('data-end-time', endTime);
+    $duration.attr('data-state', state);
+    renderDuration();
+}
+
+function renderDuration() {
+    var $duration = $("#metaDuration");
+    var beginTime = parseInt($duration.attr('data-begin-time')) || 0;
+    var endTime = parseInt($duration.attr('data-end-time')) || 0;
+    var state = parseInt($duration.attr('data-state')) || 0;
+    var $span = $duration.find('.highlight-number');
+    if (!$span.length) return;
+    if (beginTime <= 0) {
+        $span.text('-');
+        return;
+    }
+    var endMs = (state === 1) ? Date.now() : endTime;
+    if (endMs <= 0) {
+        $span.text('-');
+        return;
+    }
+    var totalSeconds = Math.floor((endMs - beginTime) / 1000);
+    if (totalSeconds < 0) totalSeconds = 0;
+    if (totalSeconds < 60) {
+        $span.text(totalSeconds + '秒');
+    } else if (totalSeconds < 3600) {
+        var minutes = Math.floor(totalSeconds / 60);
+        $span.text(minutes + '分' + (totalSeconds - minutes * 60) + '秒');
+    } else {
+        var hours = Math.floor(totalSeconds / 3600);
+        var minutes = Math.floor((totalSeconds - hours * 3600) / 60);
+        $span.text(hours + '时' + minutes + '分' + (totalSeconds - hours * 3600 - minutes * 60) + '秒');
+    }
+}
+
+setInterval(renderDuration, 1000);
 
 // 绑定编辑页面操作按钮事件
 function bindEditPageOperationButtons() {

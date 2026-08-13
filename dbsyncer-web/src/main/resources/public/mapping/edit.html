@@ -132,7 +132,7 @@
                     </div>
                 </div>
                 <div class="panel panel-default">
-                    <div class="panel-body" th:with="model=${mapping?.model},total=${mapping?.meta?.total},success=${mapping?.meta?.success},fail=${mapping?.meta?.fail},beginTime=${mapping?.meta?.beginTime},updateTime=${mapping?.meta?.updateTime}">
+                    <div class="panel-body" th:with="model=${mapping?.model},total=${mapping?.meta?.total},success=${mapping?.meta?.success},fail=${mapping?.meta?.fail},beginTime=${mapping?.meta?.beginTime},endTime=${mapping?.meta?.endTime},state=${mapping?.meta?.state}">
                         <div class="row">
                             <div class="col-md-2">
                                 <div  class="text-left" id ="mappingState">
@@ -160,16 +160,13 @@
                             </div>
 
                             <div class="col-md-2">
-                                <div  class="text-left" id ="metaDuration" style="white-space: nowrap; padding-right: 10px;">
+                                <div class="text-left" id="metaDuration" style="white-space: nowrap; padding-right: 10px;"
+                                     th:attr="data-begin-time=${beginTime},data-end-time=${endTime},data-state=${state}">
                                     <p>耗时:</p>
-                                    <span th:if="${beginTime gt 0 and updateTime gt 0}">
-                                        <span th:with="seconds=${(updateTime - beginTime) / 1000}">
-                                            <span th:if="${seconds lt 60}" th:text="${seconds + '秒'}" class="highlight-number"/>
-                                            <span th:if="${seconds ge 60 and seconds lt 3600}" th:with="minutes=${seconds / 60}" th:text="${minutes + '分' + (seconds - minutes * 60) + '秒'}" class="highlight-number"/>
-                                            <span th:if="${seconds ge 3600}" th:with="hours=${seconds / 3600}, minutes=${(seconds - hours * 3600) / 60}" th:text="${hours + '时' + minutes + '分' + (seconds - hours * 3600 - minutes * 60) + '秒'}" class="highlight-number"/>
-                                        </span>
-                                    </span>
-                                    <span th:unless="${beginTime gt 0 and updateTime gt 0}" class="highlight-number">-</span>
+                                    <span th:if="${beginTime gt 0 and (endTime gt 0 or state eq 1)}"
+                                          th:class="highlight-number"
+                                          th:text="${state eq 1 ? '-' : ((endTime - beginTime) / 1000 lt 60 ? (endTime - beginTime) / 1000 + '秒' : ((endTime - beginTime) / 1000 lt 3600 ? (endTime - beginTime) / 1000 / 60 + '分' + ((endTime - beginTime) / 1000 - (endTime - beginTime) / 1000 / 60 * 60) + '秒' : (endTime - beginTime) / 1000 / 3600 + '时' + ((endTime - beginTime) / 1000 - (endTime - beginTime) / 1000 / 3600 * 3600) / 60 + '分' + ((endTime - beginTime) / 1000 - (endTime - beginTime) / 1000 / 3600 * 3600 - ((endTime - beginTime) / 1000 - (endTime - beginTime) / 1000 / 3600 * 3600) / 60 * 60) + '秒'))}">-</span>
+                                    <span th:unless="${beginTime gt 0 and (endTime gt 0 or state eq 1)}" class="highlight-number">-</span>
                                 </div>
                             </div>
 

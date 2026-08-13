@@ -37,7 +37,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 
 import javax.annotation.Resource;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -120,9 +119,6 @@ public final class IncrementPuller implements Puller {
             try {
                 Listener listener = meta.getListener();
                 if (listener == null) {
-                    long now = Instant.now().toEpochMilli();
-                    meta.setBeginTime(now);
-                    meta.setEndTime(now);
                     meta.saveState(MetaEnum.RUNNING, "");
                     profileComponent.editConfigModel(meta);
                     tableGroupContext.put(mapping, list);
