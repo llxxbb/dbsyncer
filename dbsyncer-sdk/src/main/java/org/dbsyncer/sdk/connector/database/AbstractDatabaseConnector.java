@@ -808,12 +808,13 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
 
             String[] types = { TableTypeEnum.TABLE.getCode(), TableTypeEnum.VIEW.getCode(),
                     TableTypeEnum.MATERIALIZED_VIEW.getCode() };
-            final ResultSet rs = conn.getMetaData().getTables(effectiveCatalog, effectiveSchema, tableNamePattern,
-                    types);
-            while (rs.next()) {
-                final String tableName = rs.getString("TABLE_NAME");
-                final String tableType = rs.getString("TABLE_TYPE");
-                tables.add(new Table(tableName, tableType, null, null, null));
+            try (ResultSet rs = conn.getMetaData().getTables(effectiveCatalog, effectiveSchema, tableNamePattern,
+                    types)) {
+                while (rs.next()) {
+                    final String tableName = rs.getString("TABLE_NAME");
+                    final String tableType = rs.getString("TABLE_TYPE");
+                    tables.add(new Table(tableName, tableType, null, null, null));
+                }
             }
             return tables;
         });

@@ -27,7 +27,7 @@ import java.util.concurrent.Executor;
 
 public class SimpleConnection implements Connection {
     private final Connection connection;
-    private final long ACTIVE_TIME = Instant.now().toEpochMilli();
+    private long activeTime = Instant.now().toEpochMilli();
 
     public SimpleConnection(Connection connection) {
         this.connection = connection;
@@ -313,6 +313,10 @@ public class SimpleConnection implements Connection {
     }
 
     public long getActiveTime() {
-        return ACTIVE_TIME;
+        return activeTime;
+    }
+
+    public void refreshActiveTime() {
+        this.activeTime = Instant.now().toEpochMilli();
     }
 }

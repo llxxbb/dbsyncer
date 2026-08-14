@@ -20,8 +20,6 @@ import java.util.logging.Logger;
 
 public class SimpleDataSource implements DataSource, AutoCloseable {
 
-    //从缓存队列获取连接次数
-    private final int MAX_PULL_TIME = 20;
     // 有效检测时间（秒），默认10s
     private final int VALID_TIMEOUT_SECONDS = 10;
     // 获取连接锁
@@ -62,27 +60,19 @@ public class SimpleDataSource implements DataSource, AutoCloseable {
     public Connection getConnection() throws SQLException {
         try {
             lock.lock();
-            //如果当前连接数大于或等于最大连接数
-            if (activeNum.get() >= maxActive) {
-                throw new SdkException(String.format("数据库连接数超过上限%d，url=%s", maxActive, url));
-            }
-            int time = MAX_PULL_TIME;
-            while (time-- > 0){
-                SimpleConnection poll = pool.poll();
-                if (null == poll) {
-                    return createConnection();
+            SimpleConnection poll = pool.poll();
+            if (null == poll) {
+                if (activeNum.get() >= maxActive) {
+                    throw new SdkException(String.format("数据库连接数超过上限%d，url=%s", maxActive, url));
                 }
-                // 连接无效或过期, 直接关闭连接
-                if (!poll.isValid(VALID_TIMEOUT_SECONDS) || isExpired(poll)) {
-                    closeQuietly(poll);
-                    continue;
-                }
-                // 返回缓存连接
-                return poll;
+                return createConnection();
             }
-
-            // 兜底方案，保证一定能获取连接
-            return createConnection();
+            // 连接无效或过期, 直接关闭连接并创建新连接
+            if (!poll.isValid(VALID_TIMEOUT_SECONDS) || isExpired(poll)) {
+                closeQuietly(poll);
+                return createConnection();
+            }
+            return poll;
         } finally {
             lock.unlock();
         }
@@ -142,8 +132,11 @@ public class SimpleDataSource implements DataSource, AutoCloseable {
                 return;
             }
 
-            // 回收连接
-            pool.offer(simpleConnection);
+            // 刷新活跃时间并回收连接，如果队列满则关闭连接
+            simpleConnection.refreshActiveTime();
+            if (!pool.offer(simpleConnection)) {
+                closeQuietly(simpleConnection);
+            }
         }
     }
 
