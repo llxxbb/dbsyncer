@@ -85,7 +85,9 @@ public class RetryInterceptor {
                     e
                 );
                 retryAfter.onRetry(ctx);
-                sleep(interval);
+                if (sleep(interval)) {
+                    throw e;
+                }
             }
         }
     }
