@@ -102,4 +102,22 @@ public interface BinaryLogClient {
      */
     String getWorkerThreadName();
 
+    /**
+     * @return GTID set string, or null if GTID mode is not enabled.
+     *         The value is automatically updated with each incoming GTID event.
+     */
+    String getGtidSet();
+
+    /**
+     * @param gtidStr GTID set string (can be an empty string).
+     *                Any value but null will switch the client into GTID mode.
+     */
+    void setGtidSet(String gtidStr);
+
+    /**
+     * @param gtidSetFallbackToPurged true if gtid_purged should be used as a fallback when gtidSet is empty
+     *                                and MySQL server has purged some binary logs.
+     */
+    void setGtidSetFallbackToPurged(boolean gtidSetFallbackToPurged);
+
 }

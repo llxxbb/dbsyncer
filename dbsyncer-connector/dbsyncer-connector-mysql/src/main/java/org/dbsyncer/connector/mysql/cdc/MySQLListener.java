@@ -48,6 +48,7 @@ public class MySQLListener extends AbstractDatabaseListener {
 
     private final String BINLOG_FILENAME = "fileName";
     private final String BINLOG_POSITION = "position";
+    private final String BINLOG_GTID = "gtid";
     private final Map<Long, TableMapEventData> tables = new HashMap<>();
     // 缓存表的列名信息：tableId -> 列名列表（按数据顺序）
     private final Map<Long, List<String>> tableColumnNames = new HashMap<>();
@@ -118,10 +119,22 @@ public class MySQLListener extends AbstractDatabaseListener {
         final Host host = cluster.get(MASTER);
         final String username = config.getUsername();
         final String password = config.getPassword();
-        boolean containsPos = snapshot.containsKey(BINLOG_POSITION);
         client = new BinaryLogRemoteClient(host.getIp(), host.getPort(), username, password);
-        client.setBinlogFilename(snapshot.get(BINLOG_FILENAME));
-        client.setBinlogPosition(containsPos ? Long.parseLong(snapshot.get(BINLOG_POSITION)) : 0);
+
+        // 模式选择：snapshot 中有 gtid 且非空则使用 GTID 模式，否则使用 fileName+position 模式
+        String gtid = snapshot.get(BINLOG_GTID);
+        if (!StringUtil.isBlank(gtid)) {
+            // 启用 GTID 模式，设置 fallback 以处理 gtid_purged 非空的情况
+            client.setGtidSetFallbackToPurged(true);
+            client.setGtidSet(gtid);
+            logger.info("使用 GTID 模式连接: {}", gtid);
+        } else {
+            client.setBinlogFilename(snapshot.get(BINLOG_FILENAME));
+            boolean containsPos = snapshot.containsKey(BINLOG_POSITION);
+            client.setBinlogPosition(containsPos ? Long.parseLong(snapshot.get(BINLOG_POSITION)) : 0);
+            logger.info("使用 fileName+position 模式连接: {}:{}", client.getBinlogFilename(), client.getBinlogPosition());
+        }
+
         client.setTableMapEventByTableId(tables);
         client.registerEventListener(new InnerEventListener());
         client.registerLifecycleListener(new InnerLifecycleListener());
@@ -150,6 +163,9 @@ public class MySQLListener extends AbstractDatabaseListener {
     private void refreshSnapshot(String binlogFilename, long nextPosition) {
         snapshot.put(BINLOG_FILENAME, binlogFilename);
         snapshot.put(BINLOG_POSITION, String.valueOf(nextPosition));
+        // GTID 不可用时写空字符串，防止重启时读到过期 GTID 值
+        String gtid = client.getGtidSet();
+        snapshot.put(BINLOG_GTID, gtid != null ? gtid : "");
     }
 
     static final class Host {
@@ -188,6 +204,15 @@ public class MySQLListener extends AbstractDatabaseListener {
                     if (msg != null && msg.contains("bogus data")) {
                         logger.warn("MySQL 重启导致 binlog 无效，BinaryLogRemoteClient 已自动重置位置，由 keepalive 线程重连恢复: {}", msg);
                         tableColumnNames.clear();
+                        return;
+                    }
+                    // 处理 GTID 已被清理的情况：清除 GTID，降级到 fileName+position 模式
+                    if (msg != null && (msg.contains("purged") || msg.contains("not found"))) {
+                        logger.warn("GTID 已被清理，降级到 fileName+position 模式: {}", msg);
+                        snapshot.put(BINLOG_GTID, "");
+                        // 使用当前 binlog 位置继续
+                        snapshot.put(BINLOG_FILENAME, client.getBinlogFilename());
+                        snapshot.put(BINLOG_POSITION, String.valueOf(client.getBinlogPosition()));
                         return;
                     }
                     logger.error(e.getMessage());

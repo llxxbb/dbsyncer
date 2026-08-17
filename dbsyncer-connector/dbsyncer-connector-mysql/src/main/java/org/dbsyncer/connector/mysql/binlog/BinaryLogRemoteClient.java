@@ -227,6 +227,16 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
         if ("".equals(binlogFilename)) {
             setupGtidSet();
         }
+        // 始终启用 GTID 观察：在 fileName+position 模式下也累积 GTID 事件，用于后续自动升级
+        if (gtidSet == null) {
+            synchronized (gtidSetAccessLock) {
+                if (Boolean.TRUE.equals(isMariaDB)) {
+                    gtidSet = new MariadbGtidSet("");
+                } else {
+                    gtidSet = new GtidSet("");
+                }
+            }
+        }
         if (binlogFilename == null) {
             fetchBinlogFilenameAndPosition();
         }
