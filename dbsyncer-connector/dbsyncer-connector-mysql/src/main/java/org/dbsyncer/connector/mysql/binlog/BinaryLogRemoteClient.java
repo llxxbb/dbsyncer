@@ -253,7 +253,7 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
         if (serverVersion == null) {
             return;
         }
-        this.isMariaDB = serverVersion.toLowerCase().contains("mariadb");
+        this.isMariaDB = StringUtil.containsIgnoreCase(serverVersion, "mariadb");
     }
 
     private boolean tryUpgradeToSSL(GreetingPacket greetingPacket) throws IOException {
@@ -603,6 +603,10 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
                 GtidEventData gtidEventData = (GtidEventData) EventDeserializer.EventDataWrapper.internal(event.getData());
                 gtid = gtidEventData.getGtid();
                 break;
+            case MARIADB_GTID:
+                MariadbGtidEventData mariadbGtidEventData = (MariadbGtidEventData) EventDeserializer.EventDataWrapper.internal(event.getData());
+                gtid = mariadbGtidEventData.toString();
+                break;
             case XID:
                 commitGtid();
                 tx = false;
@@ -622,7 +626,9 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
                     // auto-commit query, likely DDL
                     commitGtid();
                 }
+                break;
             default:
+                break;
         }
     }
 
@@ -859,12 +865,9 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
     /**
      * @param gtidStr GTID set string (can be an empty string).
      *                <p>NOTE #1: Any value but null will switch BinaryLogRemoteClient into a GTID mode (this will also set binlogFilename
-     *                to "" (provided it's null) forcing MySQL to send events starting from the oldest known binlog (keep in mind
-     *                that connection will fail if gtid_purged is anything but empty (unless
-     *                {@link #setGtidSetFallbackToPurged(boolean)} is set to true))).
+     *                to "" (provided it's null) forcing MySQL to send events starting from the oldest known binlog).
      *                <p>NOTE #2: GTID set is automatically updated with each incoming GTID event (provided GTID mode is on).
      * @see #getGtidSet()
-     * @see #setGtidSetFallbackToPurged(boolean)
      */
     public void setGtidSet(String gtidStr) {
         if (gtidStr == null)
