@@ -572,11 +572,6 @@ public class SqlServerTemplate extends AbstractSqlTemplate {
     // ==================== Change Tracking 相关 SQL 构建方法 ====================
 
     /**
-     * Change Tracking 特殊列名，用于标识表结构信息的 JSON 字段（不用于数据同步）
-     */
-    public static final String CT_DDL_SCHEMA_INFO_COLUMN = "__DDL_SCHEMA_INFO__";
-
-    /**
      * CT 主键列别名前缀（使用双下划线前缀避免与用户列名冲突）
      */
     public static final String CT_PK_COLUMN_PREFIX = "__CT_PK_";
@@ -591,35 +586,21 @@ public class SqlServerTemplate extends AbstractSqlTemplate {
     }
 
     /**
-     * 构建获取表结构信息的子查询 SQL
-     * 用于在 DML 查询中附加表结构信息
+     * 构建获取表结构信息的查询 SQL
+     * 用于独立 DDL 检测查询
+     * 使用 sys.columns + sys.types 替代 INFORMATION_SCHEMA.COLUMNS 以提升性能
      * 注意：SQL Server 2008 R2 不支持 FOR JSON PATH，使用字符串拼接方式生成 JSON
      * 使用 STUFF + FOR XML PATH 来拼接 JSON 数组字符串
-     * 
+     *
      * @param schema 架构名
      * @param tableName 表名
-     * @return 子查询 SQL
+     * @return 查询 SQL
      */
-    public String buildGetTableSchemaInfoSubquery(String schema, String tableName) {
-        // 转义单引号防止SQL注入
-        String escapedSchema = (schema != null && !schema.trim().isEmpty()) ? schema.replace("'", "''") : "dbo";
-        String escapedTableName = tableName.replace("'", "''");
-        
-        // 优化：移除外层包装，因为现在在 CROSS APPLY 中使用
-        // CROSS APPLY 需要一个返回单行单列的表值表达式
-        return String.format(
-                "(" + schemaSql() + ")",
-                escapedSchema, escapedTableName
-        );
-    }
-
     public String buildSchemeOnly(String schema, String tableName) {
         // 转义单引号防止SQL注入
         String escapedSchema = (schema != null && !schema.trim().isEmpty()) ? schema.replace("'", "''") : "dbo";
         String escapedTableName = tableName.replace("'", "''");
 
-        // 优化：移除外层包装，因为现在在 CROSS APPLY 中使用
-        // CROSS APPLY 需要一个返回单行单列的表值表达式
         return String.format(schemaSql(), escapedSchema, escapedTableName);
     }
 
@@ -628,23 +609,26 @@ public class SqlServerTemplate extends AbstractSqlTemplate {
                 "    '[' + STUFF((" +
                 "        SELECT ',' + " +
                 "            '{' + " +
-                "            '\"COLUMN_NAME\":\"' + REPLACE(COLUMN_NAME, '\"', '\\\"') + '\",' + " +
-                "            '\"DATA_TYPE\":\"' + REPLACE(DATA_TYPE, '\"', '\\\"') + '\",' + " +
-                "            CASE WHEN CHARACTER_MAXIMUM_LENGTH IS NOT NULL " +
-                "                THEN '\"CHARACTER_MAXIMUM_LENGTH\":' + CAST(CHARACTER_MAXIMUM_LENGTH AS VARCHAR) + ',' " +
+                "            '\"COLUMN_NAME\":\"' + REPLACE(c.name, '\"', '\\\"') + '\",' + " +
+                "            '\"DATA_TYPE\":\"' + REPLACE(t.name, '\"', '\\\"') + '\",' + " +
+                "            CASE WHEN t.name IN ('nvarchar','nchar') AND c.max_length > 0 " +
+                "                THEN '\"CHARACTER_MAXIMUM_LENGTH\":' + CAST(c.max_length / 2 AS VARCHAR) + ',' " +
+                "                WHEN t.name NOT IN ('nvarchar','nchar') AND c.max_length > 0 " +
+                "                THEN '\"CHARACTER_MAXIMUM_LENGTH\":' + CAST(c.max_length AS VARCHAR) + ',' " +
                 "                ELSE '' END + " +
-                "            CASE WHEN NUMERIC_PRECISION IS NOT NULL " +
-                "                THEN '\"NUMERIC_PRECISION\":' + CAST(NUMERIC_PRECISION AS VARCHAR) + ',' " +
+                "            CASE WHEN c.precision > 0 " +
+                "                THEN '\"NUMERIC_PRECISION\":' + CAST(c.precision AS VARCHAR) + ',' " +
                 "                ELSE '' END + " +
-                "            CASE WHEN NUMERIC_SCALE IS NOT NULL " +
-                "                THEN '\"NUMERIC_SCALE\":' + CAST(NUMERIC_SCALE AS VARCHAR) + ',' " +
+                "            CASE WHEN c.scale > 0 " +
+                "                THEN '\"NUMERIC_SCALE\":' + CAST(c.scale AS VARCHAR) + ',' " +
                 "                ELSE '' END + " +
-                "            '\"IS_NULLABLE\":\"' + IS_NULLABLE + '\",' + " +
-                "            '\"ORDINAL_POSITION\":' + CAST(ORDINAL_POSITION AS VARCHAR) + " +
+                "            '\"IS_NULLABLE\":\"' + CASE WHEN c.is_nullable = 1 THEN 'YES' ELSE 'NO' END + '\",' + " +
+                "            '\"ORDINAL_POSITION\":' + CAST(c.column_id AS VARCHAR) + " +
                 "            '}' " +
-                "        FROM INFORMATION_SCHEMA.COLUMNS WITH (NOLOCK) " +
-                "        WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s' " +
-                "        ORDER BY ORDINAL_POSITION " +
+                "        FROM sys.columns c WITH (NOLOCK) " +
+                "        JOIN sys.types t WITH (NOLOCK) ON c.user_type_id = t.user_type_id " +
+                "        WHERE c.object_id = OBJECT_ID('%s.%s') " +
+                "        ORDER BY c.column_id " +
                 "        FOR XML PATH(''), TYPE " +
                 "    ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') + ']' AS schema_info";
     }
@@ -655,11 +639,10 @@ public class SqlServerTemplate extends AbstractSqlTemplate {
      * @param schema 架构名
      * @param tableName 表名
      * @param primaryKeys 主键列表
-     * @param schemaInfoSubquery 表结构信息子查询
-     * @return SQL 语句（使用 PreparedStatement 参数，需要设置 3 个参数：startVersion, startVersion, stopVersion）
+     * @return SQL 语句（使用 PreparedStatement 参数，需要设置 6 个参数）
      */
     public String buildChangeTrackingDMLMainQuery(String schema, String tableName,
-                                                  List<String> primaryKeys, String schemaInfoSubquery) {
+                                                   List<String> primaryKeys) {
         // 构建 JOIN 条件（支持复合主键）
         // buildColumn 已经包含了引号，所以不需要再手动添加
         String joinCondition = primaryKeys.stream()
@@ -685,29 +668,26 @@ public class SqlServerTemplate extends AbstractSqlTemplate {
         //   1-3: SYS_CHANGE_VERSION, SYS_CHANGE_OPERATION, SYS_CHANGE_COLUMNS
         //   4..4+PK-1: 冗余主键列 (__CT_PK_*)
         //   4+PK..N: T.*（所有表列）
-        //   N+1: __DDL_SCHEMA_INFO__
         //
         // D 分支用 LEFT JOIN T ON 1=0 — T.* 全为 NULL，列数和类型自动与 I/U 分支对齐，
         // 优化器识别 ON 1=0 为常量 false，不会实际扫描 T 表。
-        // D 分支的 schema_info 为 NULL — 行已删除，DDL 检测不需要当前行数据。
+        //
+        // 性能优化：移除 CROSS APPLY schema_info 子查询，DDL 检测改为独立查询
         return String.format(
                 "SELECT " +
                         "    CT.SYS_CHANGE_VERSION, " +
                         "    CT.SYS_CHANGE_OPERATION, " +
                         "    CT.SYS_CHANGE_COLUMNS, " +
-                        "    %s, " +
-                        "    SI.schema_info AS " + CT_DDL_SCHEMA_INFO_COLUMN + " " +
+                        "    %s " +
                         "FROM CHANGETABLE(CHANGES %s, ?) AS CT " +
                         "RIGHT JOIN %s AS T WITH (NOLOCK) ON %s " +
-                        "CROSS APPLY %s SI " +
                         "WHERE CT.SYS_CHANGE_VERSION > ? AND CT.SYS_CHANGE_VERSION <= ? " +
                         "UNION ALL " +
                         "SELECT " +
                         "    CT.SYS_CHANGE_VERSION, " +
                         "    CT.SYS_CHANGE_OPERATION, " +
                         "    CT.SYS_CHANGE_COLUMNS, " +
-                        "    %s, " +
-                        "    NULL AS " + CT_DDL_SCHEMA_INFO_COLUMN + " " +
+                        "    %s " +
                         "FROM CHANGETABLE(CHANGES %s, ?) AS CT " +
                         "LEFT JOIN %s AS T ON 1=0 " +
                         "WHERE CT.SYS_CHANGE_OPERATION = 'D' " +
@@ -717,10 +697,9 @@ public class SqlServerTemplate extends AbstractSqlTemplate {
                 schemaTable,          // 2: CHANGETABLE (I/U 分支)
                 schemaTable,          // 3: RIGHT JOIN 表 (I/U 分支)
                 joinCondition,        // 4: RIGHT JOIN 条件
-                schemaInfoSubquery,   // 5: CROSS APPLY 子查询 (I/U 分支)
-                selectColumns,        // 6: D 分支列列表（冗余主键列用 CT 值）
-                schemaTable,          // 7: CHANGETABLE (D 分支)
-                schemaTable           // 8: LEFT JOIN 表 (D 分支, ON 1=0)
+                selectColumns,        // 5: D 分支列列表
+                schemaTable,          // 6: CHANGETABLE (D 分支)
+                schemaTable           // 7: LEFT JOIN 表 (D 分支, ON 1=0)
         );
     }
 

@@ -333,7 +333,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
 
     /**
      * 流式处理 DML 变更，边查询边发送事件，避免内存溢出
-     * DDL 变更在查询 DML 时检测到后立即发送
+     * DDL 变更独立检测，在 DML 查询前执行
      * 所有事件都携带 startVersion，确保数据安全（即使处理失败也不会丢失数据）
      *
      * @param startVersion 起始版本号
@@ -341,12 +341,38 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
      */
     private void pull(Long startVersion, Long stopVersion) throws Exception {
         for (String table : tables) {
+            detectDDLSeparately(table, startVersion);
             queryDMLChangesWithStreamingAndSend(
                     table, startVersion, stopVersion, primaryKeysCache.get(table),
                     startVersion);
         }
 
         lastSuccessfulVersion = stopVersion;
+    }
+
+    /**
+     * 独立检测 DDL 变更
+     * 在 DML 查询前执行，确保 DDL 变更在使用新结构的 DML 之前处理
+     *
+     * @param tableName    表名
+     * @param eventVersion 事件版本号
+     */
+    private void detectDDLSeparately(String tableName, Long eventVersion) {
+        try {
+            String schemaInfoQuery = sqlTemplate.buildSchemeOnly(schema, tableName);
+            String schemaInfoJson = queryUtil.queryAndMap(schemaInfoQuery, rs -> {
+                if (rs.next()) {
+                    return rs.getString("schema_info");
+                }
+                return null;
+            });
+            if (schemaInfoJson != null && !schemaInfoJson.trim().isEmpty()) {
+                detectDDLChangesFromSchemaInfoJsonAndSendImmediately(tableName, schemaInfoJson,
+                        String.valueOf(eventVersion));
+            }
+        } catch (Exception e) {
+            logger.warn("表 {} 的 DDL 检测失败，跳过: {}", tableName, e.getMessage());
+        }
     }
 
     /**
@@ -369,10 +395,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
         }
 
         // 构建查询 SQL
-        String schemaInfoSubquery = sqlTemplate.buildGetTableSchemaInfoSubquery(schema, tableName);
-        String mainQuery = sqlTemplate.buildChangeTrackingDMLMainQuery(
-                schema, tableName, primaryKeys, schemaInfoSubquery);
-        String fallbackQuery = sqlTemplate.buildSchemeOnly(schema, tableName);
+        String mainQuery = sqlTemplate.buildChangeTrackingDMLMainQuery(schema, tableName, primaryKeys);
 
         logger.debug("执行CT查询SQL: table={}", tableName);
 
@@ -397,8 +420,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
                 rs = ps.executeQuery();
 
                 // 处理查询结果（UNION ALL 已包含 D 操作）
-                return processDMLResultSet(rs, tableName, primaryKeys, eventVersion, startVersion, stopVersion,
-                        fallbackQuery);
+                return processDMLResultSet(rs, tableName, primaryKeys, eventVersion);
             } catch (Exception e) {
                 logger.error("流式查询 DML 变更失败，表: {}, SQL: {}, 错误: {}", tableName, mainQuery, e.getMessage(), e);
                 throw e;
@@ -420,42 +442,16 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
      * @param tableName     表名
      * @param primaryKeys   主键列表
      * @param eventVersion  事件版本号（所有事件都使用 startVersion）
-     * @param startVersion  起始版本号
-     * @param stopVersion   结束版本号
-     * @param fallbackQuery 辅助查询 SQL（用于检测 DDL）
      * @return 处理的记录数
      * @throws Exception 处理异常
      */
     private int processDMLResultSet(ResultSet rs, String tableName, List<String> primaryKeys,
-            Long eventVersion, Long startVersion, Long stopVersion,
-            String fallbackQuery) throws Exception {
+            Long eventVersion) throws Exception {
         ResultSetMetaData metaData = rs.getMetaData();
-
-        // 查找表结构信息列的位置
-        int schemaInfoColumnIndex = -1;
         int resultColumnCount = metaData.getColumnCount();
-        for (int i = 1; i <= resultColumnCount; i++) {
-            if (SqlServerTemplate.CT_DDL_SCHEMA_INFO_COLUMN.equalsIgnoreCase(metaData.getColumnName(i))) {
-                schemaInfoColumnIndex = i;
-                break;
-            }
-        }
-
-        // 检测 DDL 变更（从第一行获取）
-        boolean hasData = false;
-        if (schemaInfoColumnIndex > 0 && rs.next()) {
-            hasData = true;
-            String schemaInfoJson = rs.getString(schemaInfoColumnIndex);
-            // 查询时对 D 操作的 schema_info 设置为 null了。
-            if (schemaInfoJson != null && !schemaInfoJson.trim().isEmpty()) {
-                detectDDLChangesFromSchemaInfoJsonAndSendImmediately(tableName, schemaInfoJson,
-                        String.valueOf(startVersion));
-            } else {
-                logger.warn("表 {} 的第一行 schema_info 为 null 或空，跳过 DDL 检测", tableName);
-            }
-        }
 
         // 构建列映射
+        // 列结构: 1-3: SYS_CHANGE_VERSION/OPERATION/COLUMNS, 4..4+PK-1: CT主键列, 4+PK..N: T.*
         Map<String, Integer> primaryKeyToCTIndex = new HashMap<>();
         int ctPkStartIndex = 4;
         for (int i = 0; i < primaryKeys.size(); i++) {
@@ -463,20 +459,12 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
         }
 
         int tStarStartIndex = 4 + primaryKeys.size();
-        int tStarEndIndex = schemaInfoColumnIndex > 0 ? schemaInfoColumnIndex - 1 : resultColumnCount - 1;
-
-        Set<Integer> columnsToSkip = new HashSet<>();
-        if (schemaInfoColumnIndex > 0) {
-            columnsToSkip.add(schemaInfoColumnIndex);
-        }
+        int tStarEndIndex = resultColumnCount;
 
         List<String> columnNames = new ArrayList<>();
         Map<Integer, String> columnIndexToName = new HashMap<>();
         Set<String> primaryKeySet = new HashSet<>(primaryKeys);
         for (int i = tStarStartIndex; i <= tStarEndIndex; i++) {
-            if (columnsToSkip.contains(i)) {
-                continue;
-            }
             String columnName = metaData.getColumnName(i);
             columnNames.add(columnName);
             columnIndexToName.put(i, columnName);
@@ -484,45 +472,19 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
 
         int processedCount = 0;
 
-        // 处理第一行（如果已读取）
-        if (hasData) {
-            CTEvent event = processRow(rs, tableName, tStarStartIndex, tStarEndIndex, columnsToSkip,
-                    columnIndexToName, columnNames, primaryKeySet, primaryKeyToCTIndex);
-            if (event != null) {
-                sendDMLEvent(event, eventVersion);
-                processedCount++;
-            }
-        }
-
-        // 流式处理后续行：边查询边发送
+        // 流式处理：边查询边发送
         while (rs.next()) {
             if (stopRequested.get()) {
                 logger.info("检测到停止信号，停止处理表 {} 的 DML 变更", tableName);
                 break;
             }
 
-            CTEvent event = processRow(rs, tableName, tStarStartIndex, tStarEndIndex, columnsToSkip,
+            CTEvent event = processRow(rs, tableName, tStarStartIndex, tStarEndIndex,
                     columnIndexToName, columnNames, primaryKeySet, primaryKeyToCTIndex);
             if (event != null) {
                 sendDMLEvent(event, eventVersion);
                 processedCount++;
             }
-        }
-
-        // 如果没有 DML 数据，执行辅助查询检测 DDL
-        if (processedCount == 0) {
-            queryUtil.queryAndMapList(fallbackQuery, rs2 -> {
-                if (rs2.next()) {
-                    String schemaInfoJson = rs2.getString("schema_info");
-                    try {
-                        detectDDLChangesFromSchemaInfoJsonAndSendImmediately(tableName, schemaInfoJson,
-                                String.valueOf(startVersion));
-                    } catch (Exception e) {
-                        logger.error("检测 DDL 变更失败: {}", e.getMessage(), e);
-                    }
-                }
-                return null;
-            });
         }
 
         return processedCount;
@@ -556,7 +518,6 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
      * @param tableName           表名
      * @param tStarStartIndex     T.* 列的起始索引
      * @param tStarEndIndex       T.* 列的结束索引
-     * @param columnsToSkip       需要跳过的列索引集合
      * @param columnIndexToName   列索引到列名的映射（预构建）
      * @param columnNames         预构建的列名列表（所有行的列名都相同）
      * @param primaryKeySet       主键集合（使用 Set 提高查找效率）
@@ -564,7 +525,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
      * @return CTEvent 对象，如果处理失败返回 null
      */
     private CTEvent processRow(ResultSet rs, String tableName, int tStarStartIndex, int tStarEndIndex,
-            Set<Integer> columnsToSkip, Map<Integer, String> columnIndexToName,
+            Map<Integer, String> columnIndexToName,
             List<String> columnNames, Set<String> primaryKeySet, Map<String, Integer> primaryKeyToCTIndex) {
         try {
             Long version = rs.getLong(1);
@@ -574,10 +535,6 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
             // 构建行数据（列名列表已预构建，直接使用）
             List<Object> row = new ArrayList<>();
             for (int i = tStarStartIndex; i <= tStarEndIndex; i++) {
-                if (columnsToSkip.contains(i)) {
-                    continue;
-                }
-
                 Object value = rs.getObject(i);
                 String columnName = columnIndexToName.get(i);
 
