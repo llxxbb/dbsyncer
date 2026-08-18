@@ -98,7 +98,6 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
     private String workerThreadName;
 
     private final Lock connectLock = new ReentrantLock();
-    private boolean gtidEnabled = false;
     private final Object gtidSetAccessLock = new Object();
     private GtidSet gtidSet;
     private String gtid;
@@ -226,9 +225,8 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
         connectionId = greetingPacket.getThreadId();
         if ("".equals(binlogFilename)) {
             setupGtidSet();
-        }
-        // 始终启用 GTID 观察：在 fileName+position 模式下也累积 GTID 事件，用于后续自动升级
-        if (gtidSet == null) {
+        } else if (gtidSet == null) {
+            // 观察模式：创建空的 gtidSet 用于累积 GTID 事件
             synchronized (gtidSetAccessLock) {
                 if (Boolean.TRUE.equals(isMariaDB)) {
                     gtidSet = new MariadbGtidSet("");
@@ -407,15 +405,12 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
 
     private void ensureEventDeserializerHasRequiredEDDs() {
         ensureEventDataDeserializerIfPresent(EventType.ROTATE, RotateEventDataDeserializer.class);
-        synchronized (gtidSetAccessLock) {
-            if (this.gtidEnabled) {
-                ensureEventDataDeserializerIfPresent(EventType.GTID, GtidEventDataDeserializer.class);
-                ensureEventDataDeserializerIfPresent(EventType.QUERY, QueryEventDataDeserializer.class);
-                ensureEventDataDeserializerIfPresent(EventType.ANNOTATE_ROWS, AnnotateRowsEventDataDeserializer.class);
-                ensureEventDataDeserializerIfPresent(EventType.MARIADB_GTID, MariadbGtidEventDataDeserializer.class);
-                ensureEventDataDeserializerIfPresent(EventType.MARIADB_GTID_LIST, MariadbGtidListEventDataDeserializer.class);
-            }
-        }
+        // Always ensure GTID-related deserializers (for observation and GTID mode)
+        ensureEventDataDeserializerIfPresent(EventType.GTID, GtidEventDataDeserializer.class);
+        ensureEventDataDeserializerIfPresent(EventType.QUERY, QueryEventDataDeserializer.class);
+        ensureEventDataDeserializerIfPresent(EventType.ANNOTATE_ROWS, AnnotateRowsEventDataDeserializer.class);
+        ensureEventDataDeserializerIfPresent(EventType.MARIADB_GTID, MariadbGtidEventDataDeserializer.class);
+        ensureEventDataDeserializerIfPresent(EventType.MARIADB_GTID_LIST, MariadbGtidListEventDataDeserializer.class);
     }
 
     protected void checkError(byte[] packet) throws IOException {
@@ -452,7 +447,7 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
     private void requestBinaryLogStreamMysql(long serverId) throws IOException {
         Command dumpBinaryLogCommand;
         synchronized (gtidSetAccessLock) {
-            if (this.gtidEnabled) {
+            if ("".equals(binlogFilename)) {
                 dumpBinaryLogCommand = new DumpBinaryLogGtidCommand(serverId,
                         useBinlogFilenamePositionInGtidMode ? binlogFilename : "",
                         useBinlogFilenamePositionInGtidMode ? binlogPosition : 4,
@@ -467,7 +462,7 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
     private void requestBinaryLogStreamMaria(long serverId) throws IOException {
         Command dumpBinaryLogCommand;
         synchronized (gtidSetAccessLock) {
-            if (this.gtidEnabled) {
+            if ("".equals(binlogFilename)) {
                 channel.write(new QueryCommand("SET @mariadb_slave_capability=4"));
                 checkError(channel.read());
                 logger.info(gtidSet.toString());
@@ -512,9 +507,6 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
     }
 
     private void setupGtidSet() throws IOException {
-        if (!this.gtidEnabled)
-            return;
-
         synchronized (gtidSetAccessLock) {
             if (this.isMariaDB) {
                 if (gtidSet == null) {
@@ -914,8 +906,6 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
     public void setGtidSet(String gtidStr) {
         if (gtidStr == null)
             return;
-
-        this.gtidEnabled = true;
 
         if (this.binlogFilename == null) {
             this.binlogFilename = "";

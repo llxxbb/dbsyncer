@@ -52,6 +52,12 @@
           "criteria": "运行中持续观察 GTID 事件并累积 GTID set，XID 事件时写入 snapshot",
           "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/main/java/org/dbsyncer/connector/mysql/cdc/MySQLListener.java",
           "code": "refreshSnapshot() 中写入 snapshot.put(gtid, client.getGtidSet() != null ? client.getGtidSet() : \"\")"
+        },
+        {
+          "type": "code",
+          "criteria": "BinaryLogRemoteClient 始终注册 GTID 反序列化器，MariaDB 观察模式正常工作",
+          "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/main/java/org/dbsyncer/connector/mysql/binlog/BinaryLogRemoteClient.java",
+          "code": "ensureEventDeserializerHasRequiredEDDs() 无条件注册 MARIADB_GTID 和 MARIADB_GTID_LIST"
         }
       ],
       "status": "passed",
