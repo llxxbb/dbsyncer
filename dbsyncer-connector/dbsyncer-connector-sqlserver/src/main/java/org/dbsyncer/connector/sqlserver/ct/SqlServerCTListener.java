@@ -358,23 +358,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
      */
     private void detectDDLSeparately(String tableName, Long eventVersion) {
         try {
-            String schemaQuery = sqlTemplate.buildQueryColumnSchemaSql(schema, tableName);
-            MetaInfo currentMetaInfo = instance.execute(databaseTemplate -> {
-                PreparedStatement ps = null;
-                ResultSet rs = null;
-                try {
-                    ps = databaseTemplate.getSimpleConnection().prepareStatement(schemaQuery);
-                    rs = ps.executeQuery();
-                    return buildMetaInfoFromResultSet(tableName, rs);
-                } finally {
-                    if (rs != null) {
-                        rs.close();
-                    }
-                    if (ps != null) {
-                        ps.close();
-                    }
-                }
-            });
+            MetaInfo currentMetaInfo = querySchemaMetaInfo(tableName);
             detectDDLChangesAndSendImmediately(tableName, currentMetaInfo, String.valueOf(eventVersion));
         } catch (Exception e) {
             logger.warn("表 {} 的 DDL 检测失败，跳过: {}", tableName, e.getMessage());
@@ -764,6 +748,26 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
         tableColumnCountCache.put(tableName, currentColumnCount);
 
         logger.info("检测到表 {} 的 DDL 变更，共 {} 个变更", tableName, changes.size());
+    }
+
+    private MetaInfo querySchemaMetaInfo(String tableName) throws Exception {
+        String querySql = sqlTemplate.buildQueryColumnSchemaSql(schema, tableName);
+        return instance.execute(databaseTemplate -> {
+            PreparedStatement ps = null;
+            ResultSet rs = null;
+            try {
+                ps = databaseTemplate.getSimpleConnection().prepareStatement(querySql);
+                rs = ps.executeQuery();
+                return buildMetaInfoFromResultSet(tableName, rs);
+            } finally {
+                if (rs != null) {
+                    rs.close();
+                }
+                if (ps != null) {
+                    ps.close();
+                }
+            }
+        });
     }
 
     /**
@@ -1181,24 +1185,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
         Long currentVersion = getCurrentVersion();
 
         for (String tableName : tables) {
-            String querySql = sqlTemplate.buildQueryColumnSchemaSql(schema, tableName);
-
-            MetaInfo metaInfo = instance.execute(databaseTemplate -> {
-                PreparedStatement ps = null;
-                ResultSet rs = null;
-                try {
-                    ps = databaseTemplate.getSimpleConnection().prepareStatement(querySql);
-                    rs = ps.executeQuery();
-                    return buildMetaInfoFromResultSet(tableName, rs);
-                } finally {
-                    if (rs != null) {
-                        rs.close();
-                    }
-                    if (ps != null) {
-                        ps.close();
-                    }
-                }
-            });
+            MetaInfo metaInfo = querySchemaMetaInfo(tableName);
 
             // 计算哈希值
             String hash = computeSchemaHash(metaInfo);

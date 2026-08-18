@@ -608,8 +608,7 @@ public class SqlServerTemplate extends AbstractSqlTemplate {
                         "        ELSE NULL END AS CHARACTER_MAXIMUM_LENGTH, " +
                         "    c.precision AS NUMERIC_PRECISION, " +
                         "    c.scale AS NUMERIC_SCALE, " +
-                        "    c.is_nullable AS IS_NULLABLE, " +
-                        "    c.column_id AS ORDINAL_POSITION " +
+                        "    c.is_nullable AS IS_NULLABLE " +
                         "FROM sys.columns c WITH (NOLOCK) " +
                         "JOIN sys.types t WITH (NOLOCK) ON c.user_type_id = t.user_type_id " +
                         "WHERE c.object_id = OBJECT_ID('%s.%s') " +
