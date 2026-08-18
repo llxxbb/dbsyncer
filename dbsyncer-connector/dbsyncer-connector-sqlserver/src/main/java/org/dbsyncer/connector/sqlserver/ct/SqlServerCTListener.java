@@ -352,17 +352,15 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
     /**
      * 独立检测 DDL 变更
      * 在 DML 查询前执行，确保 DDL 变更在使用新结构的 DML 之前处理
+     * 异常会向上传播，触发重试机制，确保数据安全
      *
      * @param tableName    表名
      * @param eventVersion 事件版本号
+     * @throws Exception DDL 检测失败时抛出异常
      */
-    private void detectDDLSeparately(String tableName, Long eventVersion) {
-        try {
-            MetaInfo currentMetaInfo = querySchemaMetaInfo(tableName);
-            detectDDLChangesAndSendImmediately(tableName, currentMetaInfo, String.valueOf(eventVersion));
-        } catch (Exception e) {
-            logger.warn("表 {} 的 DDL 检测失败，跳过: {}", tableName, e.getMessage());
-        }
+    private void detectDDLSeparately(String tableName, Long eventVersion) throws Exception {
+        MetaInfo currentMetaInfo = querySchemaMetaInfo(tableName);
+        detectDDLChangesAndSendImmediately(tableName, currentMetaInfo, String.valueOf(eventVersion));
     }
 
     /**
