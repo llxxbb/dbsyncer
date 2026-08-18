@@ -102,8 +102,6 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
     private GtidSet gtidSet;
     private String gtid;
     private boolean tx;
-    private boolean gtidSetFallbackToPurged;
-    private boolean useBinlogFilenamePositionInGtidMode;
     private Boolean isMariaDB;
 
     private static final long MYSQL_VERSION_8_4 = 8400000000L;
@@ -223,10 +221,8 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
         channel.authenticationComplete();
 
         connectionId = greetingPacket.getThreadId();
-        if ("".equals(binlogFilename)) {
-            setupGtidSet();
-        } else if (gtidSet == null) {
-            // 观察模式：创建空的 gtidSet 用于累积 GTID 事件
+        // 初始化 GTID set（用于观察或 GTID 模式）
+        if (gtidSet == null) {
             synchronized (gtidSetAccessLock) {
                 if (Boolean.TRUE.equals(isMariaDB)) {
                     gtidSet = new MariadbGtidSet("");
@@ -447,11 +443,8 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
     private void requestBinaryLogStreamMysql(long serverId) throws IOException {
         Command dumpBinaryLogCommand;
         synchronized (gtidSetAccessLock) {
-            if ("".equals(binlogFilename)) {
-                dumpBinaryLogCommand = new DumpBinaryLogGtidCommand(serverId,
-                        useBinlogFilenamePositionInGtidMode ? binlogFilename : "",
-                        useBinlogFilenamePositionInGtidMode ? binlogPosition : 4,
-                        gtidSet);
+            if (gtidSet != null && gtidSet.toString().length() > 0) {
+                dumpBinaryLogCommand = new DumpBinaryLogGtidCommand(serverId, "", 4, gtidSet);
             } else {
                 dumpBinaryLogCommand = new DumpBinaryLogCommand(serverId, binlogFilename, binlogPosition);
             }
@@ -462,7 +455,7 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
     private void requestBinaryLogStreamMaria(long serverId) throws IOException {
         Command dumpBinaryLogCommand;
         synchronized (gtidSetAccessLock) {
-            if ("".equals(binlogFilename)) {
+            if (gtidSet != null && gtidSet.toString().length() > 0) {
                 channel.write(new QueryCommand("SET @mariadb_slave_capability=4"));
                 checkError(channel.read());
                 logger.info(gtidSet.toString());
@@ -495,36 +488,6 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
                     new EventDeserializer.EventDataWrapper.Deserializer(internalEventDataDeserializer,
                             eventDataDeserializer));
         }
-    }
-
-    private String fetchGtidPurged() throws IOException {
-        channel.write(new QueryCommand("show global variables like 'gtid_purged'"));
-        ResultSetRowPacket[] resultSet = readResultSet();
-        if (resultSet.length != 0) {
-            return resultSet[0].getValue(1).toUpperCase();
-        }
-        return "";
-    }
-
-    private void setupGtidSet() throws IOException {
-        synchronized (gtidSetAccessLock) {
-            if (this.isMariaDB) {
-                if (gtidSet == null) {
-                    gtidSet = new MariadbGtidSet("");
-                } else if (!(gtidSet instanceof MariadbGtidSet)) {
-                    throw new RuntimeException("Connected to MariaDB but given a mysql GTID set!");
-                }
-            } else {
-                if (gtidSet == null && gtidSetFallbackToPurged) {
-                    gtidSet = new GtidSet(fetchGtidPurged());
-                } else if (gtidSet == null) {
-                    gtidSet = new GtidSet("");
-                } else if (gtidSet instanceof MariadbGtidSet) {
-                    throw new RuntimeException("Connected to Mysql but given a MariaDB GTID set!");
-                }
-            }
-        }
-
     }
 
     private Long getVersion() throws IOException {
@@ -907,49 +870,13 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
         if (gtidStr == null)
             return;
 
-        if (this.binlogFilename == null) {
-            this.binlogFilename = "";
-        }
         synchronized (gtidSetAccessLock) {
-            if (!gtidStr.equals("")) {
-                if (MariadbGtidSet.isMariaGtidSet(gtidStr)) {
-                    this.gtidSet = new MariadbGtidSet(gtidStr);
-                } else {
-                    this.gtidSet = new GtidSet(gtidStr);
-                }
+            if (MariadbGtidSet.isMariaGtidSet(gtidStr)) {
+                this.gtidSet = new MariadbGtidSet(gtidStr);
+            } else {
+                this.gtidSet = new GtidSet(gtidStr);
             }
         }
-    }
-
-    /**
-     * @see #setGtidSetFallbackToPurged(boolean)
-     */
-    public boolean isGtidSetFallbackToPurged() {
-        return gtidSetFallbackToPurged;
-    }
-
-    /**
-     * @param gtidSetFallbackToPurged true if gtid_purged should be used as a fallback when gtidSet is set to "" and MySQL server has purged
-     *                                some of the binary logs, false otherwise (default).
-     */
-    public void setGtidSetFallbackToPurged(boolean gtidSetFallbackToPurged) {
-        this.gtidSetFallbackToPurged = gtidSetFallbackToPurged;
-    }
-
-    /**
-     * @see #setUseBinlogFilenamePositionInGtidMode(boolean)
-     */
-    public boolean isUseBinlogFilenamePositionInGtidMode() {
-        return useBinlogFilenamePositionInGtidMode;
-    }
-
-    /**
-     * @param useBinlogFilenamePositionInGtidMode true if MySQL server should start streaming events from a given {@link
-     *                                            #getBinlogFilename()} and {@link #getBinlogPosition()} instead of "the oldest known
-     *                                            binlog" when {@link #getGtidSet()} is set, false otherwise (default).
-     */
-    public void setUseBinlogFilenamePositionInGtidMode(boolean useBinlogFilenamePositionInGtidMode) {
-        this.useBinlogFilenamePositionInGtidMode = useBinlogFilenamePositionInGtidMode;
     }
 
     /**

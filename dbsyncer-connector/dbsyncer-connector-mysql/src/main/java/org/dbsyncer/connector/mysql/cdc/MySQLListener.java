@@ -124,8 +124,6 @@ public class MySQLListener extends AbstractDatabaseListener {
         // 模式选择：snapshot 中有 gtid 且非空则使用 GTID 模式，否则使用 fileName+position 模式
         String gtid = snapshot.get(BINLOG_GTID);
         if (!StringUtil.isBlank(gtid)) {
-            // 启用 GTID 模式，设置 fallback 以处理 gtid_purged 非空的情况
-            client.setGtidSetFallbackToPurged(true);
             client.setGtidSet(gtid);
             logger.info("使用 GTID 模式连接: {}", gtid);
         } else {

@@ -114,10 +114,4 @@ public interface BinaryLogClient {
      */
     void setGtidSet(String gtidStr);
 
-    /**
-     * @param gtidSetFallbackToPurged true if gtid_purged should be used as a fallback when gtidSet is empty
-     *                                and MySQL server has purged some binary logs.
-     */
-    void setGtidSetFallbackToPurged(boolean gtidSetFallbackToPurged);
-
 }
