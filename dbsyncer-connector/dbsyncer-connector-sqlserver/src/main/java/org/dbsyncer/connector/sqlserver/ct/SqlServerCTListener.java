@@ -6,7 +6,6 @@ import org.dbsyncer.common.retry.RetryAfter;
 import org.dbsyncer.common.retry.RetryInterceptor;
 import org.dbsyncer.common.retry.RetryPolicy;
 import org.dbsyncer.common.util.CollectionUtils;
-import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.SpringContextUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.sqlserver.SqlServerCTConnector;
@@ -359,17 +358,24 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
      */
     private void detectDDLSeparately(String tableName, Long eventVersion) {
         try {
-            String schemaInfoQuery = sqlTemplate.buildSchemeOnly(schema, tableName);
-            String schemaInfoJson = queryUtil.queryAndMap(schemaInfoQuery, rs -> {
-                if (rs.next()) {
-                    return rs.getString("schema_info");
+            String schemaQuery = sqlTemplate.buildQueryColumnSchemaSql(schema, tableName);
+            MetaInfo currentMetaInfo = instance.execute(databaseTemplate -> {
+                PreparedStatement ps = null;
+                ResultSet rs = null;
+                try {
+                    ps = databaseTemplate.getSimpleConnection().prepareStatement(schemaQuery);
+                    rs = ps.executeQuery();
+                    return buildMetaInfoFromResultSet(tableName, rs);
+                } finally {
+                    if (rs != null) {
+                        rs.close();
+                    }
+                    if (ps != null) {
+                        ps.close();
+                    }
                 }
-                return null;
             });
-            if (schemaInfoJson != null && !schemaInfoJson.trim().isEmpty()) {
-                detectDDLChangesFromSchemaInfoJsonAndSendImmediately(tableName, schemaInfoJson,
-                        String.valueOf(eventVersion));
-            }
+            detectDDLChangesAndSendImmediately(tableName, currentMetaInfo, String.valueOf(eventVersion));
         } catch (Exception e) {
             logger.warn("表 {} 的 DDL 检测失败，跳过: {}", tableName, e.getMessage());
         }
@@ -655,22 +661,22 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
     // ==================== DDL 检测相关方法 ====================
 
     /**
-     * 从 JSON 字段中的表结构信息检测 DDL 变更并立即发送
-     * DDL 事件不使用版本号，因为 DDL 是检测生成的，没有实际版本号意义
+     * 检测 DDL 变更并立即发送
      * 检测到 DDL 时立即发送，保证在使用新结构的 DML 之前处理
      *
      * @param tableName      表名
-     * @param schemaInfoJson 表结构信息的 JSON 字符串（来自 INFORMATION_SCHEMA.COLUMNS）
+     * @param currentMetaInfo 当前表结构信息
+     * @param version        事件版本号
      */
-    private void detectDDLChangesFromSchemaInfoJsonAndSendImmediately(String tableName, String schemaInfoJson,
+    private void detectDDLChangesAndSendImmediately(String tableName, MetaInfo currentMetaInfo,
             String version) throws Exception {
-        if (schemaInfoJson == null || schemaInfoJson.trim().isEmpty()) {
-            logger.warn("表 {} 的表结构信息 JSON 为空，跳过 DDL 检测", tableName);
+        if (currentMetaInfo == null || currentMetaInfo.getColumn() == null || currentMetaInfo.getColumn().isEmpty()) {
+            logger.warn("表 {} 的表结构信息为空，跳过 DDL 检测", tableName);
             return;
         }
 
-        // 1. 直接基于 JSON 字符串计算哈希值（快速，避免解析 JSON 的开销）
-        String currentHash = DigestUtils.md5Hex(schemaInfoJson);
+        // 1. 计算哈希值
+        String currentHash = computeSchemaHash(currentMetaInfo);
         String lastHash = schemaHashCache.get(tableName);
 
         if (lastHash == null) {
@@ -678,12 +684,11 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
             // 因为无法知道是否有变更（没有旧的 schema 信息进行比对）
             // 注意：正常情况下不会发生，因为启动时已初始化；但如果初始化失败或缓存丢失，这里会重新初始化
             Long detectedVersion = getCurrentVersion();
-            Map<String, Integer> ordinalPositions = extractOrdinalPositions(schemaInfoJson);
-            saveTableSchemaSnapshotFromJson(tableName, schemaInfoJson, detectedVersion, currentHash, ordinalPositions);
+            Map<String, Integer> ordinalPositions = extractOrdinalPositionsFromMetaInfo(currentMetaInfo);
+            saveTableSchemaSnapshot(tableName, currentMetaInfo, detectedVersion, currentHash, ordinalPositions);
 
             // 首次检测时也更新缓存（如果缓存为空）
             if (primaryKeysCache.get(tableName) == null || tableColumnCountCache.get(tableName) == null) {
-                MetaInfo currentMetaInfo = parseSchemaInfoJson(tableName, schemaInfoJson);
                 List<String> currentPrimaryKeys = getPrimaryKeysFromMetaInfo(currentMetaInfo);
                 int currentColumnCount = ordinalPositions.size();
                 primaryKeysCache.put(tableName, currentPrimaryKeys);
@@ -694,11 +699,10 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
             return;
         }
         if (lastHash.equals(currentHash)) {
-            return; // 哈希值未变化，无 DDL 变更（避免解析 JSON 的开销）
+            return; // 哈希值未变化，无 DDL 变更
         }
 
-        // 2. 哈希值变化，解析 JSON 构建 MetaInfo 进行详细比对
-        MetaInfo currentMetaInfo = parseSchemaInfoJson(tableName, schemaInfoJson);
+        // 2. 哈希值变化，进行详细比对
         MetaInfo lastMetaInfo = schemaCache.get(tableName);
 
         if (lastMetaInfo == null) {
@@ -707,15 +711,15 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
 
             // 更新内存缓存（使用检测时的版本号）
             Long detectedVersion = getCurrentVersion();
-            Map<String, Integer> ordinalPositions = extractOrdinalPositions(schemaInfoJson);
-            saveTableSchemaSnapshotFromJson(tableName, schemaInfoJson, detectedVersion, currentHash, ordinalPositions);
+            Map<String, Integer> ordinalPositions = extractOrdinalPositionsFromMetaInfo(currentMetaInfo);
+            saveTableSchemaSnapshot(tableName, currentMetaInfo, detectedVersion, currentHash, ordinalPositions);
             return;
         }
 
         List<String> lastPrimaryKeys = getPrimaryKeysFromMetaInfo(lastMetaInfo);
         List<String> currentPrimaryKeys = getPrimaryKeysFromMetaInfo(currentMetaInfo);
         Map<String, Integer> lastOrdinalPositions = getColumnOrdinalPositions(tableName);
-        Map<String, Integer> currentOrdinalPositions = extractOrdinalPositions(schemaInfoJson);
+        Map<String, Integer> currentOrdinalPositions = extractOrdinalPositionsFromMetaInfo(currentMetaInfo);
 
         // 3. 比对差异
         logger.info("开始比对表 {} 的 DDL 变更: 旧列数={}, 新列数={}",
@@ -729,13 +733,13 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
         if (changes.isEmpty()) {
             // 即使没有检测到变更，也更新内存缓存（可能是精度/尺寸变化导致哈希变化但无法检测）
             Long detectedVersion = getCurrentVersion();
-            Map<String, Integer> ordinalPositions = extractOrdinalPositions(schemaInfoJson);
-            saveTableSchemaSnapshotFromJson(tableName, schemaInfoJson, detectedVersion, currentHash, ordinalPositions);
+            Map<String, Integer> ordinalPositions = extractOrdinalPositionsFromMetaInfo(currentMetaInfo);
+            saveTableSchemaSnapshot(tableName, currentMetaInfo, detectedVersion, currentHash, ordinalPositions);
             return;
         }
 
         // 立即发送 DDL 事件（不使用版本号，因为 DDL 是检测生成的，没有实际版本号意义）
-        // DDL 检测是在处理 DML 查询的第一行时进行的，此时还没有处理任何 DML 事件
+        // DDL 检测是在处理 DML 查询前进行的，此时还没有处理任何 DML 事件
         // 所以可以立即发送 DDL，然后再处理 DML，保证 DDL 在使用新结构的 DML 之前处理
         for (DDLChange change : changes) {
             DDLChangedEvent ddlEvent = new DDLChangedEvent(
@@ -749,77 +753,63 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
             logger.info("检测到表 {} 的 DDL 变更并立即发送: {}", tableName, change.getDdlCommand());
         }
 
-        // 5. 更新表结构快照（直接保存 JSON，避免解析）
+        // 5. 更新表结构快照
         Long detectedVersion = getCurrentVersion();
-        Map<String, Integer> ordinalPositions = extractOrdinalPositions(schemaInfoJson);
-        saveTableSchemaSnapshotFromJson(tableName, schemaInfoJson, detectedVersion, currentHash, ordinalPositions);
+        Map<String, Integer> ordinalPositions = extractOrdinalPositionsFromMetaInfo(currentMetaInfo);
+        saveTableSchemaSnapshot(tableName, currentMetaInfo, detectedVersion, currentHash, ordinalPositions);
 
         // 更新主键和字段
         primaryKeysCache.put(tableName, currentPrimaryKeys);
-        int currentColumnCount = extractOrdinalPositions(schemaInfoJson).size();
+        int currentColumnCount = currentMetaInfo.getColumn().size();
         tableColumnCountCache.put(tableName, currentColumnCount);
 
         logger.info("检测到表 {} 的 DDL 变更，共 {} 个变更", tableName, changes.size());
     }
 
     /**
-     * 解析 JSON 字符串构建 MetaInfo 对象
+     * 从 ResultSet 直接构建 MetaInfo 对象
+     * 避免 JSON 序列化/反序列化开销
      *
-     * @param tableName      表名
-     * @param schemaInfoJson 表结构信息的 JSON 字符串
+     * @param tableName 表名
+     * @param rs        ResultSet（已定位到第一行之前）
      * @return MetaInfo 对象
      */
-    private MetaInfo parseSchemaInfoJson(String tableName, String schemaInfoJson) throws Exception {
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> columnsJson = (List<Map<String, Object>>) JsonUtil.jsonToObj(schemaInfoJson,
-                List.class);
-        if (columnsJson == null || columnsJson.isEmpty()) {
-            throw new IllegalArgumentException("表 " + tableName + " 的表结构信息 JSON 为空");
-        }
-
+    private MetaInfo buildMetaInfoFromResultSet(String tableName, ResultSet rs) throws Exception {
         List<Field> columns = new ArrayList<>();
-
-        // 从内存缓存中获取主键信息（避免递归调用 loadTableSchemaSnapshot）
-        // 注意：不能调用 loadTableSchemaSnapshot，因为它会调用 parseSchemaInfoJson，导致无限递归
         List<String> primaryKeys = primaryKeysCache.get(tableName);
 
-        // 如果缓存中没有主键信息，则查询数据库
-        // 使用合并查询获取主键和列数（即使这里只需要主键，也使用合并查询保持一致性）
         if (primaryKeys == null || primaryKeys.isEmpty()) {
             TableMetaInfo metaInfo = getPrimaryKeysAndColumnCount(tableName);
             primaryKeys = metaInfo.primaryKeys;
-            // 更新缓存
             primaryKeysCache.put(tableName, primaryKeys);
-            // 同时更新列数缓存（虽然这里不需要，但可以避免后续查询）
             tableColumnCountCache.put(tableName, metaInfo.columnCount);
         }
 
-        for (Map<String, Object> colJson : columnsJson) {
-            String columnName = (String) colJson.get("COLUMN_NAME");
-            String dataType = (String) colJson.get("DATA_TYPE");
-            Object maxLengthObj = colJson.get("CHARACTER_MAXIMUM_LENGTH");
-            Object precisionObj = colJson.get("NUMERIC_PRECISION");
-            Object scaleObj = colJson.get("NUMERIC_SCALE");
-            String isNullableStr = (String) colJson.get("IS_NULLABLE");
-
-            Integer maxLength = maxLengthObj != null ? ((Number) maxLengthObj).intValue() : null;
-            Integer precision = precisionObj != null ? ((Number) precisionObj).intValue() : null;
-            Integer scale = scaleObj != null ? ((Number) scaleObj).intValue() : null;
-            // 解析可空性：IS_NULLABLE 在 SQL Server 中为 "YES" 或 "NO"
-            // 如果 isNullableStr 为 null，默认设置为 true（可空），避免误判
-            Boolean nullable = (isNullableStr == null || isNullableStr.trim().isEmpty())
-                    ? true
-                    : "YES".equalsIgnoreCase(isNullableStr.trim());
+        while (rs.next()) {
+            String columnName = rs.getString("COLUMN_NAME");
+            String dataType = rs.getString("DATA_TYPE");
+            int maxLength = rs.getInt("CHARACTER_MAXIMUM_LENGTH");
+            boolean maxLengthNull = rs.wasNull();
+            int precision = rs.getInt("NUMERIC_PRECISION");
+            boolean precisionNull = rs.wasNull();
+            int scale = rs.getInt("NUMERIC_SCALE");
+            boolean scaleNull = rs.wasNull();
+            int isNullableInt = rs.getInt("IS_NULLABLE");
+            Boolean nullable = rs.wasNull() ? true : (isNullableInt == 1);
 
             Field col = new Field();
             col.setName(columnName);
             col.setTypeName(dataType);
-            col.setColumnSize(maxLength != null ? maxLength : (precision != null ? precision : 0));
-            col.setRatio(scale != null ? scale : 0);
+            col.setColumnSize(!maxLengthNull ? maxLength : (!precisionNull ? precision : 0));
+            col.setRatio(!scaleNull ? scale : 0);
             col.setNullable(nullable);
             col.setPk(primaryKeys.stream().anyMatch(pk -> StringUtil.equalsIgnoreCase(pk, columnName)));
 
             columns.add(col);
+        }
+
+        if (columns.isEmpty()) {
+            throw new IllegalArgumentException("表 " + tableName + " 的列信息为空");
         }
 
         MetaInfo metaInfo = new MetaInfo();
@@ -828,24 +818,36 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
     }
 
     /**
-     * 从 JSON 字符串中提取列的位置信息
-     *
-     * @param schemaInfoJson 表结构信息的 JSON 字符串
-     * @return 列名到位置的映射
+     * 从 MetaInfo 计算 schema hash
+     * 使用确定性的字符串表示，保证同一 JVM 会话内比较一致
      */
-    private Map<String, Integer> extractOrdinalPositions(String schemaInfoJson) {
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> columnsJson = (List<Map<String, Object>>) JsonUtil.jsonToObj(schemaInfoJson,
-                List.class);
-        Map<String, Integer> ordinalPositions = new HashMap<>();
-        if (columnsJson != null) {
-            for (Map<String, Object> colJson : columnsJson) {
-                String columnName = (String) colJson.get("COLUMN_NAME");
-                Integer ordinalPosition = ((Number) colJson.get("ORDINAL_POSITION")).intValue();
-                ordinalPositions.put(columnName, ordinalPosition);
+    private String computeSchemaHash(MetaInfo metaInfo) {
+        StringBuilder sb = new StringBuilder();
+        if (metaInfo.getColumn() != null) {
+            for (Field f : metaInfo.getColumn()) {
+                sb.append(f.getName()).append('|')
+                        .append(f.getTypeName()).append('|')
+                        .append(f.getColumnSize()).append('|')
+                        .append(f.getRatio()).append('|')
+                        .append(f.getNullable() == null || f.getNullable() ? "YES" : "NO")
+                        .append(';');
             }
         }
-        return ordinalPositions;
+        return DigestUtils.md5Hex(sb.toString());
+    }
+
+    /**
+     * 从 MetaInfo 提取列位置映射
+     */
+    private Map<String, Integer> extractOrdinalPositionsFromMetaInfo(MetaInfo metaInfo) {
+        Map<String, Integer> positions = new HashMap<>();
+        if (metaInfo.getColumn() != null) {
+            for (int i = 0; i < metaInfo.getColumn().size(); i++) {
+                Field f = metaInfo.getColumn().get(i);
+                positions.put(f.getName(), i + 1);
+            }
+        }
+        return positions;
     }
 
     private List<DDLChange> compareTableSchema(String tableName, MetaInfo oldMetaInfo, MetaInfo newMetaInfo,
@@ -1143,24 +1145,19 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
     }
 
     /**
-     * 从 JSON 字符串直接保存表结构快照（避免解析 JSON 的开销）
+     * 保存表结构快照到内存缓存
      *
      * @param tableName        表名
-     * @param schemaInfoJson   表结构信息的 JSON 字符串（来自 INFORMATION_SCHEMA.COLUMNS）
+     * @param metaInfo         表结构信息
      * @param version          版本号
      * @param hash             哈希值
      * @param ordinalPositions 列位置信息
      */
-    private void saveTableSchemaSnapshotFromJson(String tableName, String schemaInfoJson, Long version,
-            String hash, Map<String, Integer> ordinalPositions) throws Exception {
-        // 完全不持久化任何 schema 相关信息到 snapshot，只更新内存缓存
-        MetaInfo metaInfo = parseSchemaInfoJson(tableName, schemaInfoJson);
+    private void saveTableSchemaSnapshot(String tableName, MetaInfo metaInfo, Long version,
+            String hash, Map<String, Integer> ordinalPositions) {
         schemaCache.put(tableName, metaInfo);
         ordinalPositionsCache.put(tableName, ordinalPositions);
         schemaHashCache.put(tableName, hash);
-        // 注意：不需要缓存版本号，DDL 变更检测时使用 getCurrentVersion() 获取当前的 Change Tracking 版本号
-        // 注意：不再调用 super.refreshEvent(null)，因为不需要持久化 schema 信息
-        // Change Tracking 版本号的持久化由其他逻辑处理（如 VERSION_POSITION）
     }
 
     private Map<String, Integer> getColumnOrdinalPositions(String tableName) throws Exception {
@@ -1184,27 +1181,33 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
         Long currentVersion = getCurrentVersion();
 
         for (String tableName : tables) {
-            String querySql = sqlTemplate.buildSchemeOnly(schema, tableName);
+            String querySql = sqlTemplate.buildQueryColumnSchemaSql(schema, tableName);
 
-            String schemaInfoJson = queryUtil.queryAndMap(querySql, rs -> {
-                String value = rs.getString("schema_info");
-                return rs.wasNull() ? null : value;
+            MetaInfo metaInfo = instance.execute(databaseTemplate -> {
+                PreparedStatement ps = null;
+                ResultSet rs = null;
+                try {
+                    ps = databaseTemplate.getSimpleConnection().prepareStatement(querySql);
+                    rs = ps.executeQuery();
+                    return buildMetaInfoFromResultSet(tableName, rs);
+                } finally {
+                    if (rs != null) {
+                        rs.close();
+                    }
+                    if (ps != null) {
+                        ps.close();
+                    }
+                }
             });
 
-            if (schemaInfoJson == null || schemaInfoJson.trim().isEmpty()) {
-                String msg = String.format("表 %s 的表结构信息为空，跳过初始化", tableName);
-                logger.warn(msg);
-                throw new RuntimeException(msg);
-            }
             // 计算哈希值
-            String hash = DigestUtils.md5Hex(schemaInfoJson);
-            Map<String, Integer> ordinalPositions = extractOrdinalPositions(schemaInfoJson);
+            String hash = computeSchemaHash(metaInfo);
+            Map<String, Integer> ordinalPositions = extractOrdinalPositionsFromMetaInfo(metaInfo);
 
             // 更新内存缓存
-            saveTableSchemaSnapshotFromJson(tableName, schemaInfoJson, currentVersion, hash, ordinalPositions);
+            saveTableSchemaSnapshot(tableName, metaInfo, currentVersion, hash, ordinalPositions);
 
-            // 同时更新主键和列数缓存（如果缓存为空）
-            MetaInfo metaInfo = parseSchemaInfoJson(tableName, schemaInfoJson);
+            // 同时更新主键和列数缓存
             List<String> primaryKeys = getPrimaryKeysFromMetaInfo(metaInfo);
             int columnCount = ordinalPositions.size();
             primaryKeysCache.put(tableName, primaryKeys);

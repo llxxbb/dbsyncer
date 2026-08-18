@@ -1,6 +1,5 @@
 package org.dbsyncer.sdk.connector.database.sql.impl;
 
-import org.checkerframework.checker.nullness.qual.NonNull;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.sdk.connector.database.sql.context.SqlBuildContext;
 import org.dbsyncer.sdk.model.Field;
@@ -586,51 +585,37 @@ public class SqlServerTemplate extends AbstractSqlTemplate {
     }
 
     /**
-     * 构建获取表结构信息的查询 SQL
-     * 用于独立 DDL 检测查询
+     * 构建查询表列结构信息的 SQL
+     * 直接返回行数据，由 Java 端构建 MetaInfo，避免 JSON 序列化/反序列化开销
      * 使用 sys.columns + sys.types 替代 INFORMATION_SCHEMA.COLUMNS 以提升性能
-     * 注意：SQL Server 2008 R2 不支持 FOR JSON PATH，使用字符串拼接方式生成 JSON
-     * 使用 STUFF + FOR XML PATH 来拼接 JSON 数组字符串
      *
      * @param schema 架构名
      * @param tableName 表名
      * @return 查询 SQL
      */
-    public String buildSchemeOnly(String schema, String tableName) {
-        // 转义单引号防止SQL注入
+    public String buildQueryColumnSchemaSql(String schema, String tableName) {
         String escapedSchema = (schema != null && !schema.trim().isEmpty()) ? schema.replace("'", "''") : "dbo";
         String escapedTableName = tableName.replace("'", "''");
 
-        return String.format(schemaSql(), escapedSchema, escapedTableName);
-    }
-
-    private static @NonNull String schemaSql() {
-        return "SELECT " +
-                "    '[' + STUFF((" +
-                "        SELECT ',' + " +
-                "            '{' + " +
-                "            '\"COLUMN_NAME\":\"' + REPLACE(c.name, '\"', '\\\"') + '\",' + " +
-                "            '\"DATA_TYPE\":\"' + REPLACE(t.name, '\"', '\\\"') + '\",' + " +
-                "            CASE WHEN t.name IN ('nvarchar','nchar') AND c.max_length > 0 " +
-                "                THEN '\"CHARACTER_MAXIMUM_LENGTH\":' + CAST(c.max_length / 2 AS VARCHAR) + ',' " +
-                "                WHEN t.name NOT IN ('nvarchar','nchar') AND c.max_length > 0 " +
-                "                THEN '\"CHARACTER_MAXIMUM_LENGTH\":' + CAST(c.max_length AS VARCHAR) + ',' " +
-                "                ELSE '' END + " +
-                "            CASE WHEN c.precision > 0 " +
-                "                THEN '\"NUMERIC_PRECISION\":' + CAST(c.precision AS VARCHAR) + ',' " +
-                "                ELSE '' END + " +
-                "            CASE WHEN c.scale > 0 " +
-                "                THEN '\"NUMERIC_SCALE\":' + CAST(c.scale AS VARCHAR) + ',' " +
-                "                ELSE '' END + " +
-                "            '\"IS_NULLABLE\":\"' + CASE WHEN c.is_nullable = 1 THEN 'YES' ELSE 'NO' END + '\",' + " +
-                "            '\"ORDINAL_POSITION\":' + CAST(c.column_id AS VARCHAR) + " +
-                "            '}' " +
-                "        FROM sys.columns c WITH (NOLOCK) " +
-                "        JOIN sys.types t WITH (NOLOCK) ON c.user_type_id = t.user_type_id " +
-                "        WHERE c.object_id = OBJECT_ID('%s.%s') " +
-                "        ORDER BY c.column_id " +
-                "        FOR XML PATH(''), TYPE " +
-                "    ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') + ']' AS schema_info";
+        return String.format(
+                "SELECT c.name AS COLUMN_NAME, " +
+                        "    t.name AS DATA_TYPE, " +
+                        "    CASE " +
+                        "        WHEN t.name IN ('numeric','decimal') THEN c.precision " +
+                        "        WHEN t.name IN ('nvarchar','nchar') AND c.max_length > 0 " +
+                        "            THEN c.max_length / 2 " +
+                        "        WHEN c.max_length > 0 THEN c.max_length " +
+                        "        ELSE NULL END AS CHARACTER_MAXIMUM_LENGTH, " +
+                        "    c.precision AS NUMERIC_PRECISION, " +
+                        "    c.scale AS NUMERIC_SCALE, " +
+                        "    c.is_nullable AS IS_NULLABLE, " +
+                        "    c.column_id AS ORDINAL_POSITION " +
+                        "FROM sys.columns c WITH (NOLOCK) " +
+                        "JOIN sys.types t WITH (NOLOCK) ON c.user_type_id = t.user_type_id " +
+                        "WHERE c.object_id = OBJECT_ID('%s.%s') " +
+                        "ORDER BY c.column_id",
+                escapedSchema, escapedTableName
+        );
     }
 
     /**
