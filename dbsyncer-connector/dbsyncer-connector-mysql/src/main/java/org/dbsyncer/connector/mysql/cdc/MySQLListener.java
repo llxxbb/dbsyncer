@@ -206,12 +206,6 @@ public class MySQLListener extends AbstractDatabaseListener {
                         tableColumnNames.clear();
                         return;
                     }
-                    // 处理 GTID 已被清理的情况：清除 GTID，降级到 fileName+position 模式
-                    if (msg != null && (msg.contains("purged") || msg.contains("not found"))) {
-                        logger.warn("GTID 已被清理，降级到 fileName+position 模式: {}", msg);
-                        snapshot.put(BINLOG_GTID, "");
-                        return;
-                    }
                     logger.error(e.getMessage());
                     errorEvent(new MySQLException(e.getMessage()));
                     close();

@@ -885,6 +885,7 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
             } catch (Exception e) {
                 // 重试被中断或其他异常
                 logger.error("Reconnect failed: {}", e.getMessage(), e);
+                notifyException(e);
             }
         });
         this.keepAlive.setDaemon(false);
