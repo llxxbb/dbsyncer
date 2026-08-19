@@ -11,6 +11,10 @@ import com.github.shyiko.mysql.binlog.io.ByteArrayInputStream;
 import com.github.shyiko.mysql.binlog.network.*;
 import com.github.shyiko.mysql.binlog.network.protocol.*;
 import com.github.shyiko.mysql.binlog.network.protocol.command.*;
+import org.dbsyncer.common.retry.RetryAfter;
+import org.dbsyncer.common.retry.RetryInterceptor;
+import org.dbsyncer.common.retry.RetryPolicy;
+import org.dbsyncer.common.retry.TerminationMode;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.mysql.deserializer.*;
 import org.slf4j.Logger;
@@ -865,24 +869,36 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
                     break;
                 }
             }
-            // 指数退避重连：500ms 起步，每次失败翻倍，上限 30s，成功后复位
-            long backoffMs = KEEPALIVE_RETRY_INITIAL_MS;
-            while (connectedError) {
-                try {
-                    logger.info("Trying to restore lost connection to {}", createClientId());
-                    TimeUnit.MILLISECONDS.sleep(backoffMs);
-                    if (!connected) {
-                        logger.warn("Trying to stop");
-                        break;
-                    }
-                    disconnect();
-                    connect();
-                    connectedError = false;
-                    break;
-                } catch (Exception e) {
-                    logger.error(e.getMessage(), e);
-                    backoffMs = Math.min(backoffMs * 2, KEEPALIVE_RETRY_MAX_MS);
-                }
+            // 使用 RetryInterceptor 进行指数退避重连
+            RetryPolicy policy = new RetryPolicy();
+            policy.setInitialIntervalMs(KEEPALIVE_RETRY_INITIAL_MS);
+            policy.setMaxIntervalMs(KEEPALIVE_RETRY_MAX_MS);
+            policy.setMultiplier(2.0);
+            policy.setTerminationMode(TerminationMode.MAX_DURATION);
+            policy.setMaxDurationMs(0);  // 无限重试
+            policy.setUseKeyword(false);
+
+            RetryInterceptor retry = new RetryInterceptor();
+            try {
+                retry.execute(
+                    () -> {
+                        if (!connected) {
+                            logger.warn("Trying to stop");
+                            return null;  // 用户已关闭，停止重试
+                        }
+                        logger.info("Trying to restore lost connection to {}", clientId);
+                        disconnect();
+                        connect();
+                        return null;
+                    },
+                    policy,
+                    clientId,
+                    RetryAfter.slf4j(logger)
+                );
+                connectedError = false;
+            } catch (Exception e) {
+                // 重试被中断或其他异常
+                logger.error("Reconnect failed: {}", e.getMessage(), e);
             }
         });
         this.keepAlive.setDaemon(false);
