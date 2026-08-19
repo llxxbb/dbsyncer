@@ -409,24 +409,10 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
                 }
                 throw new EOFException("event data deserialization exception");
             }
-        } catch (SocketException e) {
-            logger.warn("socket closed: binlogFilename={}, binlogPosition={}, eventCount={}, error={}",
-                    binlogFilename, binlogPosition, eventCount, e.getMessage());
-            if (!isStaleWorker(channel)) {
-                notifyException(e);
-            }
-        } catch (EOFException e) {
-            // 连接已断开或已被新一代 worker 替代时的 EOFException 属于正常关闭，不再上报
-            if (!isStaleWorker(channel) && !Thread.currentThread().isInterrupted()) {
-                logger.warn("EOFException occurred while connected: binlogFilename={}, binlogPosition={}, eventCount={}, error={}",
-                        binlogFilename, binlogPosition, eventCount, e.getMessage());
-                notifyException(e);
-            }
         } catch (Exception e) {
             // 旧一代 worker（重连后已被替换）抛出的异常直接丢弃，避免对新连接误触发重连风暴
+            // 日志由 notifyException 统一打印，此处不再重复
             if (!isStaleWorker(channel) && !Thread.currentThread().isInterrupted()) {
-                logger.warn("Error in listenForEventPackets: binlogFilename={}, binlogPosition={}, eventCount={}, error={}",
-                        binlogFilename, binlogPosition, eventCount, e.getMessage());
                 notifyException(e);
             }
         }
