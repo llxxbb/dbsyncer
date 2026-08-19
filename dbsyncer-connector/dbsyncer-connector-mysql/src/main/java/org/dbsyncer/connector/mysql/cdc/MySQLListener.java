@@ -26,9 +26,9 @@ import org.springframework.util.Assert;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Matcher;
@@ -49,9 +49,11 @@ public class MySQLListener extends AbstractDatabaseListener {
     private final String BINLOG_FILENAME = "fileName";
     private final String BINLOG_POSITION = "position";
     private final String BINLOG_GTID = "gtid";
-    private final Map<Long, TableMapEventData> tables = new HashMap<>();
+    // 该 map 与 BinaryLogRemoteClient 共享：worker 线程写入，keepAlive 线程在位点重置时清空，需使用并发容器
+    private final Map<Long, TableMapEventData> tables = new ConcurrentHashMap<>();
     // 缓存表的列名信息：tableId -> 列名列表（按数据顺序）
-    private final Map<Long, List<String>> tableColumnNames = new HashMap<>();
+    // onException（可能运行在 keepAlive 线程）与事件处理线程会并发访问，使用并发容器
+    private final Map<Long, List<String>> tableColumnNames = new ConcurrentHashMap<>();
     private BinaryLogClient client;
     private String database;
     private final Lock connectLock = new ReentrantLock();
@@ -200,7 +202,7 @@ public class MySQLListener extends AbstractDatabaseListener {
                 if (serverException.getErrorCode() == 1236) {
                     String msg = e.getMessage();
                     if (msg != null && msg.contains("bogus data")) {
-                        logger.warn("MySQL 重启导致 binlog 无效，BinaryLogRemoteClient 已自动重置位置，由 keepalive 线程重连恢复: {}", msg);
+                        logger.warn(msg);
                         tableColumnNames.clear();
                         return;
                     }
@@ -208,9 +210,6 @@ public class MySQLListener extends AbstractDatabaseListener {
                     if (msg != null && (msg.contains("purged") || msg.contains("not found"))) {
                         logger.warn("GTID 已被清理，降级到 fileName+position 模式: {}", msg);
                         snapshot.put(BINLOG_GTID, "");
-                        // 使用当前 binlog 位置继续
-                        snapshot.put(BINLOG_FILENAME, client.getBinlogFilename());
-                        snapshot.put(BINLOG_POSITION, String.valueOf(client.getBinlogPosition()));
                         return;
                     }
                     logger.error(e.getMessage());

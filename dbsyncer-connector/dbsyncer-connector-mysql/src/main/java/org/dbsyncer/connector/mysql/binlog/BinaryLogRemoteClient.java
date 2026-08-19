@@ -27,11 +27,23 @@ import java.net.SocketException;
 import java.security.GeneralSecurityException;
 import java.security.cert.X509Certificate;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.regex.Pattern;
 
+/**
+ * MySQL binlog 远程客户端。
+ * <p>基于 mysql-binlog-connector-java 0.30.1（com.zendesk，Apache-2.0）的 BinaryLogClient 定制：
+ * <ul>
+ *     <li>持续观察并累积 GTID，重连时自动在 GTID / fileName+position 模式间切换（ADR-0026）</li>
+ *     <li>keepalive 线程检测断连并指数退避自动重连</li>
+ *     <li>MySQL 重启导致位点失效（bogus data，错误码 1236）时重置 binlog 位置恢复</li>
+ *     <li>适配 MariaDB 协议与 GTID 格式</li>
+ * </ul>
+ */
 public class BinaryLogRemoteClient implements BinaryLogClient {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -64,16 +76,19 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
     // https://dev.mysql.com/doc/internals/en/sending-more-than-16mbyte.html
     private static final int MAX_PACKET_LENGTH = 16777215;
 
-    // MySQL binlog 事件类型码常量
-    private static final int EVENT_TYPE_ROTATE = 4;
-    private static final int EVENT_TYPE_FORMAT_DESCRIPTION = 15;
-    private static final int EVENT_TYPE_TABLE_MAP = 19;
-    private static final int EVENT_TYPE_WRITE_ROWS = 30;
-    private static final int EVENT_TYPE_UPDATE_ROWS = 31;
-    private static final int EVENT_TYPE_DELETE_ROWS = 32;
+    // 版本号 8.4.0 的编码值（见 parseVersion）。MySQL 8.4 起移除 SHOW MASTER STATUS，需改用 SHOW BINARY LOG STATUS
+    private static final long MYSQL_VERSION_8_4 = 8400000000L;
 
-    // ROWS 事件的最小数据长度（事件头19字节 + tableId 6字节 + flags 2字节）
-    private static final int MIN_ROWS_EVENT_DATA_LENGTH = 27;
+    // socket 连接超时（毫秒）
+    private static final int CONNECT_TIMEOUT_MS = 3000;
+
+    // keepalive 重连重试的初始间隔与指数退避上限（毫秒）
+    private static final long KEEPALIVE_RETRY_INITIAL_MS = 500L;
+    private static final long KEEPALIVE_RETRY_MAX_MS = 30000L;
+
+    // MariaDB GTID 集合格式：DOMAIN_ID-SERVER_ID-SEQUENCE[, ...]
+    private static final Pattern MARIA_GTID_SET_PATTERN =
+            Pattern.compile("^\\d{1,10}-\\d{1,10}-\\d{1,20}(\\s*,\\s*\\d{1,10}-\\d{1,10}-\\d{1,20})*$");
 
     private final String hostname;
     private final int port;
@@ -84,7 +99,6 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
 
     private EventDeserializer eventDeserializer;
     private Map<Long, TableMapEventData> tableMapEventByTableId;
-    private final boolean blocking = true;
     private long serverId = 65535L;
     private volatile String binlogFilename;
     private volatile long binlogPosition = 4;
@@ -92,10 +106,8 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
     private volatile PacketChannel channel;
     private volatile boolean connected;
     private volatile boolean connectedError;
-    private volatile boolean binlogPositionReset;
     private Thread worker;
     private Thread keepAlive;
-    private String workerThreadName;
 
     private final Lock connectLock = new ReentrantLock();
     private final Object gtidSetAccessLock = new Object();
@@ -104,7 +116,6 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
     private boolean tx;
     private Boolean isMariaDB;
 
-    private static final long MYSQL_VERSION_8_4 = 8400000000L;
     private final List<BinaryLogRemoteClient.EventListener> eventListeners = new CopyOnWriteArrayList<>();
     private final List<BinaryLogRemoteClient.LifecycleListener> lifecycleListeners = new CopyOnWriteArrayList<>();
 
@@ -113,7 +124,7 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
      *
      * @see BinaryLogRemoteClient#BinaryLogRemoteClient(String, int, String, String, String, long)
      */
-    public BinaryLogRemoteClient(String hostname, int port, String username, String password) throws IOException {
+    public BinaryLogRemoteClient(String hostname, int port, String username, String password) {
         this(hostname, port, null, username, password, 0L);
     }
 
@@ -126,13 +137,13 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
      * @param password password
      * @param serverId serverId
      */
-    public BinaryLogRemoteClient(String hostname, int port, String schema, String username, String password, long serverId) throws IOException {
+    public BinaryLogRemoteClient(String hostname, int port, String schema, String username, String password, long serverId) {
         this.hostname = hostname;
         this.port = port;
         this.schema = schema;
         this.username = username;
         this.password = password;
-        this.serverId = randomPort(serverId);
+        this.serverId = resolveServerId(serverId);
         logger.info("MySQL Binlog Client serverId: {} (auto={})", this.serverId, serverId == 0);
     }
 
@@ -143,18 +154,26 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
             if (connected) {
                 throw new IllegalStateException("BinaryLogRemoteClient is already connected");
             }
-            setConfig();
-            openChannel();
-            connected = true;
-            // new keepalive thread
-            spawnKeepAliveThread();
+            initEventDeserializer();
+            try {
+                openChannel();
+                connected = true;
+                // new keepalive thread
+                spawnKeepAliveThread();
 
-            // dump binary log
-            requestBinaryLogStream();
-            ensureEventDeserializerHasRequiredEDDs();
+                // dump binary log
+                requestBinaryLogStream();
+                ensureEventDeserializerHasRequiredEDDs();
 
-            // new listen thread
-            spawnWorkerThread();
+                // new listen thread
+                spawnWorkerThread();
+            } catch (Exception e) {
+                // 连接失败统一回滚：停止 keepAlive、关闭 channel，避免线程与 socket 泄漏
+                stopKeepAliveThread();
+                connected = false;
+                closeChannelQuietly();
+                throw e;
+            }
             lifecycleListeners.forEach(listener -> listener.onConnect(this));
         } finally {
             connectLock.unlock();
@@ -168,18 +187,52 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
                 connectLock.lock();
                 closeChannel(channel);
                 connected = false;
-                if (null != this.worker && !worker.isInterrupted()) {
-                    this.worker.interrupt();
-                    this.worker = null;
+                Thread workerToJoin = this.worker;
+                Thread keepAliveToJoin = this.keepAlive;
+                if (null != workerToJoin && !workerToJoin.isInterrupted()) {
+                    workerToJoin.interrupt();
                 }
-                if (null != this.keepAlive && !keepAlive.isInterrupted()) {
-                    this.keepAlive.interrupt();
-                    this.keepAlive = null;
+                this.worker = null;
+                if (null != keepAliveToJoin && !keepAliveToJoin.isInterrupted()) {
+                    keepAliveToJoin.interrupt();
                 }
+                this.keepAlive = null;
+                // 等待旧线程退出，避免新旧两代 worker 并存引发竞态
+                joinQuietly(workerToJoin);
+                joinQuietly(keepAliveToJoin);
                 lifecycleListeners.forEach(listener -> listener.onDisconnect(this));
             } finally {
                 connectLock.unlock();
             }
+        }
+    }
+
+    /**
+     * 等待线程退出（至多 3 秒）。跳过当前线程自身，避免 keepAlive 线程在重连路径中 self-join。
+     */
+    private void joinQuietly(Thread thread) {
+        if (thread == null || thread == Thread.currentThread()) {
+            return;
+        }
+        try {
+            thread.join(3000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private void stopKeepAliveThread() {
+        if (null != this.keepAlive) {
+            this.keepAlive.interrupt();
+            this.keepAlive = null;
+        }
+    }
+
+    private void closeChannelQuietly() {
+        try {
+            closeChannel(channel);
+        } catch (IOException e) {
+            logger.warn("Failed to close channel: {}", e.getMessage());
         }
     }
 
@@ -205,7 +258,10 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
     private void openChannel() throws IOException {
         try {
             Socket socket = new Socket();
-            socket.connect(new InetSocketAddress(hostname, port), 3000);
+            socket.connect(new InetSocketAddress(hostname, port), CONNECT_TIMEOUT_MS);
+            // 启用 TCP keepalive 尽早发现死连接（半开）；禁用 Nagle 降低事件传输延迟
+            socket.setKeepAlive(true);
+            socket.setTcpNoDelay(true);
             channel = new PacketChannel(socket);
             if (channel.getInputStream().peek() == -1) {
                 throw new EOFException();
@@ -308,10 +364,6 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
                     throw new ServerException(errorPacket.getErrorMessage(), errorPacket.getErrorCode(),
                             errorPacket.getSqlState());
                 }
-                // 254 empty
-                if (marker == 0xFE && !blocking) {
-                    break;
-                }
                 // 关键修复：确保每个 packet 的数据都被完全隔离，避免流位置错乱
                 // 问题：当 packetLength != MAX_PACKET_LENGTH 时，直接传递共享的 inputStream 给 nextEvent()
                 // 如果 nextEvent() 没有完全消费掉 packetLength - 1 字节，会导致下一个 packet 读取位置错乱
@@ -330,42 +382,18 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
                     }
                 }
 
-                Event event = null;
+                Event event;
                 try {
                     event = eventDeserializer.nextEvent(new ByteArrayInputStream(eventData));
                 } catch (Exception e) {
-                    // 捕获反序列化异常，记录详细信息
-                    if (eventData.length >= 19) {
-                        int eventTypeByte = eventData[4] & 0xFF;
-                        String errorMsg = e.getMessage();
-
-                        // 检查是否是缺少 TableMapEventData 导致的错误
-                        // 判断条件：
-                        // 1. 是 ROWS 事件类型
-                        // 2. 错误信息包含 TableMapEventData 相关关键词，或者 tableMapEventByTableId 缓存为空
-                        boolean isMissingTableMap = isRowsEventType(eventTypeByte) &&
-                                (isTableMapRelatedError(errorMsg) ||
-                                        (tableMapEventByTableId != null && tableMapEventByTableId.isEmpty()));
-
-                        // 尝试从 ROWS 事件中提取 tableId
-                        long extractedTableId = isMissingTableMap ? extractTableIdFromRowsEvent(eventData) : -1;
-
-                        if (isMissingTableMap) {
-                            handleMissingTableMapEvent(eventTypeByte, extractedTableId, eventData.length, eventCount);
-                            continue; // 跳过该事件，继续向后处理下一个事件
-                        } else {
-                            logger.error("Failed to deserialize event: eventTypeByte={}, eventDataLength={}, binlogFilename={}, binlogPosition={}, eventCount={}, " +
-                                            "error={}, eventData[0-50]={}, tableMapEventByTableId.size()={}",
-                                    eventTypeByte, eventData.length, binlogFilename, binlogPosition, eventCount, e.getMessage(),
-                                    eventData.length > 50 ? Arrays.toString(Arrays.copyOf(eventData, 50)) : Arrays.toString(eventData),
-                                    tableMapEventByTableId != null ? tableMapEventByTableId.size() : 0, e);
-                            throw e; // 重新抛出异常
-                        }
-                    } else {
-                        logger.error("Failed to deserialize event: eventDataLength={} (too short), binlogFilename={}, binlogPosition={}, eventCount={}, error={}",
-                                eventData.length, binlogFilename, binlogPosition, eventCount, e.getMessage(), e);
-                        throw e; // 重新抛出异常
-                    }
+                    // fail-fast：任何反序列化失败都不静默跳过。
+                    // 例如缺少 TableMapEventData 时，其 ROWS 事件无法通过向后读取补齐，跳过即静默丢数据；
+                    // 上抛后由 LifecycleListener.onException 决策（停任务/告警），优于隐性数据丢失。
+                    int eventTypeByte = eventData.length > 4 ? (eventData[4] & 0xFF) : -1;
+                    logger.error("Failed to deserialize event: eventTypeByte={}, eventDataLength={}, binlogFilename={}, binlogPosition={}, eventCount={}, eventData[0-50]={}",
+                            eventTypeByte, eventData.length, binlogFilename, binlogPosition, eventCount,
+                            eventData.length > 50 ? Arrays.toString(Arrays.copyOf(eventData, 50)) : Arrays.toString(eventData), e);
+                    throw e;
                 }
 
                 if (event != null) {
@@ -380,23 +408,33 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
         } catch (SocketException e) {
             logger.warn("socket closed: binlogFilename={}, binlogPosition={}, eventCount={}, error={}",
                     binlogFilename, binlogPosition, eventCount, e.getMessage());
-            notifyException(e);
+            if (!isStaleWorker(channel)) {
+                notifyException(e);
+            }
         } catch (EOFException e) {
-            // 如果是 EOFException 且连接已断开，这是正常的关闭情况，只记录 debug 日志
-            if (connected && !Thread.currentThread().isInterrupted()) {
-                // 连接仍然活跃时发生的 EOFException，记录为错误
+            // 连接已断开或已被新一代 worker 替代时的 EOFException 属于正常关闭，不再上报
+            if (!isStaleWorker(channel) && !Thread.currentThread().isInterrupted()) {
                 logger.warn("EOFException occurred while connected: binlogFilename={}, binlogPosition={}, eventCount={}, error={}",
                         binlogFilename, binlogPosition, eventCount, e.getMessage());
                 notifyException(e);
             }
         } catch (Exception e) {
-            // 检查是否是连接断开导致的异常
-            if (connected && !Thread.currentThread().isInterrupted()) {
+            // 旧一代 worker（重连后已被替换）抛出的异常直接丢弃，避免对新连接误触发重连风暴
+            if (!isStaleWorker(channel) && !Thread.currentThread().isInterrupted()) {
                 logger.warn("Error in listenForEventPackets: binlogFilename={}, binlogPosition={}, eventCount={}, error={}",
                         binlogFilename, binlogPosition, eventCount, e.getMessage());
                 notifyException(e);
             }
         }
+    }
+
+    /**
+     * 判断本事件循环所属的连接是否已被替换：
+     * worker 在创建时持有当时的 channel 引用，重连后 this.channel 指向新实例，
+     * 旧 worker 的异常应丢弃，不能触发新连接的 notifyException。
+     */
+    private boolean isStaleWorker(PacketChannel workerChannel) {
+        return !connected || workerChannel != this.channel;
     }
 
     private void ensureEventDeserializerHasRequiredEDDs() {
@@ -409,35 +447,38 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
         ensureEventDataDeserializerIfPresent(EventType.MARIADB_GTID_LIST, MariadbGtidListEventDataDeserializer.class);
     }
 
-    protected void checkError(byte[] packet) throws IOException {
-        if (packet[0] == (byte) 0xFF /* error */) {
-            byte[] bytes = Arrays.copyOfRange(packet, 1, packet.length);
-            ErrorPacket errorPacket = new ErrorPacket(bytes);
+    /**
+     * 检查响应包是否为 MySQL 错误包（首字节 0xFF），是则抛出 ServerException。
+     */
+    private static void checkErrorPacket(byte[] packet) throws IOException {
+        if (packet != null && packet.length > 0 && packet[0] == (byte) 0xFF /* error */) {
+            ErrorPacket errorPacket = new ErrorPacket(Arrays.copyOfRange(packet, 1, packet.length));
             throw new ServerException(errorPacket.getErrorMessage(), errorPacket.getErrorCode(),
                     errorPacket.getSqlState());
         }
     }
 
-    private GreetingPacket receiveGreeting(final PacketChannel channel) throws IOException {
-        byte[] initialHandshakePacket = channel.read();
-        /* error */
-        if (initialHandshakePacket[0] == (byte) 0xFF) {
-            byte[] bytes = Arrays.copyOfRange(initialHandshakePacket, 1, initialHandshakePacket.length);
-            ErrorPacket errorPacket = new ErrorPacket(bytes);
-            throw new ServerException(errorPacket.getErrorMessage(), errorPacket.getErrorCode(),
-                    errorPacket.getSqlState());
+    private static byte[] readPacketChecked(PacketChannel channel) throws IOException {
+        byte[] packet = channel.read();
+        if (packet == null || packet.length == 0) {
+            throw new IOException("Empty packet received");
         }
+        return packet;
+    }
+
+    private GreetingPacket receiveGreeting(final PacketChannel channel) throws IOException {
+        byte[] initialHandshakePacket = readPacketChecked(channel);
+        checkErrorPacket(initialHandshakePacket);
         return new GreetingPacket(initialHandshakePacket);
     }
 
     private void requestBinaryLogStream() throws IOException {
-        long serverId = blocking ? this.serverId : 0; // http://bugs.mysql.com/bug.php?id=71178
-        if (this.isMariaDB) {
-            requestBinaryLogStreamMaria(serverId);
+        if (Boolean.TRUE.equals(this.isMariaDB)) {
+            requestBinaryLogStreamMaria(this.serverId);
             return;
         }
 
-        requestBinaryLogStreamMysql(serverId);
+        requestBinaryLogStreamMysql(this.serverId);
     }
 
     private void requestBinaryLogStreamMysql(long serverId) throws IOException {
@@ -456,15 +497,20 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
         Command dumpBinaryLogCommand;
         synchronized (gtidSetAccessLock) {
             if (gtidSet != null && gtidSet.toString().length() > 0) {
+                String gtidStr = gtidSet.toString();
+                // 拼接进 SQL 前校验格式，防止异常内容写入 @slave_connect_state
+                if (!MARIA_GTID_SET_PATTERN.matcher(gtidStr).matches()) {
+                    throw new IOException("Invalid MariaDB GTID set: " + gtidStr);
+                }
                 channel.write(new QueryCommand("SET @mariadb_slave_capability=4"));
-                checkError(channel.read());
-                logger.info(gtidSet.toString());
-                channel.write(new QueryCommand("SET @slave_connect_state = '" + gtidSet.toString() + "'"));
-                checkError(channel.read());
+                checkErrorPacket(channel.read());
+                logger.info("MariaDB slave_connect_state: {}", gtidStr);
+                channel.write(new QueryCommand("SET @slave_connect_state = '" + gtidStr + "'"));
+                checkErrorPacket(channel.read());
                 channel.write(new QueryCommand("SET @slave_gtid_strict_mode = 0"));
-                checkError(channel.read());
+                checkErrorPacket(channel.read());
                 channel.write(new QueryCommand("SET @slave_gtid_ignore_duplicates = 0"));
-                checkError(channel.read());
+                checkErrorPacket(channel.read());
                 dumpBinaryLogCommand = new DumpBinaryLogCommand(serverId, "", 0L, false);
             } else {
                 dumpBinaryLogCommand = new DumpBinaryLogCommand(serverId, binlogFilename, binlogPosition);
@@ -496,12 +542,47 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
         if (resultSet.length == 0) {
             throw new IOException("Failed to getVersion, command SELECT VERSION()");
         }
-        ResultSetRowPacket resultSetRow = resultSet[0];
-        String version = resultSetRow.getValue(0).replace(StringUtil.POINT, StringUtil.EMPTY);
-        if (version.contains(StringUtil.HORIZONTAL)) {
-            version = version.split(StringUtil.HORIZONTAL)[0];
+        return parseVersion(resultSet[0].getValue(0));
+    }
+
+    /**
+     * 将数据库版本字符串解析为可比较的数字编码：先截断 -/+ 或空格之后的后缀，
+     * 去掉点后右补 0 至 10 位。示例：
+     * "8.4.0" -> 8400000000，"5.7.44-log" -> 5744000000，
+     * "10.11.6-MariaDB-1:10.11.6+maria~ubu2204" -> 1011600000。
+     * 包私有且静态，便于单元测试。
+     */
+    static long parseVersion(String version) throws IOException {
+        if (StringUtil.isBlank(version)) {
+            throw new IOException("Empty database version");
         }
-        return Long.parseLong(String.format("%-10s", version).replace(StringUtil.SPACE, "0"));
+        String core = version.trim();
+        // 截断后缀：5.7.44-log / 8.0.32+dfsg / 10.11.6-MariaDB-1:10.11.6+maria~ubu2204
+        for (String separator : new String[]{StringUtil.HORIZONTAL, "+", StringUtil.SPACE}) {
+            int idx = core.indexOf(separator);
+            if (idx >= 0) {
+                core = core.substring(0, idx);
+            }
+        }
+        StringBuilder digits = new StringBuilder();
+        for (String segment : StringUtil.split(core, StringUtil.POINT)) {
+            for (int i = 0; i < segment.length(); i++) {
+                char c = segment.charAt(i);
+                if (c >= '0' && c <= '9') {
+                    digits.append(c);
+                }
+            }
+        }
+        if (digits.length() == 0) {
+            throw new IOException("Unrecognized database version: " + version);
+        }
+        while (digits.length() < 10) {
+            digits.append('0');
+        }
+        if (digits.length() > 10) {
+            digits.setLength(10);
+        }
+        return Long.parseLong(digits.toString());
     }
 
     private void fetchBinlogFilenameAndPosition() throws IOException {
@@ -526,13 +607,18 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
         if (resultSet.length == 0) {
             return ChecksumType.NONE;
         }
-        return ChecksumType.valueOf(resultSet[0].getValue(1).toUpperCase());
+        String checksum = resultSet[0].getValue(1);
+        for (ChecksumType checksumType : ChecksumType.values()) {
+            if (StringUtil.equalsIgnoreCase(checksumType.name(), checksum)) {
+                return checksumType;
+            }
+        }
+        throw new IOException("Unsupported binlog_checksum value: " + checksum);
     }
 
     private void confirmSupportOfChecksum(final PacketChannel channel, ChecksumType checksumType) throws IOException {
         channel.write(new QueryCommand("set @master_binlog_checksum= @@global.binlog_checksum"));
-        byte[] statementResult = channel.read();
-        checkError(statementResult);
+        checkErrorPacket(channel.read());
         eventDeserializer.setChecksumType(checksumType);
     }
 
@@ -607,6 +693,10 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
                 MariadbGtidEventData mariadbGtidEventData = (MariadbGtidEventData) EventDeserializer.EventDataWrapper.internal(event.getData());
                 gtid = mariadbGtidEventData.toString();
                 break;
+            case MARIADB_GTID_LIST:
+                // MariaDB 服务器在连接初期下发的 GTID 清单，合并进当前集合，避免 GTID 模式重连时重复消费
+                mergeMariadbGtidList((MariadbGtidListEventData) EventDeserializer.EventDataWrapper.internal(event.getData()));
+                break;
             case XID:
                 commitGtid();
                 tx = false;
@@ -633,24 +723,50 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
     }
 
     private void commitGtid() {
-        if (gtid != null) {
+        String currentGtid = gtid;
+        gtid = null;  // 提交后立即清空，避免重复提交
+        if (currentGtid != null) {
             synchronized (gtidSetAccessLock) {
-                gtidSet.add(gtid);
+                gtidSet.add(currentGtid);
+            }
+        }
+    }
+
+    /**
+     * 合并 MariaDB 服务器在连接初期下发的 GTID 清单（MARIADB_GTID_LIST 事件）。
+     * 当前集合为空时直接采用；否则逐条并入（MariadbGtidSet.add 只接受单个 GTID）。
+     */
+    private void mergeMariadbGtidList(MariadbGtidListEventData gtidListEventData) {
+        MariadbGtidSet receivedSet = gtidListEventData.getMariaGTIDSet();
+        if (receivedSet == null) {
+            return;
+        }
+        synchronized (gtidSetAccessLock) {
+            if (gtidSet == null || gtidSet.toString().length() == 0) {
+                gtidSet = receivedSet;
+                return;
+            }
+            if (gtidSet instanceof MariadbGtidSet) {
+                for (String singleGtid : StringUtil.split(receivedSet.toString(), StringUtil.COMMA)) {
+                    String trimmed = singleGtid.trim();
+                    if (trimmed.length() > 0) {
+                        gtidSet.add(trimmed);
+                    }
+                }
             }
         }
     }
 
     private ResultSetRowPacket[] readResultSet() throws IOException {
-        List<ResultSetRowPacket> resultSet = new LinkedList();
-        byte[] statementResult = channel.read();
-        if (statementResult[0] == (byte) 0xFF /* error */) {
-            byte[] bytes = Arrays.copyOfRange(statementResult, 1, statementResult.length);
-            ErrorPacket errorPacket = new ErrorPacket(bytes);
-            throw new ServerException(errorPacket.getErrorMessage(), errorPacket.getErrorCode(),
-                    errorPacket.getSqlState());
+        List<ResultSetRowPacket> resultSet = new ArrayList<>();
+        byte[] statementResult = readPacketChecked(channel);
+        checkErrorPacket(statementResult);
+        // 跳过列定义包，直到遇到 EOF 包；期间收到错误包立即上抛
+        for (byte[] packet; (packet = readPacketChecked(channel))[0] != (byte) 0xFE /* eof */; ) {
+            checkErrorPacket(packet);
         }
-        while ((channel.read())[0] != (byte) 0xFE /* eof */) { /* skip */ }
-        for (byte[] bytes; (bytes = channel.read())[0] != (byte) 0xFE /* eof */; ) {
+        for (byte[] bytes; (bytes = readPacketChecked(channel))[0] != (byte) 0xFE /* eof */; ) {
+            checkErrorPacket(bytes);
             resultSet.add(new ResultSetRowPacket(bytes));
         }
         return resultSet.toArray(new ResultSetRowPacket[0]);
@@ -662,36 +778,41 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
         }
     }
 
-    private void setConfig() {
+    /**
+     * 初始化事件反序列化器与表结构缓存。
+     * 注意：eventDeserializer 仅在首次连接时构建（重连复用已有实例），
+     * 因此反序列化器注册以首次连接为准。
+     */
+    private void initEventDeserializer() {
         if (null == tableMapEventByTableId) {
-            tableMapEventByTableId = new HashMap<>();
+            // 该 map 会被 worker 线程（反序列化）与 keepAlive 线程（resetBinlogPosition 清理）并发访问
+            tableMapEventByTableId = new ConcurrentHashMap<>();
         }
 
-        IdentityHashMap eventDataDeserializers = new IdentityHashMap();
         if (null == eventDeserializer) {
+            IdentityHashMap eventDataDeserializers = new IdentityHashMap();
+            // Process event priority: RotateEvent > FormatDescriptionEvent > TableMapEvent > RowsEvent > XidEvent
+            eventDataDeserializers.put(EventType.ROTATE, new RotateEventDataDeserializer());
+            eventDataDeserializers.put(EventType.FORMAT_DESCRIPTION, new FormatDescriptionEventDataDeserializer());
+            eventDataDeserializers.put(EventType.TABLE_MAP, new TableMapEventDataDeserializer());
+            eventDataDeserializers.put(EventType.UPDATE_ROWS, new UpdateDeserializer(tableMapEventByTableId));
+            eventDataDeserializers.put(EventType.WRITE_ROWS, new WriteDeserializer(tableMapEventByTableId));
+            eventDataDeserializers.put(EventType.DELETE_ROWS, new DeleteDeserializer(tableMapEventByTableId));
+            eventDataDeserializers.put(EventType.EXT_WRITE_ROWS, (new ExtWriteDeserializer(tableMapEventByTableId)).setMayContainExtraInformation(true));
+            eventDataDeserializers.put(EventType.EXT_UPDATE_ROWS, (new ExtUpdateDeserializer(tableMapEventByTableId)).setMayContainExtraInformation(true));
+            eventDataDeserializers.put(EventType.EXT_DELETE_ROWS, (new ExtDeleteDeserializer(tableMapEventByTableId)).setMayContainExtraInformation(true));
+            eventDataDeserializers.put(EventType.XID, new XidEventDataDeserializer());
+            eventDataDeserializers.put(EventType.INTVAR, new IntVarEventDataDeserializer());
+            eventDataDeserializers.put(EventType.QUERY, new QueryEventDataDeserializer());
+            eventDataDeserializers.put(EventType.ROWS_QUERY, new RowsQueryEventDataDeserializer());
+            eventDataDeserializers.put(EventType.GTID, new GtidEventDataDeserializer());
+            eventDataDeserializers.put(EventType.PREVIOUS_GTIDS, new PreviousGtidSetDeserializer());
+            eventDataDeserializers.put(EventType.XA_PREPARE, new XAPrepareEventDataDeserializer());
             this.eventDeserializer = new EventDeserializer(new EventHeaderV4Deserializer(), new NullEventDataDeserializer(), eventDataDeserializers, tableMapEventByTableId);
         }
-
-        // Process event priority: RotateEvent > FormatDescriptionEvent > TableMapEvent > RowsEvent > XidEvent
-        eventDataDeserializers.put(EventType.ROTATE, new RotateEventDataDeserializer());
-        eventDataDeserializers.put(EventType.FORMAT_DESCRIPTION, new FormatDescriptionEventDataDeserializer());
-        eventDataDeserializers.put(EventType.TABLE_MAP, new TableMapEventDataDeserializer());
-        eventDataDeserializers.put(EventType.UPDATE_ROWS, new UpdateDeserializer(tableMapEventByTableId));
-        eventDataDeserializers.put(EventType.WRITE_ROWS, new WriteDeserializer(tableMapEventByTableId));
-        eventDataDeserializers.put(EventType.DELETE_ROWS, new DeleteDeserializer(tableMapEventByTableId));
-        eventDataDeserializers.put(EventType.EXT_WRITE_ROWS, (new ExtWriteDeserializer(tableMapEventByTableId)).setMayContainExtraInformation(true));
-        eventDataDeserializers.put(EventType.EXT_UPDATE_ROWS, (new ExtUpdateDeserializer(tableMapEventByTableId)).setMayContainExtraInformation(true));
-        eventDataDeserializers.put(EventType.EXT_DELETE_ROWS, (new ExtDeleteDeserializer(tableMapEventByTableId)).setMayContainExtraInformation(true));
-        eventDataDeserializers.put(EventType.XID, new XidEventDataDeserializer());
-        eventDataDeserializers.put(EventType.INTVAR, new IntVarEventDataDeserializer());
-        eventDataDeserializers.put(EventType.QUERY, new QueryEventDataDeserializer());
-        eventDataDeserializers.put(EventType.ROWS_QUERY, new RowsQueryEventDataDeserializer());
-        eventDataDeserializers.put(EventType.GTID, new GtidEventDataDeserializer());
-        eventDataDeserializers.put(EventType.PREVIOUS_GTIDS, new PreviousGtidSetDeserializer());
-        eventDataDeserializers.put(EventType.XA_PREPARE, new XAPrepareEventDataDeserializer());
     }
 
-    private void notifyEventListeners(Event event) {
+    private void notifyEventListeners(Event event) throws Exception {
         if (event.getData() instanceof EventDeserializer.EventDataWrapper) {
             event = new Event(event.getHeader(), ((EventDeserializer.EventDataWrapper) event.getData()).getExternal());
         }
@@ -699,29 +820,33 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
             try {
                 eventListener.onEvent(event);
             } catch (Exception e) {
-                if (logger.isWarnEnabled()) {
-                    logger.warn(eventListener + " choked on " + event, e);
-                }
+                // 不再吞掉监听器异常：事件丢失意味着数据不一致，
+                // 重抛后由事件循环走 notifyException -> 重连/告警路径
+                logger.warn(eventListener + " choked on " + event, e);
+                throw e;
             }
         }
     }
 
-    private long randomPort(long serverId) throws IOException {
+    /**
+     * 确定 serverId：未指定（0）时取随机 UUID 低 32 位（约 42.9 亿种可能，
+     * 碰撞概率远低于随机端口），结果为 0 时返回 1（0 有特殊含义）。
+     */
+    private long resolveServerId(long serverId) {
         if (0 == serverId) {
-            // 每次启动生成新 UUID，取低 32 位作为 serverId
-            // 42.9 亿种可能，比随机端口（~6.4万）碰撞概率低 6 万倍
             long uuidBasedId = java.util.UUID.randomUUID().getLeastSignificantBits() & 0xFFFFFFFFL;
-            // 确保不为 0（0 有特殊含义）
             return uuidBasedId == 0 ? 1 : uuidBasedId;
         }
         return serverId;
     }
 
     private void spawnWorkerThread() {
-        this.worker = new Thread(() -> listenForEventPackets(channel));
+        // 固定捕获当前 channel 引用：重连后 this.channel 会指向新实例，旧 worker 不得读取新连接
+        final PacketChannel currentChannel = this.channel;
+        String name = "binlog-parser-" + createClientId();
+        this.worker = new Thread(() -> listenForEventPackets(currentChannel));
         this.worker.setDaemon(false);
-        this.workerThreadName = "binlog-parser-" + createClientId();
-        this.worker.setName(workerThreadName);
+        this.worker.setName(name);
         this.worker.start();
     }
 
@@ -740,10 +865,12 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
                     break;
                 }
             }
+            // 指数退避重连：500ms 起步，每次失败翻倍，上限 30s，成功后复位
+            long backoffMs = KEEPALIVE_RETRY_INITIAL_MS;
             while (connectedError) {
                 try {
-                    logger.info("Trying to restore lost connection to {}}", createClientId());
-                    TimeUnit.MILLISECONDS.sleep(500);
+                    logger.info("Trying to restore lost connection to {}", createClientId());
+                    TimeUnit.MILLISECONDS.sleep(backoffMs);
                     if (!connected) {
                         logger.warn("Trying to stop");
                         break;
@@ -754,6 +881,7 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
                     break;
                 } catch (Exception e) {
                     logger.error(e.getMessage(), e);
+                    backoffMs = Math.min(backoffMs * 2, KEEPALIVE_RETRY_MAX_MS);
                 }
             }
         });
@@ -781,16 +909,19 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
     }
 
     private void resetBinlogPosition() {
+        boolean gtidMode;
+        synchronized (gtidSetAccessLock) {
+            gtidMode = gtidSet != null && gtidSet.toString().length() > 0;
+        }
+        if (!gtidMode) {
+            logger.warn("非 GTID 模式重置 binlog 位置：重连将跳转到最新位点 (binlogFilename={}, binlogPosition={})，故障点至今的事件可能丢失",
+                    binlogFilename, binlogPosition);
+        }
         this.binlogFilename = null;
         this.binlogPosition = 4;
-        this.binlogPositionReset = true;
         if (tableMapEventByTableId != null) {
             tableMapEventByTableId.clear();
         }
-    }
-
-    public boolean isBinlogPositionReset() {
-        return binlogPositionReset;
     }
 
     @Override
@@ -838,7 +969,8 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
 
     @Override
     public String getWorkerThreadName() {
-        return workerThreadName;
+        Thread w = this.worker;
+        return w != null ? w.getName() : null;
     }
 
     public SSLMode getSSLMode() {
@@ -880,78 +1012,6 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
                 this.gtidSet = new GtidSet(gtidStr);
             }
         }
-    }
-
-    /**
-     * 检查是否是 ROWS 事件类型（WRITE_ROWS/UPDATE_ROWS/DELETE_ROWS）
-     */
-    private boolean isRowsEventType(int eventTypeByte) {
-        return eventTypeByte == EVENT_TYPE_WRITE_ROWS ||
-                eventTypeByte == EVENT_TYPE_UPDATE_ROWS ||
-                eventTypeByte == EVENT_TYPE_DELETE_ROWS;
-    }
-
-    /**
-     * 检查错误信息是否与 TableMapEventData 相关
-     */
-    private boolean isTableMapRelatedError(String errorMsg) {
-        return errorMsg != null && (errorMsg.contains("TableMapEventData") ||
-                errorMsg.contains("tableId") || errorMsg.contains("table map"));
-    }
-
-    /**
-     * 从 ROWS 事件数据中提取 tableId
-     * ROWS 事件格式：事件头(19字节) + tableId(6字节，64位) + flags(2字节) + ...
-     */
-    private long extractTableIdFromRowsEvent(byte[] eventData) {
-        if (eventData.length < MIN_ROWS_EVENT_DATA_LENGTH) {
-            return -1;
-        }
-        try {
-            // 对于 64 位 tableId，从第 19 字节开始读取 6 字节
-            return ((long) (eventData[19] & 0xFF)) |
-                    (((long) (eventData[20] & 0xFF)) << 8) |
-                    (((long) (eventData[21] & 0xFF)) << 16) |
-                    (((long) (eventData[22] & 0xFF)) << 24) |
-                    (((long) (eventData[23] & 0xFF)) << 32) |
-                    (((long) (eventData[24] & 0xFF)) << 40);
-        } catch (Exception e) {
-            return -1;
-        }
-    }
-
-    /**
-     * 处理缺少 TableMapEventData 的情况
-     */
-    private void handleMissingTableMapEvent(int eventTypeByte, long extractedTableId, int eventDataLength, long eventCount) {
-        logger.warn("Failed to deserialize ROWS event due to missing TableMapEventData. " +
-                        "eventTypeByte={} (EXT_WRITE_ROWS={}, EXT_UPDATE_ROWS={}, EXT_DELETE_ROWS={}), " +
-                        "extractedTableId={}, eventDataLength={}, binlogFilename={}, binlogPosition={}, eventCount={}, " +
-                        "tableMapEventByTableId.size()={}. " +
-                        "Will continue reading forward to find TABLE_MAP event. This ROWS event will be skipped and data may be lost.",
-                eventTypeByte, EVENT_TYPE_WRITE_ROWS, EVENT_TYPE_UPDATE_ROWS, EVENT_TYPE_DELETE_ROWS,
-                extractedTableId, eventDataLength, binlogFilename, binlogPosition, eventCount,
-                tableMapEventByTableId != null ? tableMapEventByTableId.size() : 0);
-    }
-
-    /**
-     * 获取事件类型对应的类型码
-     */
-    private int getEventTypeByte(EventType eventType) {
-        if (eventType == EventType.ROTATE) {
-            return EVENT_TYPE_ROTATE;
-        } else if (eventType == EventType.WRITE_ROWS || eventType == EventType.EXT_WRITE_ROWS) {
-            return EVENT_TYPE_WRITE_ROWS;
-        } else if (eventType == EventType.UPDATE_ROWS || eventType == EventType.EXT_UPDATE_ROWS) {
-            return EVENT_TYPE_UPDATE_ROWS;
-        } else if (eventType == EventType.DELETE_ROWS || eventType == EventType.EXT_DELETE_ROWS) {
-            return EVENT_TYPE_DELETE_ROWS;
-        } else if (eventType == EventType.FORMAT_DESCRIPTION) {
-            return EVENT_TYPE_FORMAT_DESCRIPTION;
-        } else if (eventType == EventType.TABLE_MAP) {
-            return EVENT_TYPE_TABLE_MAP;
-        }
-        return -1;
     }
 
     public interface EventListener {

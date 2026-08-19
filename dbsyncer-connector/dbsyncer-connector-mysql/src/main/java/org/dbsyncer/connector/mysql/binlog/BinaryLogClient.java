@@ -23,7 +23,7 @@ public interface BinaryLogClient {
     void connect() throws Exception;
 
     /**
-     * Disconnect from the replication stream. Note that this does not reset binlogFilename/binlogPosition. Calling {@link #connect(int)}}
+     * Disconnect from the replication stream. Note that this does not reset binlogFilename/binlogPosition. Calling {@link #connect()}
      * again resumes client from where it left off.
      */
     void disconnect() throws Exception;
