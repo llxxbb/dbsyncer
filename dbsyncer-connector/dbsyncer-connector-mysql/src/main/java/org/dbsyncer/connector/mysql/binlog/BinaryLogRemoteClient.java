@@ -409,11 +409,17 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
                 }
                 throw new EOFException("event data deserialization exception");
             }
-        } catch (Exception e) {
-            // 旧一代 worker（重连后已被替换）抛出的异常直接丢弃，避免对新连接误触发重连风暴
-            // 日志由 notifyException 统一打印，此处不再重复
+        } catch (IOException e) {
+            // 网络/IO 异常：可能通过重连恢复，只设置 connectedError 让 keepalive 重连
             if (!isStaleWorker(channel) && !Thread.currentThread().isInterrupted()) {
-                notifyException(e);
+                logger.warn("Network error, triggering reconnect: {}", e.getMessage(), e);
+                connectedError = true;
+            }
+        } catch (Exception e) {
+            // 数据解析/业务异常：无法通过重连恢复，直接停任务
+            if (!isStaleWorker(channel) && !Thread.currentThread().isInterrupted()) {
+                logger.error("Fatal error, stopping task: {}", e.getMessage(), e);
+                lifecycleListeners.forEach(listener -> listener.onException(this, e));
             }
         }
     }
