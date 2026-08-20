@@ -43,8 +43,10 @@ import java.util.regex.Pattern;
  * <p>基于 mysql-binlog-connector-java 0.30.1（com.zendesk，Apache-2.0）的 BinaryLogClient 定制：
  * <ul>
  *     <li>持续观察并累积 GTID，重连时自动在 GTID / fileName+position 模式间切换（ADR-0026）</li>
+ *     <li>连接时以服务端 Executed_Gtid_Set 初始化空 GTID 集合，保证 GTID 模式重连位点完整（ADR-0026）</li>
  *     <li>keepalive 线程检测断连并指数退避自动重连</li>
  *     <li>MySQL 重启导致位点失效（bogus data，错误码 1236）时重置 binlog 位置恢复</li>
+ *     <li>GTID 位点过期（purged binary logs，错误码 1236）时停止任务并报错</li>
  *     <li>适配 MariaDB 协议与 GTID 格式</li>
  * </ul>
  */
@@ -259,7 +261,7 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
         return hostname + ":" + port + "_" + connectionId;
     }
 
-    private void openChannel() throws IOException {
+    private void openChannel() throws Exception {
         try {
             Socket socket = new Socket();
             socket.connect(new InetSocketAddress(hostname, port), CONNECT_TIMEOUT_MS);
@@ -293,6 +295,17 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
         }
         if (binlogFilename == null) {
             fetchBinlogFilenameAndPosition();
+        } else {
+            // binlogFilename 已由 snapshot 设置（有 fileName/position 检查点但无 gtid 的任务重启场景）
+            // 此时 fetchBinlogFilenameAndPosition 不会被调用，需单独查询 Executed_Gtid_Set 初始化
+            synchronized (gtidSetAccessLock) {
+                if (gtidSet != null && gtidSet.toString().length() == 0) {
+                    String executed = fetchExecutedGtidSet();
+                    if (executed != null) {
+                        gtidSet = initGtidSetIfEmpty(gtidSet, executed, Boolean.TRUE.equals(isMariaDB));
+                    }
+                }
+            }
         }
         if (binlogPosition < 4) {
             logger.warn("Binary log position adjusted from {} to {}", binlogPosition, 4);
@@ -410,8 +423,27 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
                 throw new EOFException("event data deserialization exception");
             }
         } catch (IOException e) {
-            // 网络/IO 异常：可能通过重连恢复，只设置 connectedError 让 keepalive 重连
-            if (!isStaleWorker(channel) && !Thread.currentThread().isInterrupted()) {
+            if (isStaleWorker(channel) || Thread.currentThread().isInterrupted()) {
+                // 旧 worker 或已中断：忽略
+            } else if (e instanceof ServerException && ((ServerException) e).getErrorCode() == 1236) {
+                // 服务端位点错误（1236）：非网络故障，按子类型分流
+                ServerException se = (ServerException) e;
+                if (isGtidPurgedError(se)) {
+                    // GTID 被 purge（snapshot 过期）：停止任务，由用户决策重同步
+                    logger.error("GTID 位点已过期（主库已清理所需 binlog），任务停止：{}", se.getMessage(), se);
+                    lifecycleListeners.forEach(listener -> listener.onException(this, se));
+                } else if (isBogusDataError(se)) {
+                    // 主库重启导致位点无效：重置位置后重连（GTID 模式下天然免疫）
+                    logger.warn("检测到 MySQL 重启导致 binlog 位置无效 (bogus data, 错误码 1236)，将重置位置重新同步");
+                    resetBinlogPosition();
+                    connectedError = true;
+                } else {
+                    // 其他 1236（如 file 不存在等未知位点错误）：停止任务，防无限循环
+                    logger.error("检测到未知位点错误 (错误码 1236)，任务停止：{}", se.getMessage(), se);
+                    lifecycleListeners.forEach(listener -> listener.onException(this, se));
+                }
+            } else {
+                // 非 1236 的 IOException：网络错误，触发重连
                 logger.warn("Network error, triggering reconnect: {}", e.getMessage(), e);
                 connectedError = true;
             }
@@ -595,6 +627,16 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
         ResultSetRowPacket resultSetRow = resultSet[0];
         binlogFilename = resultSetRow.getValue(0);
         binlogPosition = Long.parseLong(resultSetRow.getValue(1));
+
+        // 读取第 5 列 Executed_Gtid_Set（与 File/Position 原子快照，无额外往返）
+        if (resultSetRow.size() > 4) {
+            String executed = resultSetRow.getValue(4);
+            if (StringUtil.isNotBlank(executed)) {
+                synchronized (gtidSetAccessLock) {
+                    gtidSet = initGtidSetIfEmpty(gtidSet, executed.trim(), Boolean.TRUE.equals(isMariaDB));
+                }
+            }
+        }
     }
 
     private ChecksumType fetchBinlogChecksum() throws IOException {
@@ -610,6 +652,51 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
             }
         }
         throw new IOException("Unsupported binlog_checksum value: " + checksum);
+    }
+
+    /**
+     * 查询服务端当前 Executed_Gtid_Set（用于初始化空 GTID 集合）。
+     * 防御性读取：列不存在或解析失败返回 null（fail-open，不阻断连接）。
+     * @throws Exception 
+     */
+    private String fetchExecutedGtidSet() throws Exception {
+        try {
+            String query = getVersion() >= MYSQL_VERSION_8_4 ? "SHOW BINARY LOG STATUS" : "SHOW MASTER STATUS";
+            channel.write(new QueryCommand(query));
+            ResultSetRowPacket[] resultSet = readResultSet();
+            if (resultSet.length == 0) {
+                return null;
+            }
+            ResultSetRowPacket row = resultSet[0];
+            // Executed_Gtid_Set 是第 5 列（索引 4），MySQL 5.6.5+、8.4、MariaDB 10.0+ 一致
+            if (row.size() <= 4) {
+                return null; // 旧版本无该列
+            }
+            String executed = row.getValue(4);
+            return StringUtil.isBlank(executed) ? null : executed.trim();
+        } catch (Exception e) {
+            logger.warn("Failed to fetch Executed_Gtid_Set (fail-open): {}", e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    /**
+     * 若当前 GTID 集合为空，用服务端 executed 集初始化（绝不覆盖 snapshot 检查点）。
+     * 解析失败返回原集合（fail-open）。
+     */
+    static GtidSet initGtidSetIfEmpty(GtidSet current, String executed, boolean isMariaDB) {
+        if (current != null && current.toString().length() > 0) {
+            return current; // 已有值（snapshot 检查点），不覆盖
+        }
+        if (StringUtil.isBlank(executed)) {
+            return current;
+        }
+        try {
+            return isMariaDB ? new MariadbGtidSet(executed) : new GtidSet(executed);
+        } catch (Exception e) {
+            // 解析失败，返回原集合（fail-open）
+            return current;
+        }
     }
 
     private void confirmSupportOfChecksum(final PacketChannel channel, ChecksumType checksumType) throws IOException {
@@ -911,12 +998,26 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
         }
     }
 
-    private boolean isBogusDataError(ServerException e) {
+    static boolean isBogusDataError(ServerException e) {
         return e.getErrorCode() == 1236
                 && e.getMessage() != null
                 && e.getMessage().contains("bogus data");
     }
 
+    /**
+     * 检测 GTID 被 purge 的 1236 错误：
+     * "The slave is connecting using CHANGE MASTER TO MASTER_AUTO_POSITION = 1,
+     *  but the master has purged binary logs containing GTIDs that the slave requires."
+     */
+    static boolean isGtidPurgedError(ServerException e) {
+        return e.getErrorCode() == 1236
+                && e.getMessage() != null
+                && e.getMessage().contains("purged binary logs");
+    }
+
+    /**
+     * 重置 binlog 位置（清空 fileName，position 回到 4），重连时重新获取最新位点。
+     */
     private void resetBinlogPosition() {
         boolean gtidMode;
         synchronized (gtidSetAccessLock) {
