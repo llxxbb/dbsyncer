@@ -427,21 +427,10 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
                 // 旧 worker 或已中断：忽略
             } else if (e instanceof ServerException && ((ServerException) e).getErrorCode() == 1236) {
                 // 服务端位点错误（1236）：非网络故障，按子类型分流
-                ServerException se = (ServerException) e;
-                if (isGtidPurgedError(se)) {
-                    // GTID 被 purge（snapshot 过期）：停止任务，由用户决策重同步
-                    logger.error("GTID 位点已过期（主库已清理所需 binlog），任务停止：{}", se.getMessage(), se);
-                    lifecycleListeners.forEach(listener -> listener.onException(this, se));
-                } else if (isBogusDataError(se)) {
-                    // 主库重启导致位点无效：重置位置后重连（GTID 模式下天然免疫）
-                    logger.warn("检测到 MySQL 重启导致 binlog 位置无效 (bogus data, 错误码 1236)，将重置位置重新同步");
-                    resetBinlogPosition();
-                    connectedError = true;
-                } else {
-                    // 其他 1236（如 file 不存在等未知位点错误）：停止任务，防无限循环
-                    logger.error("检测到未知位点错误 (错误码 1236)，任务停止：{}", se.getMessage(), se);
-                    lifecycleListeners.forEach(listener -> listener.onException(this, se));
+                if (tableMapEventByTableId != null) {
+                    tableMapEventByTableId.clear();
                 }
+                notifyException(e);
             } else {
                 // 非 1236 的 IOException：网络错误，触发重连
                 logger.warn("Network error, triggering reconnect: {}", e.getMessage(), e);
@@ -988,10 +977,6 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
 
     private void notifyException(Exception e) {
         if (connected) {
-            if (e instanceof ServerException && isBogusDataError((ServerException) e)) {
-                logger.warn("检测到 MySQL 重启导致 binlog 位置无效 (bogus data, 错误码 1236)，将重置位置重新同步");
-                resetBinlogPosition();
-            }
             logger.error(e.getMessage(), e);
             lifecycleListeners.forEach(listener -> listener.onException(this, e));
             connectedError = true;
@@ -1014,26 +999,7 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
                 && e.getMessage() != null
                 && e.getMessage().contains("purged binary logs");
     }
-
-    /**
-     * 重置 binlog 位置（清空 fileName，position 回到 4），重连时重新获取最新位点。
-     */
-    private void resetBinlogPosition() {
-        boolean gtidMode;
-        synchronized (gtidSetAccessLock) {
-            gtidMode = gtidSet != null && gtidSet.toString().length() > 0;
-        }
-        if (!gtidMode) {
-            logger.warn("非 GTID 模式重置 binlog 位置：重连将跳转到最新位点 (binlogFilename={}, binlogPosition={})，故障点至今的事件可能丢失",
-                    binlogFilename, binlogPosition);
-        }
-        this.binlogFilename = null;
-        this.binlogPosition = 4;
-        if (tableMapEventByTableId != null) {
-            tableMapEventByTableId.clear();
-        }
-    }
-
+    
     @Override
     public String getBinlogFilename() {
         return binlogFilename;

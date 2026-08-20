@@ -202,9 +202,7 @@ public class MySQLListener extends AbstractDatabaseListener {
                 if (serverException.getErrorCode() == 1236) {
                     String msg = e.getMessage();
                     if (msg != null && msg.contains("bogus data")) {
-                        logger.warn(msg);
                         tableColumnNames.clear();
-                        return;
                     }
                     logger.error(e.getMessage());
                     errorEvent(new MySQLException(e.getMessage()));
