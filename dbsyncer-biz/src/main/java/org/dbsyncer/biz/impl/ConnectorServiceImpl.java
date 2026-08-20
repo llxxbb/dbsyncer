@@ -171,13 +171,6 @@ public class ConnectorServiceImpl implements ConnectorService {
         return health.containsKey(id) && health.get(id);
     }
 
-    @Override
-    public Object getPosition(String id) throws Exception {
-        Connector connector = getConnector(id);
-        ConnectorInstance connectorInstance = connectorFactory.connect(connector.getConfig());
-        return connectorFactory.getPosition(connectorInstance);
-    }
-
     private boolean isAlive(ConnectorConfig config) {
         try {
             return connectorFactory.isAlive(config);

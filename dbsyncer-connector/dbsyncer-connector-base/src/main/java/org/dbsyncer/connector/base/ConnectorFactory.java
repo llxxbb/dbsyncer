@@ -200,11 +200,6 @@ public class ConnectorFactory implements DisposableBean {
         return metaInfo;
     }
 
-    public Object getPosition(ConnectorInstance connectorInstance) throws Exception {
-        Assert.notNull(connectorInstance, "ConnectorInstance can not be null.");
-        return getConnectorService(connectorInstance.getConfig()).getPosition(connectorInstance);
-    }
-
     /**
      * 获取连接器同步参数
      *

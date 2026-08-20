@@ -80,14 +80,6 @@ public interface ConnectorService {
     boolean isAlive(String id);
 
     /**
-     * 获取位点信息
-     *
-     * @param params
-     * @return
-     */
-    Object getPosition(String params) throws Exception;
-    
-    /**
      * 根据搜索类型和关键词过滤连接器
      * @param connectors 连接器列表
      * @param searchType 搜索类型（name/connectorType/ip）
