@@ -73,20 +73,70 @@ public class MySQLConnector extends AbstractDatabaseConnector {
         return new MySQLStorageService();
     }
 
+    // MySQL 8.4.0 版本编码（见 BinaryLogRemoteClient.parseVersion）
+    // MySQL 8.4 起移除 SHOW MASTER STATUS，需改用 SHOW BINARY LOG STATUS
+    private static final long MYSQL_VERSION_8_4 = 8400000000L;
+
     @Override
     public Map<String, String> getPosition(
             org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance connectorInstance) throws Exception {
-        // 执行SHOW MASTER STATUS命令获取当前binlog位置
-        Map<String, Object> result = connectorInstance
-                .execute(databaseTemplate -> databaseTemplate.queryForMap("SHOW MASTER STATUS"));
-
-        if (result == null || result.isEmpty()) {
-            throw new RuntimeException("获取MySQL当前binlog位置失败");
-        }
-        Map<String, String> position = new HashMap<>();
-        position.put("fileName", (String) result.get("File"));
-        position.put("position", String.valueOf(result.get("Position")));
+        // 使用 JDBC 轻量查询获取当前位点（与增量同步的 binlog 协议互补）
+        // 返回 {fileName, position, gtid}，其中 gtid 可能为空字符串（服务器不支持 GTID）
+        Map<String, String> position = connectorInstance.execute(conn -> {
+            Connection jdbcConn = conn.getSimpleConnection();
+            long version = parseMysqlVersion(jdbcConn);
+            String query = version >= MYSQL_VERSION_8_4 ? "SHOW BINARY LOG STATUS" : "SHOW MASTER STATUS";
+            
+            Map<String, Object> result = conn.queryForMap(query);
+            if (result == null || result.isEmpty()) {
+                throw new RuntimeException("获取MySQL当前binlog位置失败");
+            }
+            
+            Map<String, String> pos = new HashMap<>();
+            pos.put("fileName", (String) result.get("File"));
+            pos.put("position", String.valueOf(result.get("Position")));
+            // Executed_Gtid_Set 是第 5 列，MySQL 5.6.5+、8.4、MariaDB 10.0+ 一致
+            Object gtidObj = result.get("Executed_Gtid_Set");
+            pos.put("gtid", gtidObj != null ? gtidObj.toString().trim() : "");
+            return pos;
+        });
         return position;
+    }
+
+    /**
+     * 解析 MySQL 版本号为可比较的数字编码
+     */
+    private long parseMysqlVersion(Connection conn) {
+        try {
+            String version = conn.getMetaData().getDatabaseProductVersion();
+            if (version == null || version.trim().isEmpty()) {
+                return 0;
+            }
+            // 截断后缀：5.7.44-log / 8.0.32+dfsg / 10.11.6-MariaDB-...
+            String core = version.trim();
+            for (String separator : new String[]{"-", "+", " "}) {
+                int idx = core.indexOf(separator);
+                if (idx >= 0) {
+                    core = core.substring(0, idx);
+                }
+            }
+            StringBuilder digits = new StringBuilder();
+            for (String segment : core.split("[.]")) {
+                for (int i = 0; i < segment.length(); i++) {
+                    char c = segment.charAt(i);
+                    if (c >= '0' && c <= '9') {
+                        digits.append(c);
+                    }
+                }
+            }
+            if (digits.length() == 0) return 0;
+            while (digits.length() < 10) digits.append('0');
+            if (digits.length() > 10) digits.setLength(10);
+            return Long.parseLong(digits.toString());
+        } catch (Exception e) {
+            logger.warn("Failed to parse MySQL version: {}", e.getMessage());
+            return 0;
+        }
     }
 
     @Override

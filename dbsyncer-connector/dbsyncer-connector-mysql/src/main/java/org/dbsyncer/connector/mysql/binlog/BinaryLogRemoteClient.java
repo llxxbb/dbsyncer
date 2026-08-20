@@ -293,20 +293,9 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
                 }
             }
         }
-        if (binlogFilename == null) {
-            fetchBinlogFilenameAndPosition();
-        } else {
-            // binlogFilename 已由 snapshot 设置（有 fileName/position 检查点但无 gtid 的任务重启场景）
-            // 此时 fetchBinlogFilenameAndPosition 不会被调用，需单独查询 Executed_Gtid_Set 初始化
-            synchronized (gtidSetAccessLock) {
-                if (gtidSet != null && gtidSet.toString().length() == 0) {
-                    String executed = fetchExecutedGtidSet();
-                    if (executed != null) {
-                        gtidSet = initGtidSetIfEmpty(gtidSet, executed, Boolean.TRUE.equals(isMariaDB));
-                    }
-                }
-            }
-        }
+        // 统一查询服务端状态（fileName/position/GTID）
+        // fetchServerStatus() 智能更新：仅在未设置时写入，不覆盖 snapshot 检查点
+        fetchServerStatus();
         if (binlogPosition < 4) {
             logger.warn("Binary log position adjusted from {} to {}", binlogPosition, 4);
             binlogPosition = 4;
@@ -602,24 +591,36 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
         return Long.parseLong(digits.toString());
     }
 
-    private void fetchBinlogFilenameAndPosition() throws IOException {
-        if (getVersion() >= MYSQL_VERSION_8_4) {
-            channel.write(new QueryCommand("SHOW BINARY LOG STATUS"));
-        } else {
-            channel.write(new QueryCommand("show master status"));
-        }
-
+    /**
+     * 统一查询服务端状态（SHOW MASTER STATUS / SHOW BINARY LOG STATUS）。
+     * 一次查询同时获取 File、Position、Executed_Gtid_Set（原子快照，无额外往返）。
+     * <p>
+     * 智能更新：
+     * - fileName/position：仅在未设置时写入（不覆盖 snapshot 检查点）
+     * - GTID：空集时用服务端 executed 集初始化（绝不覆盖非空集合）
+     */
+    private void fetchServerStatus() throws IOException {
+        String query = getVersion() >= MYSQL_VERSION_8_4 ? "SHOW BINARY LOG STATUS" : "SHOW MASTER STATUS";
+        channel.write(new QueryCommand(query));
         ResultSetRowPacket[] resultSet = readResultSet();
         if (resultSet.length == 0) {
-            throw new IOException("Failed to determine binlog filename/position");
+            if (binlogFilename == null) {
+                throw new IOException("Failed to determine binlog filename/position");
+            }
+            return;
         }
-        ResultSetRowPacket resultSetRow = resultSet[0];
-        binlogFilename = resultSetRow.getValue(0);
-        binlogPosition = Long.parseLong(resultSetRow.getValue(1));
+        ResultSetRowPacket row = resultSet[0];
 
-        // 读取第 5 列 Executed_Gtid_Set（与 File/Position 原子快照，无额外往返）
-        if (resultSetRow.size() > 4) {
-            String executed = resultSetRow.getValue(4);
+        // fileName/position：仅在未设置时写入（不覆盖 snapshot 检查点）
+        if (binlogFilename == null) {
+            binlogFilename = row.getValue(0);
+            binlogPosition = Long.parseLong(row.getValue(1));
+        }
+
+        // GTID：空集时用服务端 executed 集初始化（绝不覆盖非空集合）
+        // Executed_Gtid_Set 是第 5 列（索引 4），MySQL 5.6.5+、8.4、MariaDB 10.0+ 一致
+        if (row.size() > 4) {
+            String executed = row.getValue(4);
             if (StringUtil.isNotBlank(executed)) {
                 synchronized (gtidSetAccessLock) {
                     gtidSet = initGtidSetIfEmpty(gtidSet, executed.trim(), Boolean.TRUE.equals(isMariaDB));
@@ -641,32 +642,6 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
             }
         }
         throw new IOException("Unsupported binlog_checksum value: " + checksum);
-    }
-
-    /**
-     * 查询服务端当前 Executed_Gtid_Set（用于初始化空 GTID 集合）。
-     * 防御性读取：列不存在或解析失败返回 null（fail-open，不阻断连接）。
-     * @throws Exception 
-     */
-    private String fetchExecutedGtidSet() throws Exception {
-        try {
-            String query = getVersion() >= MYSQL_VERSION_8_4 ? "SHOW BINARY LOG STATUS" : "SHOW MASTER STATUS";
-            channel.write(new QueryCommand(query));
-            ResultSetRowPacket[] resultSet = readResultSet();
-            if (resultSet.length == 0) {
-                return null;
-            }
-            ResultSetRowPacket row = resultSet[0];
-            // Executed_Gtid_Set 是第 5 列（索引 4），MySQL 5.6.5+、8.4、MariaDB 10.0+ 一致
-            if (row.size() <= 4) {
-                return null; // 旧版本无该列
-            }
-            String executed = row.getValue(4);
-            return StringUtil.isBlank(executed) ? null : executed.trim();
-        } catch (Exception e) {
-            logger.warn("Failed to fetch Executed_Gtid_Set (fail-open): {}", e.getMessage(), e);
-            throw e;
-        }
     }
 
     /**

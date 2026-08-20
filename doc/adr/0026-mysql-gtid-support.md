@@ -214,6 +214,44 @@ snapshot.put("gtid", gtidSet != null ? gtidSet.toString() : "");
 
 增量从全量开始位点回放 delta：`gtidSet` 以增量启动时刻的 executed 集初始化，position 流照常回放全量期 delta 事件，集合保持完整。若该位点 binlog 已被 purge → 1236 走对应分支，不再无限循环。
 
+### 7. 混合模式 GTID 初始化修复（2026 修订）
+
+**背景**：`MySQLConnector.getPosition()` 原先使用 JDBC 查询 `SHOW MASTER STATUS`，仅返回 `File` 和 `Position`，缺少 `Executed_Gtid_Set`。混合模式下 `recordIncrementStartPoint()` 调用该方法时，snapshot 中无 gtid 字段，导致增量启动时无法直接使用 GTID 模式，需依赖 `BinaryLogRemoteClient.openChannel()` 中的服务端初始化逻辑补充。
+
+**问题**：
+1. 快照数据缺少 GTID，混合模式任务启动后需额外查询补充
+2. `BinaryLogRemoteClient` 内部有两处分散的 `SHOW MASTER STATUS` 查询（`fetchBinlogFilenameAndPosition` 和 `fetchExecutedGtidSet`）
+3. MySQL 8.4 起 `SHOW MASTER STATUS` 已移除，JDBC 查询未处理版本差异
+
+**方案**：
+1. `MySQLConnector.getPosition()` 保持 JDBC 轻量查询，补上 `Executed_Gtid_Set` 列，返回完整位点 `{fileName, position, gtid}`
+2. 合并 `BinaryLogRemoteClient` 的 `fetchBinlogFilenameAndPosition()` 和 `fetchExecutedGtidSet()` 为统一的 `fetchServerStatus()` 方法
+3. 简化 `openChannel()`：直接调用 `fetchServerStatus()`，智能更新（仅在未设置时写入，不覆盖 snapshot 检查点）
+4. 两处查询均处理 MySQL 8.4 的 `SHOW BINARY LOG STATUS` 语法
+
+**职责划分**：
+- `MySQLConnector.getPosition()`：JDBC 轻量查询，用于快照获取（`recordIncrementStartPoint`）
+- `BinaryLogRemoteClient.fetchServerStatus()`：binlog 协议，增量同步内部统一查询
+
+**调用链**：
+```
+recordIncrementStartPoint()
+  └── MySQLConnector.getPosition()
+        └── JDBC: SHOW MASTER STATUS / SHOW BINARY LOG STATUS
+        └── 返回 {fileName, position, gtid}
+  └── meta.recordIncrementStartPoint() → snapshot
+
+MySQLListener.run()
+  └── 读 snapshot → client.setGtidSet() / setBinlogFilename()
+  └── client.connect()
+        └── openChannel() → fetchServerStatus()（仅存量任务补充查询）
+```
+
+**优势**：
+- JDBC 轻量查询获取快照，不启动 binlog 消费
+- 增量同步内部统一为 `fetchServerStatus()`，删除重复逻辑
+- 两处查询均处理 MySQL 8.4 语法差异
+
 ---
 
 ## 未实现的决策（待日后讨论）
