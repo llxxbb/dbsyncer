@@ -84,6 +84,9 @@ public class MappingModelService {
 
     /**
      * 更新 Meta 的快照信息并持久化 Mapping
+     * <p>
+     * 如果 fileName 或 position 发生变化，会自动清空 gtid，让系统在下次连接时重新初始化。
+     * 这是因为 GTID 与 binlog 位置必须匹配，位置变化后旧的 GTID 可能指向已 purge 的事务。
      * 
      * @param mapping      需要更新的 Mapping 对象
      * @param metaSnapshot 快照信息的 JSON 字符串

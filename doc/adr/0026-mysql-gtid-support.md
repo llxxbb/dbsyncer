@@ -2,7 +2,7 @@
 
 **状态**: Accepted  
 **日期**: 2026-08-17  
-**最后修订**: 2026-08-20（并入原 ADR-0027「GTID 集合服务端初始化」）  
+**最后修订**: 2026-08-20  
 **决策者**: @lxb  
 **前置 ADR**: 无
 
@@ -252,8 +252,70 @@ MySQLListener.run()
 - 增量同步内部统一为 `fetchServerStatus()`，删除重复逻辑
 - 两处查询均处理 MySQL 8.4 语法差异
 
+### 8. Mapping Edit 场景的 GTID 处理（2026 修订）
+
+**背景**：用户通过 Web UI 编辑 Mapping 时，可以手动修改 snapshot 中的 `fileName`、`position`、`gtid` 字段。如果用户修改了 `fileName` 或 `position` 但没有同步更新 `gtid`，会导致 GTID 与 binlog 位置不匹配，可能引发数据丢失或重复。
+
+**问题**：
+- GTID 指向旧的事务集合
+- `fileName`/`position` 指向新的位置
+- 两者不匹配，`BinaryLogRemoteClient` 可能无法正确恢复
+
+**方案**：在 `MappingModelService.updateSnapshot()` 中检测位置变化，自动清空 `gtid`。
+
+**逻辑**：
+1. 解析新 snapshot，检测 `fileName` 或 `position` 是否变化
+2. 如果变化了且用户没有同时指定 `gtid`，清空 `gtid`（设为空字符串）
+3. 下次启动时，`MySQLListener` 检测到 gtid 为空，使用 fileName+position 模式
+4. `BinaryLogRemoteClient.openChannel()` 调用 `fetchServerStatus()` 从服务端重新初始化 GTID
+
+**边界情况**：
+
+| 场景 | 行为 |
+|---|---|
+| 只改 fileName | 清空 gtid |
+| 只改 position | 清空 gtid |
+| 同时改 fileName/position | 清空 gtid |
+| 只改 gtid | 保留用户指定的 gtid |
+| 都不改 | 无变化 |
+| 用户同时指定 fileName/position 和 gtid | 保留用户指定的 gtid（不覆盖） |
+
+**代码位置**：`MappingModelService.updateSnapshot()`
+
+### 9. 临时 GTID 集合与第一条 GTID 修正（2026 修订）
+
+**背景**：用户通过 Web UI 编辑 Mapping 修改了 `fileName`/`position`（旧位置），`gtid` 被清空。下次启动时，snapshot 有 fileName/position 但无 gtid，需要从服务端获取当前 Executed_Gtid_Set 作为临时 gtidSet，从旧位置开始消费 binlog。
+
+**问题**：
+- 临时 gtidSet 是服务端当前最新状态（如 uuid:1-200）
+- 用户指定的旧位置可能对应 uuid:1-100
+- 如果直接用临时 gtidSet 去 GTID 模式连接，MySQL 从 uuid:201 开始发送，跳过了 uuid:101-200 的事件
+- 如果用 fileName+position 模式从旧位置开始，运行中观察的小集合（如 uuid:101-200）无法覆盖完整历史，重启时会报 purge 错误
+
+**方案**：临时 gtidSet + 第一条 GTID 事件修正。
+
+**流程**：
+1. 启动时：snapshot 有 fileName/position 但无 gtid
+2. `fetchServerStatus()`：从服务端获取当前 Executed_Gtid_Set 作为临时 gtidSet，标记 `temporaryGtidSet = true`
+3. 从 fileName/position 开始消费（fileName+position 模式）
+4. 遇到第一条 GTID 事件（如 uuid:101）时，修正临时 gtidSet：
+   - 保留小于 uuid:101 的部分（如 uuid:1-100）
+   - 标记 `firstGtidCorrected = true`，`temporaryGtidSet = false`
+5. 后续继续消费，观察 GTID 事件
+6. `refreshSnapshot()`：保存修正后的 gtidSet
+7. 重启时：用修正后的 gtidSet（uuid:1-100）去 GTID 模式连接
+8. MySQL 从 uuid:101 开始发送
+9. 重复处理 uuid:101-200，但最终一致
+
+**关键设计**：
+- 临时 gtidSet 只对第一条 binlog GTID 事件有意义
+- 修正逻辑：保留小于第一条 GTID 的部分
+- 允许重复处理，最终一致
+
+**代码位置**：`BinaryLogRemoteClient.correctGtidSetWithFirstGtid()`
+
 ---
 
 ## 未实现的决策（待日后讨论）
 
-- 无
+- MariaDB 临时 GTID 集合修正逻辑（MariaDB GTID 格式与 MySQL 不同，修正逻辑复杂）

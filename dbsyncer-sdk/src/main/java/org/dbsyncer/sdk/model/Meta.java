@@ -92,6 +92,14 @@ public class Meta extends ConfigModel {
         }
     }
 
+    /**
+     * 更新快照信息
+     * <p>
+     * 如果 fileName 或 position 发生变化且用户没有同时指定 gtid，会自动清空 gtid。
+     * 这是因为 GTID 与 binlog 位置必须匹配，位置变化后旧的 GTID 可能指向已 purge 的事务。
+     *
+     * @param json 快照信息的 JSON 字符串
+     */
     public void updateSnapshot(String json) {
         if (StringUtil.isNotBlank(json)) {
             Map<String, Object> parsedMap = JsonUtil.parseMap(json);
@@ -106,8 +114,35 @@ public class Meta extends ConfigModel {
             if (null == snapshot) {
                 snapshot = new ConcurrentHashMap<>();
             }
+            
+            // 检测位置变化，自动清空 gtid
+            if (isPositionChanged(map)) {
+                map.put("gtid", "");
+            }
+            
             snapshot.putAll(map);
         }
+    }
+    
+    /**
+     * 检测 binlog 位置是否发生变化
+     */
+    private boolean isPositionChanged(Map<String, String> newSnapshot) {
+        if (snapshot == null) {
+            return false;
+        }
+        String oldFileName = snapshot.get("fileName");
+        String oldPosition = snapshot.get("position");
+        String newFileName = newSnapshot.get("fileName");
+        String newPosition = newSnapshot.get("position");
+        
+        // 只有当新 snapshot 包含 fileName 或 position 时才检测变化
+        if (newFileName == null && newPosition == null) {
+            return false;
+        }
+        
+        return !java.util.Objects.equals(oldFileName, newFileName) 
+            || !java.util.Objects.equals(oldPosition, newPosition);
     }
 
     public void recordIncrementStartPoint(Map<String, String> position) {
