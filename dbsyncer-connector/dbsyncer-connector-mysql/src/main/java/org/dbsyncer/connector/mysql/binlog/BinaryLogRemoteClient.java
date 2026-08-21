@@ -483,7 +483,9 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
 
     private void requestBinaryLogStreamMysql(long serverId) throws IOException {
         Command dumpBinaryLogCommand;
-        if (gtidSetManager.isGtidMode()) {
+        // 临时 GTID（来自服务端，snapshot 未提供 GTID）不能用于 DumpBinaryLogGtidCommand，
+        // 否则会跳过 snapshot 指定位点之前的事件，必须使用 binlog filename/position
+        if (gtidSetManager.isGtidMode() && !gtidSetManager.isTemporaryGtidSet()) {
             dumpBinaryLogCommand = new DumpBinaryLogGtidCommand(serverId, "", 4, gtidSetManager.snapshotGtidSet());
         } else {
             dumpBinaryLogCommand = new DumpBinaryLogCommand(serverId, binlogFilename, binlogPosition);
@@ -493,7 +495,8 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
 
     private void requestBinaryLogStreamMaria(long serverId) throws IOException {
         Command dumpBinaryLogCommand;
-        if (gtidSetManager.isGtidMode()) {
+        // 临时 GTID 不能用于 GTID 模式，使用 binlog filename/position
+        if (gtidSetManager.isGtidMode() && !gtidSetManager.isTemporaryGtidSet()) {
             String gtidStr = gtidSetManager.getGtidSet();
             if (!gtidSetManager.isValidMariaGtidSet(gtidStr)) {
                 throw new IOException("Invalid MariaDB GTID set: " + gtidStr);
@@ -606,15 +609,15 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
             binlogPosition = Long.parseLong(row.getValue(1));
         }
 
-        // GTID：空集时用服务端 executed 集初始化（绝不覆盖非空集合）
-        // Executed_Gtid_Set 是第 5 列（索引 4），MySQL 5.6.5+、8.4、MariaDB 10.0+ 一致
-        if (row.size() > 4) {
+        // GTID：仅当 gtidSet 为空（snapshot 未提供 GTID）时才从服务端读取
+        // 若 snapshot 已提供有效 GTID，则跳过服务端 GTID 读取，避免临时标记覆盖
+        if (!gtidSetManager.isGtidMode() && row.size() > 4) {
             String executed = row.getValue(4);
             if (StringUtil.isNotBlank(executed)) {
                 // 如果 binlogFilename 已设置（来自 snapshot），说明是用户指定的旧位置
                 // 此时初始化的 gtidSet 是临时的，需要用第一条 GTID 事件修正
                 boolean initialized = gtidSetManager.initIfEmpty(executed.trim());
-                if (binlogFilename != null && initialized) {
+                if (initialized && binlogFilename != null) {
                     gtidSetManager.markTemporary();
                 }
             }

@@ -104,6 +104,12 @@ public class GtidSetManager {
         }
     }
 
+    public boolean isTemporaryGtidSet() {
+        synchronized (lock) {
+            return temporaryGtidSet;
+        }
+    }
+
     public String getGtidSet() {
         synchronized (lock) {
             return gtidSet != null ? gtidSet.toString() : null;
