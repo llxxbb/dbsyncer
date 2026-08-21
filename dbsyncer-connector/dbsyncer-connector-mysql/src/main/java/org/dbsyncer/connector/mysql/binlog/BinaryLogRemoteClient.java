@@ -3,8 +3,6 @@
  */
 package org.dbsyncer.connector.mysql.binlog;
 
-import com.github.shyiko.mysql.binlog.GtidSet;
-import com.github.shyiko.mysql.binlog.MariadbGtidSet;
 import com.github.shyiko.mysql.binlog.event.*;
 import com.github.shyiko.mysql.binlog.event.deserialization.*;
 import com.github.shyiko.mysql.binlog.io.ByteArrayInputStream;
@@ -35,7 +33,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.regex.Pattern;
 
 /**
  * MySQL binlog 远程客户端。
@@ -94,10 +91,6 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
     private static final long KEEPALIVE_RETRY_INITIAL_MS = 500L;
     private static final long KEEPALIVE_RETRY_MAX_MS = 30000L;
 
-    // MariaDB GTID 集合格式：DOMAIN_ID-SERVER_ID-SEQUENCE[, ...]
-    private static final Pattern MARIA_GTID_SET_PATTERN = Pattern
-            .compile("^\\d{1,10}-\\d{1,10}-\\d{1,20}(\\s*,\\s*\\d{1,10}-\\d{1,10}-\\d{1,20})*$");
-
     private final String hostname;
     private final int port;
     private final String schema;
@@ -118,14 +111,8 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
     private Thread keepAlive;
 
     private final Lock connectLock = new ReentrantLock();
-    private final Object gtidSetAccessLock = new Object();
-    private GtidSet gtidSet;
-    private String gtid;
-    private boolean tx;
     private Boolean isMariaDB;
-
-    // 临时 GTID 集合标志：当 snapshot 有 fileName/position 但无 gtid 时，从服务端获取的 GTID 为临时值
-    private volatile boolean temporaryGtidSet = false;
+    private GtidSetManager gtidSetManager;
 
     private final List<BinaryLogRemoteClient.EventListener> eventListeners = new CopyOnWriteArrayList<>();
     private final List<BinaryLogRemoteClient.LifecycleListener> lifecycleListeners = new CopyOnWriteArrayList<>();
@@ -287,24 +274,13 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
                     "Failed to connect to MySQL on " + hostname + ":" + port + ". Please make sure it's running.", e);
         }
         GreetingPacket greetingPacket = receiveGreeting(channel);
-        detectMariaDB(greetingPacket);
+        initGtidManager(greetingPacket);
         tryUpgradeToSSL(greetingPacket);
         new Authenticator(greetingPacket, channel, schema, username, password).authenticate();
         channel.authenticationComplete();
 
         connectionId = greetingPacket.getThreadId();
-        // 初始化 GTID set（用于观察或 GTID 模式）
-        if (gtidSet == null) {
-            synchronized (gtidSetAccessLock) {
-                if (Boolean.TRUE.equals(isMariaDB)) {
-                    gtidSet = new MariadbGtidSet("");
-                } else {
-                    gtidSet = new GtidSet("");
-                }
-            }
-        }
-        // 统一查询服务端状态（fileName/position/GTID）
-        // fetchServerStatus() 智能更新：仅在未设置时写入，不覆盖 snapshot 检查点
+        gtidSetManager.initEmpty();
         fetchServerStatus();
         if (binlogPosition < 4) {
             logger.warn("Binary log position adjusted from {} to {}", binlogPosition, 4);
@@ -314,18 +290,17 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
         if (checksumType != ChecksumType.NONE) {
             confirmSupportOfChecksum(channel, checksumType);
         }
-        synchronized (gtidSetAccessLock) {
-            String position = gtidSet != null ? gtidSet.toString() : binlogFilename + "/" + binlogPosition;
-            logger.info("Connected to {}:{} at {} (sid:{}, cid:{})", hostname, port, position, serverId, connectionId);
-        }
+        String position = gtidSetManager.isGtidMode() ? gtidSetManager.getGtidSet() : binlogFilename + "/" + binlogPosition;
+        logger.info("Connected to {}:{} at {} (sid:{}, cid:{})", hostname, port, position, serverId, connectionId);
     }
 
-    private void detectMariaDB(GreetingPacket packet) {
+    private void initGtidManager(GreetingPacket packet) {
         String serverVersion = packet.getServerVersion();
         if (serverVersion == null) {
             return;
         }
         this.isMariaDB = StringUtil.containsIgnoreCase(serverVersion, "mariadb");
+        this.gtidSetManager = new GtidSetManager(this.isMariaDB);
     }
 
     private boolean tryUpgradeToSSL(GreetingPacket greetingPacket) throws IOException {
@@ -423,7 +398,7 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
 
                 if (event != null) {
                     eventCount++;
-                    updateGtidSet(event);
+                    gtidSetManager.updateGtidSet(event);
                     notifyEventListeners(event);
                     updateClientBinlogFilenameAndPosition(event);
                     continue;
@@ -508,38 +483,33 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
 
     private void requestBinaryLogStreamMysql(long serverId) throws IOException {
         Command dumpBinaryLogCommand;
-        synchronized (gtidSetAccessLock) {
-            if (gtidSet != null && gtidSet.toString().length() > 0) {
-                dumpBinaryLogCommand = new DumpBinaryLogGtidCommand(serverId, "", 4, gtidSet);
-            } else {
-                dumpBinaryLogCommand = new DumpBinaryLogCommand(serverId, binlogFilename, binlogPosition);
-            }
+        if (gtidSetManager.isGtidMode()) {
+            dumpBinaryLogCommand = new DumpBinaryLogGtidCommand(serverId, "", 4, gtidSetManager.snapshotGtidSet());
+        } else {
+            dumpBinaryLogCommand = new DumpBinaryLogCommand(serverId, binlogFilename, binlogPosition);
         }
         channel.write(dumpBinaryLogCommand);
     }
 
     private void requestBinaryLogStreamMaria(long serverId) throws IOException {
         Command dumpBinaryLogCommand;
-        synchronized (gtidSetAccessLock) {
-            if (gtidSet != null && gtidSet.toString().length() > 0) {
-                String gtidStr = gtidSet.toString();
-                // 拼接进 SQL 前校验格式，防止异常内容写入 @slave_connect_state
-                if (!MARIA_GTID_SET_PATTERN.matcher(gtidStr).matches()) {
-                    throw new IOException("Invalid MariaDB GTID set: " + gtidStr);
-                }
-                channel.write(new QueryCommand("SET @mariadb_slave_capability=4"));
-                checkErrorPacket(channel.read());
-                logger.info("MariaDB slave_connect_state: {}", gtidStr);
-                channel.write(new QueryCommand("SET @slave_connect_state = '" + gtidStr + "'"));
-                checkErrorPacket(channel.read());
-                channel.write(new QueryCommand("SET @slave_gtid_strict_mode = 0"));
-                checkErrorPacket(channel.read());
-                channel.write(new QueryCommand("SET @slave_gtid_ignore_duplicates = 0"));
-                checkErrorPacket(channel.read());
-                dumpBinaryLogCommand = new DumpBinaryLogCommand(serverId, "", 0L, false);
-            } else {
-                dumpBinaryLogCommand = new DumpBinaryLogCommand(serverId, binlogFilename, binlogPosition);
+        if (gtidSetManager.isGtidMode()) {
+            String gtidStr = gtidSetManager.getGtidSet();
+            if (!gtidSetManager.isValidMariaGtidSet(gtidStr)) {
+                throw new IOException("Invalid MariaDB GTID set: " + gtidStr);
             }
+            channel.write(new QueryCommand("SET @mariadb_slave_capability=4"));
+            checkErrorPacket(channel.read());
+            logger.info("MariaDB slave_connect_state: {}", gtidStr);
+            channel.write(new QueryCommand("SET @slave_connect_state = '" + gtidStr + "'"));
+            checkErrorPacket(channel.read());
+            channel.write(new QueryCommand("SET @slave_gtid_strict_mode = 0"));
+            checkErrorPacket(channel.read());
+            channel.write(new QueryCommand("SET @slave_gtid_ignore_duplicates = 0"));
+            checkErrorPacket(channel.read());
+            dumpBinaryLogCommand = new DumpBinaryLogCommand(serverId, "", 0L, false);
+        } else {
+            dumpBinaryLogCommand = new DumpBinaryLogCommand(serverId, binlogFilename, binlogPosition);
         }
         channel.write(dumpBinaryLogCommand);
     }
@@ -641,16 +611,11 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
         if (row.size() > 4) {
             String executed = row.getValue(4);
             if (StringUtil.isNotBlank(executed)) {
-                synchronized (gtidSetAccessLock) {
-                    // 如果 binlogFilename 已设置（来自 snapshot），说明是用户指定的旧位置
-                    // 此时初始化的 gtidSet 是临时的，需要用第一条 GTID 事件修正
-                    boolean wasEmpty = gtidSet == null || gtidSet.toString().length() == 0;
-                    gtidSet = initGtidSetIfEmpty(gtidSet, executed.trim(), Boolean.TRUE.equals(isMariaDB));
-                    if (binlogFilename != null && wasEmpty && gtidSet != null && gtidSet.toString().length() > 0) {
-                        // binlogFilename 已设置且 gtidSet 刚被初始化 → 临时 gtidSet
-                        temporaryGtidSet = true;
-                        logger.info("临时 GTID 集合已初始化（来自服务端），等待第一条 GTID 事件修正: {}", gtidSet);
-                    }
+                // 如果 binlogFilename 已设置（来自 snapshot），说明是用户指定的旧位置
+                // 此时初始化的 gtidSet 是临时的，需要用第一条 GTID 事件修正
+                boolean initialized = gtidSetManager.initIfEmpty(executed.trim());
+                if (binlogFilename != null && initialized) {
+                    gtidSetManager.markTemporary();
                 }
             }
         }
@@ -669,25 +634,6 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
             }
         }
         throw new IOException("Unsupported binlog_checksum value: " + checksum);
-    }
-
-    /**
-     * 若当前 GTID 集合为空，用服务端 executed 集初始化（绝不覆盖 snapshot 检查点）。
-     * 解析失败返回原集合（fail-open）。
-     */
-    static GtidSet initGtidSetIfEmpty(GtidSet current, String executed, boolean isMariaDB) {
-        if (current != null && current.toString().length() > 0) {
-            return current; // 已有值（snapshot 检查点），不覆盖
-        }
-        if (StringUtil.isBlank(executed)) {
-            return current;
-        }
-        try {
-            return isMariaDB ? new MariadbGtidSet(executed) : new GtidSet(executed);
-        } catch (Exception e) {
-            // 解析失败，返回原集合（fail-open）
-            return current;
-        }
     }
 
     private void confirmSupportOfChecksum(final PacketChannel channel, ChecksumType checksumType) throws IOException {
@@ -750,246 +696,6 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
             long nextBinlogPosition = trackableEventHeader.getNextPosition();
             if (nextBinlogPosition > 0) {
                 binlogPosition = nextBinlogPosition;
-            }
-        }
-    }
-
-    private void updateGtidSet(Event event) {
-        synchronized (gtidSetAccessLock) {
-            if (gtidSet == null) {
-                return;
-            }
-        }
-        EventHeader eventHeader = event.getHeader();
-        switch (eventHeader.getEventType()) {
-            case GTID:
-                GtidEventData gtidEventData = (GtidEventData) EventDeserializer.EventDataWrapper
-                        .internal(event.getData());
-                gtid = gtidEventData.getGtid();
-                // 如果是临时 gtidSet 且尚未修正，用第一条 GTID 修正
-                if (temporaryGtidSet && gtid != null) {
-                    correctGtidSetWithFirstGtid(gtid);
-                }
-                break;
-            case MARIADB_GTID:
-                MariadbGtidEventData mariadbGtidEventData = (MariadbGtidEventData) EventDeserializer.EventDataWrapper
-                        .internal(event.getData());
-                gtid = mariadbGtidEventData.toString();
-                // 如果是临时 gtidSet 且尚未修正，用第一条 GTID 修正
-                if (temporaryGtidSet && gtid != null) {
-                    correctGtidSetWithFirstGtid(gtid);
-                }
-                break;
-            case MARIADB_GTID_LIST:
-                // MariaDB 服务器在连接初期下发的 GTID 清单，合并进当前集合，避免 GTID 模式重连时重复消费
-                mergeMariadbGtidList(
-                        (MariadbGtidListEventData) EventDeserializer.EventDataWrapper.internal(event.getData()));
-                break;
-            case XID:
-                commitGtid();
-                tx = false;
-                break;
-            case QUERY:
-                QueryEventData queryEventData = (QueryEventData) EventDeserializer.EventDataWrapper
-                        .internal(event.getData());
-                String sql = queryEventData.getSql();
-                if (sql == null) {
-                    break;
-                }
-                if ("BEGIN".equals(sql)) {
-                    tx = true;
-                } else if ("COMMIT".equals(sql) || "ROLLBACK".equals(sql)) {
-                    commitGtid();
-                    tx = false;
-                } else if (!tx) {
-                    // auto-commit query, likely DDL
-                    commitGtid();
-                }
-                break;
-            default:
-                break;
-        }
-    }
-
-    private void commitGtid() {
-        String currentGtid = gtid;
-        gtid = null; // 提交后立即清空，避免重复提交
-        if (currentGtid != null) {
-            synchronized (gtidSetAccessLock) {
-                gtidSet.add(currentGtid);
-            }
-        }
-    }
-
-    /**
-     * 用第一条 GTID 事件修正临时 gtidSet。
-     * <p>
-     * 场景：用户 edit 修改了 fileName/position（旧位置），gtid 被清空。
-     * 下次启动时，从服务端获取当前 Executed_Gtid_Set 作为临时 gtidSet。
-     * 从旧位置开始消费，遇到第一条 GTID 事件时，保留小于该 GTID 的部分。
-     * <p>
-     * 例如：
-     * - 临时 gtidSet = "uuid:1-200"
-     * - 第一条 GTID 事件 = "uuid:101"
-     * - 修正后 gtidSet = "uuid:1-100"（保留小于 uuid:101 的部分）
-     * <p>
-     * 这样重启时用修正后的 gtidSet 去 GTID 模式连接，MySQL 从 uuid:101 开始发送，
-     * 允许重复处理 uuid:101-200，但最终一致。
-     */
-    private void correctGtidSetWithFirstGtid(String firstGtid) {
-        synchronized (gtidSetAccessLock) {
-            if (gtidSet == null) {
-                return;
-            }
-            // MySQL GTID 格式：uuid:sequence 或 uuid:start-end
-            // MariaDB GTID 格式：domainId-serverId-sequence
-            if (Boolean.TRUE.equals(isMariaDB)) {
-                // MariaDB: 暂不实现修正逻辑，直接使用临时 gtidSet
-                // 原因：MariaDB GTID 格式与 MySQL 不同，修正逻辑复杂
-                throw new UnsupportedOperationException("MariaDB GTID 修正暂不支持，继续使用临时值");
-            } else {
-                // MySQL: 解析 GTID 格式并修正
-                // firstGtid 格式：uuid:sequence（如 "3E11FA47-71CA-11E1-9E33-C80AA9429562:101"）
-                String[] parts = firstGtid.split(":");
-                if (parts.length != 2) {
-                    throw new IllegalArgumentException("Invalid GTID format: " + firstGtid);
-                }
-                String uuid = parts[0];
-                long sequence = Long.parseLong(parts[1]);
-
-                // 构建修正后的 GTID 集合：保留小于 sequence 的部分
-                String currentGtidSetStr = gtidSet.toString();
-                if (!currentGtidSetStr.contains(uuid)) {
-                    throw new IllegalStateException("GTID 修正失败，临时 GTID 集合不包含 uuid: " + uuid);
-                }
-                // 解析当前 GTID 集合，找到对应 uuid 的区间
-                // 格式：uuid:start-end 或 uuid:sequence
-                String correctedGtidSet = correctMysqlGtidSet(currentGtidSetStr, uuid, sequence);
-                if (correctedGtidSet == null || correctedGtidSet.isEmpty()) {
-                    throw new IllegalStateException("GTID 修正失败，修正后的 GTID 集合为空: " + uuid);
-                }
-                gtidSet = new GtidSet(correctedGtidSet);
-                logger.info("临时 GTID 集合已用第一条 GTID 修正: {} -> {}", currentGtidSetStr, correctedGtidSet);
-            }
-            temporaryGtidSet = false;
-        }
-    }
-
-    /**
-     * 修正 MySQL GTID 集合：保留小于指定 sequence 的部分。
-     * <p>
-     * 例如：
-     * - currentGtidSet = "uuid1:1-200,uuid2:1-100"
-     * - targetUuid = "uuid1"
-     * - sequence = 101
-     * - 返回 "uuid1:1-100,uuid2:1-100"
-     */
-    static String correctMysqlGtidSet(String currentGtidSet, String targetUuid, long sequence) {
-        if (currentGtidSet == null || currentGtidSet.isEmpty()) {
-            return currentGtidSet;
-        }
-
-        StringBuilder result = new StringBuilder();
-        String[] intervals = currentGtidSet.split(",");
-        for (int i = 0; i < intervals.length; i++) {
-            String interval = intervals[i].trim();
-            if (interval.isEmpty())
-                continue;
-
-            // 只按第一个冒号拆分：uuid:range1:range2...
-            int colonIdx = interval.indexOf(':');
-            if (colonIdx < 0 || colonIdx == interval.length() - 1)
-                continue;
-
-            String uuid = interval.substring(0, colonIdx);
-            String ranges = interval.substring(colonIdx + 1);
-            if (ranges.isEmpty())
-                continue;
-
-            if (StringUtil.equalsIgnoreCase(uuid, targetUuid)) {
-                // 目标 uuid：按冒号拆分多个区间，逐个处理
-                // 格式：range1:range2:...（如 "1-100:200-300"）
-                String[] rangeItems = ranges.split(":");
-                StringBuilder uuidRanges = new StringBuilder();
-                boolean truncated = false;
-                int intervalCount = 0;
-                for (String rangeItem : rangeItems) {
-                    if (rangeItem.isEmpty())
-                        continue;
-                    intervalCount++;
-                    String[] rangeParts = rangeItem.split("-");
-                    long start = Long.parseLong(rangeParts[0]);
-                    long end = rangeParts.length > 1 ? Long.parseLong(rangeParts[1]) : start;
-
-                    if (start > sequence) {
-                        throw new IllegalStateException("GTID 修正失败，区间起始值大于第一条 GTID 序列号: " + rangeItem);
-                    }
-                    // 临时记录，目标端写入成功后才 commit（commitGtid），不需要 -1
-                    // start > sequence：位置无效，抛异常
-                    // end < sequence：区间已完全处理，保持不变
-                    // start <= sequence <= end：截断到 sequence
-                    if (end < sequence) {
-                        // 区间已完全处理，保持不变
-                        if (uuidRanges.length() > 0)
-                            uuidRanges.append(":");
-                        if (start == end) {
-                            uuidRanges.append(start);
-                        } else {
-                            uuidRanges.append(start).append("-").append(end);
-                        }
-                        continue;
-                    }
-                    truncated = true;
-                    long newEnd = sequence;
-                    if (uuidRanges.length() > 0)
-                        uuidRanges.append(":");
-                    if (start == newEnd) {
-                        uuidRanges.append(start);
-                    } else {
-                        uuidRanges.append(start).append("-").append(newEnd);
-                    }
-                }
-                // 第一条 GTID 序列号超出目标 uuid 的所有区间，临时位点不可信，fail-fast
-                if (intervalCount > 0 && !truncated) {
-                    throw new IllegalStateException(
-                            "GTID 修正失败，第一条 GTID 序列号超出目标 uuid 的所有区间: " + interval + ", sequence=" + sequence);
-                }
-                if (uuidRanges.length() > 0) {
-                    if (result.length() > 0)
-                        result.append(",");
-                    result.append(uuid).append(":").append(uuidRanges);
-                }
-            } else {
-                // 非目标 uuid：保留原值
-                if (result.length() > 0)
-                    result.append(",");
-                result.append(interval);
-            }
-        }
-        return result.toString();
-    }
-
-    /**
-     * 合并 MariaDB 服务器在连接初期下发的 GTID 清单（MARIADB_GTID_LIST 事件）。
-     * 当前集合为空时直接采用；否则逐条并入（MariadbGtidSet.add 只接受单个 GTID）。
-     */
-    private void mergeMariadbGtidList(MariadbGtidListEventData gtidListEventData) {
-        MariadbGtidSet receivedSet = gtidListEventData.getMariaGTIDSet();
-        if (receivedSet == null) {
-            return;
-        }
-        synchronized (gtidSetAccessLock) {
-            if (gtidSet == null || gtidSet.toString().length() == 0) {
-                gtidSet = receivedSet;
-                return;
-            }
-            if (gtidSet instanceof MariadbGtidSet) {
-                for (String singleGtid : StringUtil.split(receivedSet.toString(), StringUtil.COMMA)) {
-                    String trimmed = singleGtid.trim();
-                    if (trimmed.length() > 0) {
-                        gtidSet.add(trimmed);
-                    }
-                }
             }
         }
     }
@@ -1153,9 +859,7 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
     }
 
     static boolean isBogusDataError(ServerException e) {
-        return e.getErrorCode() == 1236
-                && e.getMessage() != null
-                && e.getMessage().contains("bogus data");
+        return GtidSetManager.isBogusDataError(e);
     }
 
     /**
@@ -1165,9 +869,7 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
      * requires."
      */
     static boolean isGtidPurgedError(ServerException e) {
-        return e.getErrorCode() == 1236
-                && e.getMessage() != null
-                && e.getMessage().contains("purged binary logs");
+        return GtidSetManager.isGtidPurgedError(e);
     }
 
     @Override
@@ -1236,9 +938,7 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
      * @see #setGtidSet(String)
      */
     public String getGtidSet() {
-        synchronized (gtidSetAccessLock) {
-            return gtidSet != null ? gtidSet.toString() : null;
-        }
+        return gtidSetManager != null ? gtidSetManager.getGtidSet() : null;
     }
 
     /**
@@ -1254,15 +954,11 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
      * @see #getGtidSet()
      */
     public void setGtidSet(String gtidStr) {
-        if (gtidStr == null)
+        if (gtidStr == null) {
             return;
-
-        synchronized (gtidSetAccessLock) {
-            if (MariadbGtidSet.isMariaGtidSet(gtidStr)) {
-                this.gtidSet = new MariadbGtidSet(gtidStr);
-            } else {
-                this.gtidSet = new GtidSet(gtidStr);
-            }
+        }
+        if (gtidSetManager != null) {
+            gtidSetManager.initFromSnapshot(gtidStr);
         }
     }
 
