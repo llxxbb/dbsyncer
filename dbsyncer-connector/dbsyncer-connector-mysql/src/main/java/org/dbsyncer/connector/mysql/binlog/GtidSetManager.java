@@ -240,20 +240,38 @@ public class GtidSetManager {
             if (StringUtil.equalsIgnoreCase(uuid, targetUuid)) {
                 String[] rangeItems = ranges.split(":");
                 StringBuilder uuidRanges = new StringBuilder();
-                boolean truncated = false;
-                int intervalCount = 0;
+                long maxEnd = -1;
+                int maxEndIdx = -1;
+                int idx = 0;
                 for (String rangeItem : rangeItems) {
                     if (rangeItem.isEmpty())
                         continue;
-                    intervalCount++;
+                    String[] rangeParts = rangeItem.split("-");
+                    long end = rangeParts.length > 1 ? Long.parseLong(rangeParts[1]) : Long.parseLong(rangeParts[0]);
+                    if (end > maxEnd) {
+                        maxEnd = end;
+                        maxEndIdx = idx;
+                    }
+                    idx++;
+                }
+
+                idx = 0;
+                for (String rangeItem : rangeItems) {
+                    if (rangeItem.isEmpty())
+                        continue;
                     String[] rangeParts = rangeItem.split("-");
                     long start = Long.parseLong(rangeParts[0]);
                     long end = rangeParts.length > 1 ? Long.parseLong(rangeParts[1]) : start;
 
-                    if (start > sequence) {
-                        throw new IllegalStateException("GTID 修正失败，区间起始值大于第一条 GTID 序列号: " + rangeItem);
-                    }
-                    if (end < sequence) {
+                    if (sequence > maxEnd && idx == maxEndIdx) {
+                        if (uuidRanges.length() > 0)
+                            uuidRanges.append(":");
+                        if (start == sequence) {
+                            uuidRanges.append(start);
+                        } else {
+                            uuidRanges.append(start).append("-").append(sequence);
+                        }
+                    } else if (end < sequence) {
                         if (uuidRanges.length() > 0)
                             uuidRanges.append(":");
                         if (start == end) {
@@ -261,22 +279,40 @@ public class GtidSetManager {
                         } else {
                             uuidRanges.append(start).append("-").append(end);
                         }
-                        continue;
+                    } else if (start <= sequence) {
+                        if (uuidRanges.length() > 0)
+                            uuidRanges.append(":");
+                        if (start == sequence) {
+                            uuidRanges.append(start);
+                        } else {
+                            uuidRanges.append(start).append("-").append(sequence);
+                        }
                     }
-                    truncated = true;
-                    long newEnd = sequence;
-                    if (uuidRanges.length() > 0)
-                        uuidRanges.append(":");
-                    if (start == newEnd) {
-                        uuidRanges.append(start);
-                    } else {
-                        uuidRanges.append(start).append("-").append(newEnd);
+                    idx++;
+                }
+
+                if (uuidRanges.length() == 0 && maxEndIdx >= 0) {
+                    int fallbackIdx = 0;
+                    for (String rangeItem : rangeItems) {
+                        if (rangeItem.isEmpty())
+                            continue;
+                        String[] rangeParts = rangeItem.split("-");
+                        long start = Long.parseLong(rangeParts[0]);
+                        if (fallbackIdx == maxEndIdx) {
+                            if (start > sequence) {
+                                throw new IllegalStateException("GTID 修正失败，区间起始值大于第一条 GTID 序列号: " + rangeItem);
+                            }
+                            if (start == sequence) {
+                                uuidRanges.append(start);
+                            } else {
+                                uuidRanges.append(start).append("-").append(sequence);
+                            }
+                            break;
+                        }
+                        fallbackIdx++;
                     }
                 }
-                if (intervalCount > 0 && !truncated) {
-                    throw new IllegalStateException(
-                            "GTID 修正失败，第一条 GTID 序列号超出目标 uuid 的所有区间: " + interval + ", sequence=" + sequence);
-                }
+
                 if (uuidRanges.length() > 0) {
                     if (result.length() > 0)
                         result.append(",");
