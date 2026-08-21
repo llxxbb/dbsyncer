@@ -96,7 +96,7 @@ public class MappingModelService {
         Meta meta = getMeta(mapping);
         if (meta != null) {
             meta.updateSnapshot(metaSnapshot);
-            profileComponent.editConfigModel(mapping);
+            profileComponent.editConfigModel(meta);
         }
     }
 
