@@ -45,10 +45,14 @@ public class GtidSetManager {
     private GtidSet gtidSet;
     private String gtid;
     private boolean tx;
-    private final boolean isMariaDB;
+    private boolean isMariaDB;
     private boolean temporaryGtidSet = false;
 
     public GtidSetManager(boolean isMariaDB) {
+        this.isMariaDB = isMariaDB;
+    }
+
+    public void setMariaDB(boolean isMariaDB) {
         this.isMariaDB = isMariaDB;
     }
 
@@ -87,14 +91,10 @@ public class GtidSetManager {
             } catch (Exception e) {
                 return false;
             }
-            return true;
-        }
-    }
-
-    public void markTemporary() {
-        synchronized (lock) {
+            // 从服务端初始化的 GTID 集合是临时的，需用第一条 GTID 事件修正
             this.temporaryGtidSet = true;
             logger.info("临时 GTID 集合已初始化（来自服务端），等待第一条 GTID 事件修正: {}", getGtidSetInternal());
+            return true;
         }
     }
 

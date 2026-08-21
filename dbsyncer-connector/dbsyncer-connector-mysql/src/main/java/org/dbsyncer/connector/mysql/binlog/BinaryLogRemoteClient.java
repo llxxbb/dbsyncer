@@ -300,6 +300,11 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
             return;
         }
         this.isMariaDB = StringUtil.containsIgnoreCase(serverVersion, "mariadb");
+        if (gtidSetManager != null) {
+            // 已在 connect() 前通过 setGtidSet() 创建，仅更新 MariaDB 标识
+            gtidSetManager.setMariaDB(this.isMariaDB);
+            return;
+        }
         this.gtidSetManager = new GtidSetManager(this.isMariaDB);
     }
 
@@ -610,16 +615,10 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
         }
 
         // GTID：仅当 gtidSet 为空（snapshot 未提供 GTID）时才从服务端读取
-        // 若 snapshot 已提供有效 GTID，则跳过服务端 GTID 读取，避免临时标记覆盖
         if (!gtidSetManager.isGtidMode() && row.size() > 4) {
             String executed = row.getValue(4);
             if (StringUtil.isNotBlank(executed)) {
-                // 如果 binlogFilename 已设置（来自 snapshot），说明是用户指定的旧位置
-                // 此时初始化的 gtidSet 是临时的，需要用第一条 GTID 事件修正
-                boolean initialized = gtidSetManager.initIfEmpty(executed.trim());
-                if (initialized && binlogFilename != null) {
-                    gtidSetManager.markTemporary();
-                }
+                gtidSetManager.initIfEmpty(executed.trim());
             }
         }
     }
@@ -960,9 +959,10 @@ public class BinaryLogRemoteClient implements BinaryLogClient {
         if (gtidStr == null) {
             return;
         }
-        if (gtidSetManager != null) {
-            gtidSetManager.initFromSnapshot(gtidStr);
+        if (gtidSetManager == null) {
+            gtidSetManager = new GtidSetManager(false);
         }
+        gtidSetManager.initFromSnapshot(gtidStr);
     }
 
     public interface EventListener {
