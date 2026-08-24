@@ -1,0 +1,271 @@
+{
+  "version": 1,
+  "adrId": "0027",
+  "title": "MySQL 增量同步多表性能优化",
+  "verifier": "@dbsyncer-team",
+  "verifyDate": "2026-08-24",
+  "status": "in_progress",
+  "requirements": [
+    {
+      "id": 1,
+      "title": "GTID 跟随事件 - ChangedOffset 扩展",
+      "description": "ChangedOffset 类增加 gtid 字段，用于携带事件的 GTID 信息",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "ChangedOffset 类包含 private String gtid 字段及 getter/setter",
+          "file": "dbsyncer-sdk/src/main/java/org/dbsyncer/sdk/model/ChangedOffset.java",
+          "code": "private String gtid;"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": 2,
+      "title": "GTID 跟随事件 - 从 GTID_LOG_EVENT 提取 GTID",
+      "description": "binlog 读取线程在 GTID_LOG_EVENT 事件时提取 GTID，在 XID 事件时设置到 ChangedOffset",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "MySQLListener 中记录 currentTransactionGtid，在 GTID 事件时设置",
+          "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/main/java/org/dbsyncer/connector/mysql/cdc/MySQLListener.java",
+          "code": "currentTransactionGtid = gtidData.getGtid();"
+        },
+        {
+          "type": "code",
+          "criteria": "在 XID 事件时设置 offset.setGtid(currentTransactionGtid)",
+          "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/main/java/org/dbsyncer/connector/mysql/cdc/MySQLListener.java",
+          "code": "offset.setGtid(currentTransactionGtid);"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": 3,
+      "title": "GTID 跟随事件 - 消费线程使用事件 GTID",
+      "description": "消费线程使用事件携带的 GTID 更新快照，而非从共享 GtidSetManager 读取",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "refreshSnapshot 使用 offset.getGtid() 而非 client.getGtidSet()",
+          "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/main/java/org/dbsyncer/connector/mysql/cdc/MySQLListener.java",
+          "code": "snapshot.put(BINLOG_GTID, offset.getGtid() != null ? offset.getGtid() : \"\");"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": 4,
+      "title": "GTID 集合合并 - 使用 GtidSet 类",
+      "description": "使用 mysql-binlog-connector-java 的 GtidSet 类做 GTID 合并，而非自行实现",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "使用 GtidSet 类合并 GTID",
+          "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/main/java/org/dbsyncer/connector/mysql/cdc/MySQLListener.java",
+          "code": "GtidSet gtidSet = new GtidSet(existingGtidSet); gtidSet.add(currentGtid);"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": 5,
+      "title": "GTID 向后兼容性 - 降级处理",
+      "description": "旧快照无 GTID 字段时，降级使用 filename+position 模式",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "GTID 为空时使用 DumpBinaryLogCommand 而非 DumpBinaryLogGtidCommand",
+          "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/main/java/org/dbsyncer/connector/mysql/binlog/BinaryLogRemoteClient.java",
+          "code": "if (StringUtil.isBlank(gtid)) { dumpBinaryLogCommand = new DumpBinaryLogCommand(...); }"
+        },
+        {
+          "type": "test",
+          "criteria": "单元测试验证旧快照降级处理",
+          "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/test/java/org/dbsyncer/connector/mysql/binlog/GtidBackwardCompatibilityTest.java",
+          "code": "test_backward_compatibility_without_gtid()"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": 6,
+      "title": "MetaInfo 新增 columnNames 派生缓存",
+      "description": "MetaInfo 类新增 columnNames 字段（volatile），作为 column 的派生缓存",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "MetaInfo 包含 private transient volatile List<String> columnNames 字段",
+          "file": "dbsyncer-sdk/src/main/java/org/dbsyncer/sdk/model/MetaInfo.java",
+          "code": "private transient volatile List<String> columnNames;"
+        },
+        {
+          "type": "code",
+          "criteria": "getColumnNames() 方法懒加载缓存",
+          "file": "dbsyncer-sdk/src/main/java/org/dbsyncer/sdk/model/MetaInfo.java",
+          "code": "public List<String> getColumnNames()"
+        },
+        {
+          "type": "code",
+          "criteria": "setColumn() 方法中 columnNames = null 使缓存失效",
+          "file": "dbsyncer-sdk/src/main/java/org/dbsyncer/sdk/model/MetaInfo.java",
+          "code": "this.columnNames = null;"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": 7,
+      "title": "MySQLListener 删除独立列名缓存",
+      "description": "MySQLListener 删除 tableColumnNames 独立缓存，改用 MetaInfo.getColumnNames() 获取列名",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "MySQLListener 不包含 tableColumnNames 字段",
+          "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/main/java/org/dbsyncer/connector/mysql/cdc/MySQLListener.java",
+          "code": "tableColumnNames 不存在"
+        },
+        {
+          "type": "code",
+          "criteria": "sourceTableMap 使用 CaseInsensitiveMap（符合 ADR-0008）",
+          "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/main/java/org/dbsyncer/connector/mysql/cdc/MySQLListener.java",
+          "code": "Map<String, MetaInfo> sourceTableMap = new CaseInsensitiveMap<>();"
+        },
+        {
+          "type": "code",
+          "criteria": "getColumnNames 方法通过 sourceTableMap 查找 MetaInfo 并调用 getColumnNames()",
+          "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/main/java/org/dbsyncer/connector/mysql/cdc/MySQLListener.java",
+          "code": "metaInfo.getColumnNames()"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": 8,
+      "title": "表过滤逻辑优化 - 使用 TreeSet",
+      "description": "使用 TreeSet(String.CASE_INSENSITIVE_ORDER) 预计算表名集合，符合 ADR-0008 约定",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "使用 TreeSet(String.CASE_INSENSITIVE_ORDER) 而非 toLowerCase()",
+          "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/main/java/org/dbsyncer/connector/mysql/cdc/MySQLListener.java",
+          "code": "private Set<String> filterTableLowerCache = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": 9,
+      "title": "批次处理优化 - 移除排序，上游提供最大 offset",
+      "description": "submit() 是单线程执行，将 ConcurrentHashMap 换成 HashMap，由上游直接提供最大 offset，process() 无需排序",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "submit() 方法中使用 HashMap 替代 ConcurrentHashMap",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/flush/AbstractBufferActuator.java",
+          "code": "Map<String, Response> map = new HashMap<>();"
+        },
+        {
+          "type": "code",
+          "criteria": "submit() 方法中记录 maxOffsetResponse",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/flush/AbstractBufferActuator.java",
+          "code": "WriterResponse maxOffsetResponse = null;"
+        },
+        {
+          "type": "code",
+          "criteria": "process() 方法接收 maxOffsetResponse 参数，无需排序",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/flush/AbstractBufferActuator.java",
+          "code": "protected void process(Map<String, Response> map, WriterResponse maxOffsetResponse)"
+        },
+        {
+          "type": "code",
+          "criteria": "删除排序逻辑（sortedEntries 相关代码）",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/flush/AbstractBufferActuator.java",
+          "code": "sortedEntries 不存在"
+        },
+        {
+          "type": "test",
+          "criteria": "单元测试验证批次处理顺序正确",
+          "file": "dbsyncer-parser/src/test/java/org/dbsyncer/parser/flush/AbstractBufferActuatorOrderTest.java",
+          "code": "test_batch_processing_order()"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": 10,
+      "title": "DDL 等待机制优化",
+      "description": "使用 Condition.await() 替代 sleep 忙等待，减少 CPU 空转",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "MetaBufferActuator 使用 Condition 等待队列清空",
+          "file": "dbsyncer-parser/src/main/java/org/dbsyncer/parser/flush/impl/MetaBufferActuator.java",
+          "code": "queueEmptyCondition.await(100, TimeUnit.MILLISECONDS);"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": 11,
+      "title": "GtidSetManager 锁简化",
+      "description": "GTID 跟随事件后，GtidSetManager 的部分锁可以简化或去掉",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "GtidSetManager 中消费线程不再读取共享 GTID",
+          "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/main/java/org/dbsyncer/connector/mysql/binlog/GtidSetManager.java",
+          "code": "锁简化或去掉"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": 12,
+      "title": "性能基准对比测试",
+      "description": "100+ 表场景下的性能基准对比",
+      "verifyMethods": [
+        {
+          "type": "test",
+          "criteria": "性能测试对比优化前后的吞吐量和延迟",
+          "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/test/java/org/dbsyncer/connector/mysql/performance/MySQLPerformanceTest.java",
+          "code": "test_performance_with_100_tables()"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": 13,
+      "title": "断点续传场景集成测试",
+      "description": "验证 GTID 跟随事件后的断点续传功能",
+      "verifyMethods": [
+        {
+          "type": "test",
+          "criteria": "集成测试验证断点续传场景",
+          "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/test/java/org/dbsyncer/connector/mysql/integration/MySQLResumeSyncTest.java",
+          "code": "test_resume_sync_with_gtid()"
+        }
+      ],
+      "status": "pending",
+      "notes": ""
+    }
+  ],
+  "summary": {
+    "total": 13,
+    "passed": 0,
+    "failed": 0,
+    "pending": 13
+  }
+}
