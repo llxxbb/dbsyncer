@@ -22,16 +22,15 @@ import org.springframework.util.Assert;
 import javax.annotation.Resource;
 import java.lang.reflect.ParameterizedType;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Collectors;
 
 /**
  * 任务缓存执行器
@@ -146,100 +145,18 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
      * 批量处理分区数据
      *
      * @param map
+     * @param maxOffsetResponse 上游提供的最大偏移量响应
      * @throws Exception 
      */
-    protected void process(Map<String, Response> map) throws Exception {
-        // 关键修复：按位置顺序处理批次，确保与binlog事件顺序一致
-        // 问题：map.forEach() 的顺序不确定（ConcurrentHashMap迭代顺序不确定），
-        //      可能导致位置靠后的事件先处理完成，更新快照到更大的位置，跳过位置靠前但还没处理的事件
-        // 解决：按位置顺序处理批次，确保不会跳过未处理的事件
-
-        // 为了可维护性，我们将排序后的列表存储起来，以便在处理完所有响应后获取最后一个响应（最大偏移量）
-        List<Map.Entry<String, Response>> sortedEntries = map.entrySet().stream()
-                .sorted((e1, e2) -> {
-                    Response r1 = e1.getValue();
-                    Response r2 = e2.getValue();
-                    // 检查 Response 是否是 AbstractWriter 的子类（如 WriterResponse）
-                    ChangedOffset o1 = null;
-                    ChangedOffset o2 = null;
-                    if (r1 instanceof AbstractWriter) {
-                        o1 = ((AbstractWriter) r1).getChangedOffset();
-                    }
-                    if (r2 instanceof AbstractWriter) {
-                        o2 = ((AbstractWriter) r2).getChangedOffset();
-                    }
-
-                    // 如果 ChangedOffset 为 null，放在最后处理
-                    if (o1 == null && o2 == null) {
-                        return 0;
-                    }
-                    if (o1 == null) {
-                        return 1;
-                    }
-                    if (o2 == null) {
-                        return -1;
-                    }
-
-                    // 比较文件名
-                    String fileName1 = o1.getNextFileName();
-                    String fileName2 = o2.getNextFileName();
-                    if (fileName1 != null && fileName2 != null) {
-                        int fileNameCompare = fileName1.compareTo(fileName2);
-                        if (fileNameCompare != 0) {
-                            return fileNameCompare;
-                        }
-                    } else if (fileName1 != null) {
-                        return -1;
-                    } else if (fileName2 != null) {
-                        return 1;
-                    }
-
-                    // 比较位置
-                    Object pos1 = o1.getPosition();
-                    Object pos2 = o2.getPosition();
-                    int posCompare = 0;
-                    if (pos1 instanceof Long && pos2 instanceof Long) {
-                        posCompare = Long.compare((Long) pos1, (Long) pos2);
-                    } else if (pos1 instanceof Number && pos2 instanceof Number) {
-                        posCompare = Long.compare(((Number) pos1).longValue(), ((Number) pos2).longValue());
-                    } else if (pos1 != null && pos2 != null) {
-                        posCompare = pos1.toString().compareTo(pos2.toString());
-                    } else if (pos1 != null) {
-                        posCompare = -1;
-                    } else if (pos2 != null) {
-                        posCompare = 1;
-                    }
-
-                    // 如果位置相同，使用 batchIndex 保序（关键修复同一事务内顺序）
-                    if (posCompare != 0) {
-                        return posCompare;
-                    }
-                    
-                    // 关键点：同一 position 保持原始顺序
-                    int b1 = r1 instanceof WriterResponse ? ((WriterResponse) r1).getBatchIndex() : 0;
-                    int b2 = r2 instanceof WriterResponse ? ((WriterResponse) r2).getBatchIndex() : 0;
-                    return Integer.compare(b1, b2);
-                })
-                .collect(Collectors.toList());
-
-        // 处理所有排序后的响应
-        for (Map.Entry<String, Response> entry : sortedEntries) {
-            Response response = entry.getValue();
-            pull(response);
+    protected void process(Map<String, Response> map, WriterResponse maxOffsetResponse) throws Exception {
+        // 直接处理所有响应，无需排序
+        // pull() 的执行顺序不影响正确性，因为每个表的 pull() 是独立的
+        for (Map.Entry<String, Response> entry : map.entrySet()) {
+            pull(entry.getValue());
         }
 
-        // 获取最后一个响应（如果有）作为最大偏移量响应，传递给后置处理
-        // 注意：StorageBufferActuator 使用 StorageResponse，不能强制转换为 WriterResponse
-        WriterResponse lastResponse = null;
-        if (!sortedEntries.isEmpty()) {
-            Response last = sortedEntries.get(sortedEntries.size() - 1).getValue();
-            if (last instanceof WriterResponse) {
-                lastResponse = (WriterResponse) last;
-            }
-        }
-        
         // 处理完成后，调用钩子方法（子类可以重写来处理偏移量刷新、pending 状态等）
-        afterProcess(lastResponse);
+        afterProcess(maxOffsetResponse);
     }
 
     /**
@@ -314,7 +231,8 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
 
         AtomicLong batchCounter = new AtomicLong();
         AtomicLong batchIndexCounter = new AtomicLong();  // 批次序号计数器，用于同一 position 保序
-        Map<String, Response> map = new ConcurrentHashMap<>();
+        Map<String, Response> map = new HashMap<>();
+        WriterResponse maxOffsetResponse = null;
         while (!queue.isEmpty()) {
             Request poll = queue.poll();
             String key = getPartitionKey(poll);
@@ -336,13 +254,19 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
             partition(poll, response);
             batchCounter.incrementAndGet();
 
+            // 记录最大 offset（queue 是 FIFO，最后一个 response 的 offset 最大）
+            if (response instanceof WriterResponse) {
+                maxOffsetResponse = (WriterResponse) response;
+            }
+
             // 当达到批次大小时，处理当前批次
             if (batchCounter.get() >= config.getBufferPullCount()) {
-                process(map);
+                process(map, maxOffsetResponse);
                 map.clear();
                 meter(timeRegistry, batchCounter.get());
                 batchCounter.set(0);
-                map = new ConcurrentHashMap<>();
+                map = new HashMap<>();
+                maxOffsetResponse = null;
             }
 
             Request next = queue.peek();
@@ -353,7 +277,7 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
 
         // 处理剩余未达到批次大小的数据
         if (!map.isEmpty()) {
-            process(map);
+            process(map, maxOffsetResponse);
             map.clear();
             meter(timeRegistry, batchCounter.get());
         }

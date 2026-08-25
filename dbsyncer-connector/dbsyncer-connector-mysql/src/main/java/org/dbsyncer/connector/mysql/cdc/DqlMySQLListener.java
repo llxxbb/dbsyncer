@@ -13,6 +13,8 @@ public class DqlMySQLListener extends MySQLListener {
     @Override
     public void start() throws Exception {
         super.postProcessDqlBeforeInitialization();
+        // DQL 场景：postProcessDqlBeforeInitialization() 重建了 filterTable，需要同步更新缓存
+        rebuildFilterTableLowerCache();
         super.start();
     }
 }

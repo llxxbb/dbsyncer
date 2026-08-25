@@ -74,4 +74,8 @@ public abstract class CommonChangedEvent implements ChangedEvent {
     public void setPosition(Object position) {
         changedOffset.setPosition(position);
     }
+
+    public void setGtid(String gtid) {
+        changedOffset.setGtid(gtid);
+    }
 }

@@ -38,12 +38,12 @@ binlog线程:  读取A(GTID-A) → 更新共享GTID → 入队A
 **改进设计**：
 
 ```
-binlog线程:  读取A(GTID-A) → 入队A(携带GTID-A)
-             读取B(GTID-B) → 入队B(携带GTID-B)
-             读取C(GTID-C) → 入队C(携带GTID-C)
+binlog线程:  XID(A) → client.getGtidSet()={A,B,C} → 入队A(携带完整GTID set)
+             XID(B) → client.getGtidSet()={A,B,C,D} → 入队B(携带完整GTID set)
+             XID(C) → client.getGtidSet()={A,B,C,D,E} → 入队C(携带完整GTID set)
 
-消费线程:    处理完A、B、C后 → 使用事件携带的GTID-C
-             保存快照: GTID={A,B,C}  ← 精确！
+消费线程:    处理完A、B、C后 → 使用事件携带的GTID={A,B,C,D,E}
+             保存快照: GTID={A,B,C,D,E}  ← 精确！
 ```
 
 **核心改动**：
@@ -54,29 +54,32 @@ public class ChangedOffset {
     private String metaId;
     private Object position;        // binlog position
     private String nextFileName;    // binlog filename
-    private String gtid;            // 新增：事件携带的 GTID
+    private String gtid;            // 新增：事件携带的完整 GTID set
 }
 
-// 2. GTID 来源：从 GTID_LOG_EVENT 提取
-// 在 MySQLListener 中记录当前事务的 GTID
-private String currentTransactionGtid = null;
+// 2. GTID 来源：XID 时从 client.getGtidSet() 获取完整集合
+// 此时 GtidSetManager.commitGtid() 已将当前事务 GTID 提交到集合
+private String lastXIDGtidSet = null;
 
-// 处理 GTID 事件
-if (eventType == EventType.GTID) {
-    GtidEventData gtidData = (GtidEventData) event.getData();
-    currentTransactionGtid = gtidData.getGtid();
-}
-
-// 3. binlog 线程设置 GTID（在 XID 事件时）
+// 处理 XID 事件
 if (eventType == EventType.XID) {
+    lastXIDPosition = eventHeaderV4.getNextPosition();
+    // 捕获当前完整 GTID set（此时 GtidSetManager 已提交当前事务 GTID）
+    lastXIDGtidSet = client.getGtidSet();
+    
+    // 设置到 ChangedOffset
     ChangedOffset offset = new ChangedOffset();
     offset.setNextFileName(lastXIDFileName);
     offset.setPosition(lastXIDPosition);
-    offset.setGtid(currentTransactionGtid);  // 设置当前事务的 GTID
-    currentTransactionGtid = null;  // 重置
+    offset.setGtid(lastXIDGtidSet);  // 完整的 GTID set，无需合并
 }
 
-// 4. 消费线程使用事件携带的 GTID
+// 3. 通过事件下传完整 GTID set
+RowChangedEvent rowEvent = new RowChangedEvent(..., lastXIDFileName, lastXIDPosition, columnNames);
+rowEvent.setGtid(lastXIDGtidSet);  // 设置到 CommonChangedEvent.changedOffset.gtid
+trySendEvent(rowEvent);
+
+// 4. 消费线程使用事件携带的完整 GTID set
 public void refreshEvent(ChangedOffset offset) {
     snapshot.put(BINLOG_FILENAME, offset.getNextFileName());
     snapshot.put(BINLOG_POSITION, String.valueOf(offset.getPosition()));
@@ -85,21 +88,12 @@ public void refreshEvent(ChangedOffset offset) {
 }
 ```
 
-**GTID 集合合并**：
-- 使用 `mysql-binlog-connector-java` 的 `GtidSet` 类做合并，而非自行实现
-
-```java
-import com.github.shyiko.mysql.binlog.GtidSet;
-
-private String mergeGtid(String existingGtidSet, String currentGtid) {
-    if (StringUtil.isBlank(existingGtidSet)) {
-        return currentGtid;
-    }
-    GtidSet gtidSet = new GtidSet(existingGtidSet);
-    gtidSet.add(currentGtid);  // 自动处理范围归并
-    return gtidSet.toString();
-}
-```
+**GTID 传递链路**：
+- XID 时 `client.getGtidSet()` → `lastXIDGtidSet`（完整 GTID set）
+- `RowChangedEvent`/`DDLChangedEvent` 创建时调用 `setGtid(lastXIDGtidSet)`
+- `CommonChangedEvent.changedOffset.gtid` 携带完整 GTID set
+- 消费线程 `refreshEvent(offset)` → `refreshSnapshot(offset.getGtid())`
+- snapshot 直接存储完整 GTID set，无需合并逻辑
 
 ### 2. 列名缓存内聚到 MetaInfo
 
@@ -349,17 +343,19 @@ if (StringUtil.isBlank(gtid)) {
 }
 ```
 
-### 2. GTID 集合合并
+### 2. GTID 完整性
 
-**风险**：事件携带单个 GTID，需要合并到集合中。
+**风险**：事件携带的 GTID set 需要是完整的，否则断点续传会丢失数据。
 
-**应对**：在 `refreshSnapshot` 时合并。
+**应对**：XID 时 `GtidSetManager.commitGtid()` 已将当前事务 GTID 提交到集合，`client.getGtidSet()` 返回的是完整集合。通过事件下传，消费线程直接使用，无需合并。
 
 ```java
-String currentGtid = offset.getGtid();
-String existingGtidSet = snapshot.get(BINLOG_GTID);
-String newGtidSet = mergeGtid(existingGtidSet, currentGtid);
-snapshot.put(BINLOG_GTID, newGtidSet);
+// XID 事件时捕获完整 GTID set
+lastXIDGtidSet = client.getGtidSet();  // 此时已包含当前事务 GTID
+rowEvent.setGtid(lastXIDGtidSet);      // 随事件下传
+
+// 消费线程直接使用
+snapshot.put(BINLOG_GTID, offset.getGtid());  // 完整 GTID set
 ```
 
 ### 3. 测试覆盖

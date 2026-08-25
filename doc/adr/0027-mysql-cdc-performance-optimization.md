@@ -43,41 +43,31 @@ MySQL 作为源端的增量同步任务，当源端数据表数量较多（100+ 
 3. 设计更一致（GTID 与 position 同为事件属性）
 
 **GTID 来源**：
-- GTID 存在于 `GTID_LOG_EVENT`（event type 33），不是 XID 事件
-- 在 `MySQLListener` 中记录当前事务的 GTID，在 XID/COMMIT 时设置到 `ChangedOffset`
+- 在 XID 事件时，`GtidSetManager.commitGtid()` 已将当前事务 GTID 提交到集合
+- 此时 `client.getGtidSet()` 返回的是包含当前事务的完整 GTID set
+- 捕获这个值随事件下传，消费线程直接使用，无需合并
 
 ```java
-// 处理 GTID 事件
-if (eventType == EventType.GTID) {
-    GtidEventData gtidData = (GtidEventData) event.getData();
-    currentTransactionGtid = gtidData.getGtid();
-}
-
 // 处理 XID 事件时
 if (eventType == EventType.XID) {
+    lastXIDPosition = eventHeaderV4.getNextPosition();
+    // 捕获当前完整 GTID set（此时 GtidSetManager 已提交当前事务 GTID）
+    lastXIDGtidSet = client.getGtidSet();
+    
+    // 设置到 ChangedOffset
     ChangedOffset offset = new ChangedOffset();
     offset.setNextFileName(lastXIDFileName);
     offset.setPosition(lastXIDPosition);
-    offset.setGtid(currentTransactionGtid);  // 设置当前事务的 GTID
-    currentTransactionGtid = null;  // 重置
+    offset.setGtid(lastXIDGtidSet);  // 完整的 GTID set，无需合并
 }
 ```
 
-**GTID 集合合并**：
-- 使用 `mysql-binlog-connector-java` 的 `GtidSet` 类做合并，而非自行实现
-
-```java
-import com.github.shyiko.mysql.binlog.GtidSet;
-
-private String mergeGtid(String existingGtidSet, String currentGtid) {
-    if (StringUtil.isBlank(existingGtidSet)) {
-        return currentGtid;
-    }
-    GtidSet gtidSet = new GtidSet(existingGtidSet);
-    gtidSet.add(currentGtid);  // 自动处理范围归并
-    return gtidSet.toString();
-}
-```
+**GTID 传递链路**：
+- XID 时 `client.getGtidSet()` → `lastXIDGtidSet`
+- `RowChangedEvent`/`DDLChangedEvent` 创建时调用 `setGtid(lastXIDGtidSet)`
+- `CommonChangedEvent.changedOffset.gtid` 携带完整 GTID set
+- 消费线程 `refreshEvent(offset)` → `refreshSnapshot(offset.getGtid())`
+- snapshot 直接存储完整 GTID set，无需合并逻辑
 
 ### 辅助优化：列名缓存内聚到 MetaInfo
 
@@ -222,6 +212,7 @@ protected void process(Map<String, Response> map, WriterResponse maxOffsetRespon
 |------|------|----------|--------|
 | 2026-08-24 | v1.0 | 初始版本 | @dbsyncer-team |
 | 2026-08-24 | v1.1 | 根据审核意见修正：批次排序改为批次处理优化（移除排序，上游提供最大 offset）；表过滤使用 TreeSet 符合 ADR-0008；GTID 来源明确为 GTID_LOG_EVENT；MetaInfo.columnNames 加 volatile | @dbsyncer-team |
+| 2026-08-26 | v1.2 | GTID 方案简化：XID 时直接从 `client.getGtidSet()` 获取完整 GTID set（此时 `GtidSetManager.commitGtid()` 已提交当前事务），通过事件下传，消费线程直接使用，无需合并逻辑。去掉 `currentTransactionGtid` 字段、GTID 事件处理、`mergeGtid()` 方法 | @dbsyncer-team |
 
 ## 过程文档索引
 

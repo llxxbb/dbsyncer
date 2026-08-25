@@ -23,20 +23,20 @@
     },
     {
       "id": 2,
-      "title": "GTID 跟随事件 - 从 GTID_LOG_EVENT 提取 GTID",
-      "description": "binlog 读取线程在 GTID_LOG_EVENT 事件时提取 GTID，在 XID 事件时设置到 ChangedOffset",
+      "title": "GTID 跟随事件 - XID 时获取完整 GTID set",
+      "description": "binlog 读取线程在 XID 事件时从 client.getGtidSet() 获取完整 GTID set（此时 GtidSetManager 已提交当前事务 GTID），通过事件下传",
       "verifyMethods": [
         {
           "type": "code",
-          "criteria": "MySQLListener 中记录 currentTransactionGtid，在 GTID 事件时设置",
+          "criteria": "MySQLListener 中 XID 事件时获取 lastXIDGtidSet = client.getGtidSet()",
           "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/main/java/org/dbsyncer/connector/mysql/cdc/MySQLListener.java",
-          "code": "currentTransactionGtid = gtidData.getGtid();"
+          "code": "lastXIDGtidSet = client.getGtidSet();"
         },
         {
           "type": "code",
-          "criteria": "在 XID 事件时设置 offset.setGtid(currentTransactionGtid)",
+          "criteria": "RowChangedEvent/DDLChangedEvent 创建时设置 lastXIDGtidSet",
           "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/main/java/org/dbsyncer/connector/mysql/cdc/MySQLListener.java",
-          "code": "offset.setGtid(currentTransactionGtid);"
+          "code": "rowEvent.setGtid(lastXIDGtidSet);"
         }
       ],
       "status": "pending",
@@ -59,14 +59,20 @@
     },
     {
       "id": 4,
-      "title": "GTID 集合合并 - 使用 GtidSet 类",
-      "description": "使用 mysql-binlog-connector-java 的 GtidSet 类做 GTID 合并，而非自行实现",
+      "title": "GTID 无需合并 - 直接使用完整集合",
+      "description": "XID 时 client.getGtidSet() 返回的是完整 GTID set（已包含当前事务），通过事件下传，消费线程直接使用，无需合并逻辑",
       "verifyMethods": [
         {
           "type": "code",
-          "criteria": "使用 GtidSet 类合并 GTID",
+          "criteria": "MySQLListener 不包含 mergeGtid 方法",
           "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/main/java/org/dbsyncer/connector/mysql/cdc/MySQLListener.java",
-          "code": "GtidSet gtidSet = new GtidSet(existingGtidSet); gtidSet.add(currentGtid);"
+          "code": "mergeGtid 不存在"
+        },
+        {
+          "type": "code",
+          "criteria": "refreshSnapshot 直接使用 offset.getGtid() 而非合并",
+          "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/main/java/org/dbsyncer/connector/mysql/cdc/MySQLListener.java",
+          "code": "snapshot.put(BINLOG_GTID, gtidSet != null ? gtidSet : \"\");"
         }
       ],
       "status": "pending",
@@ -133,9 +139,9 @@
         },
         {
           "type": "code",
-          "criteria": "sourceTableMap 使用 CaseInsensitiveMap（符合 ADR-0008）",
+          "criteria": "sourceTableMap 使用 LinkedCaseInsensitiveMap（符合 ADR-0008）",
           "file": "dbsyncer-connector/dbsyncer-connector-mysql/src/main/java/org/dbsyncer/connector/mysql/cdc/MySQLListener.java",
-          "code": "Map<String, MetaInfo> sourceTableMap = new CaseInsensitiveMap<>();"
+          "code": "Map<String, MetaInfo> sourceTableMap = new LinkedCaseInsensitiveMap<>();"
         },
         {
           "type": "code",

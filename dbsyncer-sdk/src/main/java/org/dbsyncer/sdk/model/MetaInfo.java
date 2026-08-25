@@ -31,6 +31,13 @@ public class MetaInfo extends Table {
     @JsonIgnore
     private transient List<Field> pkFields;
 
+    /**
+     * 列名列表缓存（懒加载）
+     * 由 column 计算得出，按字段定义顺序
+     */
+    @JsonIgnore
+    private transient volatile List<String> columnNames;
+
     public MetaInfo() {
         super();
     }
@@ -85,7 +92,22 @@ public class MetaInfo extends Table {
     public MetaInfo setColumn(List<Field> column) {
         super.setColumn(column);
         this.pkFields = null;
+        this.columnNames = null;
         return this;
+    }
+
+    /**
+     * 获取列名列表（按字段定义顺序）
+     * 懒加载缓存，column 变更时自动失效
+     */
+    @JsonIgnore
+    public List<String> getColumnNames() {
+        if (columnNames == null && getColumn() != null) {
+            columnNames = getColumn().stream()
+                    .map(Field::getName)
+                    .collect(Collectors.toList());
+        }
+        return columnNames;
     }
 
     @Override

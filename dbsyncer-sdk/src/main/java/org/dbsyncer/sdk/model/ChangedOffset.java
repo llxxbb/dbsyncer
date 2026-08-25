@@ -20,6 +20,10 @@ public final class ChangedOffset {
      * 增量偏移量
      */
     private Object position;
+    /**
+     * 事件携带的 GTID（用于精确记录已处理位置）
+     */
+    private String gtid;
 
     public String getMetaId() {
         return metaId;
@@ -43,6 +47,14 @@ public final class ChangedOffset {
 
     public void setPosition(Object position) {
         this.position = position;
+    }
+
+    public String getGtid() {
+        return gtid;
+    }
+
+    public void setGtid(String gtid) {
+        this.gtid = gtid;
     }
 
 }

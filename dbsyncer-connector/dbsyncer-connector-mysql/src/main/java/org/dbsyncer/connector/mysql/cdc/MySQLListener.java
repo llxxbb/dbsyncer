@@ -19,16 +19,20 @@ import org.dbsyncer.sdk.listener.AbstractDatabaseListener;
 import org.dbsyncer.sdk.listener.event.DDLChangedEvent;
 import org.dbsyncer.sdk.listener.event.RowChangedEvent;
 import org.dbsyncer.sdk.model.ChangedOffset;
+import org.dbsyncer.sdk.model.MetaInfo;
+import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.util.DatabaseUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.Assert;
+import org.springframework.util.LinkedCaseInsensitiveMap;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Matcher;
@@ -49,11 +53,10 @@ public class MySQLListener extends AbstractDatabaseListener {
     private final String BINLOG_FILENAME = "fileName";
     private final String BINLOG_POSITION = "position";
     private final String BINLOG_GTID = "gtid";
-    // 该 map 与 BinaryLogRemoteClient 共享：worker 线程写入，keepAlive 线程在位点重置时清空，需使用并发容器
-    private final Map<Long, TableMapEventData> tables = new ConcurrentHashMap<>();
-    // 缓存表的列名信息：tableId -> 列名列表（按数据顺序）
-    // onException（可能运行在 keepAlive 线程）与事件处理线程会并发访问，使用并发容器
-    private final Map<Long, List<String>> tableColumnNames = new ConcurrentHashMap<>();
+    // 表名 -> MetaInfo 映射（大小写不敏感），用于获取列名
+    private Map<String, MetaInfo> sourceTableMap;
+    // 大小写不敏感的过滤表集合
+    private Set<String> filterTableLowerCache;
     private BinaryLogClient client;
     private String database;
     private final Lock connectLock = new ReentrantLock();
@@ -76,6 +79,33 @@ public class MySQLListener extends AbstractDatabaseListener {
     }
 
     @Override
+    public void init() {
+        super.init();
+        // 构建表名 -> MetaInfo 映射（大小写不敏感）
+        sourceTableMap = new LinkedCaseInsensitiveMap<>();
+        if (sourceTable != null) {
+            for (Table table : sourceTable) {
+                if (table instanceof MetaInfo) {
+                    sourceTableMap.put(table.getName(), (MetaInfo) table);
+                }
+            }
+        }
+        // 构建大小写不敏感的过滤表集合
+        rebuildFilterTableLowerCache();
+    }
+
+    /**
+     * 重建大小写不敏感的过滤表集合
+     * 用于 DQL 场景：postProcessDqlBeforeInitialization() 会重建 filterTable
+     */
+    protected void rebuildFilterTableLowerCache() {
+        filterTableLowerCache = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        if (filterTable != null) {
+            filterTableLowerCache.addAll(filterTable);
+        }
+    }
+
+    @Override
     public void close() {
         try {
             connectLock.lock();
@@ -92,20 +122,13 @@ public class MySQLListener extends AbstractDatabaseListener {
 
     @Override
     public void refreshEvent(ChangedOffset offset) {
-        // ROW 事件已经携带了上一个事务的 XID 位置
-        // 关键：任务事件携带的XID快照不应该能够修改，直接使用任务携带的位置更新 pendingSnapshot
-        // 不更新共享的 snapshot，防止新旧任务相互覆盖
-        if (offset != null && offset.getPosition() != null && offset.getNextFileName() != null) {
-            String newFileName = offset.getNextFileName();
-            Long newPosition = (Long) offset.getPosition();
-
-            // 直接使用任务携带的位置更新 snapshot（用于后续 ROW 事件携带）
-            // 注意：这里仍然需要更新 snapshot，因为后续的 ROW 事件需要携带这个位置
-            refreshSnapshot(newFileName, newPosition);
-            super.refreshEvent(offset);
+        if (offset == null) {
+            return;
         }
-        // 如果没有位置信息，使用当前的 snapshot（降级处理）
-        // 注意：这种情况不应该发生，因为ROW事件应该已经携带了XID位置
+        Assert.notNull(offset.getNextFileName(), "offset.nextFileName is null") ;
+        Assert.notNull(offset.getPosition(), "offset.position is null");
+        refreshSnapshot(offset.getNextFileName(), (Long) offset.getPosition(), offset.getGtid());
+        super.refreshEvent(offset);
     }
 
     private void run() throws Exception {
@@ -135,7 +158,6 @@ public class MySQLListener extends AbstractDatabaseListener {
             logger.info("使用 fileName+position 模式连接: {}:{}", client.getBinlogFilename(), client.getBinlogPosition());
         }
 
-        client.setTableMapEventByTableId(tables);
         client.registerEventListener(new InnerEventListener());
         client.registerLifecycleListener(new InnerLifecycleListener());
 
@@ -160,12 +182,11 @@ public class MySQLListener extends AbstractDatabaseListener {
         return cluster;
     }
 
-    private void refreshSnapshot(String binlogFilename, long nextPosition) {
+    private void refreshSnapshot(String binlogFilename, long nextPosition, String gtidSet) {
         snapshot.put(BINLOG_FILENAME, binlogFilename);
         snapshot.put(BINLOG_POSITION, String.valueOf(nextPosition));
         // GTID 不可用时写空字符串，防止重启时读到过期 GTID 值
-        String gtid = client.getGtidSet();
-        snapshot.put(BINLOG_GTID, gtid != null ? gtid : "");
+        snapshot.put(BINLOG_GTID, gtidSet != null ? gtidSet : "");
     }
 
     static final class Host {
@@ -200,10 +221,6 @@ public class MySQLListener extends AbstractDatabaseListener {
             if (e instanceof ServerException) {
                 ServerException serverException = (ServerException) e;
                 if (serverException.getErrorCode() == 1236) {
-                    String msg = e.getMessage();
-                    if (msg != null && msg.contains("bogus data")) {
-                        tableColumnNames.clear();
-                    }
                     logger.error(e.getMessage());
                     errorEvent(new MySQLException(e.getMessage()));
                     close();
@@ -235,11 +252,17 @@ public class MySQLListener extends AbstractDatabaseListener {
          */
         private String lastXIDFileName = null;
         private Long lastXIDPosition = null;
+        /**
+         * 上一个事务完成时的完整 GTID set（从 XID 事件时 client.getGtidSet() 获取）
+         * 随事件传递给消费线程，避免消费线程读共享状态导致 GTID 超前
+         */
+        private String lastXIDGtidSet = null;
 
         @Override
         public void onEvent(Event event) {
             // ROTATE > FORMAT_DESCRIPTION > TABLE_MAP > WRITE_ROWS > UPDATE_ROWS > DELETE_ROWS > XID
             EventHeader header = event.getHeader();
+            
             if (header.getEventType() == EventType.XID) {
                 // 记录 XID 位置（用于后续 ROW 事件携带）
                 EventHeaderV4 eventHeaderV4 = (EventHeaderV4) header;
@@ -247,24 +270,21 @@ public class MySQLListener extends AbstractDatabaseListener {
                     lastXIDFileName = client.getBinlogFilename();
                 }
                 lastXIDPosition = eventHeaderV4.getNextPosition();
+                // 捕获当前完整 GTID set（此时 GtidSetManager 已提交当前事务 GTID）
+                lastXIDGtidSet = client.getGtidSet();
 
                 if (!hasPendingTaskData()) {
                     // 没有任务数据在处理：非任务事件的 XID，正常更新 snapshot 和 pendingSnapshot
                     ChangedOffset offset = new ChangedOffset();
                     offset.setNextFileName(lastXIDFileName);
                     offset.setPosition(lastXIDPosition);
+                    offset.setGtid(lastXIDGtidSet);
                     refreshEvent(offset);
                 }
                 return;
             }
 
-            // 处理 TABLE_MAP 事件：主动更新列名缓存
             if (header.getEventType() == EventType.TABLE_MAP) {
-                TableMapEventData data = (TableMapEventData) event.getData();
-                if (data != null && isFilterTable(data.getDatabase(), data.getTable())) {
-                    // 如果是我们监控的表，主动更新列名缓存
-                    updateColumnNamesCache(data.getTableId(), data.getTable());
-                }
                 return;
             }
 
@@ -275,7 +295,6 @@ public class MySQLListener extends AbstractDatabaseListener {
             }
 
             if (notUniqueCodeEvent && EventType.isUpdate(header.getEventType())) {
-                // 移除 refresh(header)：DML 事件不再更新快照点，只在 XID 事件时更新
                 UpdateRowsEventData data = event.getData();
                 if (isFilterTable(data.getTableId())) {
                     long tableId = data.getTableId();
@@ -283,33 +302,37 @@ public class MySQLListener extends AbstractDatabaseListener {
                     data.getRows().forEach(m -> {
                         List<Object> before = rowDataToList(m.getKey(), columnNames);
                         List<Object> after = rowDataToList(m.getValue(), columnNames);
-                        trySendEvent(new RowChangedEvent(getTableName(tableId), ConnectorConstant.OPERTION_UPDATE, after, before, lastXIDFileName, lastXIDPosition, columnNames));
+                        RowChangedEvent rowEvent = new RowChangedEvent(getTableName(tableId), ConnectorConstant.OPERTION_UPDATE, after, before, lastXIDFileName, lastXIDPosition, columnNames);
+                        rowEvent.setGtid(lastXIDGtidSet);
+                        trySendEvent(rowEvent);
                     });
                 }
                 return;
             }
             if (notUniqueCodeEvent && EventType.isWrite(header.getEventType())) {
-                // 移除 refresh(header)：DML 事件不再更新快照点，只在 XID 事件时更新
                 WriteRowsEventData data = event.getData();
                 if (isFilterTable(data.getTableId())) {
                     long tableId = data.getTableId();
                     List<String> columnNames = getColumnNames(tableId);
                     data.getRows().forEach(m -> {
                         List<Object> after = Stream.of(m).collect(Collectors.toList());
-                        trySendEvent(new RowChangedEvent(getTableName(tableId), ConnectorConstant.OPERTION_INSERT, after, after, lastXIDFileName, lastXIDPosition, columnNames));
+                        RowChangedEvent rowEvent = new RowChangedEvent(getTableName(tableId), ConnectorConstant.OPERTION_INSERT, after, after, lastXIDFileName, lastXIDPosition, columnNames);
+                        rowEvent.setGtid(lastXIDGtidSet);
+                        trySendEvent(rowEvent);
                     });
                 }
                 return;
             }
             if (notUniqueCodeEvent && EventType.isDelete(header.getEventType())) {
-                // 移除 refresh(header)：DML 事件不再更新快照点，只在 XID 事件时更新
                 DeleteRowsEventData data = event.getData();
                 if (isFilterTable(data.getTableId())) {
                     long tableId = data.getTableId();
                     List<String> columnNames = getColumnNames(tableId);
                     data.getRows().forEach(m -> {
                         List<Object> beforeData = Stream.of(m).collect(Collectors.toList());
-                        trySendEvent(new RowChangedEvent(getTableName(tableId), ConnectorConstant.OPERTION_DELETE, beforeData, beforeData, lastXIDFileName, lastXIDPosition, columnNames));
+                        RowChangedEvent rowEvent = new RowChangedEvent(getTableName(tableId), ConnectorConstant.OPERTION_DELETE, beforeData, beforeData, lastXIDFileName, lastXIDPosition, columnNames);
+                        rowEvent.setGtid(lastXIDGtidSet);
+                        trySendEvent(rowEvent);
                     });
                 }
                 return;
@@ -365,132 +388,43 @@ public class MySQLListener extends AbstractDatabaseListener {
             }
             databaseName = StringUtil.replace(databaseName, StringUtil.BACK_QUOTE, StringUtil.EMPTY);
             if (isFilterTable(databaseName, tableName)) {
-                // DDL 事件会改变表结构，清除对应表的列名缓存
-                clearColumnNamesCache(tableName);
                 logger.info("捕获到 DDL 事件: database={}, table={}, sql={}", databaseName, tableName, data.getSql());
-                trySendEvent(new DDLChangedEvent(tableName, ConnectorConstant.OPERTION_ALTER,
-                        data.getSql(), lastXIDFileName, lastXIDPosition));
+                DDLChangedEvent ddlEvent = new DDLChangedEvent(tableName, ConnectorConstant.OPERTION_ALTER,
+                        data.getSql(), lastXIDFileName, lastXIDPosition);
+                ddlEvent.setGtid(lastXIDGtidSet);
+                trySendEvent(ddlEvent);
             }
         }
 
         private String getTableName(long tableId) {
-            return tables.get(tableId).getTable();
+            return client.getTableMapEventByTableId().get(tableId).getTable();
         }
 
         /**
          * 获取表的列名列表（按数据顺序）
-         * 从缓存中获取，如果不存在则从数据库元数据中获取并缓存
+         * 从 MetaInfo 的派生缓存获取，无需查询数据库
          */
         private List<String> getColumnNames(long tableId) {
-            // 先从缓存中获取
-            List<String> columnNames = tableColumnNames.get(tableId);
-            if (columnNames != null) {
-                return columnNames;
-            }
-
-            // 如果缓存中没有，从数据库元数据中获取并缓存
-            TableMapEventData tableMap = tables.get(tableId);
-            if (tableMap != null) {
-                String tableName = tableMap.getTable();
-                columnNames = updateColumnNamesCache(tableId, tableName);
-            }
-
-            return columnNames;
-        }
-
-        /**
-         * 更新表的列名缓存
-         *
-         * @param tableId   表ID
-         * @param tableName 表名
-         * @return 列名列表
-         */
-        private List<String> updateColumnNamesCache(long tableId, String tableName) {
-            try {
-                // 从数据库元数据中获取列名
-                List<String> columnNames = getTableColumnNames(tableName);
-                if (columnNames != null && !columnNames.isEmpty()) {
-                    // 缓存列名信息
-                    tableColumnNames.put(tableId, columnNames);
-                } else {
-                    // 列名为空，记录警告
-                    String errorMsg = String.format("获取表列名为空，tableId: %d, tableName: %s, binlog: %s:%s",
-                            tableId, tableName, client.getBinlogFilename(), client.getBinlogPosition());
-                    logger.warn(errorMsg);
-                    errorEvent(new MySQLException(errorMsg));
-                }
-                return columnNames;
-            } catch (Exception e) {
-                String errorMsg = String.format("更新表列名缓存失败，tableId: %d, tableName: %s, binlog: %s:%s, error: %s",
-                        tableId, tableName, client.getBinlogFilename(), client.getBinlogPosition(), e.getMessage());
-                logger.error(errorMsg, e);
-                errorEvent(new MySQLException(errorMsg, e));
+            TableMapEventData tableMap = client.getTableMapEventByTableId().get(tableId);
+            if (tableMap == null) {
                 return null;
             }
-        }
-
-        /**
-         * 清除表的列名缓存（DDL 事件后调用）
-         *
-         * @param tableName 表名
-         */
-        private void clearColumnNamesCache(String tableName) {
-            // 根据表名找到对应的 tableId，清除缓存
-            // 注意：同一个表名可能对应多个 tableId（如果表被删除后重建），所以需要遍历所有 tableId
-            List<Long> tableIdsToRemove = new ArrayList<>();
-            for (Map.Entry<Long, TableMapEventData> entry : tables.entrySet()) {
-                if (entry.getValue() != null && StringUtil.equalsIgnoreCase(tableName, entry.getValue().getTable())) {
-                    tableIdsToRemove.add(entry.getKey());
-                }
-            }
-
-            // 清除缓存
-            for (Long tableId : tableIdsToRemove) {
-                tableColumnNames.remove(tableId);
-            }
-        }
-
-        /**
-         * 从数据库元数据中获取表的列名列表
-         * 使用 INFORMATION_SCHEMA 直接查询，明确指定数据库名和表名，避免查询到其他 schema 的同名表
-         */
-        private List<String> getTableColumnNames(String tableName) {
-            try {
-                return getConnectorInstance().execute(databaseTemplate -> {
-                    List<String> columns = new ArrayList<>();
-                    // 使用 INFORMATION_SCHEMA 直接查询，明确指定数据库名和表名
-                    // 这样可以确保只查询指定数据库中的表，避免查询到其他 schema 的同名表
-                    String sql = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS " +
-                            "WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? " +
-                            "ORDER BY ORDINAL_POSITION";
-                    try (java.sql.PreparedStatement ps = databaseTemplate.getSimpleConnection()
-                            .getConnection().prepareStatement(sql)) {
-                        ps.setString(1, database);
-                        ps.setString(2, tableName);
-                        try (java.sql.ResultSet rs = ps.executeQuery()) {
-                            while (rs.next()) {
-                                columns.add(rs.getString("COLUMN_NAME"));
-                            }
-                        }
-                    }
-                    return columns;
-                });
-            } catch (Exception e) {
-                String errorMsg = String.format("从数据库元数据获取列名失败，database: %s, tableName: %s, binlog: %s:%s, error: %s",
-                        database, tableName, client.getBinlogFilename(), client.getBinlogPosition(), e.getMessage());
-                logger.error(errorMsg, e);
-                errorEvent(new MySQLException(errorMsg, e));
+            String tableName = tableMap.getTable();
+            MetaInfo metaInfo = sourceTableMap.get(tableName);
+            if (metaInfo == null) {
+                logger.warn("未找到表的 MetaInfo: tableName={}, tableId={}", tableName, tableId);
                 return null;
             }
+            return metaInfo.getColumnNames();
         }
 
         private boolean isFilterTable(long tableId) {
-            final TableMapEventData tableMap = tables.get(tableId);
+            final TableMapEventData tableMap = client.getTableMapEventByTableId().get(tableId);
             return isFilterTable(tableMap.getDatabase(), tableMap.getTable());
         }
 
         private boolean isFilterTable(String dbName, String tableName) {
-            return StringUtil.equalsIgnoreCase(database, dbName) && filterTable.contains(tableName.toLowerCase());
+            return StringUtil.equalsIgnoreCase(database, dbName) && filterTableLowerCache.contains(tableName);
         }
 
         private boolean isNotUniqueCodeEvent(String sql) {
