@@ -138,15 +138,17 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
      * 批处理
      *
      * @param response
+     * @throws Exception 
      */
-    public abstract void pull(Response response);
+    public abstract void pull(Response response) throws Exception;
 
     /**
      * 批量处理分区数据
      *
      * @param map
+     * @throws Exception 
      */
-    protected void process(Map<String, Response> map) {
+    protected void process(Map<String, Response> map) throws Exception {
         // 关键修复：按位置顺序处理批次，确保与binlog事件顺序一致
         // 问题：map.forEach() 的顺序不确定（ConcurrentHashMap迭代顺序不确定），
         //      可能导致位置靠后的事件先处理完成，更新快照到更大的位置，跳过位置靠前但还没处理的事件
@@ -305,7 +307,7 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
         return config.getBufferQueueCapacity();
     }
 
-    private void submit() {
+    private void submit() throws Exception {
         if (queue.isEmpty()) {
             return;
         }

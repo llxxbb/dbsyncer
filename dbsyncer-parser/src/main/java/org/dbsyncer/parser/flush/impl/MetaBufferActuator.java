@@ -113,7 +113,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
     }
 
     @Override
-    public void pull(WriterResponse response) {
+    public void pull(WriterResponse response) throws Exception {
         long now = Instant.now().toEpochMilli();
         Meta meta = profileComponent.getMeta(response.getChangedOffset().getMetaId());
         final Mapping mapping = profileComponent.getMapping(meta.getMappingId());
@@ -123,6 +123,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         } catch (Exception e) {
             errorQueueCollector.closeTask(meta, response.getTableName(), e, getBufferWriterCount(),
                     NotifyType.TASK_INTERRUPTED);
+            throw e;
         }
     }
 
