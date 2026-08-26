@@ -108,7 +108,7 @@
                                                     <span class="badge" id="sourceFieldCount" style="display: none;">0</span>
                                                 </button>
                                                 <!-- 隐藏字段存储选中值，保持向后兼容 -->
-                                                <select id="sourceTableField" class="form-control select-control-table hidden" multiple="multiple">
+                                                <select id="sourceTableField" class="hidden" multiple="multiple">
                                                     <option th:each="c,s:${tableGroup?.sourceTable?.column}" th:value="${c?.name}" th:text="${c?.name} +' (' + ${c?.typeName} +')' + (${c?.pk} ? ' [主键]' : '')" th:data-pk="${c?.pk}" />
                                                 </select>
                                             </div>
@@ -128,7 +128,7 @@
                                                         <span class="badge" id="targetFieldCount" style="display: none;">0</span>
                                                     </button>
                                                     <!-- 隐藏字段存储选中值，保持向后兼容 -->
-                                                    <select id="targetTableField" class="form-control select-control-table hidden" multiple="multiple">
+                                                    <select id="targetTableField" class="hidden" multiple="multiple">
                                                         <option th:each="c,s:${tableGroup?.targetTable?.column}" th:value="${c?.name}" th:text="${c?.name} +' (' + ${c?.typeName} +')' + (${c?.pk} ? ' [主键]' : '')" th:data-pk="${c?.pk}" />
                                                     </select>
                                                 </div>

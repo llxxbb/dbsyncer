@@ -17,7 +17,7 @@
                 <button id="refreshTableBtn" type="button" class="btn btn-default" th:title="刷新数据源和目标源表" th:tableGroupId="${mapping?.id}">
                     <span class="fa fa-refresh"></span>刷新表
                 </button>
-                <select id="sourceTable" class="form-control select-control-table hidden" multiple="multiple">
+                <select id="sourceTable" class="hidden" multiple="multiple">
                     <option th:each="t,s:${mapping?.sourceConnector?.table}" th:text="${t?.name} + ' ('+${t?.type}+')'"
                             th:value="${t?.name}"/>
                 </select>
