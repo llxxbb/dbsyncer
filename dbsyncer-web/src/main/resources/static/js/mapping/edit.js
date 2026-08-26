@@ -456,112 +456,39 @@ function bindMultipleSelectFilterBtnClick() {
 
 // 初始化表选择器 - 使用 SelectorManager 消除重复代码
 function initTableSelectors() {
-    // 数据源表选择器
-    const sourceSelector = SelectorManager.init({
+    SelectorManager.init({
         type: 'table',
         side: 'source',
         btnId: 'sourceTableBtn',
         selectId: 'sourceTable',
         modalId: 'sourceTableModal',
-        title: '选择数据源表',
+        title: '选择数据表',
         leftTitle: '可选表',
         rightTitle: '已选表',
-        onConfirm: function(selectedIds, data) {
-            // 自动同步目标表选择
-            const targetSelected = $('#targetTable').val();
+        onConfirm: function(selectedIds) {
             if (selectedIds.length === 0) {
-                // 源表清空时，同步清空目标表
-                SelectorManager.get('targetTableSelector').setSelected([]);
-                SelectorManager.updateButtonDisplay('target', 'table', [], data);
-                $('#targetTable').val([]).trigger('change');
-            } else if (!targetSelected || targetSelected.length === 0) {
-                // 目标表未选择时，自动同步源表选择
-                SelectorManager.get('targetTableSelector').setSelected(selectedIds);
-                SelectorManager.updateButtonDisplay('target', 'table', selectedIds, data);
-                $('#targetTable').val(selectedIds).trigger('change');
+                return;
             }
-        }
-    });
-
-    // 目标源表选择器
-    SelectorManager.init({
-        type: 'table',
-        side: 'target',
-        btnId: 'targetTableBtn',
-        selectId: 'targetTable',
-        modalId: 'targetTableModal',
-        title: '选择目标源表',
-        leftTitle: '可选表',
-        rightTitle: '已选表'
-    });
-
-    // 绑定添加按钮事件
-    bindMappingTableGroupAddClick();
-}
-
-// 绑定新增表关系点击事件
-function bindMappingTableGroupAddClick() {
-    let $addBtn = $("#tableGroupAddBtn");
-    $addBtn.unbind("click");
-    $addBtn.bind('click', function () {
-        let m = {};
-        m.mappingId = $(this).attr("mappingId");
-
-        // 从隐藏的select元素获取选中值
-        const sourceSelected = $("#sourceTable").val();
-        const targetSelected = $("#targetTable").val();
-
-        m.sourceTable = sourceSelected ? sourceSelected : null;
-        m.targetTable = targetSelected ? targetSelected : null;
-
-        if (m.sourceTable === null) {
-            bootGrowl("请选择数据源表", "danger");
-            return;
-        }
-
-        // 转换为数组
-        m.sourceTable = Array.isArray(m.sourceTable) ? m.sourceTable : [m.sourceTable];
-        m.targetTable = Array.isArray(m.targetTable) ? m.targetTable : (m.targetTable ? [m.targetTable] : []);
-
-        // 如果未选择目标表，则使用源表作为目标表
-        if (m.targetTable.length === 0) {
-            m.targetTable = [...m.sourceTable];
-        }
-
-        let sLen = m.sourceTable.length;
-        let tLen = m.targetTable.length;
-        if (sLen < 1) {
-            bootGrowl("请选择数据源表", "danger");
-            return;
-        }
-        if (tLen < 1) {
-            bootGrowl("请选择目标源表", "danger");
-            return;
-        }
-        if (sLen != tLen) {
-            bootGrowl("表映射关系数量不一致，请检查源表和目标表关系", "danger");
-            return;
-        }
-
-        m.sourceTable = m.sourceTable.join('|');
-        m.targetTable = m.targetTable.join('|');
-        m.sourceTablePK = $("#sourceTablePK").val();
-        m.targetTablePK = $("#targetTablePK").val();
-
-        doPoster("/tableGroup/add", m, function (data) {
-            if (data.success == true) {
-                bootGrowl("新增映射关系成功!", "success");
-                // 直接重新加载页面内容，确保映射列表更新
-                var url = '/mapping/page/edit?id=' + m.mappingId + "&classOn=1&refresh=" + new Date().getTime();
-                doLoaderWithoutHashUpdate(url, 0);
-            } else {
-                bootGrowl(data.resultValue, "danger");
-                if (data.status == 400) {
-                    var url = '/mapping/page/edit?id=' + m.mappingId + "&classOn=1&refresh=" + new Date().getTime();
+            var mappingId = $("#mappingId").val();
+            var sourceTable = selectedIds.join('|');
+            doPoster("/tableGroup/add", {
+                mappingId: mappingId,
+                sourceTable: sourceTable,
+                targetTable: sourceTable
+            }, function (data) {
+                if (data.success == true) {
+                    bootGrowl("新增映射关系成功!", "success");
+                    var url = '/mapping/page/edit?id=' + mappingId + "&classOn=1&refresh=" + new Date().getTime();
                     doLoaderWithoutHashUpdate(url, 0);
+                } else {
+                    bootGrowl(data.resultValue, "danger");
+                    if (data.status == 400) {
+                        var url = '/mapping/page/edit?id=' + mappingId + "&classOn=1&refresh=" + new Date().getTime();
+                        doLoaderWithoutHashUpdate(url, 0);
+                    }
                 }
-            }
-        });
+            });
+        }
     });
 }
 
