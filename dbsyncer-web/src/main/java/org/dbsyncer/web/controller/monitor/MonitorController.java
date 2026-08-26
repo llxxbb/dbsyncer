@@ -271,7 +271,6 @@ public class MonitorController extends BaseController {
 
     @ResponseBody
     @GetMapping("/getLogTypes")
-    @PreAuthorize("hasRole('admin')")
     public RestResult getLogTypes() {
         List<Map<String, String>> list = new ArrayList<>();
         for (LogType logType : LogType.values()) {
