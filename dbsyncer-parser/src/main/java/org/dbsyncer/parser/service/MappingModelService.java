@@ -111,7 +111,7 @@ public class MappingModelService {
      * @throws Exception 异常
      */
     public Mapping copy(Mapping mapping, SnowflakeIdWorker snowflakeIdWorker, String newName,
-            String targetConnectorId) throws Exception {
+            String model, String targetConnectorId) throws Exception {
         String json = JsonUtil.objToJson(mapping);
         Mapping newMapping = JsonUtil.jsonToObj(json, Mapping.class);
         newMapping.setName(newName);
@@ -119,6 +119,9 @@ public class MappingModelService {
         newMapping.setId(newId);
         newMapping.setUpdateTime(Instant.now().toEpochMilli());
         newMapping.setDisableEdit(false);
+        if (model != null && !model.isEmpty()) {
+            newMapping.setModel(model);
+        }
         if (targetConnectorId != null && !targetConnectorId.isEmpty()) {
             newMapping.setTargetConnectorId(targetConnectorId);
         }

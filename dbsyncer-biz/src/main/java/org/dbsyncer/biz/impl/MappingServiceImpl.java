@@ -162,13 +162,13 @@ public class MappingServiceImpl implements MappingService {
     }
 
     @Override
-    public String copy(String id, String name, String targetConnectorId) throws Exception {
+    public String copy(String id, String name, String model, String targetConnectorId) throws Exception {
         Mapping mapping = profileComponent.getMapping(id);
         Assert.notNull(mapping, "The mapping id is invalid.");
 
         String newName = (name != null && !name.trim().isEmpty()) ? name.trim() : mapping.getName() + "(复制)";
 
-        Mapping newMapping = mappingModelService.copy(mapping, snowflakeIdWorker, newName, targetConnectorId);
+        Mapping newMapping = mappingModelService.copy(mapping, snowflakeIdWorker, newName, model, targetConnectorId);
         this.logService.log(newMapping, LogType.COPY, LogLevel.INFO,
                 LogType.COPY.getType() + ":" + newMapping.getName());
 

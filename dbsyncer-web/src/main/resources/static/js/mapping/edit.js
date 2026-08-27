@@ -1123,6 +1123,7 @@ function bindEditPageOperationButtons() {
 // 显示复制任务配置弹窗
 function showCopyMappingDialog(mappingId) {
     var currentMappingName = $("#mappingModifyName").text().trim();
+    var currentModel = $('input[name="model"]').val();
     var currentTargetConnectorId = '';
     var currentTargetConnectorName = '';
     
@@ -1157,6 +1158,14 @@ function showCopyMappingDialog(mappingId) {
                     '<input type="text" class="form-control" id="copyMappingName" value="' + currentMappingName + '(复制)" maxlength="64" placeholder="请输入新任务名称">' +
                     '</div>' +
                     '<div class="form-group">' +
+                    '<label for="copyModel">同步类型</label>' +
+                    '<select class="form-control" id="copyModel">' +
+                    '<option value="full"' + (currentModel === 'full' ? ' selected' : '') + '>全量同步</option>' +
+                    '<option value="increment"' + (currentModel === 'increment' ? ' selected' : '') + '>增量同步</option>' +
+                    '<option value="fullIncrement"' + (currentModel === 'fullIncrement' ? ' selected' : '') + '>全量+增量</option>' +
+                    '</select>' +
+                    '</div>' +
+                    '<div class="form-group">' +
                     '<label for="copyTargetConnector">目标源</label>' +
                     '<select class="form-control" id="copyTargetConnector">' +
                     '<option value="">保持原目标源 (' + currentTargetConnectorName + ')</option>' +
@@ -1182,6 +1191,7 @@ function showCopyMappingDialog(mappingId) {
                         cssClass: 'btn-primary',
                         action: function(dialog) {
                             var newName = $('#copyMappingName').val().trim();
+                            var model = $('#copyModel').val();
                             var targetConnectorId = $('#copyTargetConnector').val();
                             
                             if (!newName) {
@@ -1190,7 +1200,7 @@ function showCopyMappingDialog(mappingId) {
                             }
                             
                             dialog.close();
-                            executeCopyMapping(mappingId, newName, targetConnectorId);
+                            executeCopyMapping(mappingId, newName, model, targetConnectorId);
                         }
                     }]
                 });
@@ -1214,13 +1224,16 @@ function showCopyMappingDialog(mappingId) {
 }
 
 // 执行复制任务
-function executeCopyMapping(mappingId, newName, targetConnectorId) {
+function executeCopyMapping(mappingId, newName, model, targetConnectorId) {
     var params = {
         id: mappingId
     };
     
     if (newName) {
         params.name = newName;
+    }
+    if (model) {
+        params.model = model;
     }
     if (targetConnectorId) {
         params.targetConnectorId = targetConnectorId;
