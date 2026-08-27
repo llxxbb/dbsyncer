@@ -125,12 +125,14 @@ public class MappingModelService {
         if (targetConnectorId != null && !targetConnectorId.isEmpty()) {
             newMapping.setTargetConnectorId(targetConnectorId);
         }
-        profileComponent.addConfigModel(newMapping);
 
+        // 必须先创建 Meta 并写入新的 metaId，再持久化 newMapping。
+        // 否则会沿用源任务的 metaId（Mapping.metaId 不参与 JSON 忽略），导致删除副本时误删源任务的数据与 meta。
         Meta meta = Meta.create(newMapping, String.valueOf(snowflakeIdWorker.nextId()));
         // 复制任务必须复位状态与计数，避免从运行中的任务复制后沿用运行状态/计数
         meta.resetState();
         meta.clear();
+        profileComponent.addConfigModel(newMapping);
         profileComponent.addConfigModel(meta);
 
         List<TableGroup> groupList = profileComponent.getTableGroupAll(mapping.getId());
