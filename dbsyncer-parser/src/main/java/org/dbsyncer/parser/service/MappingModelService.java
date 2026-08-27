@@ -128,6 +128,9 @@ public class MappingModelService {
         profileComponent.addConfigModel(newMapping);
 
         Meta meta = Meta.create(newMapping, String.valueOf(snowflakeIdWorker.nextId()));
+        // 复制任务必须复位状态与计数，避免从运行中的任务复制后沿用运行状态/计数
+        meta.resetState();
+        meta.clear();
         profileComponent.addConfigModel(meta);
 
         List<TableGroup> groupList = profileComponent.getTableGroupAll(mapping.getId());
@@ -136,11 +139,13 @@ public class MappingModelService {
                 TableGroup tg = (TableGroup) obj;
                 String tgJson = JsonUtil.objToJson(tg);
                 TableGroup newTg = JsonUtil.jsonToObj(tgJson, TableGroup.class);
+                // 复位表映射的同步状态、计数、游标等，避免沿用源任务的运行态
                 newTg.clear();
                 newTg.setId(String.valueOf(snowflakeIdWorker.nextId()));
                 newTg.setMappingId(newId);
                 newTg.setName(newId + ":" + newTg.getSourceTable().getName());
-                profileComponent.addConfigModel(newTg);
+                // 必须使用 addTableGroup（TABLE 分组策略），否则新表映射无法被 getTableGroupAll 查询到
+                profileComponent.addTableGroup(newTg);
             }
         }
 
