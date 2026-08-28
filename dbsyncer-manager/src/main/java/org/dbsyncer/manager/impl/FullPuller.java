@@ -180,11 +180,8 @@ public final class FullPuller implements org.dbsyncer.manager.Puller, ProcessEve
     }
 
     private void flush(Meta meta) throws Exception {
-        // 全量的过程中，有新数据则更新总数
         long finished = meta.getSuccess() + meta.getFail();
-        if (meta.getTotal() < finished) {
-            meta.setTotal(finished);
-        }
+        meta.setTotal(finished);
 
         long epochMilli = Instant.now().toEpochMilli();
         meta.setEndTime(epochMilli);
