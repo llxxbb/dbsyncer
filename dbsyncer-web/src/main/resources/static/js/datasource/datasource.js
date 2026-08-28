@@ -292,11 +292,15 @@ function loadRelatedDrivers(connectorId) {
                 var errorMsg = typeof data.resultValue === 'string' ? data.resultValue : JSON.stringify(data.resultValue);
                 $('#drivers-list').html('<div class="no-drivers">加载关联任务失败：' + errorMsg + '</div>');
                 $('.drivers-count').text('加载失败');
+                // 加载失败时恢复编辑按钮状态
+                updateEditButtonState(false);
             }
         },
         error: function() {
             $('#drivers-list').html('<div class="no-drivers">加载关联任务失败</div>');
             $('.drivers-count').text('加载失败');
+            // 加载失败时恢复编辑按钮状态
+            updateEditButtonState(false);
         }
     });
 }
@@ -314,11 +318,29 @@ function renderRelatedDrivers(drivers) {
     
     if (!drivers || drivers.length === 0) {
         $driverList.append('<div class="no-drivers">暂无关联任务</div>');
+        // 没有关联任务时恢复编辑按钮状态
+        updateEditButtonState(false);
         return;
     }
     
-    // 创建表格结构
+    // 检查是否有运行中的任务
+    var hasRunningTask = false;
+    drivers.forEach(function(driver) {
+        var state = driver.meta ? driver.meta.state : 0;
+        if (state === 1) {
+            hasRunningTask = true;
+        }
+    });
+    
+    // 根据运行状态禁用/启用编辑按钮
+    updateEditButtonState(hasRunningTask);
+    
+    // 创建批量操作按钮和表格结构
     var tableHtml = '';
+    tableHtml += '<div class="batch-actions" style="margin-bottom: 10px;">';
+    tableHtml += '    <button class="btn btn-primary btn-start-all" style="margin-right: 5px;"><i class="fa fa-play"></i> 全部启动</button>';
+    tableHtml += '    <button class="btn btn-warning btn-stop-all"><i class="fa fa-stop"></i> 全部停止</button>';
+    tableHtml += '</div>';
     tableHtml += '<div class="table-responsive">';
     tableHtml += '    <table class="table table-hover table-striped">';
     tableHtml += '        <thead>';
@@ -402,8 +424,13 @@ function renderRelatedDrivers(drivers) {
         // 处理操作按钮
         var operationHtml = '';
         operationHtml += '<div class="operation-buttons">';
-        // 只保留详情按钮，并使用内联样式精确控制大小
         operationHtml += '<a data-url="/mapping/page/edit?classOn=0&id=' + driver.id + '" href="javascript:;" class="btn btn-success" style="padding: 1px 6px; font-size: 10px; height: 20px; line-height: 14px;"><i class="fa fa-eye"></i> 详情</a>';
+        // 根据状态显示启动或停止按钮
+        if (state === 0 || state === 3) {
+            operationHtml += ' <a href="javascript:;" class="btn btn-primary btn-start-mapping" data-id="' + driver.id + '" style="padding: 1px 6px; font-size: 10px; height: 20px; line-height: 14px;"><i class="fa fa-play"></i> 启动</a>';
+        } else if (state === 1) {
+            operationHtml += ' <a href="javascript:;" class="btn btn-warning btn-stop-mapping" data-id="' + driver.id + '" style="padding: 1px 6px; font-size: 10px; height: 20px; line-height: 14px;"><i class="fa fa-stop"></i> 停止</a>';
+        }
         operationHtml += '</div>';
         
         // 处理创建时间
@@ -440,6 +467,9 @@ function renderRelatedDrivers(drivers) {
     
     // 绑定操作按钮事件
     bindMappingOperationButtons();
+    
+    // 绑定批量操作按钮事件
+    bindBatchOperationButtons();
 }
 
 /**
@@ -737,6 +767,20 @@ function bindMappingOperationButtons() {
         e.preventDefault();
         e.stopPropagation();
 
+        // 处理启动按钮
+        if ($(this).hasClass('btn-start-mapping')) {
+            var mappingId = $(this).data('id');
+            doPost('/mapping/start?id=' + mappingId);
+            return;
+        }
+
+        // 处理停止按钮
+        if ($(this).hasClass('btn-stop-mapping')) {
+            var mappingId = $(this).data('id');
+            doPost('/mapping/stop?id=' + mappingId);
+            return;
+        }
+
         // 优先从data-url获取URL
         var url = $(this).data('url') || $(this).attr("href");
         // 移除javascript:;前缀
@@ -749,13 +793,62 @@ function bindMappingOperationButtons() {
 }
 
 /**
+ * 绑定批量操作按钮事件
+ */
+function bindBatchOperationButtons() {
+    // 全部启动按钮
+    $('.btn-start-all').click(function() {
+        var connectorId = $('#connector-id').val();
+        if (connectorId) {
+            doPost('/mapping/startAll?connectorId=' + connectorId);
+        }
+    });
+
+    // 全部停止按钮
+    $('.btn-stop-all').click(function() {
+        var connectorId = $('#connector-id').val();
+        if (connectorId) {
+            doPost('/mapping/stopAll?connectorId=' + connectorId);
+        }
+    });
+}
+
+/**
+ * 根据运行状态更新编辑按钮的可用状态
+ * @param hasRunningTask 是否有运行中的任务
+ */
+function updateEditButtonState(hasRunningTask) {
+    var $connectorId = $('#connector-id');
+    if (!$connectorId.length) {
+        return;
+    }
+    var currentConnectorId = $connectorId.val();
+    var $connectorItem = $('.connector-item[data-id="' + currentConnectorId + '"]');
+    var $editBtn = $connectorItem.find('.edit-connector');
+
+    if (hasRunningTask) {
+        $editBtn.addClass('disabled').css({
+            'color': '#999',
+            'cursor': 'not-allowed',
+            'pointer-events': 'none'
+        }).attr('title', '存在运行中的任务，无法编辑');
+    } else {
+        $editBtn.removeClass('disabled').css({
+            'color': '',
+            'cursor': '',
+            'pointer-events': ''
+        }).removeAttr('title');
+    }
+}
+
+/**
  * 执行POST请求
  * @param url 请求URL
  */
 function doPost(url) {
     $.ajax({
         url: url,
-        type: 'GET',
+        type: 'POST',
         success: function(data) {
             if (data.success === true) {
                 // 显示成功消息

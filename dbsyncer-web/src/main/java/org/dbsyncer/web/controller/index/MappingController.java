@@ -225,6 +225,30 @@ public class MappingController extends BaseController {
         }
     }
 
+    @PostMapping("/startAll")
+    @ResponseBody
+    @PreAuthorize("hasRole('admin')")
+    public RestResult startAll(@RequestParam(value = "connectorId") String connectorId) {
+        try {
+            return RestResult.restSuccess(mappingService.startAll(connectorId));
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
+        }
+    }
+
+    @PostMapping("/stopAll")
+    @ResponseBody
+    @PreAuthorize("hasRole('admin')")
+    public RestResult stopAll(@RequestParam(value = "connectorId") String connectorId) {
+        try {
+            return RestResult.restSuccess(mappingService.stopAll(connectorId));
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
+        }
+    }
+
     @PostMapping("/reset")
     @ResponseBody
     @PreAuthorize("hasRole('admin')")

@@ -99,4 +99,18 @@ public interface MappingService {
      */
     String refreshMappingTables(String id) throws Exception;
 
+    /**
+     * 启动数据源关联的所有任务
+     *
+     * @param connectorId 数据源ID
+     */
+    String startAll(String connectorId) throws Exception;
+
+    /**
+     * 停止数据源关联的所有任务
+     *
+     * @param connectorId 数据源ID
+     */
+    String stopAll(String connectorId) throws Exception;
+
 }

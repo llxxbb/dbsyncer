@@ -409,6 +409,58 @@ public class MappingServiceImpl implements MappingService {
     }
 
     @Override
+    public String startAll(String connectorId) throws Exception {
+        List<Mapping> allMappings = profileComponent.getMappingAll();
+        int successCount = 0;
+        int skipCount = 0;
+        List<String> errors = new ArrayList<>();
+
+        for (Mapping mapping : allMappings) {
+            if (!connectorId.equals(mapping.getSourceConnectorId()) && !connectorId.equals(mapping.getTargetConnectorId())) {
+                continue;
+            }
+            try {
+                if (mappingModelService.getMeta(mapping).isRunning()) {
+                    skipCount++;
+                    continue;
+                }
+                start(mapping.getId());
+                successCount++;
+            } catch (Exception e) {
+                errors.add(mapping.getName() + ": " + e.getMessage());
+            }
+        }
+
+        return String.format("批量启动完成：成功 %d 个，跳过 %d 个，失败 %d 个", successCount, skipCount, errors.size());
+    }
+
+    @Override
+    public String stopAll(String connectorId) throws Exception {
+        List<Mapping> allMappings = profileComponent.getMappingAll();
+        int successCount = 0;
+        int skipCount = 0;
+        List<String> errors = new ArrayList<>();
+
+        for (Mapping mapping : allMappings) {
+            if (!connectorId.equals(mapping.getSourceConnectorId()) && !connectorId.equals(mapping.getTargetConnectorId())) {
+                continue;
+            }
+            try {
+                if (!mappingModelService.getMeta(mapping).isRunning()) {
+                    skipCount++;
+                    continue;
+                }
+                stop(mapping.getId());
+                successCount++;
+            } catch (Exception e) {
+                errors.add(mapping.getName() + ": " + e.getMessage());
+            }
+        }
+
+        return String.format("批量停止完成：成功 %d 个，跳过 %d 个，失败 %d 个", successCount, skipCount, errors.size());
+    }
+
+    @Override
     public String refreshMappingTables(String id) throws Exception {
         Mapping mapping = profileComponent.getMapping(id);
         Assert.notNull(mapping, "The mapping id is invalid.");
