@@ -141,80 +141,39 @@ public class TomcatStartupGate implements WebServerFactoryCustomizer<TomcatServl
 @Resource
 private List<StartupGate> startupGates; // 注入所有实现（可能为空）
 
-// 修改 preload() 方法
-public void preload() {
-    try {
-        // ... 原有预加载逻辑 ...
-        logger.info("系统配置预加载完成");
-    } finally {
-        // 无论预加载是否成功，都开放端口（避免永久不可达）
-        openStartupGates();
-    }
+// 修改 onApplicationEvent() 方法
+@Override
+public void onApplicationEvent(ContextRefreshedEvent event) {
+    // 1. 同步加载配置到缓存
+    Arrays.stream(CommandEnum.values())
+        .filter(commandEnum -> commandEnum.isPreload())
+        .forEach(commandEnum -> execute(commandEnum));
+
+    // 2. 同步连接连接器
+    loadConnectorInstance();
+
+    // 3. 同步启动驱动
+    launch();
+
+    // 4. 预加载完成后才开放端口
+    openStartupGates();
+    preloadCompleted = true;
 }
 
 private void openStartupGates() {
-    for (StartupGate gate : startupGates) {
-        try {
-            gate.open();
-        } catch (Exception e) {
-            logger.error("开放启动门闸失败", e);
+    if (startupGates != null) {
+        for (StartupGate gate : startupGates) {
+            try {
+                gate.open();
+            } catch (Exception e) {
+                logger.error("开放启动门闸失败", e);
+            }
         }
     }
 }
 ```
 
-**超时保护**：若预加载卡死（如 MySQL 连接无限等待），端口永久不开放。解决方案：
-
-```java
-@Resource
-private SingletonConfigBootstrap singletonConfigBootstrap;
-
-@Resource
-private List<StartupGate> startupGates;
-
-private final ExecutorService preloadExecutor = Executors.newSingleThreadExecutor(
-    r -> new Thread(r, "preload-timeout-guard")
-);
-
-public void preload() {
-    Future<?> future = preloadExecutor.submit(() -> {
-        // 1. 加载配置到缓存
-        loadConfigsToCache();
-        
-        // 2. 确保 singleton 配置存在
-        singletonConfigBootstrap.ensure();
-    });
-    
-    try {
-        // 等待预加载完成，最多 30 秒
-        future.get(30, TimeUnit.SECONDS);
-        logger.info("系统配置预加载完成");
-    } catch (TimeoutException e) {
-        logger.error("系统配置预加载超时（30s），强制开放端口", e);
-        future.cancel(true); // 尝试中断
-    } catch (Exception e) {
-        logger.error("系统配置预加载失败", e);
-    } finally {
-        // 无论成功、失败、超时，都开放端口
-        openStartupGates();
-    }
-}
-
-private void openStartupGates() {
-    for (StartupGate gate : startupGates) {
-        try {
-            gate.open();
-        } catch (Exception e) {
-            logger.error("开放启动门闸失败", e);
-        }
-    }
-}
-```
-
-**关键点**：
-- `future.get(30, TimeUnit.SECONDS)` 阻塞最多 30 秒，超时抛 `TimeoutException`。
-- 超时后调用 `future.cancel(true)` 尝试中断预加载线程（不保证成功，取决于预加载代码是否响应中断）。
-- `finally` 块确保端口一定开放。
+**同步执行**：预加载逻辑改为同步执行（删除了 `ExecutorService` 和超时机制）。配置没准备好就不开放端口，应用保持不可达。若预加载失败或卡死，端口永远不开放，应用保持不可达状态。
 
 ### 2.3 L2 唯一创建点
 
@@ -236,89 +195,13 @@ public AppConfigServiceImpl() {
 
 **注意**：`getVersionInfo()` 在 `AppConfigServiceImpl` 中被多处调用，需确认改为懒加载后不影响功能。
 
-#### 2.3.2 新增 `SingletonConfigBootstrap`（`dbsyncer-biz`）
+#### 2.3.2 不需要额外的"确保配置存在"逻辑
 
-```java
-package org.dbsyncer.biz.impl;
+**关键洞察**：`SystemConfigServiceImpl.getSystemConfig()` 和 `UserConfigServiceImpl.getUserConfig()` 已经有"缺失即创建并持久化"的逻辑（通过 `checkAddConfigModel` → `addConfigModel` → `operationTemplate.execute(OPR_ADD)`）。
 
-import org.dbsyncer.parser.ProfileComponent;
-import org.dbsyncer.parser.model.SystemConfig;
-import org.dbsyncer.parser.model.UserConfig;
-import org.dbsyncer.sdk.constant.ConfigConstant;
-import org.springframework.stereotype.Component;
+因此不需要额外的 `SingletonConfigBootstrap` 类。端口开放后，首次访问触发 `getSystemConfig()` → 缓存为空 → 创建默认配置并写入 DB 和缓存。
 
-import javax.annotation.Resource;
-
-@Component
-public class SingletonConfigBootstrap {
-
-    @Resource
-    private ProfileComponent profileComponent;
-
-    @Resource
-    private SystemConfigService systemConfigService;
-
-    @Resource
-    private UserConfigService userConfigService;
-
-    /**
-     * 确保 singleton 配置存在。
-     * 在配置预加载完成后、端口开放前调用。
-     */
-    public void ensure() {
-        // 确保系统配置存在
-        if (profileComponent.getSystemConfig() == null) {
-            SystemConfig defaultConfig = createDefaultSystemConfig();
-            systemConfigService.addSystemConfig(defaultConfig);
-        }
-
-        // 确保用户配置存在
-        if (profileComponent.getUserConfig() == null) {
-            UserConfig defaultConfig = createDefaultUserConfig();
-            userConfigService.addUserConfig(defaultConfig);
-        }
-    }
-
-    private SystemConfig createDefaultSystemConfig() {
-        SystemConfig config = new SystemConfig();
-        config.setId(ConfigConstant.SYSTEM); // 固定 ID
-        config.setName("系统配置");
-        // ... 设置默认值 ...
-        return config;
-    }
-
-    private UserConfig createDefaultUserConfig() {
-        UserConfig config = new UserConfig();
-        config.setId(ConfigConstant.USER); // 固定 ID
-        config.setUsername("admin");
-        config.setPassword(sha1("admin")); // 默认密码
-        // ... 设置默认值 ...
-        return config;
-    }
-}
-```
-
-**调用时机**：在 `PreloadTemplate.preload()` 中，配置加载到缓存后、端口开放前调用。
-
-```java
-@Resource
-private SingletonConfigBootstrap singletonConfigBootstrap;
-
-public void preload() {
-    try {
-        // 1. 加载配置到缓存
-        loadConfigsToCache();
-        
-        // 2. 确保 singleton 配置存在（如果缓存为空，创建默认配置）
-        //    必须在端口开放前执行，否则首次安装时浏览器访问会触发重复创建
-        singletonConfigBootstrap.ensure();
-    } finally {
-        // 3. 开放端口（允许外部访问）
-        //    超时保护：如果前面卡死，强制开放端口避免应用永久不可达
-        openStartupGates();
-    }
-}
-```
+**效果**：全生命周期只有这一个创建点（懒加载），端口延迟绑定确保创建时系统已就绪。
 
 ### 2.4 L3 确定化读取
 
@@ -387,11 +270,9 @@ private void checkDuplicateConfigs() {
 |------|------|----------|------|
 | `dbsyncer-common` | `org.dbsyncer.common.startup.StartupGate` | 新增 | 启动门闸接口 |
 | `dbsyncer-web` | `org.dbsyncer.web.config.TomcatStartupGate` | 新增 | Tomcat 实现 |
-| `dbsyncer-manager` | `org.dbsyncer.manager.template.PreloadTemplate` | 修改 | 注入 `StartupGate`，预加载后调用 `open()` |
-| `dbsyncer-biz` | `org.dbsyncer.biz.impl.SingletonConfigBootstrap` | 新增 | 确保 singleton 配置存在 |
+| `dbsyncer-manager` | `org.dbsyncer.manager.impl.PreloadTemplate` | 修改 | 注入 `StartupGate`，预加载后调用 `open()`，删除 `ExecutorService` 和超时机制 |
 | `dbsyncer-biz` | `org.dbsyncer.biz.impl.AppConfigServiceImpl` | 修改 | 删除构造函数中的 `getSystemConfig()` 调用 |
 | `dbsyncer-parser` | `org.dbsyncer.parser.impl.ProfileComponentImpl` | 修改 | 确定化读取（`getSystemConfig`、`getUserConfig`） |
-| `dbsyncer-manager` | `org.dbsyncer.manager.template.PreloadTemplate` | 修改 | 预加载后调用 `checkDuplicateConfigs()` 和 `singletonConfigBootstrap.ensure()` |
 
 ---
 
@@ -443,14 +324,15 @@ private void checkDuplicateConfigs() {
    - 浏览器访问 `/` → 显示登录页。
    - 编辑配置并保存 → 重启后生效的是保留的那条（createTime 最早）。
 
-### 4.6 预加载超时
+### 4.6 预加载失败或卡死
 
-1. 模拟预加载卡死（如 MySQL 连接超时）。
+1. 模拟预加载失败（如 MySQL 连接失败）或卡死（如 MySQL 连接超时）。
 2. 启动应用。
 3. 验证：
-   - 30s 后端口强制开放（或 Tomcat 连接超时后端口开放）。
-   - 启动日志显示 ERROR："预加载超时，强制开放端口"。
-   - 浏览器访问 `/` → 显示登录页（可能配置为空，触发懒加载创建）。
+   - 端口永远不开放，应用保持不可达。
+   - 启动日志显示 ERROR（预加载失败）或无日志（预加载卡死）。
+   - 浏览器访问 `/` → 显示"connection refused"或"无法访问此网站"。
+   - 需要运维介入排查并修复问题后重启应用。
 
 ---
 
@@ -459,8 +341,7 @@ private void checkDuplicateConfigs() {
 | 风险 | 影响 | 缓解措施 |
 |------|------|----------|
 | `ProtocolHandler.resume()` 在 Tomcat 9.0.63 行为不符预期 | 端口无法开放，应用不可达 | 已确认 Tomcat 9.0.63 支持 `bindOnInit=false` + `resume()`；若失败，回退到 503 启动页方案 |
-| 预加载卡死导致端口永久不开放 | 应用不可达 | 超时保护（30s）+ ERROR 日志 + 强制开放 |
-| `SingletonConfigBootstrap` 创建的配置 ID 与存量冲突 | 唯一约束冲突（若未来加 DB 唯一索引） | 使用固定 ID（`ConfigConstant.SYSTEM`、`ConfigConstant.USER`），存量清理 SQL 中保留 createTime 最早的 |
+| 预加载卡死导致端口永久不开放 | 应用不可达 | 需要运维介入排查并修复问题后重启应用。这是预期行为：配置没准备好就不应该对外服务 |
 | `ProfileComponentImpl` 确定化读取性能下降 | 多条配置时排序开销 | 配置数量通常 < 10，影响可忽略；若 > 100，考虑缓存排序结果 |
 | `AppConfigServiceImpl` 构造函数删除 `getSystemConfig()` 后，`getVersionInfo()` 懒加载失败 | 版本信息显示异常 | 确认 `getVersionInfo()` 所有调用点，必要时改为 `@PostConstruct` 初始化 |
 

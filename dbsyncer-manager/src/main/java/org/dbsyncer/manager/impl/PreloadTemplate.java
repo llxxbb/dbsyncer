@@ -4,6 +4,7 @@
 package org.dbsyncer.manager.impl;
 
 import org.dbsyncer.common.model.Paging;
+import org.dbsyncer.common.startup.StartupGate;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
@@ -21,7 +22,6 @@ import org.dbsyncer.sdk.model.ConfigModel;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.sdk.model.Mapping;
 
-import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.enums.StorageEnum;
 import org.dbsyncer.sdk.filter.Query;
@@ -36,7 +36,6 @@ import javax.annotation.Resource;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executor;
 import java.util.stream.Stream;
 
 /**
@@ -70,7 +69,7 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
     private LogService logService;
 
     @Resource
-    private Executor generalExecutor;
+    private List<StartupGate> startupGates;
 
     private boolean preloadCompleted;
 
@@ -89,7 +88,23 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
         // Launch drivers
         launch();
 
+        logger.info("+++++++++++++++配置预加载完成++++++++++++++++");
+
+        // 开放端口
+        openStartupGates();
         preloadCompleted = true;
+    }
+
+    private void openStartupGates() {
+        if (startupGates != null) {
+            for (StartupGate gate : startupGates) {
+                try {
+                    gate.open();
+                } catch (Exception e) {
+                    logger.error("开放启动门闸失败", e);
+                }
+            }
+        }
     }
 
     /**
@@ -208,15 +223,13 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
         List<Connector> list = profileComponent.getConnectorAll();
         if (!CollectionUtils.isEmpty(list)) {
             list.forEach(connector -> {
-                generalExecutor.execute(() -> {
-                    try {
-                        connectorFactory.disconnect(connector.getConfig());
-                        connectorFactory.connect(connector.getConfig());
-                    } catch (Exception e) {
-                        logger.error("连接配置异常", e);
-                        logService.log(connector, LogType.CONNECT, String.format("连接器连接失败：connectorType=%s, error=%s", connector.getConfig().getConnectorType(), e.getMessage()));
-                    }
-                });
+                try {
+                    connectorFactory.disconnect(connector.getConfig());
+                    connectorFactory.connect(connector.getConfig());
+                } catch (Exception e) {
+                    logger.error("连接配置异常", e);
+                    logService.log(connector, LogType.CONNECT, String.format("连接器连接失败：connectorType=%s, error=%s", connector.getConfig().getConnectorType(), e.getMessage()));
+                }
             });
         }
     }

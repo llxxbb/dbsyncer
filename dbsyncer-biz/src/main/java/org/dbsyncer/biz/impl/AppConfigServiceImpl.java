@@ -32,9 +32,10 @@ public class AppConfigServiceImpl implements AppConfigService {
 
     public static final String WATERMARK_USERNAME = "${username}";
 
-    public AppConfigServiceImpl(SystemConfigService systemConfigService) throws Exception {
+    public AppConfigServiceImpl(SystemConfigService systemConfigService) {
         this.systemConfigService = systemConfigService; 
-        systemConfigService.getSystemConfig();
+        // 删除了 getSystemConfig() 调用，避免在 bean 实例化阶段创建重复配置
+        // 配置初始化由 SingletonConfigBootstrap 在预加载完成后统一处理
         logger.info("----AppConfigServiceImpl init----");
     }
 

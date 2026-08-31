@@ -105,13 +105,36 @@ public class ProfileComponentImpl implements ProfileComponent {
     @Override
     public SystemConfig getSystemConfig() {
         List<SystemConfig> list = operationTemplate.queryAll(SystemConfig.class);
-        return CollectionUtils.isEmpty(list) ? null : list.get(0);
+        if (CollectionUtils.isEmpty(list)) {
+            logger.warn("[系统配置] 不存在！");
+            return null;
+        }
+        if (list.size() == 1) {
+            return list.get(0);
+        }
+        // 多条：确定性选择（createTime 最早，平手取 id 最小）
+        logger.warn("[系统配置] 检测到 {} 个重复配置，将选择 createTime 最早的配置", list.size());
+        return list.stream()
+            .min(Comparator.comparing(SystemConfig::getCreateTime)
+                .thenComparing(SystemConfig::getId))
+            .orElse(list.get(0));
     }
 
     @Override
     public UserConfig getUserConfig() {
         List<UserConfig> list = operationTemplate.queryAll(UserConfig.class);
-        return CollectionUtils.isEmpty(list) ? null : list.get(0);
+        if (CollectionUtils.isEmpty(list)) {
+            return null;
+        }
+        if (list.size() == 1) {
+            return list.get(0);
+        }
+        // 多条：确定性选择（createTime 最早，平手取 id 最小）
+        logger.warn("[用户配置] 检测到 {} 个重复配置，将选择 createTime 最早的配置", list.size());
+        return list.stream()
+            .min(Comparator.comparing(UserConfig::getCreateTime)
+                .thenComparing(UserConfig::getId))
+            .orElse(list.get(0));
     }
 
     @Override
