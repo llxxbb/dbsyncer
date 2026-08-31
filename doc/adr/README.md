@@ -6,6 +6,7 @@
 
 | 编号 | 标题 | 状态 | 日期 |
 |------|------|------|------|
+| [0029](0029-运行时配置UI化.md) | 运行时配置 UI 化 | Proposed | 2026-08-31 |
 | [0028](0028-系统配置启动期重复创建防护.md) | 系统配置启动期重复创建防护 | Proposed | 2026-08-31 |
 | [0027](0027-mysql-cdc-performance-optimization.md) | MySQL 增量同步多表性能优化 | Proposed | 2026-08-24 |
 | [0026](0026-mysql-gtid-support.md) | MySQL 主备切换 GTID 支持方案 | Accepted | 2026-08-17 |
@@ -60,4 +61,4 @@ mkdir -p doc/adr doc/history/NNNN
 
 ---
 
-*最后更新：2026-08-31*
+*最后更新：2026-08-31（新增 ADR-0029）*
