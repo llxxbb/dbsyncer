@@ -3,6 +3,8 @@
  */
 package org.dbsyncer.manager.impl;
 
+import org.dbsyncer.parser.impl.ConfigComparator;
+import org.dbsyncer.parser.impl.ConfigMigrationService;
 import org.dbsyncer.common.model.Paging;
 import org.dbsyncer.common.startup.StartupGate;
 import org.dbsyncer.common.util.CollectionUtils;
@@ -71,6 +73,12 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
     @Resource
     private List<StartupGate> startupGates;
 
+    @Resource
+    private ConfigMigrationService configMigrationService;
+
+    @Resource
+    private ConfigComparator configComparator;
+
     private boolean preloadCompleted;
 
     public PreloadTemplate() {
@@ -87,6 +95,21 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
 
         // Launch drivers
         launch();
+
+        // ===== ADR-0029 新增钩子（在 openStartupGates 之前） =====
+        // 钩子 1：配置迁移
+        try {
+            configMigrationService.migrateIfNeeded();
+        } catch (Exception e) {
+            logger.error("配置迁移失败", e);
+        }
+
+        // 钩子 2+3：启动期配置对照表
+        try {
+            configComparator.printStartupTable();
+        } catch (Exception e) {
+            logger.error("配置对照表打印失败", e);
+        }
 
         logger.info("+++++++++++++++配置预加载完成++++++++++++++++");
 

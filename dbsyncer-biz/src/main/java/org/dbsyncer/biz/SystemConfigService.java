@@ -10,6 +10,7 @@ import org.dbsyncer.parser.model.SystemConfig;
 import java.io.File;
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashMap;
 
 /**
  * 系统配置
@@ -69,4 +70,30 @@ public interface SystemConfigService {
      * @return
      */
     String getWatermark(SystemConfig systemConfig);
+
+    // ===== ADR-0029 Tab 接口 =====
+
+    /**
+     * 按 Tab 编辑配置（整块替换）
+     *
+     * @param tab     Tab 标识
+     * @param payload JSON 字符串
+     * @return 结果描述
+     */
+    Map<String, Object> editTab(String tab, String payload) throws Exception;
+
+    /**
+     * 获取各 Tab 当前生效值
+     */
+    Map<String, Object> getTabs() throws Exception;
+
+    /**
+     * 重置某个 Tab（子对象置 null，恢复 properties 默认）
+     */
+    String resetTab(String tab) throws Exception;
+
+    /**
+     * 获取 A 类只读信息（脱敏）
+     */
+    Map<String, Object> getServerInfo() throws Exception;
 }

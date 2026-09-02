@@ -3,83 +3,423 @@
       xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
 
 <div class="container">
-    <form id="configEditForm" class="form-horizontal" role="form">
-        <div class="row text-center">
-            <div class="page-header">
-                <h3>系统参数</h3>
-            </div>
+    <div class="row text-center">
+        <div class="page-header">
+            <h3>系统参数</h3>
         </div>
+    </div>
 
-        <!-- 操作 -->
-        <div class="row">
-            <!-- 系统参数配置 -->
-            <div class="form-group">
-                <div class="text-right col-sm-4"></div>
-                <div class="text-right col-sm-8">
-                    <button id="updateSystemSubBtn" type="button" class="btn btn-primary">
-                        <span class="fa fa-save"></span>保存
-                    </button>
-                </div>
-            </div>
+    <!-- Tab 导航 -->
+    <ul class="nav nav-tabs" role="tablist" id="systemTab">
+        <li role="presentation" class="active"><a href="#tab-basic" data-toggle="tab">基础设置</a></li>
+        <li role="presentation"><a href="#tab-executors" data-toggle="tab">执行器 <span class="text-warning" title="修改后需重启应用">⚠️</span></a></li>
+        <li role="presentation"><a href="#tab-buffers" data-toggle="tab">缓冲区 <span class="text-warning" title="修改后需重启应用">⚠️</span></a></li>
+        <li role="presentation"><a href="#tab-retry" data-toggle="tab">重试策略</a></li>
+        <li role="presentation"><a href="#tab-notify" data-toggle="tab">通知通道</a></li>
+        <li role="presentation"><a href="#tab-error" data-toggle="tab">错误处理</a></li>
+    </ul>
 
-            <div class="form-group">
-                <label class="col-sm-2 control-label">同步数据过期时间(天)<strong class="text-primary">*</strong></label>
-                <div class="col-sm-4">
-                    <input type="number" class="form-control" min="1" max="180" dbsyncer-valid="require" name="expireDataDays" th:value="${config?.expireDataDays}"/>
-                </div>
-                <label class="col-sm-2 control-label">系统日志过期时间(天)<strong class="text-primary">*</strong></label>
-                <div class="col-sm-4">
-                    <input type="number" class="form-control" min="1" max="180" dbsyncer-valid="require" name="expireLogDays" th:value="${config?.expireLogDays}"/>
-                </div>
-            </div>
-            <div class="form-group">
-                <label class="col-sm-2 control-label">CDN静态资源<i class="fa fa-question-circle fa_gray" aria-hidden="true" title="仅限可访问公网环境下，开启cdn可以提高页面加载速度，开启后需刷新页面生效"></i></label>
-                <div class="col-sm-4">
-                    <input class="dbsyncer_switch" name="enableCDN" th:checked="${config?.enableCDN}" type="checkbox" />
-                </div>
-                <label class="col-sm-2 control-label">刷新监控频率(秒)<strong class="text-primary">*</strong></label>
-                <div class="col-sm-4">
-                    <input type="number" class="form-control" min="1" max="60" dbsyncer-valid="require" name="refreshIntervalSeconds" th:value="${config?.refreshIntervalSeconds}"/>
-                </div>
-            </div>
-            <div class="form-group">
-                <label class="col-sm-2 control-label">记录同步失败数据</label>
-                <div class="col-sm-4">
-                    <input id="enableStorageWriteFail" name="enableStorageWriteFail" th:checked="${config?.enableStorageWriteFail}" type="checkbox" />
-                </div>
-                <div id="maxStorageErrorLength" class="hidden">
-                    <label class="col-sm-2 control-label">记录同步失败日志长度<strong class="text-primary">*</strong></label>
-                    <div class="col-sm-4">
-                        <input type="number" class="form-control" min="1024" max="8192" dbsyncer-valid="require" name="maxStorageErrorLength" th:value="${config?.maxStorageErrorLength}"/>
+    <!-- Tab 内容 -->
+    <div class="tab-content" style="padding-top: 15px;">
+
+        <!-- Tab 1: 基础设置 -->
+        <div role="tabpanel" class="tab-pane active" id="tab-basic">
+            <form id="basicForm" class="form-horizontal" role="form">
+                <div class="form-group">
+                    <div class="text-right col-sm-12">
+                        <button type="button" class="btn btn-primary btn-save-tab" data-tab="basic">
+                            <span class="fa fa-save"></span>保存
+                        </button>
+                        <button type="button" class="btn btn-default btn-reset-tab" data-tab="basic">
+                            <span class="fa fa-undo"></span>恢复系统默认
+                        </button>
                     </div>
                 </div>
-            </div>
-            <div class="form-group">
-                <label class="col-sm-2 control-label">标准数据解析器<i class="fa fa-question-circle fa_gray" aria-hidden="true" title="开启可以支持更多异构字段类型转换，主要用于兼容异构数据库同步"></i></label>
-                <div class="col-sm-4">
-                    <input class="dbsyncer_switch" id="enableSchemaResolver" name="enableSchemaResolver" th:checked="${config?.enableSchemaResolver}" type="checkbox" />
-                </div>
-            </div>
-            <div class="form-group">
-                <label class="col-sm-2 control-label">水印<i class="fa fa-question-circle fa_gray" aria-hidden="true" title="刷新页面生效"></i></label>
-                <div class="col-sm-4">
-                    <input id="enableWatermark" name="enableWatermark" th:checked="${config?.enableWatermark}" type="checkbox" />
-                </div>
-                <div id="watermark" class="hidden">
-                    <label class="col-sm-2 control-label">水印内容</label>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">同步数据过期时间(天)<i class="fa fa-question-circle fa_gray" title="同步数据过期时间（天）。超过此天数的历史同步记录将被自动清理。"></i></label>
                     <div class="col-sm-4">
-                        <input type="text" class="form-control" maxlength="64" name="watermark" placeholder="请输入水印(最多64个字)." th:value="${config?.watermark}"/>
+                        <input type="number" class="form-control" min="1" max="180" name="expireDataDays" id="basic_expireDataDays"/>
+                    </div>
+                    <label class="col-sm-2 control-label">系统日志过期时间(天)<i class="fa fa-question-circle fa_gray" title="系统日志过期时间（天）。超过此天数的操作日志将被自动清理。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1" max="365" name="expireLogDays" id="basic_expireLogDays"/>
                     </div>
                 </div>
-            </div>
-            <div class="form-group">
-                <label class="col-sm-2 control-label">打印trace信息<i class="fa fa-question-circle fa_gray" aria-hidden="true" title="仅用于排查问题，生产环境建议关闭"></i></label>
-                <div class="col-sm-4">
-                    <input id="enablePrintTraceInfo" class="dbsyncer_switch" name="enablePrintTraceInfo" th:checked="${config?.enablePrintTraceInfo}" type="checkbox" />
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">刷新监控频率(秒)<i class="fa fa-question-circle fa_gray" title="监控页面自动刷新的间隔（秒）。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1" max="60" name="refreshIntervalSeconds" id="basic_refreshIntervalSeconds"/>
+                    </div>
+                    <label class="col-sm-2 control-label">记录同步失败数据<i class="fa fa-question-circle fa_gray" title="是否记录同步失败的数据详情。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="checkbox" name="enableStorageWriteFail" id="basic_enableStorageWriteFail"/>
+                    </div>
                 </div>
-            </div>
+                <div class="form-group" id="maxStorageErrorLength_group">
+                    <label class="col-sm-2 control-label">失败日志最大长度<i class="fa fa-question-circle fa_gray" title="每条失败日志的最大长度（字符数）。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="100" max="8192" name="maxStorageErrorLength" id="basic_maxStorageErrorLength"/>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">CDN加速<i class="fa fa-question-circle fa_gray" title="是否使用 CDN 加速静态资源加载。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="checkbox" name="enableCDN" id="basic_enableCDN"/>
+                    </div>
+                    <label class="col-sm-2 control-label">标准数据解析器<i class="fa fa-question-circle fa_gray" title="是否启用标准数据解析器。开启后可支持更多异构字段类型转换。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="checkbox" name="enableSchemaResolver" id="basic_enableSchemaResolver"/>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">水印<i class="fa fa-question-circle fa_gray" title="是否在页面上显示水印。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="checkbox" name="enableWatermark" id="basic_enableWatermark"/>
+                    </div>
+                    <div id="watermark_group" class="hidden">
+                        <label class="col-sm-2 control-label">水印内容</label>
+                        <div class="col-sm-4">
+                            <input type="text" class="form-control" maxlength="64" name="watermark" id="basic_watermark"/>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">打印trace信息<i class="fa fa-question-circle fa_gray" title="是否打印 trace 级别的调试信息。仅用于排查问题。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="checkbox" name="enablePrintTraceInfo" id="basic_enablePrintTraceInfo"/>
+                    </div>
+                </div>
+
+                <!-- A 类只读区（折叠） -->
+                <div class="panel panel-default" style="margin-top: 20px;">
+                    <div class="panel-heading" data-toggle="collapse" data-target="#serverInfoPanel" style="cursor: pointer;">
+                        <h4 class="panel-title">服务器信息（只读） <span class="caret"></span></h4>
+                    </div>
+                    <div id="serverInfoPanel" class="panel-collapse collapse">
+                        <div class="panel-body" id="serverInfoContent">
+                            <p class="text-muted">加载中...</p>
+                        </div>
+                    </div>
+                </div>
+            </form>
         </div>
-    </form>
+
+        <!-- Tab 2: 执行器 -->
+        <div role="tabpanel" class="tab-pane" id="tab-executors">
+            <div class="alert alert-warning"><strong>⚠️</strong> 以下配置修改后需<strong>重启应用</strong>才能生效。线程池在应用启动时创建，运行中不做在线重建。</div>
+            <form id="executorsForm" class="form-horizontal" role="form">
+                <div class="form-group">
+                    <div class="text-right col-sm-12">
+                        <button type="button" class="btn btn-primary btn-save-tab" data-tab="executors">
+                            <span class="fa fa-save"></span>保存
+                        </button>
+                        <button type="button" class="btn btn-default btn-reset-tab" data-tab="executors">
+                            <span class="fa fa-undo"></span>恢复系统默认
+                        </button>
+                    </div>
+                </div>
+                <h4>通用执行器 <small class="text-muted">用于通用异步任务</small></h4>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">核心线程数<i class="fa fa-question-circle fa_gray" title="线程池维持的最小工作线程数。重启后生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1" name="general.threadCoreSize" id="exec_general_threadCoreSize"/>
+                    </div>
+                    <label class="col-sm-2 control-label">最大线程数<i class="fa fa-question-circle fa_gray" title="队列满且线程数未达此上限时会新建线程。重启后生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1" name="general.maxThreadSize" id="exec_general_maxThreadSize"/>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">任务队列容量<i class="fa fa-question-circle fa_gray" title="核心线程全忙时新任务的等待队列。重启后生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1" name="general.threadQueueCapacity" id="exec_general_threadQueueCapacity"/>
+                    </div>
+                </div>
+
+                <h4>存储执行器 <small class="text-muted">控制数据持久化并发</small></h4>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">核心线程数<i class="fa fa-question-circle fa_gray" title="数据持久化的基础并发能力。重启后生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1" name="storage.threadCoreSize" id="exec_storage_threadCoreSize"/>
+                    </div>
+                    <label class="col-sm-2 control-label">最大线程数<i class="fa fa-question-circle fa_gray" title="存储操作峰值并发上限。重启后生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1" name="storage.maxThreadSize" id="exec_storage_maxThreadSize"/>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">任务队列容量<i class="fa fa-question-circle fa_gray" title="存储任务的等待队列。重启后生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1" name="storage.threadQueueCapacity" id="exec_storage_threadQueueCapacity"/>
+                    </div>
+                </div>
+
+                <h4>调度任务执行器 <small class="text-muted">用于任务分发与状态检查</small></h4>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">核心线程数<i class="fa fa-question-circle fa_gray" title="任务分发的基础并发能力。重启后生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1" name="dispatch.threadCoreSize" id="exec_dispatch_threadCoreSize"/>
+                    </div>
+                    <label class="col-sm-2 control-label">最大线程数<i class="fa fa-question-circle fa_gray" title="任务分发的峰值并发上限。重启后生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1" name="dispatch.maxThreadSize" id="exec_dispatch_maxThreadSize"/>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">任务队列容量<i class="fa fa-question-circle fa_gray" title="分发任务的等待队列。重启后生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1" name="dispatch.threadQueueCapacity" id="exec_dispatch_threadQueueCapacity"/>
+                    </div>
+                </div>
+
+                <h4>调度线程池 <small class="text-muted">驱动所有定时任务</small></h4>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">调度线程数<i class="fa fa-question-circle fa_gray" title="taskScheduler 的线程数，决定同时运行的定时任务数量。重启后生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1" name="schedulerPoolSize" id="exec_schedulerPoolSize"/>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Tab 3: 缓冲区 -->
+        <div role="tabpanel" class="tab-pane" id="tab-buffers">
+            <div class="alert alert-warning"><strong>⚠️</strong> 以下配置修改后需<strong>重启应用</strong>才能生效。缓冲区队列在启动时一次性创建。</div>
+            <form id="buffersForm" class="form-horizontal" role="form">
+                <div class="form-group">
+                    <div class="text-right col-sm-12">
+                        <button type="button" class="btn btn-primary btn-save-tab" data-tab="buffers">
+                            <span class="fa fa-save"></span>保存
+                        </button>
+                        <button type="button" class="btn btn-default btn-reset-tab" data-tab="buffers">
+                            <span class="fa fa-undo"></span>恢复系统默认
+                        </button>
+                    </div>
+                </div>
+                <h4>通用执行器缓冲</h4>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">任务中断上报失败数<i class="fa fa-question-circle fa_gray" title="原名 writer count，实测只用于告警文案中的失败计数。重启后生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1" name="general.bufferWriterCount" id="buf_general_bufferWriterCount"/>
+                    </div>
+                    <label class="col-sm-2 control-label">每次消费任务数<i class="fa fa-question-circle fa_gray" title="每次定时消费从缓冲队列取出的任务条数。重启后生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1" name="general.bufferPullCount" id="buf_general_bufferPullCount"/>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">缓冲队列容量<i class="fa fa-question-circle fa_gray" title="内存缓冲的最大任务条数。重启后生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1" name="general.bufferQueueCapacity" id="buf_general_bufferQueueCapacity"/>
+                    </div>
+                    <label class="col-sm-2 control-label">消费间隔(ms)<i class="fa fa-question-circle fa_gray" title="定时消费缓冲队列的频率。重启后生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1" name="general.bufferPeriodMillisecond" id="buf_general_bufferPeriodMillisecond"/>
+                    </div>
+                </div>
+
+                <h4>存储执行器缓冲</h4>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">每次消费任务数<i class="fa fa-question-circle fa_gray" title="存储侧每次消费的条数。重启后生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1" name="storage.bufferPullCount" id="buf_storage_bufferPullCount"/>
+                    </div>
+                    <label class="col-sm-2 control-label">缓冲队列容量<i class="fa fa-question-circle fa_gray" title="存储侧缓冲队列上限。重启后生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1" name="storage.bufferQueueCapacity" id="buf_storage_bufferQueueCapacity"/>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">消费间隔(ms)<i class="fa fa-question-circle fa_gray" title="存储侧消费频率。重启后生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1" name="storage.bufferPeriodMillisecond" id="buf_storage_bufferPeriodMillisecond"/>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Tab 4: 重试策略 -->
+        <div role="tabpanel" class="tab-pane" id="tab-retry">
+            <div class="alert alert-info">以下配置修改后<strong>立即生效</strong>。注意：已配置任务级重试策略的任务不受此值影响。</div>
+            <form id="retryForm" class="form-horizontal" role="form">
+                <div class="form-group">
+                    <div class="text-right col-sm-12">
+                        <button type="button" class="btn btn-primary btn-save-tab" data-tab="retry">
+                            <span class="fa fa-save"></span>保存
+                        </button>
+                        <button type="button" class="btn btn-default btn-reset-tab" data-tab="retry">
+                            <span class="fa fa-undo"></span>恢复系统默认
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">禁用重试<i class="fa fa-question-circle fa_gray" title="是否禁用全局重试机制。立即生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="checkbox" name="disable" id="retry_disable"/>
+                    </div>
+                    <label class="col-sm-2 control-label">最大重试次数<i class="fa fa-question-circle fa_gray" title="最大执行次数（含首次）。立即生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1" name="maxAttempts" id="retry_maxAttempts"/>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">初始间隔(ms)<i class="fa fa-question-circle fa_gray" title="首次重试前的等待（毫秒）。立即生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="0" name="initialIntervalMs" id="retry_initialIntervalMs"/>
+                    </div>
+                    <label class="col-sm-2 control-label">最大间隔(ms)<i class="fa fa-question-circle fa_gray" title="指数退避的等待上限（毫秒）。立即生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="0" name="maxIntervalMs" id="retry_maxIntervalMs"/>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">退避倍数<i class="fa fa-question-circle fa_gray" title="每次重试后等待时间的倍数。立即生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1" step="0.1" name="multiplier" id="retry_multiplier"/>
+                    </div>
+                    <label class="col-sm-2 control-label">总时长上限(ms)<i class="fa fa-question-circle fa_gray" title="从首次失败起的重试总时长上限。0=不限制。立即生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="0" name="maxDurationMs" id="retry_maxDurationMs"/>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">终止模式<i class="fa fa-question-circle fa_gray" title="重试终止判定模式。立即生效。"></i></label>
+                    <div class="col-sm-4">
+                        <select class="form-control" name="terminationMode" id="retry_terminationMode">
+                            <option value="MAX_ATTEMPTS">按次数</option>
+                            <option value="MAX_DURATION">按耗时</option>
+                            <option value="WHICHEVER_FIRST">先到为准</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">启用关键字匹配<i class="fa fa-question-circle fa_gray" title="是否仅重试匹配关键字的异常。立即生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="checkbox" name="useKeyword" id="retry_useKeyword"/>
+                    </div>
+                    <label class="col-sm-2 control-label">匹配模式<i class="fa fa-question-circle fa_gray" title="关键字匹配模式。立即生效。"></i></label>
+                    <div class="col-sm-4">
+                        <select class="form-control" name="matchMode" id="retry_matchMode">
+                            <option value="EXACT">完全相等</option>
+                            <option value="CONTAINS">包含</option>
+                            <option value="CASE_INSENSITIVE">相等且忽略大小写</option>
+                            <option value="CONTAINS_IGNORE_CASE">包含且忽略大小写</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">重试关键字<i class="fa fa-question-circle fa_gray" title="每行一个。仅当关键字匹配开启时生效。"></i></label>
+                    <div class="col-sm-10">
+                        <textarea class="form-control" rows="3" id="retry_keywords" placeholder="每行一个关键字"></textarea>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">排除关键字<i class="fa fa-question-circle fa_gray" title="每行一个。命中排除关键字的异常不重试。"></i></label>
+                    <div class="col-sm-10">
+                        <textarea class="form-control" rows="3" id="retry_excludeKeywords" placeholder="每行一个关键字"></textarea>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Tab 5: 通知通道 -->
+        <div role="tabpanel" class="tab-pane" id="tab-notify">
+            <div class="alert alert-info">以下配置修改后<strong>立即生效</strong>。注意：邮件用户名/密码修改后需重启应用。</div>
+            <form id="notifyForm" class="form-horizontal" role="form">
+                <div class="form-group">
+                    <div class="text-right col-sm-12">
+                        <button type="button" class="btn btn-primary btn-save-tab" data-tab="notify">
+                            <span class="fa fa-save"></span>保存
+                        </button>
+                        <button type="button" class="btn btn-default btn-reset-tab" data-tab="notify">
+                            <span class="fa fa-undo"></span>恢复系统默认
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">启用通道<i class="fa fa-question-circle fa_gray" title="启用的通知通道。未勾选的通道不会发送任何通知。"></i></label>
+                    <div class="col-sm-10">
+                        <label class="checkbox-inline"><input type="checkbox" name="channels" value="mail"/> 邮件</label>
+                        <label class="checkbox-inline"><input type="checkbox" name="channels" value="dingtalk"/> 钉钉</label>
+                    </div>
+                </div>
+                <h4>邮件配置</h4>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">发件邮箱<i class="fa fa-question-circle fa_gray" title="发送通知邮件的账号。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="text" class="form-control" name="mail.username" id="notify_mail_username"/>
+                    </div>
+                    <label class="col-sm-2 control-label">授权码<i class="fa fa-question-circle fa_gray" title="邮件账号的授权码（不是登录密码）。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="password" class="form-control" name="mail.password" id="notify_mail_password" placeholder="********"/>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">通知类型<i class="fa fa-question-circle fa_gray" title="不勾选=通知全部类型。"></i></label>
+                    <div class="col-sm-10" id="notify_mail_types">
+                        <!-- 动态生成 -->
+                    </div>
+                </div>
+
+                <h4>钉钉配置</h4>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">Webhook URL<i class="fa fa-question-circle fa_gray" title="钉钉群机器人的 Webhook 地址。"></i></label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" name="dingtalk.webhookUrl" id="notify_dingtalk_webhookUrl"/>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">签名密钥<i class="fa fa-question-circle fa_gray" title="当前未启用签名校验，配置后重启生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="password" class="form-control" name="dingtalk.secret" id="notify_dingtalk_secret"/>
+                    </div>
+                    <label class="col-sm-2 control-label">通知类型<i class="fa fa-question-circle fa_gray" title="不勾选=通知全部类型。"></i></label>
+                    <div class="col-sm-4" id="notify_dingtalk_types">
+                        <!-- 动态生成 -->
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Tab 6: 错误处理 -->
+        <div role="tabpanel" class="tab-pane" id="tab-error">
+            <div class="alert alert-info">以下配置修改后<strong>立即生效</strong>。</div>
+            <form id="errorForm" class="form-horizontal" role="form">
+                <div class="form-group">
+                    <div class="text-right col-sm-12">
+                        <button type="button" class="btn btn-primary btn-save-tab" data-tab="error">
+                            <span class="fa fa-save"></span>保存
+                        </button>
+                        <button type="button" class="btn btn-default btn-reset-tab" data-tab="error">
+                            <span class="fa fa-undo"></span>恢复系统默认
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">熔断阈值<i class="fa fa-question-circle fa_gray" title="错误队列熔断阈值。0=不启用熔断。立即生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="0" name="threshold" id="error_threshold"/>
+                    </div>
+                    <label class="col-sm-2 control-label">匹配模式<i class="fa fa-question-circle fa_gray" title="致命关键字的匹配模式。立即生效。"></i></label>
+                    <div class="col-sm-4">
+                        <select class="form-control" name="fatalMatchMode" id="error_fatalMatchMode">
+                            <option value="EXACT">完全相等</option>
+                            <option value="CONTAINS">包含</option>
+                            <option value="CASE_INSENSITIVE">相等且忽略大小写</option>
+                            <option value="CONTAINS_IGNORE_CASE">包含且忽略大小写</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">致命关键字<i class="fa fa-question-circle fa_gray" title="每行一个。命中时任务直接终止。"></i></label>
+                    <div class="col-sm-10">
+                        <textarea class="form-control" rows="3" id="error_fatalKeywords" placeholder="每行一个关键字"></textarea>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+    </div>
 </div>
 
 <script th:src="@{/js/system/index.js}"></script>

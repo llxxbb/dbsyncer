@@ -71,6 +71,17 @@ public class SystemConfigChecker extends AbstractChecker {
         }
         params.put("watermark", watermark);
 
+        // 校验端口范围（如果传入了 port）
+        String portStr = params.get("server.port");
+        if (StringUtil.isNotBlank(portStr)) {
+            try {
+                int port = Integer.parseInt(portStr);
+                Assert.isTrue(port >= 1 && port <= 65535, "端口号必须在 1-65535 之间");
+            } catch (NumberFormatException e) {
+                throw new BizException("端口号格式错误: " + portStr);
+            }
+        }
+
         SystemConfig systemConfig = profileComponent.getSystemConfig();
         Assert.notNull(systemConfig, "配置文件为空.");
         BeanUtil.mapToBean(params, systemConfig);

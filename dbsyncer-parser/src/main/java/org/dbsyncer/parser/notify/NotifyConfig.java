@@ -115,7 +115,10 @@ public class NotifyConfig {
         public String getPassword() { return password; }
         public void setPassword(String password) { this.password = password; }
         public List<String> getNotifyTypes() { return notifyTypes; }
-        public void setNotifyTypes(List<String> notifyTypes) { this.notifyTypes = notifyTypes; }
+        public void setNotifyTypes(List<String> notifyTypes) {
+            this.notifyTypes = notifyTypes;
+            this.notifyTypeSet = null;  // ADR-0029 §4.5：失效懒加载缓存
+        }
     }
 
     /**
@@ -147,6 +150,9 @@ public class NotifyConfig {
         public String getSecret() { return secret; }
         public void setSecret(String secret) { this.secret = secret; }
         public List<String> getNotifyTypes() { return notifyTypes; }
-        public void setNotifyTypes(List<String> notifyTypes) { this.notifyTypes = notifyTypes; }
+        public void setNotifyTypes(List<String> notifyTypes) {
+            this.notifyTypes = notifyTypes;
+            this.notifyTypeSet = null;  // ADR-0029 §4.5：失效懒加载缓存
+        }
     }
 }
