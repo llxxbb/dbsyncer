@@ -21,9 +21,9 @@ import java.util.List;
  * 设计：各 Props 子类自行实现 toConfigEntries()，本类只做编排和格式化。
  */
 @Component
-public class ConfigComparator {
+public class ConfigService {
 
-    private static final Logger logger = LoggerFactory.getLogger(ConfigComparator.class);
+    private static final Logger logger = LoggerFactory.getLogger(ConfigService.class);
 
     @Resource
     private OperationTemplate operationTemplate;
@@ -42,14 +42,17 @@ public class ConfigComparator {
             return;  // 未迁移，不打印
         }
 
+        // A 类配置：从 Environment 加载（不落库）
+        config.getServer().loadFromEnvironment(environment);
+
         StringBuilder sb = new StringBuilder();
         sb.append("\n");
         sb.append("═══════════════════════════════════════════════════════════════════════════════\n");
-        sb.append("  配置对照表（schemaVersion=").append(config.getSchemaVersion()).append("）\n");
+        sb.append("  配置对照表（schemaVersion=").append(config.getSchemaVersion()).append("） file, db, final\n");
         sb.append("═══════════════════════════════════════════════════════════════════════════════");
 
-        // A 类：服务器配置（只读，从 Environment 直接读取）
-        printAclassSection(sb, "A类：服务器配置（只读，不落库）", new ServerProps());
+        // A 类：服务器配置（只读）
+        printSection(sb, "A类：服务器配置（只读，不落库）", config.getServer().toConfigEntries());
 
         // B 类：执行器
         printSection(sb, "B类：执行器配置", 
@@ -91,44 +94,16 @@ public class ConfigComparator {
 
         for (ConfigEntry entry : entries) {
             String propsVal = environment.getProperty(entry.getKey());
-            String dbVal = entry.getDisplayValue();
-            String finalVal = dbVal;  // ADR-0029 后 DB 值就是最终值
+            
+            // A 类配置（server.*）不落库，DB 值显示为 "-"，最终值 = props 值
+            boolean isAClass = entry.getKey().startsWith("server.");
+            String dbVal = isAClass ? "-" : entry.getDisplayValue();
+            String finalVal = isAClass ? (propsVal != null ? propsVal : "-") : entry.getDisplayValue();
 
             sb.append(String.format("%s: %s, %s, %s\n",
                     entry.getKey(),
                     propsVal != null ? propsVal : "-",
                     dbVal,
-                    finalVal));
-        }
-    }
-
-    /**
-     * 打印 A 类配置分区（从 Environment 直接读取，不落库）。
-     */
-    private void printAclassSection(StringBuilder sb, String title, Object props) {
-        if (props == null) {
-            return;
-        }
-
-        List<ConfigEntry> entries = null;
-        if (props instanceof ServerProps) {
-            entries = ((ServerProps) props).toConfigEntries();
-        }
-
-        if (entries == null || entries.isEmpty()) {
-            return;
-        }
-
-        sb.append("\n【").append(title).append("】\n");
-
-        for (ConfigEntry entry : entries) {
-            String propsVal = environment.getProperty(entry.getKey());
-            // A 类配置：props 值就是最终值，DB 值显示为 "-"（不落库）
-            String finalVal = propsVal != null ? propsVal : "-";
-
-            sb.append(String.format("%s: %s, -, %s\n",
-                    entry.getKey(),
-                    propsVal != null ? propsVal : "-",
                     finalVal));
         }
     }

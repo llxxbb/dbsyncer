@@ -27,10 +27,10 @@ public class SystemConfig extends ConfigModel {
     /** 配置版本号，默认 0 表示未迁移 */
     private int schemaVersion;
 
-    // ===== A 类（@JsonIgnore：不落库，每次读页面时由 web 层从 Environment 现取） =====
+    // ===== A 类（@JsonIgnore：不落库，每次启动时从 Environment 现读） =====
 
     @JsonIgnore
-    private ServerProps server;
+    private ServerProps server = new ServerProps();
 
     @JsonIgnore
     private StorageConnectionProps storageConn;

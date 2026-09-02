@@ -3,7 +3,7 @@
  */
 package org.dbsyncer.manager.impl;
 
-import org.dbsyncer.parser.impl.ConfigComparator;
+import org.dbsyncer.parser.impl.ConfigService;
 import org.dbsyncer.parser.impl.ConfigMigrationService;
 import org.dbsyncer.common.model.Paging;
 import org.dbsyncer.common.startup.StartupGate;
@@ -77,7 +77,7 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
     private ConfigMigrationService configMigrationService;
 
     @Resource
-    private ConfigComparator configComparator;
+    private ConfigService configComparator;
 
     private boolean preloadCompleted;
 

@@ -1,10 +1,10 @@
 package org.dbsyncer.common.config.props;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+
+import org.springframework.core.env.Environment;
 
 /**
  * A 类：服务器配置（只读，不落库）
@@ -45,6 +45,36 @@ public class ServerProps implements Serializable {
     public void setContextPath(String contextPath) { this.contextPath = contextPath; }
     public Integer getSessionTimeout() { return sessionTimeout; }
     public void setSessionTimeout(Integer sessionTimeout) { this.sessionTimeout = sessionTimeout; }
+
+    /**
+     * 从 Environment 读取配置值（A 类配置，只读，不落库）。
+     */
+    public void loadFromEnvironment(Environment env) {
+        // server.port
+        String port = env.getProperty("server.port");
+        if (port != null) {
+            try {
+                this.port = Integer.parseInt(port);
+            } catch (NumberFormatException ignored) {}
+        }
+        
+        // server.ssl.*
+        this.sslEnabled = env.getProperty("server.ssl.enabled", Boolean.class);
+        this.sslKeyStore = env.getProperty("server.ssl.key-store");
+        this.sslKeyStorePassword = env.getProperty("server.ssl.key-store-password");
+        this.sslKeyStoreType = env.getProperty("server.ssl.key-store-type");
+        this.sslKeyAlias = env.getProperty("server.ssl.key-alias");
+        
+        // server.http.*
+        this.httpPort = env.getProperty("server.http.port", Integer.class);
+        this.httpRedirect = env.getProperty("server.http.redirect", Boolean.class);
+        
+        // server.context-path
+        this.contextPath = env.getProperty("server.context-path");
+        
+        // server.session-timeout
+        this.sessionTimeout = env.getProperty("server.session-timeout", Integer.class);
+    }
 
     /**
      * 返回配置条目列表，用于启动期配置对照表打印。
