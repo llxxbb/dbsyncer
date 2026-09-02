@@ -98,7 +98,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             // 传递列名信息（从第一个请求中获取）
             response.setColumnNames(request.getColumnNames());
             response.setMerged(true);
-        } else if (profileComponent.getSystemConfig().isEnablePrintTraceInfo()
+        } else if (profileComponent.getSystemConfig().getBasic().getEnablePrintTraceInfo()
                 && StringUtil.isNotBlank(request.getTraceId())) {
             logger.info("traceId:{} merge into traceId:{}", request.getTraceId(), response.getTraceId());
         }
@@ -323,7 +323,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
                 .filter(f -> fieldIndexMap.containsKey(f.nameIgnoreCase()))
                 .collect(Collectors.toList());
 
-        boolean enableSchemaResolver = profileComponent.getSystemConfig().isEnableSchemaResolver();
+        boolean enableSchemaResolver = profileComponent.getSystemConfig().getBasic().getEnableSchemaResolver();
         ConnectorConfig sourceConfig = getConnectorConfig(mapping.getSourceConnectorId());
         ConnectorService sourceConnector = connectorFactory.getConnectorService(sourceConfig.getConnectorType());
         try {
@@ -498,7 +498,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
     }
 
     private void printTraceInfo(WriterResponse response) {
-        if (profileComponent.getSystemConfig().isEnablePrintTraceInfo()
+        if (profileComponent.getSystemConfig().getBasic().getEnablePrintTraceInfo()
                 && StringUtil.isNotBlank(response.getTraceId())) {
             logger.info("traceId:{}, tableName:{}, event:{}, offset:{}, row:{}", response.getTraceId(),
                     response.getTableName(), response.getEvent(), JsonUtil.objToJson(response.getChangedOffset()),

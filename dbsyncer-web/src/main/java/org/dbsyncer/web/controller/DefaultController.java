@@ -28,7 +28,7 @@ public class DefaultController implements ErrorPageRegistrar {
 
     @RequestMapping("")
     public String index(HttpServletRequest request, ModelMap model) throws Exception {
-        model.put("enableCDN", systemConfigService.getSystemConfig().isEnableCDN());
+        model.put("enableCDN", systemConfigService.getSystemConfig().getBasic().getEnableCDN());
         
         // 传递当前用户信息
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -43,7 +43,7 @@ public class DefaultController implements ErrorPageRegistrar {
 
     @RequestMapping({"/login", "/login.html"})
     public String index(ModelMap model) throws Exception {
-        model.put("enableCDN", systemConfigService.getSystemConfig().isEnableCDN());
+        model.put("enableCDN", systemConfigService.getSystemConfig().getBasic().getEnableCDN());
         return "login.html";
     }
 

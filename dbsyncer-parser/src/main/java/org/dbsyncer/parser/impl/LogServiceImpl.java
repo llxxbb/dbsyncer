@@ -77,8 +77,8 @@ public class LogServiceImpl implements LogService {
             params.put(ConfigConstant.LOG_LEVEL, logLevel.name());
             int maxLen = 4000;
             try {
-                if (profileComponent.getSystemConfig() != null) {
-                    maxLen = profileComponent.getSystemConfig().getMaxStorageErrorLength();
+                if (profileComponent.getSystemConfig() != null && profileComponent.getSystemConfig().getBasic() != null) {
+                    maxLen = profileComponent.getSystemConfig().getBasic().getMaxStorageErrorLength();
                 }
             } catch (Exception e) { /* ignore */ }
             params.put("json", StringUtil.substring(msg, 0, maxLen));

@@ -93,7 +93,7 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     public SystemConfigVo getSystemConfigVo() throws Exception {
         SystemConfigVo systemConfigVo = new SystemConfigVo();
         BeanUtils.copyProperties(getSystemConfig(), systemConfigVo);
-        systemConfigVo.setWatermark(getWatermark(systemConfigVo));
+        systemConfigVo.getBasic().setWatermark(getWatermark(systemConfigVo));
         return systemConfigVo;
     }
 
@@ -152,7 +152,7 @@ public class SystemConfigServiceImpl implements SystemConfigService {
 
     @Override
     public String getWatermark(SystemConfig systemConfig) {
-        return StringUtil.isNotBlank(systemConfig.getWatermark()) ? systemConfig.getWatermark() : appConfig.getName() + "-${username}<br />" + appConfig.getCompany();
+        return StringUtil.isNotBlank(systemConfig.getBasic().getWatermark()) ? systemConfig.getBasic().getWatermark() : appConfig.getName() + "-${username}<br />" + appConfig.getCompany();
     }
 
     // ===== ADR-0029 Tab 接口 =====

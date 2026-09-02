@@ -88,7 +88,7 @@ public class FullSyncExecutorImpl implements FullSyncExecutor {
         context.setSourceTable(group.getSourceTable());
         context.setEvent(ConnectorConstant.OPERTION_INSERT);
         context.setPageSize(mapping.getReadNum());
-        context.setEnableSchemaResolver(profileComponent.getSystemConfig().isEnableSchemaResolver());
+        context.setEnableSchemaResolver(profileComponent.getSystemConfig().getBasic().getEnableSchemaResolver());
         context.setCursors(tableGroup.getCursors());
 
         ConnectorService sourceConnector = connectorFactory

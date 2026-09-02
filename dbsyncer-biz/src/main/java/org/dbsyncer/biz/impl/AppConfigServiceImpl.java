@@ -44,7 +44,7 @@ public class AppConfigServiceImpl implements AppConfigService {
         VersionVo versionVo = new VersionVo(appConfig.getName(), appConfig.getCopyright());
         // 是否启用水印
         SystemConfig systemConfig = systemConfigService.getSystemConfig();
-        if (systemConfig.isEnableWatermark()) {
+        if (systemConfig.getBasic().getEnableWatermark()) {
             String watermark = systemConfigService.getWatermark(systemConfig);
             watermark = StringUtil.replace(watermark, WATERMARK_USERNAME, username);
             versionVo.setWatermark(watermark);

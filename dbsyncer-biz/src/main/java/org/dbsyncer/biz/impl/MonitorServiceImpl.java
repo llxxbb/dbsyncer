@@ -385,7 +385,7 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob {
         if (!CollectionUtils.isEmpty(metaAll)) {
             Query query = new Query();
             query.setType(StorageEnum.DATA);
-            int expireDataDays = systemConfigService.getSystemConfig().getExpireDataDays();
+            int expireDataDays = systemConfigService.getSystemConfig().getBasic().getExpireDataDays();
             long expiredTime = Timestamp.valueOf(LocalDateTime.now().minusDays(expireDataDays)).getTime();
             LongFilter expiredFilter = new LongFilter(ConfigConstant.CONFIG_MODEL_CREATE_TIME, FilterEnum.LT,
                     expiredTime);
@@ -400,7 +400,7 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob {
     private void deleteExpiredLog() throws Exception {
         Query query = new Query();
         query.setType(StorageEnum.LOG);
-        int expireLogDays = systemConfigService.getSystemConfig().getExpireLogDays();
+        int expireLogDays = systemConfigService.getSystemConfig().getBasic().getExpireLogDays();
         long expiredTime = Timestamp.valueOf(LocalDateTime.now().minusDays(expireLogDays)).getTime();
         LongFilter expiredFilter = new LongFilter(ConfigConstant.CONFIG_MODEL_CREATE_TIME, FilterEnum.LT, expiredTime);
         query.setBooleanFilter(new BooleanFilter().add(expiredFilter));

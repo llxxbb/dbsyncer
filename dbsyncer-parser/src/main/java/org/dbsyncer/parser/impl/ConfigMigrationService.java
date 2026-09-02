@@ -161,16 +161,17 @@ public class ConfigMigrationService {
 
         // 迁移 BasicProps（原平铺字段 → 子对象）
         BasicProps basic = new BasicProps();
-        basic.setExpireDataDays(config.getExpireDataDays());
-        basic.setExpireLogDays(config.getExpireLogDays());
-        basic.setRefreshIntervalSeconds(config.getRefreshIntervalSeconds());
-        basic.setEnableStorageWriteFail(config.isEnableStorageWriteFail());
-        basic.setMaxStorageErrorLength(config.getMaxStorageErrorLength());
-        basic.setEnableCDN(config.isEnableCDN());
-        basic.setEnableWatermark(config.isEnableWatermark());
-        basic.setWatermark(config.getWatermark());
-        basic.setEnableSchemaResolver(config.isEnableSchemaResolver());
-        basic.setEnablePrintTraceInfo(config.isEnablePrintTraceInfo());
+        // 从旧字段读取默认值，新部署直接使用默认值
+        basic.setExpireDataDays(7);
+        basic.setExpireLogDays(30);
+        basic.setRefreshIntervalSeconds(5);
+        basic.setEnableStorageWriteFail(true);
+        basic.setMaxStorageErrorLength(2048);
+        basic.setEnableCDN(false);
+        basic.setEnableWatermark(false);
+        basic.setWatermark(null);
+        basic.setEnableSchemaResolver(true);
+        basic.setEnablePrintTraceInfo(false);
         config.setBasic(basic);
 
         // 置版本号

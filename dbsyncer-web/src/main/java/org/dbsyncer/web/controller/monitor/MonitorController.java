@@ -262,7 +262,7 @@ public class MonitorController extends BaseController {
     @GetMapping("/getRefreshIntervalSeconds")
     public RestResult getRefreshInterval() {
         try {
-            return RestResult.restSuccess(systemConfigService.getSystemConfig().getRefreshIntervalSeconds());
+            return RestResult.restSuccess(systemConfigService.getSystemConfig().getBasic().getRefreshIntervalSeconds());
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage(), e);
             return RestResult.restFail(e.getMessage());

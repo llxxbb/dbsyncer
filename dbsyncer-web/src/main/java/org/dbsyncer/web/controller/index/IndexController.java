@@ -238,7 +238,7 @@ public class IndexController {
     @GetMapping("/abnormalTasks")
     public String abnormalTasksPage(ModelMap model) {
         try {
-            model.put("enableCDN", systemConfigService.getSystemConfig().isEnableCDN());
+            model.put("enableCDN", systemConfigService.getSystemConfig().getBasic().getEnableCDN());
         } catch (Exception e) {
             logger.error("获取 enableCDN 配置失败", e);
         }

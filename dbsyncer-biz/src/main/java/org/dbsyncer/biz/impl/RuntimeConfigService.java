@@ -8,19 +8,16 @@ import org.dbsyncer.common.config.SchedulerConfig;
 import org.dbsyncer.common.config.StorageConfig;
 import org.dbsyncer.common.config.props.*;
 import org.dbsyncer.common.retry.RetryPolicy;
-import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.error.ErrorQueueConfig;
 import org.dbsyncer.parser.model.SystemConfig;
 import org.dbsyncer.parser.notify.NotifyConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import java.util.ArrayList;
-import java.util.List;
 
 /**
  * 运行时配置服务（ADR-0029）。
@@ -321,16 +318,16 @@ public class RuntimeConfigService {
         BasicProps props = new BasicProps();
         if (cfg != null) {
             // 从旧扁平字段迁移
-            props.setExpireDataDays(cfg.getExpireDataDays());
-            props.setExpireLogDays(cfg.getExpireLogDays());
-            props.setRefreshIntervalSeconds(cfg.getRefreshIntervalSeconds());
-            props.setEnableStorageWriteFail(cfg.isEnableStorageWriteFail());
-            props.setMaxStorageErrorLength(cfg.getMaxStorageErrorLength());
-            props.setEnableCDN(cfg.isEnableCDN());
-            props.setEnableWatermark(cfg.isEnableWatermark());
-            props.setWatermark(cfg.getWatermark());
-            props.setEnableSchemaResolver(cfg.isEnableSchemaResolver());
-            props.setEnablePrintTraceInfo(cfg.isEnablePrintTraceInfo());
+            props.setExpireDataDays(cfg.getBasic().getExpireDataDays());
+            props.setExpireLogDays(cfg.getBasic().getExpireLogDays());
+            props.setRefreshIntervalSeconds(cfg.getBasic().getRefreshIntervalSeconds());
+            props.setEnableStorageWriteFail(cfg.getBasic().getEnableStorageWriteFail());
+            props.setMaxStorageErrorLength(cfg.getBasic().getMaxStorageErrorLength());
+            props.setEnableCDN(cfg.getBasic().getEnableCDN());
+            props.setEnableWatermark(cfg.getBasic().getEnableWatermark());
+            props.setWatermark(cfg.getBasic().getWatermark());
+            props.setEnableSchemaResolver(cfg.getBasic().getEnableSchemaResolver());
+            props.setEnablePrintTraceInfo(cfg.getBasic().getEnablePrintTraceInfo());
         }
         return props;
     }
