@@ -5,6 +5,7 @@ import org.dbsyncer.common.util.MatchMode;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.ArrayList;
 
 /**
  * Tab 4 重试策略（字段对齐 RetryPolicy）。
@@ -112,5 +113,24 @@ public class RetryProps implements Serializable {
 
     public void setExcludeKeywords(List<String> excludeKeywords) {
         this.excludeKeywords = excludeKeywords;
+    }
+
+    /**
+     * 返回配置条目列表，用于启动期配置对照表打印。
+     */
+    public List<ConfigEntry> toConfigEntries() {
+        List<ConfigEntry> entries = new ArrayList<>();
+        entries.add(new ConfigEntry("dbsyncer.retry.global.disable", disable));
+        entries.add(new ConfigEntry("dbsyncer.retry.global.max-attempts", maxAttempts));
+        entries.add(new ConfigEntry("dbsyncer.retry.global.initial-interval-ms", initialIntervalMs));
+        entries.add(new ConfigEntry("dbsyncer.retry.global.max-interval-ms", maxIntervalMs));
+        entries.add(new ConfigEntry("dbsyncer.retry.global.multiplier", multiplier));
+        entries.add(new ConfigEntry("dbsyncer.retry.global.max-duration-ms", maxDurationMs));
+        entries.add(new ConfigEntry("dbsyncer.retry.global.termination-mode", terminationMode));
+        entries.add(new ConfigEntry("dbsyncer.retry.global.use-keyword", useKeyword));
+        entries.add(new ConfigEntry("dbsyncer.retry.global.match-mode", matchMode));
+        entries.add(new ConfigEntry("dbsyncer.retry.global.keywords", keywords));
+        entries.add(new ConfigEntry("dbsyncer.retry.global.exclude-keywords", excludeKeywords));
+        return entries;
     }
 }

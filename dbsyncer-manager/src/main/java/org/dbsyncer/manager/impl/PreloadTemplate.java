@@ -87,24 +87,21 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
 
     @Override
     public void onApplicationEvent(ContextRefreshedEvent event) {
-        // Load configModels
+        // 1. Load configModels
         Arrays.stream(CommandEnum.values()).filter(commandEnum -> commandEnum.isPreload()).forEach(commandEnum -> execute(commandEnum));
 
-        // Load connectorInstances
+        // 2. Load connectorInstances
         loadConnectorInstance();
 
-        // Launch drivers
-        launch();
-
-        // ===== ADR-0029 新增钩子（在 openStartupGates 之前） =====
-        // 钩子 1：配置迁移
+        // ===== ADR-0029 新增钩子（在启动任务之前） =====
+        // 3. 配置迁移（先迁移，才能拿到正确的配置）
         try {
             configMigrationService.migrateIfNeeded();
         } catch (Exception e) {
             logger.error("配置迁移失败", e);
         }
 
-        // 钩子 2+3：启动期配置对照表
+        // 4. 启动期配置对照表（在任务启动前打印）
         try {
             configComparator.printStartupTable();
         } catch (Exception e) {
@@ -113,7 +110,10 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
 
         logger.info("+++++++++++++++配置预加载完成++++++++++++++++");
 
-        // 开放端口
+        // 5. Launch drivers（最后启动任务）
+        launch();
+
+        // 6. 开放端口
         openStartupGates();
         preloadCompleted = true;
     }

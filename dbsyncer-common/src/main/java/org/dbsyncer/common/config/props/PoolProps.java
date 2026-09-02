@@ -1,6 +1,8 @@
 package org.dbsyncer.common.config.props;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 线程池三元组，被多处复用。
@@ -36,5 +38,17 @@ public class PoolProps implements Serializable {
 
     public void setThreadQueueCapacity(Integer threadQueueCapacity) {
         this.threadQueueCapacity = threadQueueCapacity;
+    }
+
+    /**
+     * 返回配置条目列表，用于启动期配置对照表打印。
+     * @param prefix 配置键前缀（如 dbsyncer.parser.general）
+     */
+    public List<ConfigEntry> toConfigEntries(String prefix) {
+        List<ConfigEntry> entries = new ArrayList<>();
+        entries.add(new ConfigEntry(prefix + ".thread-core-size", threadCoreSize));
+        entries.add(new ConfigEntry(prefix + ".max-thread-size", maxThreadSize));
+        entries.add(new ConfigEntry(prefix + ".thread-queue-capacity", threadQueueCapacity));
+        return entries;
     }
 }

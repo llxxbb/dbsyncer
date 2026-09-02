@@ -1,6 +1,8 @@
 package org.dbsyncer.common.config.props;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 基础设置（原 SystemConfig 扁平字段组织成子对象）。
@@ -99,5 +101,23 @@ public class BasicProps implements Serializable {
 
     public void setEnablePrintTraceInfo(Boolean enablePrintTraceInfo) {
         this.enablePrintTraceInfo = enablePrintTraceInfo;
+    }
+
+    /**
+     * 返回配置条目列表，用于启动期配置对照表打印。
+     */
+    public List<ConfigEntry> toConfigEntries() {
+        List<ConfigEntry> entries = new ArrayList<>();
+        entries.add(new ConfigEntry("basic.expire-data-days", expireDataDays));
+        entries.add(new ConfigEntry("basic.expire-log-days", expireLogDays));
+        entries.add(new ConfigEntry("basic.refresh-interval-seconds", refreshIntervalSeconds));
+        entries.add(new ConfigEntry("basic.enable-storage-write-fail", enableStorageWriteFail));
+        entries.add(new ConfigEntry("basic.max-storage-error-length", maxStorageErrorLength));
+        entries.add(new ConfigEntry("basic.enable-cdn", enableCDN));
+        entries.add(new ConfigEntry("basic.enable-watermark", enableWatermark));
+        entries.add(new ConfigEntry("basic.watermark", watermark));
+        entries.add(new ConfigEntry("basic.enable-schema-resolver", enableSchemaResolver));
+        entries.add(new ConfigEntry("basic.enable-print-trace-info", enablePrintTraceInfo));
+        return entries;
     }
 }

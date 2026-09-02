@@ -44,17 +44,6 @@ public class NotifyConfig {
      */
     private DingTalkConfig dingtalk = new DingTalkConfig();
 
-    @PostConstruct
-    public void init() {
-        logger.info("========== 通知配置 ==========");
-        logger.info("channels: {}", channels);
-        logger.info("mail.username: {}", StringUtil.isBlank(mail.username) ? "(未配置)" : mail.username);
-        logger.info("mail.notifyTypes: {}", mail.notifyTypes.isEmpty() ? "全部" : mail.notifyTypes);
-        logger.info("dingtalk.webhookUrl: {}", StringUtil.isBlank(dingtalk.webhookUrl) ? "(未配置)" : "已配置");
-        logger.info("dingtalk.notifyTypes: {}", dingtalk.notifyTypes.isEmpty() ? "全部" : dingtalk.notifyTypes);
-        logger.info("==============================");
-    }
-
     public boolean isChannelEnabled(String channel) {
         if (CollectionUtils.isEmpty(channels)) {
             return false;

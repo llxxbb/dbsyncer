@@ -1,6 +1,8 @@
 package org.dbsyncer.common.config.props;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Tab 2 执行器配置
@@ -51,5 +53,23 @@ public class ExecutorProps implements Serializable {
 
     public void setSchedulerPoolSize(Integer schedulerPoolSize) {
         this.schedulerPoolSize = schedulerPoolSize;
+    }
+
+    /**
+     * 返回配置条目列表，用于启动期配置对照表打印。
+     */
+    public List<ConfigEntry> toConfigEntries() {
+        List<ConfigEntry> entries = new ArrayList<>();
+        if (general != null) {
+            entries.addAll(general.toConfigEntries("dbsyncer.parser.general"));
+        }
+        if (storage != null) {
+            entries.addAll(storage.toConfigEntries("dbsyncer.storage"));
+        }
+        if (dispatch != null) {
+            entries.addAll(dispatch.toConfigEntries("dbsyncer.common.dispatch"));
+        }
+        entries.add(new ConfigEntry("dbsyncer.web.scheduler.pool-size", schedulerPoolSize));
+        return entries;
     }
 }

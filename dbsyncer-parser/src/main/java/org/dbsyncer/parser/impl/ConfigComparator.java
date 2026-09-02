@@ -1,7 +1,6 @@
 package org.dbsyncer.parser.impl;
 
 import org.dbsyncer.common.config.props.*;
-import org.dbsyncer.parser.impl.OperationTemplate;
 import org.dbsyncer.parser.model.SystemConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +17,8 @@ import java.util.List;
  * <p>
  * 在 PreloadTemplate.onApplicationEvent 完成后、openStartupGates() 之前打印。
  * 便于排查配置来源和最终值。
+ * <p>
+ * 设计：各 Props 子类自行实现 toConfigEntries()，本类只做编排和格式化。
  */
 @Component
 public class ConfigComparator {
@@ -31,7 +32,7 @@ public class ConfigComparator {
     private Environment environment;
 
     /**
-     * 打印配置对照表。
+     * 打印配置对照表（按子类分组）。
      * <p>
      * ADR-0029 L2：启动期直接查存储层，避免触碰业务层方法（如 getSystemConfig()）。
      */
@@ -43,86 +44,93 @@ public class ConfigComparator {
 
         StringBuilder sb = new StringBuilder();
         sb.append("\n");
-        sb.append("╔══════════════════════════════════════╦═════════╦═════════╦═══════╗\n");
-        sb.append("║ 配置对照（schemaVersion=").append(config.getSchemaVersion()).append("）");
-        // 填充空格对齐
-        for (int i = 0; i < 14; i++) sb.append(' ');
-        sb.append("║\n");
-        sb.append("╠══════════════════════════════════════╬═════════╬═════════╬═══════╣\n");
-        sb.append("║ 配置项                               ║ props   ║ DB      ║ 最终  ║\n");
-        sb.append("╠══════════════════════════════════════╬═════════╬═════════╬═══════╣\n");
+        sb.append("═══════════════════════════════════════════════════════════════════════════════\n");
+        sb.append("  配置对照表（schemaVersion=").append(config.getSchemaVersion()).append("）\n");
+        sb.append("═══════════════════════════════════════════════════════════════════════════════");
+
+        // A 类：服务器配置（只读，从 Environment 直接读取）
+        printAclassSection(sb, "A类：服务器配置（只读，不落库）", new ServerProps());
 
         // B 类：执行器
-        ExecutorProps exec = config.getExecutors();
-        if (exec != null) {
-            printPoolRows(sb, "dbsyncer.parser.general", exec.getGeneral());
-            printPoolRows(sb, "dbsyncer.storage", exec.getStorage());
-            printPoolRows(sb, "dbsyncer.common.dispatch", exec.getDispatch());
-            if (exec.getSchedulerPoolSize() != null) {
-                printRow(sb, "dbsyncer.web.scheduler.pool-size", null,
-                        String.valueOf(exec.getSchedulerPoolSize()), String.valueOf(exec.getSchedulerPoolSize()));
-            }
-        }
+        printSection(sb, "B类：执行器配置", 
+                config.getExecutors() != null ? config.getExecutors().toConfigEntries() : null);
 
         // B 类：缓冲区
-        BufferProps buf = config.getBuffers();
-        if (buf != null) {
-            printBufferRows(sb, "dbsyncer.parser.general", buf.getGeneral());
-            printBufferRows(sb, "dbsyncer.storage", buf.getStorage());
-        }
+        printSection(sb, "B类：缓冲区配置", 
+                config.getBuffers() != null ? config.getBuffers().toConfigEntries() : null);
+
+        // B 类：通知通道
+        printSection(sb, "B类：通知通道配置", 
+                config.getNotify() != null ? config.getNotify().toConfigEntries() : null);
 
         // C 类：重试策略
-        RetryProps retry = config.getRetry();
-        if (retry != null) {
-            printRow(sb, "dbsyncer.retry.global.max-attempts",
-                    environment.getProperty("dbsyncer.retry.global.max-attempts"),
-                    retry.getMaxAttempts() != null ? String.valueOf(retry.getMaxAttempts()) : "-",
-                    retry.getMaxAttempts() != null ? String.valueOf(retry.getMaxAttempts()) : environment.getProperty("dbsyncer.retry.global.max-attempts", "-"));
-        }
+        printSection(sb, "C类：重试策略配置", 
+                config.getRetry() != null ? config.getRetry().toConfigEntries() : null);
 
-        sb.append("╚══════════════════════════════════════╩═════════╩═════════╩═══════╝\n");
+        // C 类：错误处理
+        printSection(sb, "C类：错误处理配置", 
+                config.getError() != null ? config.getError().toConfigEntries() : null);
+
+        // D 类：基础配置
+        printSection(sb, "D类：基础配置", 
+                config.getBasic() != null ? config.getBasic().toConfigEntries() : null);
+
+        sb.append("═══════════════════════════════════════════════════════════════════════════════\n");
         logger.info(sb.toString());
     }
 
-    private void printPoolRows(StringBuilder sb, String prefix, PoolProps pool) {
-        if (pool == null) return;
-        printRow(sb, prefix + ".thread-core-size",
-                environment.getProperty(prefix + ".thread-core-size"),
-                pool.getThreadCoreSize() != null ? String.valueOf(pool.getThreadCoreSize()) : "-",
-                pool.getThreadCoreSize() != null ? String.valueOf(pool.getThreadCoreSize()) : environment.getProperty(prefix + ".thread-core-size", "-"));
-        printRow(sb, prefix + ".max-thread-size",
-                environment.getProperty(prefix + ".max-thread-size"),
-                pool.getMaxThreadSize() != null ? String.valueOf(pool.getMaxThreadSize()) : "-",
-                pool.getMaxThreadSize() != null ? String.valueOf(pool.getMaxThreadSize()) : environment.getProperty(prefix + ".max-thread-size", "-"));
-        printRow(sb, prefix + ".thread-queue-capacity",
-                environment.getProperty(prefix + ".thread-queue-capacity"),
-                pool.getThreadQueueCapacity() != null ? String.valueOf(pool.getThreadQueueCapacity()) : "-",
-                pool.getThreadQueueCapacity() != null ? String.valueOf(pool.getThreadQueueCapacity()) : environment.getProperty(prefix + ".thread-queue-capacity", "-"));
+    /**
+     * 打印一个配置分区。
+     */
+    private void printSection(StringBuilder sb, String title, List<ConfigEntry> entries) {
+        if (entries == null || entries.isEmpty()) {
+            return;
+        }
+
+        sb.append("\n【").append(title).append("】\n");
+
+        for (ConfigEntry entry : entries) {
+            String propsVal = environment.getProperty(entry.getKey());
+            String dbVal = entry.getDisplayValue();
+            String finalVal = dbVal;  // ADR-0029 后 DB 值就是最终值
+
+            sb.append(String.format("%s: %s, %s, %s\n",
+                    entry.getKey(),
+                    propsVal != null ? propsVal : "-",
+                    dbVal,
+                    finalVal));
+        }
     }
 
-    private void printBufferRows(StringBuilder sb, String prefix, BufferActuatorProps buf) {
-        if (buf == null) return;
-        printRow(sb, prefix + ".buffer-queue-capacity",
-                environment.getProperty(prefix + ".buffer-queue-capacity"),
-                buf.getBufferQueueCapacity() != null ? String.valueOf(buf.getBufferQueueCapacity()) : "-",
-                buf.getBufferQueueCapacity() != null ? String.valueOf(buf.getBufferQueueCapacity()) : environment.getProperty(prefix + ".buffer-queue-capacity", "-"));
-        printRow(sb, prefix + ".buffer-period-millisecond",
-                environment.getProperty(prefix + ".buffer-period-millisecond"),
-                buf.getBufferPeriodMillisecond() != null ? String.valueOf(buf.getBufferPeriodMillisecond()) : "-",
-                buf.getBufferPeriodMillisecond() != null ? String.valueOf(buf.getBufferPeriodMillisecond()) : environment.getProperty(prefix + ".buffer-period-millisecond", "-"));
-    }
+    /**
+     * 打印 A 类配置分区（从 Environment 直接读取，不落库）。
+     */
+    private void printAclassSection(StringBuilder sb, String title, Object props) {
+        if (props == null) {
+            return;
+        }
 
-    private void printRow(StringBuilder sb, String key, String propsVal, String dbVal, String finalVal) {
-        sb.append(String.format("║ %-36s ║ %-7s ║ %-7s ║ %-5s ║\n",
-                truncate(key, 36),
-                propsVal != null ? truncate(propsVal, 7) : "-",
-                dbVal != null ? truncate(dbVal, 7) : "-",
-                finalVal != null ? truncate(finalVal, 5) : "-"));
-    }
+        List<ConfigEntry> entries = null;
+        if (props instanceof ServerProps) {
+            entries = ((ServerProps) props).toConfigEntries();
+        }
 
-    private String truncate(String s, int maxLen) {
-        if (s == null) return "-";
-        return s.length() > maxLen ? s.substring(0, maxLen - 2) + ".." : s;
+        if (entries == null || entries.isEmpty()) {
+            return;
+        }
+
+        sb.append("\n【").append(title).append("】\n");
+
+        for (ConfigEntry entry : entries) {
+            String propsVal = environment.getProperty(entry.getKey());
+            // A 类配置：props 值就是最终值，DB 值显示为 "-"（不落库）
+            String finalVal = propsVal != null ? propsVal : "-";
+
+            sb.append(String.format("%s: %s, -, %s\n",
+                    entry.getKey(),
+                    propsVal != null ? propsVal : "-",
+                    finalVal));
+        }
     }
 
     /**

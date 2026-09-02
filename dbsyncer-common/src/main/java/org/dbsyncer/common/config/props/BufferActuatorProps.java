@@ -1,6 +1,8 @@
 package org.dbsyncer.common.config.props;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 单个执行器的缓冲区参数。
@@ -45,5 +47,18 @@ public class BufferActuatorProps implements Serializable {
 
     public void setBufferPeriodMillisecond(Integer bufferPeriodMillisecond) {
         this.bufferPeriodMillisecond = bufferPeriodMillisecond;
+    }
+
+    /**
+     * 返回配置条目列表，用于启动期配置对照表打印。
+     * @param prefix 配置键前缀（如 dbsyncer.parser.general）
+     */
+    public List<ConfigEntry> toConfigEntries(String prefix) {
+        List<ConfigEntry> entries = new ArrayList<>();
+        entries.add(new ConfigEntry(prefix + ".buffer-writer-count", bufferWriterCount));
+        entries.add(new ConfigEntry(prefix + ".buffer-pull-count", bufferPullCount));
+        entries.add(new ConfigEntry(prefix + ".buffer-queue-capacity", bufferQueueCapacity));
+        entries.add(new ConfigEntry(prefix + ".buffer-period-millisecond", bufferPeriodMillisecond));
+        return entries;
     }
 }

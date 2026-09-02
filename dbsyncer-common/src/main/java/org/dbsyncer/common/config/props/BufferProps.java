@@ -1,6 +1,8 @@
 package org.dbsyncer.common.config.props;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Tab 3 缓冲区配置
@@ -29,5 +31,19 @@ public class BufferProps implements Serializable {
 
     public void setStorage(BufferActuatorProps storage) {
         this.storage = storage;
+    }
+
+    /**
+     * 返回配置条目列表，用于启动期配置对照表打印。
+     */
+    public List<ConfigEntry> toConfigEntries() {
+        List<ConfigEntry> entries = new ArrayList<>();
+        if (general != null) {
+            entries.addAll(general.toConfigEntries("dbsyncer.parser.general"));
+        }
+        if (storage != null) {
+            entries.addAll(storage.toConfigEntries("dbsyncer.storage"));
+        }
+        return entries;
     }
 }
