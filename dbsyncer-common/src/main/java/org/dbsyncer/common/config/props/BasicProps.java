@@ -17,7 +17,7 @@ public class BasicProps implements Serializable {
     private Integer refreshIntervalSeconds;
     private Boolean enableStorageWriteFail;
     private Integer maxStorageErrorLength;
-    private Boolean enableCDN;
+    private Boolean enableCDN = false;
     private Boolean enableWatermark;
     private String watermark;
     private Boolean enableSchemaResolver;
