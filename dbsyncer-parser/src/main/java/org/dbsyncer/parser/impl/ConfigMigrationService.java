@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
+import org.springframework.context.annotation.Lazy;
 
 /**
  * ADR-0029 §2.0.1：配置迁移服务。
@@ -32,6 +33,7 @@ public class ConfigMigrationService {
     @Resource
     private SystemConfigRegistry configRegistry;
 
+    @Lazy
     @Resource
     private ProfileComponent profileComponent;
 

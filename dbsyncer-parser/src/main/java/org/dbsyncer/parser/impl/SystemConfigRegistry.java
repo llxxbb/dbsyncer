@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
+import org.springframework.context.annotation.Lazy;
 import java.util.List;
 import java.util.Map;
 
@@ -41,6 +42,7 @@ public class SystemConfigRegistry {
     @Resource
     private Environment environment;
 
+    @Lazy
     @Resource
     private StorageService storageService;
 

@@ -97,8 +97,6 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     public void init() throws Exception {
         // 启动时自动执行配置迁移（在通知监听器之前，确保配置是最新的）
         configMigrationService.migrateIfNeeded();
-        // 启动时通知所有监听器，用合并后的配置初始化 Bean 状态
-        notifyListeners();
     }
 
     @Override

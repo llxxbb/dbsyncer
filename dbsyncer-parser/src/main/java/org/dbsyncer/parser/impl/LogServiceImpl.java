@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 import org.dbsyncer.storage.impl.SnowflakeIdWorker;
 
 import javax.annotation.Resource;
+import org.springframework.context.annotation.Lazy;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -28,9 +29,11 @@ import java.util.concurrent.Executor;
 @Component
 public class LogServiceImpl implements LogService {
 
+    @Lazy
     @Resource
     private SystemConfigRegistry configRegistry;
 
+    @Lazy
     @Resource
     private StorageService storageService;
 
