@@ -5,6 +5,7 @@ package org.dbsyncer.biz.impl;
 
 import org.dbsyncer.biz.AppConfigService;
 import org.dbsyncer.biz.SystemConfigService;
+import org.dbsyncer.parser.impl.SystemConfigRegistry;
 import org.dbsyncer.biz.vo.VersionVo;
 import org.dbsyncer.common.config.AppConfig;
 import org.dbsyncer.common.util.StringUtil;
@@ -30,6 +31,9 @@ public class AppConfigServiceImpl implements AppConfigService {
 
     private SystemConfigService systemConfigService;
 
+    @Resource
+    private SystemConfigRegistry configRegistry;
+
     public static final String WATERMARK_USERNAME = "${username}";
 
     public AppConfigServiceImpl(SystemConfigService systemConfigService) {
@@ -43,7 +47,7 @@ public class AppConfigServiceImpl implements AppConfigService {
     public VersionVo getVersionInfo(String username) throws Exception {
         VersionVo versionVo = new VersionVo(appConfig.getName(), appConfig.getCopyright());
         // 是否启用水印
-        SystemConfig systemConfig = systemConfigService.getSystemConfig();
+        SystemConfig systemConfig = configRegistry.getConfig();
         if (systemConfig.getBasic().getEnableWatermark()) {
             String watermark = systemConfigService.getWatermark(systemConfig);
             watermark = StringUtil.replace(watermark, WATERMARK_USERNAME, username);

@@ -16,6 +16,7 @@ import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.ProfileComponent;
+import org.dbsyncer.parser.impl.SystemConfigRegistry;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.spi.LogLevel;
@@ -48,6 +49,9 @@ public class SystemConfigServiceImpl implements SystemConfigService {
 
     @Resource
     private ProfileComponent profileComponent;
+
+    @Resource
+    private SystemConfigRegistry configRegistry;
 
     @Resource
     private PreloadTemplate preloadTemplate;
@@ -99,13 +103,13 @@ public class SystemConfigServiceImpl implements SystemConfigService {
 
     @Override
     public SystemConfig getSystemConfig() throws Exception {
-        SystemConfig config = profileComponent.getSystemConfig();
+        SystemConfig config = configRegistry.getConfig();
         if (null != config) {
             return config;
         }
 
         synchronized (this) {
-            config = profileComponent.getSystemConfig();
+            config = configRegistry.getConfig();
             if (null == config) {
                 config = (SystemConfig) systemConfigChecker.checkAddConfigModel(new HashMap<>());
             }

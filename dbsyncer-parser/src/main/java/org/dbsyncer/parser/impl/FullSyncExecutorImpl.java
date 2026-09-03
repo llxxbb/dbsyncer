@@ -7,6 +7,7 @@ import org.dbsyncer.common.ProcessEvent;
 import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.parser.FullSyncExecutor;
 import org.dbsyncer.parser.ProfileComponent;
+import org.dbsyncer.parser.impl.SystemConfigRegistry;
 import org.dbsyncer.parser.model.*;
 import org.dbsyncer.parser.pipeline.SyncPipeline;
 import org.dbsyncer.parser.pipeline.SyncTask;
@@ -56,6 +57,9 @@ public class FullSyncExecutorImpl implements FullSyncExecutor {
     private ProfileComponent profileComponent;
 
     @Resource
+    private SystemConfigRegistry configRegistry;
+
+    @Resource
     private ErrorQueueCollector errorQueueCollector;
 
     // 移除ApplicationContext依赖，添加ProcessEvent依赖
@@ -88,7 +92,7 @@ public class FullSyncExecutorImpl implements FullSyncExecutor {
         context.setSourceTable(group.getSourceTable());
         context.setEvent(ConnectorConstant.OPERTION_INSERT);
         context.setPageSize(mapping.getReadNum());
-        context.setEnableSchemaResolver(profileComponent.getSystemConfig().getBasic().getEnableSchemaResolver());
+        context.setEnableSchemaResolver(configRegistry.getConfig().getBasic().getEnableSchemaResolver());
         context.setCursors(tableGroup.getCursors());
 
         ConnectorService sourceConnector = connectorFactory

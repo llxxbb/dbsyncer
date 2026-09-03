@@ -20,6 +20,7 @@ import org.dbsyncer.parser.pipeline.SyncTask;
 import org.dbsyncer.sdk.model.*;
 import org.dbsyncer.sdk.notify.NotifyType;
 import org.dbsyncer.parser.service.TableGroupModelService;
+import org.dbsyncer.parser.impl.SystemConfigRegistry;
 import org.dbsyncer.sdk.connector.CounterService;
 import org.dbsyncer.sdk.connector.ErrorQueueCollector;
 import org.dbsyncer.sdk.spi.MessageService;
@@ -62,6 +63,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
     private TableGroupModelService tableGroupModelService;
     private ErrorQueueCollector errorQueueCollector;
     public MessageService messageService;
+    private SystemConfigRegistry configRegistry;
 
     /**
      * 是否有待处理的任务（事件进入队列时设置为 true，队列为空时设置为 false）
@@ -98,7 +100,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             // 传递列名信息（从第一个请求中获取）
             response.setColumnNames(request.getColumnNames());
             response.setMerged(true);
-        } else if (profileComponent.getSystemConfig().getBasic().getEnablePrintTraceInfo()
+        } else if (configRegistry.getConfig().getBasic().getEnablePrintTraceInfo()
                 && StringUtil.isNotBlank(request.getTraceId())) {
             logger.info("traceId:{} merge into traceId:{}", request.getTraceId(), response.getTraceId());
         }
@@ -323,7 +325,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
                 .filter(f -> fieldIndexMap.containsKey(f.nameIgnoreCase()))
                 .collect(Collectors.toList());
 
-        boolean enableSchemaResolver = profileComponent.getSystemConfig().getBasic().getEnableSchemaResolver();
+        boolean enableSchemaResolver = configRegistry.getConfig().getBasic().getEnableSchemaResolver();
         ConnectorConfig sourceConfig = getConnectorConfig(mapping.getSourceConnectorId());
         ConnectorService sourceConnector = connectorFactory.getConnectorService(sourceConfig.getConnectorType());
         try {
@@ -498,7 +500,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
     }
 
     private void printTraceInfo(WriterResponse response) {
-        if (profileComponent.getSystemConfig().getBasic().getEnablePrintTraceInfo()
+        if (configRegistry.getConfig().getBasic().getEnablePrintTraceInfo()
                 && StringUtil.isNotBlank(response.getTraceId())) {
             logger.info("traceId:{}, tableName:{}, event:{}, offset:{}, row:{}", response.getTraceId(),
                     response.getTableName(), response.getEvent(), JsonUtil.objToJson(response.getChangedOffset()),
@@ -554,5 +556,9 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
 
     public void setErrorQueueCollector(ErrorQueueCollector errorQueueCollector) {
         this.errorQueueCollector = errorQueueCollector;
+    }
+
+    public void setConfigRegistry(SystemConfigRegistry configRegistry) {
+        this.configRegistry = configRegistry;
     }
 }

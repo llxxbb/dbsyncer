@@ -1,6 +1,7 @@
 package org.dbsyncer.web.controller;
 
 import org.dbsyncer.biz.SystemConfigService;
+import org.dbsyncer.parser.impl.SystemConfigRegistry;
 import org.dbsyncer.biz.UserConfigService;
 import org.dbsyncer.biz.vo.UserInfoVo;
 import org.springframework.boot.web.server.ErrorPage;
@@ -22,13 +23,16 @@ public class DefaultController implements ErrorPageRegistrar {
 
     @Resource
     private SystemConfigService systemConfigService;
+
+    @Resource
+    private SystemConfigRegistry configRegistry;
     
     @Resource
     private UserConfigService userConfigService;
 
     @RequestMapping("")
     public String index(HttpServletRequest request, ModelMap model) throws Exception {
-        model.put("enableCDN", systemConfigService.getSystemConfig().getBasic().getEnableCDN());
+        model.put("enableCDN", configRegistry.getConfig().getBasic().getEnableCDN());
         
         // 传递当前用户信息
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -43,7 +47,7 @@ public class DefaultController implements ErrorPageRegistrar {
 
     @RequestMapping({"/login", "/login.html"})
     public String index(ModelMap model) throws Exception {
-        model.put("enableCDN", systemConfigService.getSystemConfig().getBasic().getEnableCDN());
+        model.put("enableCDN", configRegistry.getConfig().getBasic().getEnableCDN());
         return "login.html";
     }
 

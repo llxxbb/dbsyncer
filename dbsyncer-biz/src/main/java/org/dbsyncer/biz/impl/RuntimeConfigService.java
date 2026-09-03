@@ -9,6 +9,7 @@ import org.dbsyncer.common.config.StorageConfig;
 import org.dbsyncer.common.config.props.*;
 import org.dbsyncer.common.retry.RetryPolicy;
 import org.dbsyncer.parser.ProfileComponent;
+import org.dbsyncer.parser.impl.SystemConfigRegistry;
 import org.dbsyncer.parser.error.ErrorQueueConfig;
 import org.dbsyncer.parser.model.SystemConfig;
 import org.dbsyncer.parser.notify.NotifyConfig;
@@ -34,6 +35,9 @@ public class RuntimeConfigService {
 
     @Resource
     private ProfileComponent profileComponent;
+
+    @Resource
+    private SystemConfigRegistry configRegistry;
 
     @Resource
     private GeneralBufferConfig generalBufferConfig;
@@ -183,7 +187,7 @@ public class RuntimeConfigService {
      * DB 有值用 DB，否则用 Bean 运行时值。
      */
     public ExecutorProps getEffectiveExecutor() {
-        SystemConfig cfg = profileComponent.getSystemConfig();
+        SystemConfig cfg = configRegistry.getConfig();
         ExecutorProps db = cfg != null ? cfg.getExecutors() : null;
         if (db == null) {
             // 未配置，从 Bean 读运行时值
@@ -196,7 +200,7 @@ public class RuntimeConfigService {
      * 获取缓冲区 Tab 当前生效值。
      */
     public BufferProps getEffectiveBuffers() {
-        SystemConfig cfg = profileComponent.getSystemConfig();
+        SystemConfig cfg = configRegistry.getConfig();
         BufferProps db = cfg != null ? cfg.getBuffers() : null;
         if (db == null) {
             return buildBufferPropsFromBeans();
@@ -208,7 +212,7 @@ public class RuntimeConfigService {
      * 获取重试策略 Tab 当前生效值。
      */
     public RetryProps getEffectiveRetry() {
-        SystemConfig cfg = profileComponent.getSystemConfig();
+        SystemConfig cfg = configRegistry.getConfig();
         RetryProps db = cfg != null ? cfg.getRetry() : null;
         if (db == null) {
             return buildRetryPropsFromBean();
@@ -220,7 +224,7 @@ public class RuntimeConfigService {
      * 获取通知通道 Tab 当前生效值。
      */
     public NotifyProps getEffectiveNotify() {
-        SystemConfig cfg = profileComponent.getSystemConfig();
+        SystemConfig cfg = configRegistry.getConfig();
         NotifyProps db = cfg != null ? cfg.getNotify() : null;
         if (db == null) {
             return buildNotifyPropsFromBean();
@@ -232,7 +236,7 @@ public class RuntimeConfigService {
      * 获取错误处理 Tab 当前生效值。
      */
     public ErrorProps getEffectiveError() {
-        SystemConfig cfg = profileComponent.getSystemConfig();
+        SystemConfig cfg = configRegistry.getConfig();
         ErrorProps db = cfg != null ? cfg.getError() : null;
         if (db == null) {
             return buildErrorPropsFromBean();
@@ -244,7 +248,7 @@ public class RuntimeConfigService {
      * 获取基础设置 Tab 当前生效值。
      */
     public BasicProps getEffectiveBasic() {
-        SystemConfig cfg = profileComponent.getSystemConfig();
+        SystemConfig cfg = configRegistry.getConfig();
         BasicProps db = cfg != null ? cfg.getBasic() : null;
         if (db == null) {
             return buildBasicPropsFromLegacy(cfg);

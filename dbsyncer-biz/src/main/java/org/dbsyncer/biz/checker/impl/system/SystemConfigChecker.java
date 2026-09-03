@@ -9,8 +9,8 @@ import org.dbsyncer.common.util.BeanUtil;
 import org.dbsyncer.common.util.NetworkUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.ProfileComponent;
+import org.dbsyncer.parser.impl.SystemConfigRegistry;
 import org.dbsyncer.sdk.spi.LogService;
-import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.model.ConfigModel;
 import org.dbsyncer.parser.model.SystemConfig;
 import org.slf4j.Logger;
@@ -33,6 +33,9 @@ public class SystemConfigChecker extends AbstractChecker {
 
     @Resource
     private ProfileComponent profileComponent;
+
+    @Resource
+    private SystemConfigRegistry configRegistry;
 
     @Resource
     private LogService logService;
@@ -82,7 +85,7 @@ public class SystemConfigChecker extends AbstractChecker {
             }
         }
 
-        SystemConfig systemConfig = profileComponent.getSystemConfig();
+        SystemConfig systemConfig = configRegistry.getConfig();
         Assert.notNull(systemConfig, "配置文件为空.");
         BeanUtil.mapToBean(params, systemConfig);
 

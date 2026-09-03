@@ -8,6 +8,7 @@ import org.dbsyncer.biz.ConnectorService;
 import org.dbsyncer.biz.ErrorQueueRetrier;
 import org.dbsyncer.biz.MonitorService;
 import org.dbsyncer.biz.SystemConfigService;
+import org.dbsyncer.parser.impl.SystemConfigRegistry;
 import org.dbsyncer.sdk.connector.ErrorQueueCollector;
 import org.dbsyncer.biz.enums.DiskMetricEnum;
 import org.dbsyncer.biz.enums.MetricEnum;
@@ -70,6 +71,9 @@ public class MonitorController extends BaseController {
 
     @Resource
     private SystemConfigService systemConfigService;
+
+    @Resource
+    private SystemConfigRegistry configRegistry;
 
     @Resource
     private PreloadTemplate preloadTemplate;
@@ -262,7 +266,7 @@ public class MonitorController extends BaseController {
     @GetMapping("/getRefreshIntervalSeconds")
     public RestResult getRefreshInterval() {
         try {
-            return RestResult.restSuccess(systemConfigService.getSystemConfig().getBasic().getRefreshIntervalSeconds());
+            return RestResult.restSuccess(configRegistry.getConfig().getBasic().getRefreshIntervalSeconds());
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage(), e);
             return RestResult.restFail(e.getMessage());

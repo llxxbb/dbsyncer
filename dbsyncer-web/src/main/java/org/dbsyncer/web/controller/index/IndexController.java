@@ -9,6 +9,7 @@ import org.dbsyncer.biz.AppConfigService;
 import org.dbsyncer.biz.PermissionService;
 import org.dbsyncer.biz.ProjectGroupService;
 import org.dbsyncer.biz.SystemConfigService;
+import org.dbsyncer.parser.impl.SystemConfigRegistry;
 import org.dbsyncer.biz.UserConfigService;
 import org.dbsyncer.biz.MappingService;
 import org.dbsyncer.biz.vo.ProjectGroupVo;
@@ -54,6 +55,9 @@ public class IndexController {
 
     @Resource
     private SystemConfigService systemConfigService;
+
+    @Resource
+    private SystemConfigRegistry configRegistry;
 
     @Resource
     private MappingService mappingService;
@@ -238,7 +242,7 @@ public class IndexController {
     @GetMapping("/abnormalTasks")
     public String abnormalTasksPage(ModelMap model) {
         try {
-            model.put("enableCDN", systemConfigService.getSystemConfig().getBasic().getEnableCDN());
+            model.put("enableCDN", configRegistry.getConfig().getBasic().getEnableCDN());
         } catch (Exception e) {
             logger.error("获取 enableCDN 配置失败", e);
         }

@@ -7,6 +7,7 @@ import org.apache.lucene.index.IndexableField;
 import org.dbsyncer.biz.ErrorQueueRetrier;
 import org.dbsyncer.biz.MonitorService;
 import org.dbsyncer.biz.SystemConfigService;
+import org.dbsyncer.parser.impl.SystemConfigRegistry;
 import org.dbsyncer.biz.enums.BufferActuatorMetricEnum;
 import org.dbsyncer.biz.enums.DiskMetricEnum;
 import org.dbsyncer.biz.enums.MetricEnum;
@@ -96,6 +97,9 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob {
 
     @Resource
     private SystemConfigService systemConfigService;
+
+    @Resource
+    private SystemConfigRegistry configRegistry;
 
     @Resource
     private MetricGroupProcessor metricGroupProcessor;
@@ -385,7 +389,7 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob {
         if (!CollectionUtils.isEmpty(metaAll)) {
             Query query = new Query();
             query.setType(StorageEnum.DATA);
-            int expireDataDays = systemConfigService.getSystemConfig().getBasic().getExpireDataDays();
+            int expireDataDays = configRegistry.getConfig().getBasic().getExpireDataDays();
             long expiredTime = Timestamp.valueOf(LocalDateTime.now().minusDays(expireDataDays)).getTime();
             LongFilter expiredFilter = new LongFilter(ConfigConstant.CONFIG_MODEL_CREATE_TIME, FilterEnum.LT,
                     expiredTime);
@@ -400,7 +404,7 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob {
     private void deleteExpiredLog() throws Exception {
         Query query = new Query();
         query.setType(StorageEnum.LOG);
-        int expireLogDays = systemConfigService.getSystemConfig().getBasic().getExpireLogDays();
+        int expireLogDays = configRegistry.getConfig().getBasic().getExpireLogDays();
         long expiredTime = Timestamp.valueOf(LocalDateTime.now().minusDays(expireLogDays)).getTime();
         LongFilter expiredFilter = new LongFilter(ConfigConstant.CONFIG_MODEL_CREATE_TIME, FilterEnum.LT, expiredTime);
         query.setBooleanFilter(new BooleanFilter().add(expiredFilter));

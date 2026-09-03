@@ -12,6 +12,7 @@ import org.dbsyncer.parser.TableGroupContext;
 import org.dbsyncer.parser.ddl.DDLParser;
 import org.dbsyncer.parser.model.WriterRequest;
 import org.dbsyncer.parser.service.TableGroupModelService;
+import org.dbsyncer.parser.impl.SystemConfigRegistry;
 import org.dbsyncer.sdk.connector.CounterService;
 import org.dbsyncer.sdk.connector.ErrorQueueCollector;
 
@@ -76,6 +77,9 @@ public final class BufferActuatorRouter implements DisposableBean {
 
     @Resource
     private MessageService messageService;
+
+    @Resource
+    private SystemConfigRegistry configRegistry;
 
     /**
      * 每个 meta 独享的执行器
@@ -167,6 +171,7 @@ public final class BufferActuatorRouter implements DisposableBean {
         actuator.setTableGroupModelService(tableGroupModelService);
         actuator.setErrorQueueCollector(errorQueueCollector);
         actuator.messageService = messageService;
+        actuator.setConfigRegistry(configRegistry);
         // 注入 AbstractBufferActuator 需要的依赖
         actuator.setScheduledTaskService(scheduledTaskService);
         actuator.setTimeRegistry(timeRegistry);

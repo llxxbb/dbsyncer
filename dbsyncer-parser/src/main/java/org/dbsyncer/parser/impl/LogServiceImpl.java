@@ -4,7 +4,6 @@
 package org.dbsyncer.parser.impl;
 
 import org.dbsyncer.common.util.StringUtil;
-import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.enums.StorageEnum;
 import org.dbsyncer.sdk.model.ConfigModel;
@@ -13,7 +12,6 @@ import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.storage.StorageService;
 import org.springframework.stereotype.Component;
-import org.springframework.context.annotation.Lazy;
 import org.dbsyncer.storage.impl.SnowflakeIdWorker;
 
 import javax.annotation.Resource;
@@ -30,7 +28,9 @@ import java.util.concurrent.Executor;
 @Component
 public class LogServiceImpl implements LogService {
 
-    @Lazy
+    @Resource
+    private SystemConfigRegistry configRegistry;
+
     @Resource
     private StorageService storageService;
 
@@ -39,9 +39,6 @@ public class LogServiceImpl implements LogService {
 
     @Resource
     private Executor storageExecutor;
-
-    @Resource
-    private ProfileComponent profileComponent;
 
     @Override
     public void log(Object model, LogType logType, LogLevel logLevel, String msg) {
@@ -77,8 +74,8 @@ public class LogServiceImpl implements LogService {
             params.put(ConfigConstant.LOG_LEVEL, logLevel.name());
             int maxLen = 4000;
             try {
-                if (profileComponent.getSystemConfig() != null && profileComponent.getSystemConfig().getBasic() != null) {
-                    maxLen = profileComponent.getSystemConfig().getBasic().getMaxStorageErrorLength();
+                if (configRegistry.getConfig() != null && configRegistry.getConfig().getBasic() != null) {
+                    maxLen = configRegistry.getConfig().getBasic().getMaxStorageErrorLength();
                 }
             } catch (Exception e) { /* ignore */ }
             params.put("json", StringUtil.substring(msg, 0, maxLen));
