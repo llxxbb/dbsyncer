@@ -17,6 +17,7 @@ import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.ProfileComponent;
+import org.dbsyncer.parser.impl.ConfigMigrationService;
 import org.dbsyncer.parser.impl.SystemConfigRegistry;
 import org.dbsyncer.parser.listener.ConfigChangeListener;
 import org.dbsyncer.sdk.spi.LogService;
@@ -57,6 +58,9 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     private SystemConfigRegistry configRegistry;
 
     @Resource
+    private ConfigMigrationService configMigrationService;
+
+    @Resource
     private PreloadTemplate preloadTemplate;
 
     @Resource
@@ -90,7 +94,9 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     private List<ConfigChangeListener> configChangeListeners;
 
     @PostConstruct
-    public void init() {
+    public void init() throws Exception {
+        // 启动时自动执行配置迁移（在通知监听器之前，确保配置是最新的）
+        configMigrationService.migrateIfNeeded();
         // 启动时通知所有监听器，用合并后的配置初始化 Bean 状态
         notifyListeners();
     }
@@ -242,13 +248,14 @@ public class SystemConfigServiceImpl implements SystemConfigService {
 
     @Override
     public Map<String, Object> getTabs() throws Exception {
+        SystemConfig config = configRegistry.getConfig();
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("basic", configRegistry.getEffectiveBasic());
-        result.put("executors", configRegistry.getEffectiveExecutor());
-        result.put("buffers", configRegistry.getEffectiveBuffers());
-        result.put("retry", configRegistry.getEffectiveRetry());
-        result.put("notify", configRegistry.getEffectiveNotify());
-        result.put("error", configRegistry.getEffectiveError());
+        result.put("basic", config.getBasic());
+        result.put("executors", config.getExecutors());
+        result.put("buffers", config.getBuffers());
+        result.put("retry", config.getRetry());
+        result.put("notify", config.getNotify());
+        result.put("error", config.getError());
         return result;
     }
 

@@ -4,7 +4,6 @@
 package org.dbsyncer.manager.impl;
 
 import org.dbsyncer.parser.impl.ConfigService;
-import org.dbsyncer.parser.impl.ConfigMigrationService;
 import org.dbsyncer.common.model.Paging;
 import org.dbsyncer.common.startup.StartupGate;
 import org.dbsyncer.common.util.CollectionUtils;
@@ -74,9 +73,6 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
     private List<StartupGate> startupGates;
 
     @Resource
-    private ConfigMigrationService configMigrationService;
-
-    @Resource
     private ConfigService configComparator;
 
     private boolean preloadCompleted;
@@ -94,14 +90,7 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
         loadConnectorInstance();
 
         // ===== ADR-0029 新增钩子（在启动任务之前） =====
-        // 3. 配置迁移（先迁移，才能拿到正确的配置）
-        try {
-            configMigrationService.migrateIfNeeded();
-        } catch (Exception e) {
-            logger.error("配置迁移失败", e);
-        }
-
-        // 4. 启动期配置对照表（在任务启动前打印）
+        // 3. 启动期配置对照表（在任务启动前打印）
         try {
             configComparator.printStartupTable();
         } catch (Exception e) {

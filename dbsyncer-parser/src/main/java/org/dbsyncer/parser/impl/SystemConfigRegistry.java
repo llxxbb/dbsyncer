@@ -1,18 +1,9 @@
 package org.dbsyncer.parser.impl;
 
-import org.dbsyncer.common.config.BufferActuatorConfig;
-import org.dbsyncer.common.config.DispatchTaskConfig;
-import org.dbsyncer.common.config.GeneralBufferConfig;
-import org.dbsyncer.common.config.RetryConfig;
-import org.dbsyncer.common.config.SchedulerConfig;
-import org.dbsyncer.common.config.StorageConfig;
 import org.dbsyncer.common.config.props.*;
 import org.dbsyncer.common.model.Paging;
-import org.dbsyncer.common.retry.RetryPolicy;
 import org.dbsyncer.common.util.JsonUtil;
-import org.dbsyncer.parser.error.ErrorQueueConfig;
 import org.dbsyncer.parser.model.SystemConfig;
-import org.dbsyncer.parser.notify.NotifyConfig;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.enums.StorageEnum;
 import org.dbsyncer.sdk.filter.Query;
@@ -24,7 +15,6 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -53,31 +43,6 @@ public class SystemConfigRegistry {
 
     @Resource
     private StorageService storageService;
-
-    // ===== C 类运行时 Bean（effective 读取兜底） =====
-
-    @Resource
-    private RetryConfig retryConfig;
-
-    @Resource
-    private NotifyConfig notifyConfig;
-
-    @Resource
-    private ErrorQueueConfig errorQueueConfig;
-
-    // ===== B 类运行时 Bean（effective 读取兜底） =====
-
-    @Resource
-    private GeneralBufferConfig generalBufferConfig;
-
-    @Resource
-    private StorageConfig storageConfig;
-
-    @Resource
-    private DispatchTaskConfig dispatchTaskConfig;
-
-    @Resource
-    private SchedulerConfig schedulerConfig;
 
     // 三个实例
     private SystemConfig propsConfig;   // 从 Environment 加载
@@ -117,6 +82,17 @@ public class SystemConfigRegistry {
     }
 
     /**
+     * 设置 DB 配置（内部过滤 A 类，因为 A 类只从 props 来，DB 不存储）。
+     * <p>
+     * 由 ConfigMigrationService 调用，用于首次迁移时把 props 默认值写入 DB。
+     */
+    public synchronized void setDbConfig(SystemConfig newDbConfig) {
+        this.dbConfig = filterAClass(newDbConfig);
+        this.mergedConfig = merge(propsConfig, dbConfig);
+        logger.info("SystemConfigRegistry 设置 dbConfig 完成，已过滤 A 类配置");
+    }
+
+    /**
      * DB 配置变更后重新合并。
      * <p>
      * 由 SystemConfigServiceImpl.editTab() 调用。
@@ -128,160 +104,21 @@ public class SystemConfigRegistry {
         logger.info("SystemConfigRegistry 重新合并完成");
     }
 
-    // ===== 子对象合并读（UI 预填用） =====
-
     /**
-     * 获取执行器 Tab 当前生效值。
-     * merged 有值用 merged，否则从 Bean 运行时值兜底。
+     * 过滤 A 类配置（A 类只从 props 来，DB 不存储）。
      */
-    public ExecutorProps getEffectiveExecutor() {
-        SystemConfig cfg = mergedConfig;
-        ExecutorProps db = cfg != null ? cfg.getExecutors() : null;
-        if (db == null) {
-            return buildExecutorPropsFromBeans();
-        }
-        return db;
-    }
-
-    public BufferProps getEffectiveBuffers() {
-        SystemConfig cfg = mergedConfig;
-        BufferProps db = cfg != null ? cfg.getBuffers() : null;
-        if (db == null) {
-            return buildBufferPropsFromBeans();
-        }
-        return db;
-    }
-
-    public RetryProps getEffectiveRetry() {
-        SystemConfig cfg = mergedConfig;
-        RetryProps db = cfg != null ? cfg.getRetry() : null;
-        if (db == null) {
-            return buildRetryPropsFromBean();
-        }
-        return db;
-    }
-
-    public NotifyProps getEffectiveNotify() {
-        SystemConfig cfg = mergedConfig;
-        NotifyProps db = cfg != null ? cfg.getNotify() : null;
-        if (db == null) {
-            return buildNotifyPropsFromBean();
-        }
-        return db;
-    }
-
-    public ErrorProps getEffectiveError() {
-        SystemConfig cfg = mergedConfig;
-        ErrorProps db = cfg != null ? cfg.getError() : null;
-        if (db == null) {
-            return buildErrorPropsFromBean();
-        }
-        return db;
-    }
-
-    public BasicProps getEffectiveBasic() {
-        SystemConfig cfg = mergedConfig;
-        BasicProps db = cfg != null ? cfg.getBasic() : null;
-        if (db == null) {
-            return buildBasicPropsFromLegacy(cfg);
-        }
-        return db;
-    }
-
-    // ===== 从 Bean 构建 Props（兜底） =====
-
-    private ExecutorProps buildExecutorPropsFromBeans() {
-        ExecutorProps props = new ExecutorProps();
-        props.setGeneral(buildPoolProps(generalBufferConfig.getThreadCoreSize(),
-                generalBufferConfig.getMaxThreadSize(), generalBufferConfig.getThreadQueueCapacity()));
-        props.setStorage(buildPoolProps(storageConfig.getThreadCoreSize(),
-                storageConfig.getMaxThreadSize(), storageConfig.getThreadQueueCapacity()));
-        props.setDispatch(buildPoolProps(dispatchTaskConfig.getThreadCoreSize(),
-                dispatchTaskConfig.getMaxThreadSize(), dispatchTaskConfig.getThreadQueueCapacity()));
-        props.setSchedulerPoolSize(schedulerConfig.getPoolSize());
-        return props;
-    }
-
-    private BufferProps buildBufferPropsFromBeans() {
-        BufferProps props = new BufferProps();
-        props.setGeneral(buildBufferActuatorProps(generalBufferConfig));
-        props.setStorage(buildBufferActuatorProps(storageConfig));
-        return props;
-    }
-
-    private RetryProps buildRetryPropsFromBean() {
-        RetryPolicy g = retryConfig.getGlobal();
-        RetryProps props = new RetryProps();
-        props.setDisable(g.isDisable());
-        props.setMaxAttempts(g.getMaxAttempts());
-        props.setInitialIntervalMs(g.getInitialIntervalMs());
-        props.setMaxIntervalMs(g.getMaxIntervalMs());
-        props.setMultiplier(g.getMultiplier());
-        props.setMaxDurationMs(g.getMaxDurationMs());
-        props.setTerminationMode(g.getTerminationMode());
-        props.setUseKeyword(g.isUseKeyword());
-        props.setMatchMode(g.getMatchMode());
-        props.setKeywords(g.getKeywords() != null ? new ArrayList<>(g.getKeywords()) : null);
-        props.setExcludeKeywords(g.getExcludeKeywords() != null ? new ArrayList<>(g.getExcludeKeywords()) : null);
-        return props;
-    }
-
-    private NotifyProps buildNotifyPropsFromBean() {
-        NotifyProps props = new NotifyProps();
-        props.setChannels(new ArrayList<>(notifyConfig.getChannels()));
-        MailProps mail = new MailProps();
-        mail.setUsername(notifyConfig.getMail().getUsername());
-        // password 脱敏：不暴露
-        mail.setNotifyTypes(new ArrayList<>(notifyConfig.getMail().getNotifyTypes()));
-        props.setMail(mail);
-        DingTalkProps dingtalk = new DingTalkProps();
-        dingtalk.setWebhookUrl(notifyConfig.getDingtalk().getWebhookUrl());
-        dingtalk.setSecret(notifyConfig.getDingtalk().getSecret());
-        dingtalk.setNotifyTypes(new ArrayList<>(notifyConfig.getDingtalk().getNotifyTypes()));
-        props.setDingtalk(dingtalk);
-        return props;
-    }
-
-    private ErrorProps buildErrorPropsFromBean() {
-        ErrorProps props = new ErrorProps();
-        props.setThreshold(errorQueueConfig.getThreshold());
-        props.setFatalMatchMode(errorQueueConfig.getFatalMatchMode());
-        props.setFatalKeywords(new ArrayList<>(errorQueueConfig.getFatalKeywords()));
-        return props;
-    }
-
-    private BasicProps buildBasicPropsFromLegacy(SystemConfig cfg) {
-        BasicProps props = new BasicProps();
-        if (cfg != null && cfg.getBasic() != null) {
-            props.setExpireDataDays(cfg.getBasic().getExpireDataDays());
-            props.setExpireLogDays(cfg.getBasic().getExpireLogDays());
-            props.setRefreshIntervalSeconds(cfg.getBasic().getRefreshIntervalSeconds());
-            props.setEnableStorageWriteFail(cfg.getBasic().getEnableStorageWriteFail());
-            props.setMaxStorageErrorLength(cfg.getBasic().getMaxStorageErrorLength());
-            props.setEnableCDN(cfg.getBasic().getEnableCDN());
-            props.setEnableWatermark(cfg.getBasic().getEnableWatermark());
-            props.setWatermark(cfg.getBasic().getWatermark());
-            props.setEnableSchemaResolver(cfg.getBasic().getEnableSchemaResolver());
-            props.setEnablePrintTraceInfo(cfg.getBasic().getEnablePrintTraceInfo());
-        }
-        return props;
-    }
-
-    private PoolProps buildPoolProps(int coreSize, int maxSize, int queueCapacity) {
-        PoolProps props = new PoolProps();
-        props.setThreadCoreSize(coreSize);
-        props.setMaxThreadSize(maxSize);
-        props.setThreadQueueCapacity(queueCapacity);
-        return props;
-    }
-
-    private BufferActuatorProps buildBufferActuatorProps(BufferActuatorConfig config) {
-        BufferActuatorProps props = new BufferActuatorProps();
-        props.setBufferWriterCount(config.getBufferWriterCount());
-        props.setBufferPullCount(config.getBufferPullCount());
-        props.setBufferQueueCapacity(config.getBufferQueueCapacity());
-        props.setBufferPeriodMillisecond(config.getBufferPeriodMillisecond());
-        return props;
+    private SystemConfig filterAClass(SystemConfig config) {
+        SystemConfig filtered = new SystemConfig();
+        // B/C 类：保留
+        filtered.setExecutors(config.getExecutors());
+        filtered.setBuffers(config.getBuffers());
+        filtered.setRetry(config.getRetry());
+        filtered.setNotify(config.getNotify());
+        filtered.setError(config.getError());
+        filtered.setBasic(config.getBasic());
+        filtered.setSchemaVersion(config.getSchemaVersion());
+        // A 类：不设置（server, storageConn, logging, helpdoc, worker, license）
+        return filtered;
     }
 
     // ===== 配置加载 =====
