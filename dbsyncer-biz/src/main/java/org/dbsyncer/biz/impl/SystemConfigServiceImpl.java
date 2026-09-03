@@ -73,9 +73,6 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     private AppConfig appConfig;
 
     @Resource
-    private RuntimeConfigService runtimeConfigService;
-
-    @Resource
     private RuntimeConfigValidator runtimeConfigValidator;
 
     @Resource
@@ -204,11 +201,11 @@ public class SystemConfigServiceImpl implements SystemConfigService {
         // ② 重建 sidecar（下次启动的输入）
         sidecarPropertyWriter.rewrite(cfg);
 
-        // ③ C 类运行期回写 / B 类自重启
+        // ③ 通知 Registry 重新合并（内部自动触发 C 类 applyCClass）
+        configRegistry.onDbConfigChanged(cfg);
+
+        // ④ B 类自重启
         boolean restartRequired = tabEnum.isRestartRequired();
-        if (tabEnum.isRuntimeApply() && !restartRequired) {
-            runtimeConfigService.applyCClass(cfg);
-        }
 
         // B 类：自重启（如果有进程守护）
         if (restartRequired && selfRestartService.isSelfRestartPossible()) {
@@ -232,12 +229,12 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     @Override
     public Map<String, Object> getTabs() throws Exception {
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("basic", runtimeConfigService.getEffectiveBasic());
-        result.put("executors", runtimeConfigService.getEffectiveExecutor());
-        result.put("buffers", runtimeConfigService.getEffectiveBuffers());
-        result.put("retry", runtimeConfigService.getEffectiveRetry());
-        result.put("notify", runtimeConfigService.getEffectiveNotify());
-        result.put("error", runtimeConfigService.getEffectiveError());
+        result.put("basic", configRegistry.getEffectiveBasic());
+        result.put("executors", configRegistry.getEffectiveExecutor());
+        result.put("buffers", configRegistry.getEffectiveBuffers());
+        result.put("retry", configRegistry.getEffectiveRetry());
+        result.put("notify", configRegistry.getEffectiveNotify());
+        result.put("error", configRegistry.getEffectiveError());
         return result;
     }
 
@@ -250,6 +247,7 @@ public class SystemConfigServiceImpl implements SystemConfigService {
         setTabProps(cfg, tabEnum, null);
         profileComponent.editConfigModel(cfg);
         sidecarPropertyWriter.rewrite(cfg);
+        configRegistry.onDbConfigChanged(cfg);
 
         return "已恢复系统默认。重启后生效。";
     }
