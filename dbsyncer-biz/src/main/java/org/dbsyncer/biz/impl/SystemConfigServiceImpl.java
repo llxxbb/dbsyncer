@@ -18,6 +18,7 @@ import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.impl.SystemConfigRegistry;
+import org.dbsyncer.parser.listener.ConfigChangeListener;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.spi.LogLevel;
@@ -32,6 +33,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
+import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.io.File;
 import java.io.IOException;
@@ -83,6 +85,15 @@ public class SystemConfigServiceImpl implements SystemConfigService {
 
     @Resource
     private Environment environment;
+
+    @Resource
+    private List<ConfigChangeListener> configChangeListeners;
+
+    @PostConstruct
+    public void init() {
+        // 启动时通知所有监听器，用合并后的配置初始化 Bean 状态
+        notifyListeners();
+    }
 
     @Override
     public String edit(Map<String, String> params) throws Exception {
@@ -201,10 +212,13 @@ public class SystemConfigServiceImpl implements SystemConfigService {
         // ② 重建 sidecar（下次启动的输入）
         sidecarPropertyWriter.rewrite(cfg);
 
-        // ③ 通知 Registry 重新合并（内部自动触发 C 类 applyCClass）
+        // ③ 通知 Registry 重新合并
         configRegistry.onDbConfigChanged(cfg);
 
-        // ④ B 类自重启
+        // ④ 通知所有监听器更新 Bean 状态
+        notifyListeners();
+
+        // ⑤ B 类自重启
         boolean restartRequired = tabEnum.isRestartRequired();
 
         // B 类：自重启（如果有进程守护）
@@ -248,6 +262,7 @@ public class SystemConfigServiceImpl implements SystemConfigService {
         profileComponent.editConfigModel(cfg);
         sidecarPropertyWriter.rewrite(cfg);
         configRegistry.onDbConfigChanged(cfg);
+        notifyListeners();
 
         return "已恢复系统默认。重启后生效。";
     }
@@ -361,6 +376,22 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     }
 
 
+
+    /**
+     * 通知所有配置变更监听器。
+     */
+    private void notifyListeners() {
+        if (configChangeListeners == null) return;
+        SystemConfig config = configRegistry.getConfig();
+        if (config == null) return;
+        for (ConfigChangeListener listener : configChangeListeners) {
+            try {
+                listener.onConfigChanged(config);
+            } catch (Exception e) {
+                logger.error("配置变更通知失败: {}", listener.getClass().getSimpleName(), e);
+            }
+        }
+    }
 
     /**
      * IP 段脱敏

@@ -1,14 +1,17 @@
 package org.dbsyncer.parser.notify;
 
+import org.dbsyncer.common.config.props.DingTalkProps;
+import org.dbsyncer.common.config.props.MailProps;
+import org.dbsyncer.common.config.props.NotifyProps;
 import org.dbsyncer.common.util.CollectionUtils;
-import org.dbsyncer.common.util.StringUtil;
+import org.dbsyncer.parser.listener.ConfigChangeListener;
+import org.dbsyncer.parser.model.SystemConfig;
 import org.dbsyncer.sdk.notify.NotifyType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -25,7 +28,7 @@ import java.util.Set;
  */
 @Component
 @ConfigurationProperties(prefix = "dbsyncer.plugin.notify")
-public class NotifyConfig {
+public class NotifyConfig implements ConfigChangeListener {
 
     private static final Logger logger = LoggerFactory.getLogger(NotifyConfig.class);
 
@@ -43,6 +46,39 @@ public class NotifyConfig {
      * 钉钉通道配置
      */
     private DingTalkConfig dingtalk = new DingTalkConfig();
+
+    @Override
+    public void onConfigChanged(SystemConfig newConfig) {
+        NotifyProps notify = newConfig.getNotify();
+        if (notify == null) return;
+        if (notify.getChannels() != null) {
+            this.channels = notify.getChannels();
+        }
+        MailProps mailProps = notify.getMail();
+        if (mailProps != null) {
+            if (mailProps.getUsername() != null) {
+                this.mail.setUsername(mailProps.getUsername());
+            }
+            if (mailProps.getPassword() != null) {
+                this.mail.setPassword(mailProps.getPassword());
+            }
+            if (mailProps.getNotifyTypes() != null) {
+                this.mail.setNotifyTypes(mailProps.getNotifyTypes());
+            }
+        }
+        DingTalkProps dingtalkProps = notify.getDingtalk();
+        if (dingtalkProps != null) {
+            if (dingtalkProps.getWebhookUrl() != null) {
+                this.dingtalk.setWebhookUrl(dingtalkProps.getWebhookUrl());
+            }
+            if (dingtalkProps.getSecret() != null) {
+                this.dingtalk.setSecret(dingtalkProps.getSecret());
+            }
+            if (dingtalkProps.getNotifyTypes() != null) {
+                this.dingtalk.setNotifyTypes(dingtalkProps.getNotifyTypes());
+            }
+        }
+    }
 
     public boolean isChannelEnabled(String channel) {
         if (CollectionUtils.isEmpty(channels)) {

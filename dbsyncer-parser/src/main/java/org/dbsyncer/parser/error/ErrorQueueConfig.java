@@ -1,7 +1,10 @@
 package org.dbsyncer.parser.error;
 
+import org.dbsyncer.common.config.props.ErrorProps;
 import org.dbsyncer.common.retry.KeywordMatcher;
 import org.dbsyncer.common.util.MatchMode;
+import org.dbsyncer.parser.listener.ConfigChangeListener;
+import org.dbsyncer.parser.model.SystemConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -13,7 +16,7 @@ import java.util.stream.Collectors;
 
 @Component
 @ConfigurationProperties(prefix = "dbsyncer.error")
-public class ErrorQueueConfig {
+public class ErrorQueueConfig implements ConfigChangeListener {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -49,6 +52,23 @@ public class ErrorQueueConfig {
     public void setFatalKeywords(List<String> fatalKeywords) {
         this.fatalKeywords = fatalKeywords;
         this.fatalMatcher = null;
+    }
+
+    @Override
+    public void onConfigChanged(SystemConfig newConfig) {
+        ErrorProps error = newConfig.getError();
+        if (error == null) return;
+        if (error.getThreshold() != null) {
+            this.threshold = error.getThreshold();
+        }
+        if (error.getFatalMatchMode() != null) {
+            this.fatalMatchMode = error.getFatalMatchMode();
+            this.fatalMatcher = null;
+        }
+        if (error.getFatalKeywords() != null) {
+            this.fatalKeywords = error.getFatalKeywords();
+            this.fatalMatcher = null;
+        }
     }
 
     public boolean isFatalError(String message) {

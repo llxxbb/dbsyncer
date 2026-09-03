@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * ADR-0029：SystemConfigRegistry - 三源分离架构。
+ * ADR-0029/0030：SystemConfigRegistry - 三源分离架构 + 配置变更通知。
  * <p>
  * 持有三个 SystemConfig 实例：
  * <ul>
@@ -40,11 +40,8 @@ import java.util.Map;
  * <p>
  * 业务代码只通过 {@link #getConfig()} 获取最终配置。
  * <p>
- * ADR-0030：吸收原 RuntimeConfigService 的职责：
- * <ul>
- *   <li>C 类运行期原地 setter 回写（{@link #applyCClass()}）</li>
- *   <li>子对象合并读（{@link #getEffectiveExecutor()} 等）</li>
- * </ul>
+ * 配置变更时，通过 {@link ConfigChangeListener} 通知所有监听的 Bean，
+ * 各 Bean 自行决定如何更新内部状态和清理缓存。
  */
 @Component
 public class SystemConfigRegistry {
@@ -57,7 +54,7 @@ public class SystemConfigRegistry {
     @Resource
     private StorageService storageService;
 
-    // ===== C 类运行时 Bean（原地回写目标） =====
+    // ===== C 类运行时 Bean（effective 读取兜底） =====
 
     @Resource
     private RetryConfig retryConfig;
@@ -95,8 +92,6 @@ public class SystemConfigRegistry {
         this.propsConfig = loadFromEnvironment();
         this.dbConfig = loadFromDatabase();
         this.mergedConfig = merge(propsConfig, dbConfig);
-        // 启动时用合并后的 C 类配置回写 Bean
-        applyCClass();
         logger.info("SystemConfigRegistry 初始化完成");
     }
 
@@ -122,124 +117,18 @@ public class SystemConfigRegistry {
     }
 
     /**
-     * DB 配置变更后重新合并，并自动触发 C 类回写。
+     * DB 配置变更后重新合并。
      * <p>
      * 由 SystemConfigServiceImpl.editTab() 调用。
+     * 调用方需自行决定是否通知 ConfigChangeListener。
      */
     public synchronized void onDbConfigChanged(SystemConfig newDbConfig) {
         this.dbConfig = newDbConfig;
         this.mergedConfig = merge(propsConfig, dbConfig);
-        applyCClass();
         logger.info("SystemConfigRegistry 重新合并完成");
     }
 
-    // ===== C 类运行期原地回写（原 RuntimeConfigService.applyCClass） =====
-
-    /**
-     * 将 mergedConfig 中的 C 类配置原地回写到运行时 Bean。
-     * 三条硬约束：原地写、走 setter、不换新实例。
-     */
-    public void applyCClass() {
-        if (mergedConfig == null) {
-            return;
-        }
-        RetryProps retry = mergedConfig.getRetry();
-        if (retry != null) {
-            applyRetryProps(retry);
-        }
-        NotifyProps notify = mergedConfig.getNotify();
-        if (notify != null) {
-            applyNotifyProps(notify);
-        }
-        ErrorProps error = mergedConfig.getError();
-        if (error != null) {
-            applyErrorProps(error);
-        }
-        logger.info("C 类配置已运行期生效");
-    }
-
-    private void applyRetryProps(RetryProps props) {
-        RetryPolicy global = retryConfig.getGlobal();
-        if (props.getDisable() != null) {
-            global.setDisable(props.getDisable());
-        }
-        if (props.getMaxAttempts() != null) {
-            global.setMaxAttempts(props.getMaxAttempts());
-        }
-        if (props.getInitialIntervalMs() != null) {
-            global.setInitialIntervalMs(props.getInitialIntervalMs());
-        }
-        if (props.getMaxIntervalMs() != null) {
-            global.setMaxIntervalMs(props.getMaxIntervalMs());
-        }
-        if (props.getMultiplier() != null) {
-            global.setMultiplier(props.getMultiplier());
-        }
-        if (props.getMaxDurationMs() != null) {
-            global.setMaxDurationMs(props.getMaxDurationMs());
-        }
-        if (props.getTerminationMode() != null) {
-            global.setTerminationMode(props.getTerminationMode());
-        }
-        if (props.getUseKeyword() != null) {
-            global.setUseKeyword(props.getUseKeyword());
-        }
-        if (props.getMatchMode() != null) {
-            global.setMatchMode(props.getMatchMode());
-        }
-        if (props.getKeywords() != null) {
-            global.setKeywords(props.getKeywords());
-        }
-        if (props.getExcludeKeywords() != null) {
-            global.setExcludeKeywords(props.getExcludeKeywords());
-        }
-    }
-
-    private void applyNotifyProps(NotifyProps props) {
-        if (props.getChannels() != null) {
-            notifyConfig.setChannels(props.getChannels());
-        }
-        MailProps mail = props.getMail();
-        if (mail != null) {
-            NotifyConfig.MailConfig targetMail = notifyConfig.getMail();
-            if (mail.getUsername() != null) {
-                targetMail.setUsername(mail.getUsername());
-            }
-            if (mail.getPassword() != null) {
-                targetMail.setPassword(mail.getPassword());
-            }
-            if (mail.getNotifyTypes() != null) {
-                targetMail.setNotifyTypes(mail.getNotifyTypes());
-            }
-        }
-        DingTalkProps dingtalk = props.getDingtalk();
-        if (dingtalk != null) {
-            NotifyConfig.DingTalkConfig targetDingtalk = notifyConfig.getDingtalk();
-            if (dingtalk.getWebhookUrl() != null) {
-                targetDingtalk.setWebhookUrl(dingtalk.getWebhookUrl());
-            }
-            if (dingtalk.getSecret() != null) {
-                targetDingtalk.setSecret(dingtalk.getSecret());
-            }
-            if (dingtalk.getNotifyTypes() != null) {
-                targetDingtalk.setNotifyTypes(dingtalk.getNotifyTypes());
-            }
-        }
-    }
-
-    private void applyErrorProps(ErrorProps props) {
-        if (props.getThreshold() != null) {
-            errorQueueConfig.setThreshold(props.getThreshold());
-        }
-        if (props.getFatalMatchMode() != null) {
-            errorQueueConfig.setFatalMatchMode(props.getFatalMatchMode());
-        }
-        if (props.getFatalKeywords() != null) {
-            errorQueueConfig.setFatalKeywords(props.getFatalKeywords());
-        }
-    }
-
-    // ===== 子对象合并读（UI 预填用，原 RuntimeConfigService.getEffectiveXxx） =====
+    // ===== 子对象合并读（UI 预填用） =====
 
     /**
      * 获取执行器 Tab 当前生效值。
