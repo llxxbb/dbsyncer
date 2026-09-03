@@ -73,7 +73,7 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
     private List<StartupGate> startupGates;
 
     @Resource
-    private ConfigService configComparator;
+    private ConfigService configService;
 
     private boolean preloadCompleted;
 
@@ -83,26 +83,21 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
 
     @Override
     public void onApplicationEvent(ContextRefreshedEvent event) {
-        // 1. Load configModels
+        // 1. Load configModels（含 PRELOAD_SYSTEM，唯一一次查库）
         Arrays.stream(CommandEnum.values()).filter(commandEnum -> commandEnum.isPreload()).forEach(commandEnum -> execute(commandEnum));
 
-        // 2. Load connectorInstances
-        loadConnectorInstance();
+        // 2. 填充 Registry + 迁移 + 打印对照表（由 ConfigService 编排）
+        configService.onPreloadCompleted(profileComponent.getSystemConfig());
 
-        // ===== ADR-0029 新增钩子（在启动任务之前） =====
-        // 3. 启动期配置对照表（在任务启动前打印）
-        try {
-            configComparator.printStartupTable();
-        } catch (Exception e) {
-            logger.error("配置对照表打印失败", e);
-        }
+        // 3. Load connectorInstances
+        loadConnectorInstance();
 
         logger.info("+++++++++++++++配置预加载完成++++++++++++++++");
 
-        // 5. Launch drivers（最后启动任务）
+        // 4. Launch drivers（最后启动任务）
         launch();
 
-        // 6. 开放端口
+        // 5. 开放端口
         openStartupGates();
         preloadCompleted = true;
     }

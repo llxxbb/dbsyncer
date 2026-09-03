@@ -11,10 +11,10 @@ import javax.annotation.Resource;
 import java.util.List;
 
 /**
- * ADR-0029 §2.0.2：启动期配置对照表。
+ * ADR-0029 §2.0.2：启动期配置对照表 + 预加载完成编排。
  * <p>
- * 在 PreloadTemplate.onApplicationEvent 完成后、openStartupGates() 之前打印。
- * 便于排查配置来源和最终值。
+ * PreloadTemplate 加载完所有 ConfigModel 后，调用 {@link #onPreloadCompleted(SystemConfig)}，
+ * 本方法负责：填充 Registry → 迁移 → 打印对照表。
  * <p>
  * 设计：各 Props 子类自行实现 toConfigEntries()，本类只做编排和格式化。
  */
@@ -29,12 +29,44 @@ public class ConfigService {
     @Resource
     private Environment environment;
 
+    @Resource
+    private ConfigMigrationService configMigrationService;
+
+    /**
+     * 预加载完成后调用。
+     * <p>
+     * 编排三件事：
+     * 1. 将 ProfileComponent 中的 SystemConfig 填充到 Registry（不重复查库）
+     * 2. 执行配置迁移
+     * 3. 打印配置对照表
+     *
+     * @param systemConfig 从 ProfileComponent 获取的 SystemConfig（唯一一次查库的产物）
+     */
+    public void onPreloadCompleted(SystemConfig systemConfig) {
+        // 1. 填充 Registry（DB 数据来自 ProfileComponent，不重复查库）
+        configRegistry.setDbConfig(systemConfig);
+
+        // 2. 配置迁移
+        try {
+            configMigrationService.migrateIfNeeded();
+        } catch (Exception e) {
+            logger.error("配置迁移失败", e);
+        }
+
+        // 3. 打印配置对照表
+        try {
+            printStartupTable();
+        } catch (Exception e) {
+            logger.error("配置对照表打印失败", e);
+        }
+    }
+
     /**
      * 打印配置对照表（按子类分组）。
      * <p>
      * 使用 SystemConfigRegistry 获取三源配置：propsConfig、dbConfig、mergedConfig。
      */
-    public void printStartupTable() {
+    private void printStartupTable() {
         SystemConfig props = configRegistry.getPropsConfig();
         SystemConfig db = configRegistry.getDbConfig();
         SystemConfig merged = configRegistry.getConfig();
@@ -86,8 +118,8 @@ public class ConfigService {
                 db.getError() != null ? db.getError().toConfigEntries() : null,
                 merged.getError() != null ? merged.getError().toConfigEntries() : null);
 
-        // D 类：基础配置
-        printSection(sb, "D类：基础配置", 
+        // C 类：基础配置
+        printSection(sb, "C类：基础配置", 
                 props.getBasic() != null ? props.getBasic().toConfigEntries() : null,
                 db.getBasic() != null ? db.getBasic().toConfigEntries() : null,
                 merged.getBasic() != null ? merged.getBasic().toConfigEntries() : null);

@@ -1,13 +1,7 @@
 package org.dbsyncer.parser.impl;
 
 import org.dbsyncer.common.config.props.*;
-import org.dbsyncer.common.model.Paging;
-import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.parser.model.SystemConfig;
-import org.dbsyncer.sdk.constant.ConfigConstant;
-import org.dbsyncer.sdk.enums.StorageEnum;
-import org.dbsyncer.sdk.filter.Query;
-import org.dbsyncer.sdk.storage.StorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
@@ -15,9 +9,7 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
-import org.springframework.context.annotation.Lazy;
 import java.util.List;
-import java.util.Map;
 
 /**
  * ADR-0029/0030：SystemConfigRegistry - 三源分离架构 + 配置变更通知。
@@ -42,24 +34,23 @@ public class SystemConfigRegistry {
     @Resource
     private Environment environment;
 
-    @Lazy
-    @Resource
-    private StorageService storageService;
-
     // 三个实例
     private SystemConfig propsConfig;   // 从 Environment 加载
     private SystemConfig dbConfig;      // 从数据库加载
     private SystemConfig mergedConfig;  // 合并后的（最终使用）
 
     /**
-     * 启动时初始化。
+     * 启动时初始化（只加载 propsConfig，不查 DB）。
+     * <p>
+     * DB 配置由 ConfigService.onPreloadCompleted() 在 PreloadTemplate 加载完后填充，
+     * 避免重复查库。
      */
     @PostConstruct
     public void init() {
         this.propsConfig = loadFromEnvironment();
-        this.dbConfig = loadFromDatabase();
+        this.dbConfig = new SystemConfig();
         this.mergedConfig = merge(propsConfig, dbConfig);
-        logger.info("SystemConfigRegistry 初始化完成");
+        logger.info("SystemConfigRegistry 初始化完成（仅 propsConfig）");
     }
 
     /**
@@ -260,32 +251,6 @@ public class SystemConfigRegistry {
         config.setError(error);
 
         return config;
-    }
-
-    /**
-     * 从数据库加载配置。
-     */
-    private SystemConfig loadFromDatabase() {
-        try {
-            Query query = new Query();
-            query.setType(StorageEnum.CONFIG);
-            query.addFilter(ConfigConstant.CONFIG_MODEL_TYPE, ConfigConstant.SYSTEM);
-            query.setPageNum(1);
-            query.setPageSize(1);
-            Paging paging = storageService.query(query);
-            List<Map> data = (List<Map>) paging.getData();
-            if (data == null || data.isEmpty()) {
-                return new SystemConfig();
-            }
-            String json = (String) data.get(0).get(ConfigConstant.CONFIG_MODEL_JSON);
-            if (json == null || json.isEmpty()) {
-                return new SystemConfig();
-            }
-            return JsonUtil.jsonToObj(json, SystemConfig.class);
-        } catch (Exception e) {
-            logger.error("从存储层读取 SystemConfig 失败", e);
-            return new SystemConfig();
-        }
     }
 
     /**

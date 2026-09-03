@@ -34,7 +34,6 @@ import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
-import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.io.File;
 import java.io.IOException;
@@ -92,12 +91,6 @@ public class SystemConfigServiceImpl implements SystemConfigService {
 
     @Resource
     private List<ConfigChangeListener> configChangeListeners;
-
-    @PostConstruct
-    public void init() throws Exception {
-        // 启动时自动执行配置迁移（在通知监听器之前，确保配置是最新的）
-        configMigrationService.migrateIfNeeded();
-    }
 
     @Override
     public String edit(Map<String, String> params) throws Exception {
