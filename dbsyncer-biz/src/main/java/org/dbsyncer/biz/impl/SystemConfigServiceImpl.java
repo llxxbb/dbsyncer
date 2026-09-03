@@ -9,6 +9,7 @@ import org.dbsyncer.biz.UserConfigService;
 import org.dbsyncer.biz.checker.Checker;
 import org.dbsyncer.biz.checker.impl.system.SystemConfigTabChecker;
 import org.dbsyncer.biz.vo.SystemConfigVo;
+import org.dbsyncer.biz.vo.VersionVo;
 import org.dbsyncer.common.config.AppConfig;
 import org.dbsyncer.common.config.SystemTabEnum;
 import org.dbsyncer.common.config.props.*;
@@ -276,6 +277,19 @@ public class SystemConfigServiceImpl implements SystemConfigService {
         info.put("helpdocPath", environment.getProperty("helpdoc.path", "./helpdocs"));
         info.put("logLevel", environment.getProperty("logging.level.root", "info"));
         return info;
+    }
+
+    @Override
+    public VersionVo getVersionInfo(String username) throws Exception {
+        VersionVo versionVo = new VersionVo(appConfig.getName(), appConfig.getCopyright());
+        // 是否启用水印
+        SystemConfig systemConfig = configRegistry.getConfig();
+        if (systemConfig.getBasic().getEnableWatermark()) {
+            String watermark = getWatermark(systemConfig);
+            watermark = StringUtil.replace(watermark, "${username}", username);
+            versionVo.setWatermark(watermark);
+        }
+        return versionVo;
     }
 
     // ===== 内部方法 =====

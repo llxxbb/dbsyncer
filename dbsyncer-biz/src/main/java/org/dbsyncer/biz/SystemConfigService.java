@@ -4,13 +4,13 @@
 package org.dbsyncer.biz;
 
 import org.dbsyncer.biz.vo.SystemConfigVo;
+import org.dbsyncer.biz.vo.VersionVo;
 import org.dbsyncer.sdk.model.ConfigModel;
 import org.dbsyncer.parser.model.SystemConfig;
 
 import java.io.File;
 import java.util.List;
 import java.util.Map;
-import java.util.LinkedHashMap;
 
 /**
  * 系统配置
@@ -96,4 +96,12 @@ public interface SystemConfigService {
      * 获取 A 类只读信息（脱敏）
      */
     Map<String, Object> getServerInfo() throws Exception;
+
+    /**
+     * 获取版本信息
+     *
+     * @param username 当前用户名（用于水印占位符替换）
+     * @return 版本信息
+     */
+    VersionVo getVersionInfo(String username) throws Exception;
 }

@@ -1,13 +1,9 @@
 package org.dbsyncer.web.controller.datasource;
 
-import org.dbsyncer.biz.AppConfigService;
 import org.dbsyncer.biz.ConnectorService;
-import org.dbsyncer.biz.vo.ConditionVo;
 import org.dbsyncer.biz.vo.RestResult;
 import org.dbsyncer.parser.model.Connector;
 import org.dbsyncer.common.config.AppConfig;
-import org.dbsyncer.common.model.Result;
-import org.dbsyncer.sdk.model.ConnectorConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.access.prepost.PreAuthorize;

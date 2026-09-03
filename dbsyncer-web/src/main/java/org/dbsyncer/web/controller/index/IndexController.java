@@ -5,7 +5,6 @@ package org.dbsyncer.web.controller.index;
 
 import org.dbsyncer.biz.vo.MappingJsonVo;
 import org.dbsyncer.biz.vo.MappingVo;
-import org.dbsyncer.biz.AppConfigService;
 import org.dbsyncer.biz.PermissionService;
 import org.dbsyncer.biz.ProjectGroupService;
 import org.dbsyncer.biz.SystemConfigService;
@@ -43,9 +42,6 @@ public class IndexController {
 
     @Resource
     private ProjectGroupService projectGroupService;
-
-    @Resource
-    private AppConfigService appConfigService;
 
     @Resource
     private UserConfigService userConfigService;
@@ -220,7 +216,7 @@ public class IndexController {
     @ResponseBody
     public RestResult version() throws Exception {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return RestResult.restSuccess(appConfigService.getVersionInfo(authentication.getName()));
+        return RestResult.restSuccess(systemConfigService.getVersionInfo(authentication.getName()));
     }
 
     private List<MappingVo> filterMappingsByPermission(List<MappingVo> mappings, String username) {
