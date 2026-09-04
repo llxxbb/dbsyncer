@@ -88,6 +88,42 @@ public class ConfigBootstrap {
                 db.getServer() != null ? db.getServer().toConfigEntries() : null,
                 merged.getServer() != null ? merged.getServer().toConfigEntries() : null);
 
+        // A 类：存储连接
+        printSection(sb, "A类：存储连接配置（只读，不落库）",
+                props.getStorageConn() != null ? props.getStorageConn().toConfigEntries() : null,
+                db.getStorageConn() != null ? db.getStorageConn().toConfigEntries() : null,
+                merged.getStorageConn() != null ? merged.getStorageConn().toConfigEntries() : null);
+
+        // A 类：日志配置
+        printSection(sb, "A类：日志配置（只读，不落库）",
+                props.getLogging() != null ? props.getLogging().toConfigEntries() : null,
+                db.getLogging() != null ? db.getLogging().toConfigEntries() : null,
+                merged.getLogging() != null ? merged.getLogging().toConfigEntries() : null);
+
+        // A 类：帮助文档配置
+        printSection(sb, "A类：帮助文档配置（只读，不落库）",
+                props.getHelpdoc() != null ? props.getHelpdoc().toConfigEntries() : null,
+                db.getHelpdoc() != null ? db.getHelpdoc().toConfigEntries() : null,
+                merged.getHelpdoc() != null ? merged.getHelpdoc().toConfigEntries() : null);
+
+        // A 类：Worker 配置
+        printSection(sb, "A类：Worker配置（只读，不落库）",
+                props.getWorker() != null ? props.getWorker().toConfigEntries() : null,
+                db.getWorker() != null ? db.getWorker().toConfigEntries() : null,
+                merged.getWorker() != null ? merged.getWorker().toConfigEntries() : null);
+
+        // A 类：License 配置
+        printSection(sb, "A类：许可证配置（只读，不落库）",
+                props.getLicense() != null ? props.getLicense().toConfigEntries() : null,
+                db.getLicense() != null ? db.getLicense().toConfigEntries() : null,
+                merged.getLicense() != null ? merged.getLicense().toConfigEntries() : null);
+
+        // C 类：基础配置
+        printSection(sb, "基础配置",
+                props.getBasic() != null ? props.getBasic().toConfigEntries() : null,
+                db.getBasic() != null ? db.getBasic().toConfigEntries() : null,
+                merged.getBasic() != null ? merged.getBasic().toConfigEntries() : null);
+
         // B 类：执行器
         printSection(sb, "B类：执行器配置", 
                 props.getExecutors() != null ? props.getExecutors().toConfigEntries() : null,
@@ -99,12 +135,6 @@ public class ConfigBootstrap {
                 props.getBuffers() != null ? props.getBuffers().toConfigEntries() : null,
                 db.getBuffers() != null ? db.getBuffers().toConfigEntries() : null,
                 merged.getBuffers() != null ? merged.getBuffers().toConfigEntries() : null);
-
-        // B 类：通知通道
-        printSection(sb, "B类：通知通道配置", 
-                props.getNotify() != null ? props.getNotify().toConfigEntries() : null,
-                db.getNotify() != null ? db.getNotify().toConfigEntries() : null,
-                merged.getNotify() != null ? merged.getNotify().toConfigEntries() : null);
 
         // C 类：重试策略
         printSection(sb, "C类：重试策略配置", 
@@ -118,11 +148,23 @@ public class ConfigBootstrap {
                 db.getError() != null ? db.getError().toConfigEntries() : null,
                 merged.getError() != null ? merged.getError().toConfigEntries() : null);
 
-        // C 类：基础配置
-        printSection(sb, "C类：基础配置", 
-                props.getBasic() != null ? props.getBasic().toConfigEntries() : null,
-                db.getBasic() != null ? db.getBasic().toConfigEntries() : null,
-                merged.getBasic() != null ? merged.getBasic().toConfigEntries() : null);
+        // C 类：通知通道
+        printSection(sb, "C类：通知通道配置",
+                props.getNotify() != null ? props.getNotify().toConfigEntries() : null,
+                db.getNotify() != null ? db.getNotify().toConfigEntries() : null,
+                merged.getNotify() != null ? merged.getNotify().toConfigEntries() : null);
+
+        // C 类：运行时控制
+        printSection(sb, "C类：运行时控制配置",
+                props.getRuntime() != null ? props.getRuntime().toConfigEntries() : null,
+                db.getRuntime() != null ? db.getRuntime().toConfigEntries() : null,
+                merged.getRuntime() != null ? merged.getRuntime().toConfigEntries() : null);
+
+        // C 类：模板引擎
+        printSection(sb, "C类：模板引擎配置",
+                props.getTemplate() != null ? props.getTemplate().toConfigEntries() : null,
+                db.getTemplate() != null ? db.getTemplate().toConfigEntries() : null,
+                merged.getTemplate() != null ? merged.getTemplate().toConfigEntries() : null);
 
         sb.append("═══════════════════════════════════════════════════════════════════════════════\n");
         logger.info(sb.toString());

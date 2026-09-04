@@ -4,6 +4,7 @@ import org.dbsyncer.common.config.ConfigKeys;
 import org.springframework.core.env.Environment;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -26,5 +27,11 @@ public class RuntimeProps implements Serializable {
 
     public List<String> validate() {
         return Collections.emptyList();
+    }
+
+    public List<ConfigEntry> toConfigEntries() {
+        List<ConfigEntry> entries = new ArrayList<>();
+        entries.add(new ConfigEntry(ConfigKeys.RUNTIME_SELF_RESTART_ENABLED, selfRestartEnabled));
+        return entries;
     }
 }

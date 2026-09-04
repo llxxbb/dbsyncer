@@ -52,4 +52,14 @@ public class StorageConnectionProps implements Serializable {
         }
         return errors;
     }
+
+    public List<ConfigEntry> toConfigEntries() {
+        List<ConfigEntry> entries = new ArrayList<>();
+        entries.add(new ConfigEntry(ConfigKeys.STORAGE_TYPE, type));
+        entries.add(new ConfigEntry(ConfigKeys.STORAGE_MYSQL_URL, mysqlUrl));
+        entries.add(new ConfigEntry(ConfigKeys.STORAGE_MYSQL_USERNAME, mysqlUsername));
+        entries.add(new ConfigEntry(ConfigKeys.STORAGE_MYSQL_PASSWORD, mysqlPassword, true));
+        entries.add(new ConfigEntry(ConfigKeys.STORAGE_MYSQL_DRIVER_CLASS_NAME, mysqlDriverClassName));
+        return entries;
+    }
 }

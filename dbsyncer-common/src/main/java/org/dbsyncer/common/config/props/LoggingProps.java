@@ -4,6 +4,7 @@ import org.dbsyncer.common.config.ConfigKeys;
 import org.springframework.core.env.Environment;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -33,5 +34,11 @@ public class LoggingProps implements Serializable {
             }
         }
         return errors;
+    }
+
+    public List<ConfigEntry> toConfigEntries() {
+        List<ConfigEntry> entries = new ArrayList<>();
+        entries.add(new ConfigEntry(ConfigKeys.LOGGING_LEVEL_ROOT, levelRoot));
+        return entries;
     }
 }

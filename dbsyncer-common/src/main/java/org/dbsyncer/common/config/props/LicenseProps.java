@@ -4,6 +4,7 @@ import org.dbsyncer.common.config.ConfigKeys;
 import org.springframework.core.env.Environment;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -26,5 +27,11 @@ public class LicenseProps implements Serializable {
 
     public List<String> validate() {
         return Collections.emptyList();
+    }
+
+    public List<ConfigEntry> toConfigEntries() {
+        List<ConfigEntry> entries = new ArrayList<>();
+        entries.add(new ConfigEntry(ConfigKeys.LICENSE_SERVER_ADDRESS, serverAddress, true));
+        return entries;
     }
 }

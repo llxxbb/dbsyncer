@@ -38,4 +38,11 @@ public class WorkerProps implements Serializable {
         }
         return errors;
     }
+
+    public List<ConfigEntry> toConfigEntries() {
+        List<ConfigEntry> entries = new ArrayList<>();
+        entries.add(new ConfigEntry(ConfigKeys.WORKER_ID, id));
+        entries.add(new ConfigEntry(ConfigKeys.WORKER_DATA_CENTER_ID, dataCenterId));
+        return entries;
+    }
 }

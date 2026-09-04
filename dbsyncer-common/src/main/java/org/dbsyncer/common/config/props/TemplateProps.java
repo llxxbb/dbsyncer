@@ -37,4 +37,10 @@ public class TemplateProps implements Serializable {
         }
         return errors;
     }
+
+    public List<ConfigEntry> toConfigEntries() {
+        List<ConfigEntry> entries = new ArrayList<>();
+        entries.add(new ConfigEntry(ConfigKeys.TEMPLATE_MAX_DEPTH, maxDepth));
+        return entries;
+    }
 }
