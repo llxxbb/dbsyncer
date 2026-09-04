@@ -3,7 +3,7 @@
  */
 package org.dbsyncer.manager.impl;
 
-import org.dbsyncer.parser.impl.ConfigService;
+import org.dbsyncer.parser.impl.ConfigBootstrap;
 import org.dbsyncer.common.model.Paging;
 import org.dbsyncer.common.startup.StartupGate;
 import org.dbsyncer.common.util.CollectionUtils;
@@ -73,7 +73,7 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
     private List<StartupGate> startupGates;
 
     @Resource
-    private ConfigService configService;
+    private ConfigBootstrap configService;
 
     private boolean preloadCompleted;
 

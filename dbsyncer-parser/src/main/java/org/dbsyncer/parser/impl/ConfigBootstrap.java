@@ -19,9 +19,9 @@ import java.util.List;
  * 设计：各 Props 子类自行实现 toConfigEntries()，本类只做编排和格式化。
  */
 @Component
-public class ConfigService {
+public class ConfigBootstrap {
 
-    private static final Logger logger = LoggerFactory.getLogger(ConfigService.class);
+    private static final Logger logger = LoggerFactory.getLogger(ConfigBootstrap.class);
 
     @Resource
     private SystemConfigRegistry configRegistry;

@@ -2,7 +2,7 @@ package org.dbsyncer.web.controller.config;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
-import org.dbsyncer.biz.SystemConfigService;
+import org.dbsyncer.biz.ConfigService;
 import org.dbsyncer.biz.vo.RestResult;
 import org.dbsyncer.parser.CacheService;
 import org.dbsyncer.common.config.AppConfig;
@@ -36,7 +36,7 @@ public class ConfigController {
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     @Resource
-    private SystemConfigService systemConfigService;
+    private ConfigService systemConfigService;
 
     @Resource
     private CacheService cacheService;

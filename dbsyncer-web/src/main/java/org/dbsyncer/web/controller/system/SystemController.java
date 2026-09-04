@@ -3,7 +3,7 @@
  */
 package org.dbsyncer.web.controller.system;
 
-import org.dbsyncer.biz.SystemConfigService;
+import org.dbsyncer.biz.ConfigService;
 import org.dbsyncer.biz.vo.RestResult;
 import org.dbsyncer.web.controller.BaseController;
 import org.slf4j.Logger;
@@ -25,7 +25,7 @@ public class SystemController extends BaseController {
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     @Resource
-    private SystemConfigService systemConfigService;
+    private ConfigService systemConfigService;
 
     @RequestMapping("")
     public String index(ModelMap model) throws Exception {

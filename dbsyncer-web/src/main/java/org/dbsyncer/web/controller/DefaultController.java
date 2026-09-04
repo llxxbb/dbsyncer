@@ -1,6 +1,6 @@
 package org.dbsyncer.web.controller;
 
-import org.dbsyncer.biz.SystemConfigService;
+import org.dbsyncer.biz.ConfigService;
 import org.dbsyncer.parser.impl.SystemConfigRegistry;
 import org.dbsyncer.biz.UserConfigService;
 import org.dbsyncer.biz.vo.UserInfoVo;
@@ -22,7 +22,7 @@ import javax.servlet.http.HttpServletRequest;
 public class DefaultController implements ErrorPageRegistrar {
 
     @Resource
-    private SystemConfigService systemConfigService;
+    private ConfigService systemConfigService;
 
     @Resource
     private SystemConfigRegistry configRegistry;

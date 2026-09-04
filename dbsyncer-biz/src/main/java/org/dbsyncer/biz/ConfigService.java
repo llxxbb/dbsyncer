@@ -19,7 +19,7 @@ import java.util.Map;
  * @version 1.0.0
  * @date 2020/5/30 23:14
  */
-public interface SystemConfigService {
+public interface ConfigService {
 
     /**
      * 修改系统配置

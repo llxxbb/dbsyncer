@@ -4,7 +4,7 @@
 package org.dbsyncer.biz.impl;
 
 import org.apache.commons.io.FileUtils;
-import org.dbsyncer.biz.SystemConfigService;
+import org.dbsyncer.biz.ConfigService;
 import org.dbsyncer.biz.UserConfigService;
 import org.dbsyncer.biz.checker.Checker;
 import org.dbsyncer.biz.checker.impl.system.SystemConfigTabChecker;
@@ -46,7 +46,7 @@ import java.util.*;
  * @date 2019/10/17 23:20
  */
 @Service
-public class SystemConfigServiceImpl implements SystemConfigService {
+public class SystemConfigServiceImpl implements ConfigService {
 
     private static final Logger logger = LoggerFactory.getLogger(SystemConfigServiceImpl.class);
 

@@ -11,7 +11,7 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
-import org.dbsyncer.biz.SystemConfigService;
+import org.dbsyncer.biz.ConfigService;
 import org.dbsyncer.biz.UserConfigService;
 import org.dbsyncer.biz.vo.ProductInfoVo;
 import org.dbsyncer.biz.vo.RestResult;
@@ -72,7 +72,7 @@ public class LicenseController extends BaseController {
     private UserConfigService userConfigService;
 
     @Resource
-    private SystemConfigService systemConfigService;
+    private ConfigService systemConfigService;
 
     @Value("${dbsyncer.web.license.server.address:http://101.132.145.213:9999/api/license/create}")
     private String serverAddress;
