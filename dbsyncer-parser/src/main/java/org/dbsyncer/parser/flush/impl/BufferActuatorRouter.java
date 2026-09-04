@@ -12,7 +12,7 @@ import org.dbsyncer.parser.TableGroupContext;
 import org.dbsyncer.parser.ddl.DDLParser;
 import org.dbsyncer.parser.model.WriterRequest;
 import org.dbsyncer.parser.service.TableGroupModelService;
-import org.dbsyncer.parser.impl.SystemConfigRegistry;
+import org.dbsyncer.parser.impl.ConfigRegistry;
 import org.dbsyncer.sdk.connector.CounterService;
 import org.dbsyncer.sdk.connector.ErrorQueueCollector;
 
@@ -79,7 +79,7 @@ public final class BufferActuatorRouter implements DisposableBean {
     private MessageService messageService;
 
     @Resource
-    private SystemConfigRegistry configRegistry;
+    private ConfigRegistry configRegistry;
 
     /**
      * 每个 meta 独享的执行器

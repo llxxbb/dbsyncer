@@ -24,7 +24,7 @@ public class ConfigBootstrap {
     private static final Logger logger = LoggerFactory.getLogger(ConfigBootstrap.class);
 
     @Resource
-    private SystemConfigRegistry configRegistry;
+    private ConfigRegistry configRegistry;
 
     @Resource
     private Environment environment;

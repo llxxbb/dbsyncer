@@ -3,6 +3,7 @@
  */
 package org.dbsyncer.web.controller.license;
 
+import org.dbsyncer.common.config.ConfigKeys;
 import org.apache.commons.io.FileUtils;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
@@ -74,7 +75,7 @@ public class LicenseController extends BaseController {
     @Resource
     private ConfigService systemConfigService;
 
-    @Value("${dbsyncer.web.license.server.address:http://101.132.145.213:9999/api/license/create}")
+    @Value("${" + ConfigKeys.LICENSE_SERVER_ADDRESS + ":http://101.132.145.213:9999/api/license/create}")
     private String serverAddress;
 
     public static final Integer SUCCESS = 200;

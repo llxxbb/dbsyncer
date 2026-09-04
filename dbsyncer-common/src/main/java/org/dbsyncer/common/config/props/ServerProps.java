@@ -4,6 +4,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.dbsyncer.common.config.ConfigKeys;
 import org.springframework.core.env.Environment;
 
 /**
@@ -51,7 +52,7 @@ public class ServerProps implements Serializable {
      */
     public void loadFromEnvironment(Environment env) {
         // server.port
-        String port = env.getProperty("server.port");
+        String port = env.getProperty(ConfigKeys.SERVER_PORT);
         if (port != null) {
             try {
                 this.port = Integer.parseInt(port);
@@ -59,21 +60,21 @@ public class ServerProps implements Serializable {
         }
         
         // server.ssl.*
-        this.sslEnabled = env.getProperty("server.ssl.enabled", Boolean.class);
-        this.sslKeyStore = env.getProperty("server.ssl.key-store");
-        this.sslKeyStorePassword = env.getProperty("server.ssl.key-store-password");
-        this.sslKeyStoreType = env.getProperty("server.ssl.key-store-type");
-        this.sslKeyAlias = env.getProperty("server.ssl.key-alias");
+        this.sslEnabled = env.getProperty(ConfigKeys.SERVER_SSL_ENABLED, Boolean.class);
+        this.sslKeyStore = env.getProperty(ConfigKeys.SERVER_SSL_KEY_STORE);
+        this.sslKeyStorePassword = env.getProperty(ConfigKeys.SERVER_SSL_KEY_STORE_PASSWORD);
+        this.sslKeyStoreType = env.getProperty(ConfigKeys.SERVER_SSL_KEY_STORE_TYPE);
+        this.sslKeyAlias = env.getProperty(ConfigKeys.SERVER_SSL_KEY_ALIAS);
         
         // server.http.*
-        this.httpPort = env.getProperty("server.http.port", Integer.class);
-        this.httpRedirect = env.getProperty("server.http.redirect", Boolean.class);
+        this.httpPort = env.getProperty(ConfigKeys.SERVER_HTTP_PORT, Integer.class);
+        this.httpRedirect = env.getProperty(ConfigKeys.SERVER_HTTP_REDIRECT, Boolean.class);
         
         // server.context-path
-        this.contextPath = env.getProperty("server.context-path");
+        this.contextPath = env.getProperty(ConfigKeys.SERVER_CONTEXT_PATH);
         
         // server.session-timeout
-        this.sessionTimeout = env.getProperty("server.session-timeout", Integer.class);
+        this.sessionTimeout = env.getProperty(ConfigKeys.SERVER_SESSION_TIMEOUT, Integer.class);
     }
 
     /**

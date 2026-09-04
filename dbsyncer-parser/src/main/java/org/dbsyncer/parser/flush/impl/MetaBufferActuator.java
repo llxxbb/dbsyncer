@@ -20,7 +20,7 @@ import org.dbsyncer.parser.pipeline.SyncTask;
 import org.dbsyncer.sdk.model.*;
 import org.dbsyncer.sdk.notify.NotifyType;
 import org.dbsyncer.parser.service.TableGroupModelService;
-import org.dbsyncer.parser.impl.SystemConfigRegistry;
+import org.dbsyncer.parser.impl.ConfigRegistry;
 import org.dbsyncer.sdk.connector.CounterService;
 import org.dbsyncer.sdk.connector.ErrorQueueCollector;
 import org.dbsyncer.sdk.spi.MessageService;
@@ -63,7 +63,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
     private TableGroupModelService tableGroupModelService;
     private ErrorQueueCollector errorQueueCollector;
     public MessageService messageService;
-    private SystemConfigRegistry configRegistry;
+    private ConfigRegistry configRegistry;
 
     /**
      * 是否有待处理的任务（事件进入队列时设置为 true，队列为空时设置为 false）
@@ -558,7 +558,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         this.errorQueueCollector = errorQueueCollector;
     }
 
-    public void setConfigRegistry(SystemConfigRegistry configRegistry) {
+    public void setConfigRegistry(ConfigRegistry configRegistry) {
         this.configRegistry = configRegistry;
     }
 }

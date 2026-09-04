@@ -3,6 +3,7 @@
  */
 package org.dbsyncer.web.config;
 
+import org.dbsyncer.common.config.ConfigKeys;
 import org.apache.catalina.connector.Connector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,15 +30,15 @@ import java.io.IOException;
  * @date 2025/10/23 18:30
  */
 @Configuration
-@ConditionalOnProperty(name = {"server.ssl.enabled", "server.http.enabled"}, havingValue = "true")
+@ConditionalOnProperty(name = {ConfigKeys.SERVER_SSL_ENABLED, "server.http.enabled"}, havingValue = "true")
 public class HttpRedirectConfig implements WebServerFactoryCustomizer<TomcatServletWebServerFactory> {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    @Value("${server.port:18686}")
+    @Value("${" + ConfigKeys.SERVER_PORT + ":18686}")
     private int httpsPort;
 
-    @Value("${server.http.port:8080}")
+    @Value("${" + ConfigKeys.SERVER_HTTP_PORT + ":8080}")
     private int httpPort;
 
     @Override

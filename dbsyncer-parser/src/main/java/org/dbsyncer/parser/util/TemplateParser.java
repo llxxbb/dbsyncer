@@ -1,5 +1,6 @@
 package org.dbsyncer.parser.util;
 
+import org.dbsyncer.common.config.ConfigKeys;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.common.ParserException;
 import org.dbsyncer.sdk.model.Convert;
@@ -16,7 +17,7 @@ public class TemplateParser {
     private static final int DEFAULT_MAX_DEPENDENCY_DEPTH = 10;
 
     /**
-     * 最大依赖深度（可通过系统属性配置：dbsyncer.template.maxDepth）
+     * 最大依赖深度（可通过系统属性配置：{@link ConfigKeys#TEMPLATE_MAX_DEPTH}）
      */
     private final int maxDependencyDepth;
 
@@ -25,7 +26,7 @@ public class TemplateParser {
     }
 
     private int getMaxDepthFromConfig() {
-        String config = System.getProperty("dbsyncer.template.maxDepth");
+        String config = System.getProperty(ConfigKeys.TEMPLATE_MAX_DEPTH);
         if (StringUtil.isNotBlank(config)) {
             try {
                 int depth = Integer.parseInt(config);

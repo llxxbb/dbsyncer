@@ -1,5 +1,6 @@
 package org.dbsyncer.parser.impl;
 
+import org.dbsyncer.common.config.ConfigKeys;
 import org.dbsyncer.common.config.props.*;
 import org.dbsyncer.parser.model.SystemConfig;
 import org.slf4j.Logger;
@@ -27,9 +28,9 @@ import java.util.List;
  * 各 Bean 自行决定如何更新内部状态和清理缓存。
  */
 @Component
-public class SystemConfigRegistry {
+public class ConfigRegistry {
 
-    private static final Logger logger = LoggerFactory.getLogger(SystemConfigRegistry.class);
+    private static final Logger logger = LoggerFactory.getLogger(ConfigRegistry.class);
 
     @Resource
     private Environment environment;
@@ -125,110 +126,110 @@ public class SystemConfigRegistry {
         // ===== A 类 =====
 
         ServerProps server = new ServerProps();
-        server.setPort(environment.getProperty("server.port", Integer.class));
-        server.setSslEnabled(environment.getProperty("server.ssl.enabled", Boolean.class));
-        server.setHttpPort(environment.getProperty("server.http.port", Integer.class));
-        server.setHttpRedirect(environment.getProperty("server.http.redirect", Boolean.class));
-        server.setContextPath(environment.getProperty("server.servlet.context-path", String.class));
-        server.setSessionTimeout(environment.getProperty("server.servlet.session.timeout", Integer.class));
-        server.setSslKeyStore(environment.getProperty("server.ssl.key-store", String.class));
-        server.setSslKeyStorePassword(environment.getProperty("server.ssl.key-store-password", String.class));
-        server.setSslKeyStoreType(environment.getProperty("server.ssl.key-store-type", String.class));
+        server.setPort(environment.getProperty(ConfigKeys.SERVER_PORT, Integer.class));
+        server.setSslEnabled(environment.getProperty(ConfigKeys.SERVER_SSL_ENABLED, Boolean.class));
+        server.setHttpPort(environment.getProperty(ConfigKeys.SERVER_HTTP_PORT, Integer.class));
+        server.setHttpRedirect(environment.getProperty(ConfigKeys.SERVER_HTTP_REDIRECT, Boolean.class));
+        server.setContextPath(environment.getProperty(ConfigKeys.SERVER_SERVLET_CONTEXT_PATH, String.class));
+        server.setSessionTimeout(environment.getProperty(ConfigKeys.SERVER_SERVLET_SESSION_TIMEOUT, Integer.class));
+        server.setSslKeyStore(environment.getProperty(ConfigKeys.SERVER_SSL_KEY_STORE, String.class));
+        server.setSslKeyStorePassword(environment.getProperty(ConfigKeys.SERVER_SSL_KEY_STORE_PASSWORD, String.class));
+        server.setSslKeyStoreType(environment.getProperty(ConfigKeys.SERVER_SSL_KEY_STORE_TYPE, String.class));
         config.setServer(server);
 
         StorageConnectionProps storageConn = new StorageConnectionProps();
-        storageConn.setType(environment.getProperty("dbsyncer.storage.type", String.class));
-        storageConn.setMysqlUrl(environment.getProperty("dbsyncer.storage.mysql.url", String.class));
-        storageConn.setMysqlUsername(environment.getProperty("dbsyncer.storage.mysql.username", String.class));
-        storageConn.setMysqlPassword(environment.getProperty("dbsyncer.storage.mysql.password", String.class));
+        storageConn.setType(environment.getProperty(ConfigKeys.STORAGE_TYPE, String.class));
+        storageConn.setMysqlUrl(environment.getProperty(ConfigKeys.STORAGE_MYSQL_URL, String.class));
+        storageConn.setMysqlUsername(environment.getProperty(ConfigKeys.STORAGE_MYSQL_USERNAME, String.class));
+        storageConn.setMysqlPassword(environment.getProperty(ConfigKeys.STORAGE_MYSQL_PASSWORD, String.class));
         config.setStorageConn(storageConn);
 
         LoggingProps logging = new LoggingProps();
-        logging.setLevelRoot(environment.getProperty("logging.level.root", String.class));
+        logging.setLevelRoot(environment.getProperty(ConfigKeys.LOGGING_LEVEL_ROOT, String.class));
         config.setLogging(logging);
 
         HelpdocProps helpdoc = new HelpdocProps();
-        helpdoc.setPath(environment.getProperty("helpdoc.path", String.class));
+        helpdoc.setPath(environment.getProperty(ConfigKeys.HELPDOC_PATH, String.class));
         config.setHelpdoc(helpdoc);
 
         WorkerProps worker = new WorkerProps();
-        worker.setId(environment.getProperty("dbsyncer.web.worker.id", Long.class));
-        worker.setDataCenterId(environment.getProperty("dbsyncer.web.worker.data-center-id", Long.class));
+        worker.setId(environment.getProperty(ConfigKeys.WORKER_ID, Long.class));
+        worker.setDataCenterId(environment.getProperty(ConfigKeys.WORKER_DATA_CENTER_ID, Long.class));
         config.setWorker(worker);
 
         LicenseProps license = new LicenseProps();
-        license.setServerAddress(environment.getProperty("dbsyncer.web.license.server.address", String.class));
+        license.setServerAddress(environment.getProperty(ConfigKeys.LICENSE_SERVER_ADDRESS, String.class));
         config.setLicense(license);
 
         // ===== B 类（执行器 + 缓冲区） =====
 
         ExecutorProps executors = new ExecutorProps();
         PoolProps generalPool = new PoolProps();
-        generalPool.setThreadCoreSize(environment.getProperty("dbsyncer.parser.general.thread-core-size", Integer.class));
-        generalPool.setMaxThreadSize(environment.getProperty("dbsyncer.parser.general.max-thread-size", Integer.class));
-        generalPool.setThreadQueueCapacity(environment.getProperty("dbsyncer.parser.general.thread-queue-capacity", Integer.class));
+        generalPool.setThreadCoreSize(environment.getProperty(ConfigKeys.EXECUTOR_GENERAL_THREAD_CORE_SIZE, Integer.class));
+        generalPool.setMaxThreadSize(environment.getProperty(ConfigKeys.EXECUTOR_GENERAL_MAX_THREAD_SIZE, Integer.class));
+        generalPool.setThreadQueueCapacity(environment.getProperty(ConfigKeys.EXECUTOR_GENERAL_THREAD_QUEUE_CAPACITY, Integer.class));
         executors.setGeneral(generalPool);
 
         PoolProps storagePool = new PoolProps();
-        storagePool.setThreadCoreSize(environment.getProperty("dbsyncer.storage.thread-core-size", Integer.class));
-        storagePool.setMaxThreadSize(environment.getProperty("dbsyncer.storage.max-thread-size", Integer.class));
-        storagePool.setThreadQueueCapacity(environment.getProperty("dbsyncer.storage.thread-queue-capacity", Integer.class));
+        storagePool.setThreadCoreSize(environment.getProperty(ConfigKeys.EXECUTOR_STORAGE_THREAD_CORE_SIZE, Integer.class));
+        storagePool.setMaxThreadSize(environment.getProperty(ConfigKeys.EXECUTOR_STORAGE_MAX_THREAD_SIZE, Integer.class));
+        storagePool.setThreadQueueCapacity(environment.getProperty(ConfigKeys.EXECUTOR_STORAGE_THREAD_QUEUE_CAPACITY, Integer.class));
         executors.setStorage(storagePool);
 
         PoolProps dispatchPool = new PoolProps();
-        dispatchPool.setThreadCoreSize(environment.getProperty("dbsyncer.common.dispatch.thread-core-size", Integer.class));
-        dispatchPool.setMaxThreadSize(environment.getProperty("dbsyncer.common.dispatch.max-thread-size", Integer.class));
-        dispatchPool.setThreadQueueCapacity(environment.getProperty("dbsyncer.common.dispatch.thread-queue-capacity", Integer.class));
+        dispatchPool.setThreadCoreSize(environment.getProperty(ConfigKeys.EXECUTOR_DISPATCH_THREAD_CORE_SIZE, Integer.class));
+        dispatchPool.setMaxThreadSize(environment.getProperty(ConfigKeys.EXECUTOR_DISPATCH_MAX_THREAD_SIZE, Integer.class));
+        dispatchPool.setThreadQueueCapacity(environment.getProperty(ConfigKeys.EXECUTOR_DISPATCH_THREAD_QUEUE_CAPACITY, Integer.class));
         executors.setDispatch(dispatchPool);
 
-        executors.setSchedulerPoolSize(environment.getProperty("dbsyncer.web.scheduler.pool-size", Integer.class));
+        executors.setSchedulerPoolSize(environment.getProperty(ConfigKeys.EXECUTOR_SCHEDULER_POOL_SIZE, Integer.class));
         config.setExecutors(executors);
 
         BufferProps buffers = new BufferProps();
         BufferActuatorProps generalBuffer = new BufferActuatorProps();
-        generalBuffer.setBufferWriterCount(environment.getProperty("dbsyncer.parser.general.buffer-writer-count", Integer.class));
-        generalBuffer.setBufferPullCount(environment.getProperty("dbsyncer.parser.general.buffer-pull-count", Integer.class));
-        generalBuffer.setBufferQueueCapacity(environment.getProperty("dbsyncer.parser.general.buffer-queue-capacity", Integer.class));
-        generalBuffer.setBufferPeriodMillisecond(environment.getProperty("dbsyncer.parser.general.buffer-period-millisecond", Integer.class));
+        generalBuffer.setBufferWriterCount(environment.getProperty(ConfigKeys.BUFFER_GENERAL_WRITER_COUNT, Integer.class));
+        generalBuffer.setBufferPullCount(environment.getProperty(ConfigKeys.BUFFER_GENERAL_PULL_COUNT, Integer.class));
+        generalBuffer.setBufferQueueCapacity(environment.getProperty(ConfigKeys.BUFFER_GENERAL_QUEUE_CAPACITY, Integer.class));
+        generalBuffer.setBufferPeriodMillisecond(environment.getProperty(ConfigKeys.BUFFER_GENERAL_PERIOD_MILLISECOND, Integer.class));
         buffers.setGeneral(generalBuffer);
 
         BufferActuatorProps storageBuffer = new BufferActuatorProps();
-        storageBuffer.setBufferWriterCount(environment.getProperty("dbsyncer.storage.buffer-writer-count", Integer.class));
-        storageBuffer.setBufferPullCount(environment.getProperty("dbsyncer.storage.buffer-pull-count", Integer.class));
-        storageBuffer.setBufferQueueCapacity(environment.getProperty("dbsyncer.storage.buffer-queue-capacity", Integer.class));
-        storageBuffer.setBufferPeriodMillisecond(environment.getProperty("dbsyncer.storage.buffer-period-millisecond", Integer.class));
+        storageBuffer.setBufferWriterCount(environment.getProperty(ConfigKeys.BUFFER_STORAGE_WRITER_COUNT, Integer.class));
+        storageBuffer.setBufferPullCount(environment.getProperty(ConfigKeys.BUFFER_STORAGE_PULL_COUNT, Integer.class));
+        storageBuffer.setBufferQueueCapacity(environment.getProperty(ConfigKeys.BUFFER_STORAGE_QUEUE_CAPACITY, Integer.class));
+        storageBuffer.setBufferPeriodMillisecond(environment.getProperty(ConfigKeys.BUFFER_STORAGE_PERIOD_MILLISECOND, Integer.class));
         buffers.setStorage(storageBuffer);
         config.setBuffers(buffers);
 
         // ===== C 类（重试 + 通知 + 错误） =====
 
         RetryProps retry = new RetryProps();
-        retry.setDisable(environment.getProperty("dbsyncer.retry.global.disable", Boolean.class));
-        retry.setMaxAttempts(environment.getProperty("dbsyncer.retry.global.max-attempts", Integer.class));
-        retry.setInitialIntervalMs(environment.getProperty("dbsyncer.retry.global.initial-interval-ms", Long.class));
-        retry.setMaxIntervalMs(environment.getProperty("dbsyncer.retry.global.max-interval-ms", Long.class));
-        retry.setMultiplier(environment.getProperty("dbsyncer.retry.global.multiplier", Double.class));
-        retry.setMaxDurationMs(environment.getProperty("dbsyncer.retry.global.max-duration-ms", Long.class));
-        retry.setUseKeyword(environment.getProperty("dbsyncer.retry.global.use-keyword", Boolean.class));
+        retry.setDisable(environment.getProperty(ConfigKeys.RETRY_DISABLE, Boolean.class));
+        retry.setMaxAttempts(environment.getProperty(ConfigKeys.RETRY_MAX_ATTEMPTS, Integer.class));
+        retry.setInitialIntervalMs(environment.getProperty(ConfigKeys.RETRY_INITIAL_INTERVAL_MS, Long.class));
+        retry.setMaxIntervalMs(environment.getProperty(ConfigKeys.RETRY_MAX_INTERVAL_MS, Long.class));
+        retry.setMultiplier(environment.getProperty(ConfigKeys.RETRY_MULTIPLIER, Double.class));
+        retry.setMaxDurationMs(environment.getProperty(ConfigKeys.RETRY_MAX_DURATION_MS, Long.class));
+        retry.setUseKeyword(environment.getProperty(ConfigKeys.RETRY_USE_KEYWORD, Boolean.class));
         config.setRetry(retry);
 
         NotifyProps notify = new NotifyProps();
-        List<String> notifyChannels = environment.getProperty("dbsyncer.plugin.notify.channels", List.class);
+        List<String> notifyChannels = environment.getProperty(ConfigKeys.NOTIFY_CHANNELS, List.class);
         if (notifyChannels != null) {
             notify.setChannels(notifyChannels);
         }
         MailProps mail = new MailProps();
-        mail.setUsername(environment.getProperty("dbsyncer.plugin.notify.mail.username", String.class));
-        mail.setPassword(environment.getProperty("dbsyncer.plugin.notify.mail.password", String.class));
-        List<String> mailNotifyTypes = environment.getProperty("dbsyncer.plugin.notify.mail.notify-types", List.class);
+        mail.setUsername(environment.getProperty(ConfigKeys.NOTIFY_MAIL_USERNAME, String.class));
+        mail.setPassword(environment.getProperty(ConfigKeys.NOTIFY_MAIL_PASSWORD, String.class));
+        List<String> mailNotifyTypes = environment.getProperty(ConfigKeys.NOTIFY_MAIL_NOTIFY_TYPES, List.class);
         if (mailNotifyTypes != null) {
             mail.setNotifyTypes(mailNotifyTypes);
         }
         notify.setMail(mail);
         DingTalkProps dingtalk = new DingTalkProps();
-        dingtalk.setWebhookUrl(environment.getProperty("dbsyncer.plugin.notify.dingtalk.webhook-url", String.class));
-        dingtalk.setSecret(environment.getProperty("dbsyncer.plugin.notify.dingtalk.secret", String.class));
-        List<String> dingtalkNotifyTypes = environment.getProperty("dbsyncer.plugin.notify.dingtalk.notify-types", List.class);
+        dingtalk.setWebhookUrl(environment.getProperty(ConfigKeys.NOTIFY_DINGTALK_WEBHOOK_URL, String.class));
+        dingtalk.setSecret(environment.getProperty(ConfigKeys.NOTIFY_DINGTALK_SECRET, String.class));
+        List<String> dingtalkNotifyTypes = environment.getProperty(ConfigKeys.NOTIFY_DINGTALK_NOTIFY_TYPES, List.class);
         if (dingtalkNotifyTypes != null) {
             dingtalk.setNotifyTypes(dingtalkNotifyTypes);
         }
@@ -236,15 +237,15 @@ public class SystemConfigRegistry {
         config.setNotify(notify);
 
         ErrorProps error = new ErrorProps();
-        error.setThreshold(environment.getProperty("dbsyncer.error.threshold", Integer.class));
-        String fatalMatchMode = environment.getProperty("dbsyncer.error.fatal-match-mode", String.class);
+        error.setThreshold(environment.getProperty(ConfigKeys.ERROR_THRESHOLD, Integer.class));
+        String fatalMatchMode = environment.getProperty(ConfigKeys.ERROR_FATAL_MATCH_MODE, String.class);
         if (fatalMatchMode != null) {
             try {
                 error.setFatalMatchMode(org.dbsyncer.common.util.MatchMode.valueOf(fatalMatchMode));
             } catch (IllegalArgumentException ignored) {
             }
         }
-        List<String> fatalKeywords = environment.getProperty("dbsyncer.error.fatal-keywords", List.class);
+        List<String> fatalKeywords = environment.getProperty(ConfigKeys.ERROR_FATAL_KEYWORDS, List.class);
         if (fatalKeywords != null) {
             error.setFatalKeywords(fatalKeywords);
         }

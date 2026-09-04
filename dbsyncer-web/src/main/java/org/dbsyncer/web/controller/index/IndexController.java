@@ -8,7 +8,7 @@ import org.dbsyncer.biz.vo.MappingVo;
 import org.dbsyncer.biz.PermissionService;
 import org.dbsyncer.biz.ProjectGroupService;
 import org.dbsyncer.biz.ConfigService;
-import org.dbsyncer.parser.impl.SystemConfigRegistry;
+import org.dbsyncer.parser.impl.ConfigRegistry;
 import org.dbsyncer.biz.UserConfigService;
 import org.dbsyncer.biz.MappingService;
 import org.dbsyncer.biz.vo.ProjectGroupVo;
@@ -53,7 +53,7 @@ public class IndexController {
     private ConfigService systemConfigService;
 
     @Resource
-    private SystemConfigRegistry configRegistry;
+    private ConfigRegistry configRegistry;
 
     @Resource
     private MappingService mappingService;

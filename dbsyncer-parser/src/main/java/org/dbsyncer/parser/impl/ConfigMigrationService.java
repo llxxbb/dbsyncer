@@ -31,7 +31,7 @@ public class ConfigMigrationService {
     public static final int CURRENT_SCHEMA_VERSION = 1;
 
     @Resource
-    private SystemConfigRegistry configRegistry;
+    private ConfigRegistry configRegistry;
 
     @Lazy
     @Resource

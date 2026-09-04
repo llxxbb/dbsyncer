@@ -9,6 +9,7 @@ import org.dbsyncer.biz.UserConfigService;
 import org.dbsyncer.biz.vo.SystemConfigVo;
 import org.dbsyncer.biz.vo.VersionVo;
 import org.dbsyncer.common.config.AppConfig;
+import org.dbsyncer.common.config.ConfigKeys;
 import org.dbsyncer.common.config.SystemTabEnum;
 import org.dbsyncer.common.config.props.*;
 import org.dbsyncer.common.util.CollectionUtils;
@@ -17,7 +18,7 @@ import org.dbsyncer.common.util.NetworkUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.impl.ConfigMigrationService;
-import org.dbsyncer.parser.impl.SystemConfigRegistry;
+import org.dbsyncer.parser.impl.ConfigRegistry;
 import org.dbsyncer.parser.listener.ConfigChangeListener;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
@@ -46,15 +47,15 @@ import java.util.*;
  * @date 2019/10/17 23:20
  */
 @Service
-public class SystemConfigServiceImpl implements ConfigService {
+public class ConfigServiceImpl implements ConfigService {
 
-    private static final Logger logger = LoggerFactory.getLogger(SystemConfigServiceImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(ConfigServiceImpl.class);
 
     @Resource
     private ProfileComponent profileComponent;
 
     @Resource
-    private SystemConfigRegistry configRegistry;
+    private ConfigRegistry configRegistry;
 
     @Resource
     private ConfigMigrationService configMigrationService;
@@ -270,24 +271,24 @@ public class SystemConfigServiceImpl implements ConfigService {
     public Map<String, Object> getServerInfo() throws Exception {
         Map<String, Object> info = new LinkedHashMap<>();
         // A 类配置从 Environment 现取（不读 Bean，不读 DB）
-        info.put("serverPort", environment.getProperty("server.port", "18686"));
-        info.put("sslEnabled", environment.getProperty("server.ssl.enabled", "false"));
-        info.put("httpPort", environment.getProperty("server.http.port", "0"));
-        info.put("httpRedirect", environment.getProperty("server.http.redirect", "false"));
-        info.put("contextPath", environment.getProperty("server.servlet.context-path", "/"));
-        info.put("sessionTimeout", environment.getProperty("server.servlet.session.timeout", "1800"));
-        info.put("storageType", environment.getProperty("dbsyncer.storage.type", "disk"));
+        info.put("serverPort", environment.getProperty(ConfigKeys.SERVER_PORT, "18686"));
+        info.put("sslEnabled", environment.getProperty(ConfigKeys.SERVER_SSL_ENABLED, "false"));
+        info.put("httpPort", environment.getProperty(ConfigKeys.SERVER_HTTP_PORT, "0"));
+        info.put("httpRedirect", environment.getProperty(ConfigKeys.SERVER_HTTP_REDIRECT, "false"));
+        info.put("contextPath", environment.getProperty(ConfigKeys.SERVER_SERVLET_CONTEXT_PATH, "/"));
+        info.put("sessionTimeout", environment.getProperty(ConfigKeys.SERVER_SERVLET_SESSION_TIMEOUT, "1800"));
+        info.put("storageType", environment.getProperty(ConfigKeys.STORAGE_TYPE, "disk"));
 
         // 数据库信息脱敏
-        String dbUrl = environment.getProperty("dbsyncer.storage.mysql.url", "");
+        String dbUrl = environment.getProperty(ConfigKeys.STORAGE_MYSQL_URL, "");
         info.put("databaseUrl", maskIp(dbUrl));
-        String dbUser = environment.getProperty("dbsyncer.storage.mysql.username", "");
+        String dbUser = environment.getProperty(ConfigKeys.STORAGE_MYSQL_USERNAME, "");
         info.put("databaseUsername", maskUsername(dbUser));
         // 密码不展示
 
-        info.put("workerId", environment.getProperty("dbsyncer.web.worker.id", "1"));
-        info.put("helpdocPath", environment.getProperty("helpdoc.path", "./helpdocs"));
-        info.put("logLevel", environment.getProperty("logging.level.root", "info"));
+        info.put("workerId", environment.getProperty(ConfigKeys.WORKER_ID, "1"));
+        info.put("helpdocPath", environment.getProperty(ConfigKeys.HELPDOC_PATH, "./helpdocs"));
+        info.put("logLevel", environment.getProperty(ConfigKeys.LOGGING_LEVEL_ROOT, "info"));
         return info;
     }
 

@@ -4,6 +4,7 @@
 package org.dbsyncer.connector.mysql.storage;
 
 import org.apache.commons.io.IOUtils;
+import org.dbsyncer.common.config.ConfigKeys;
 import org.dbsyncer.common.model.Paging;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.StringUtil;
@@ -65,13 +66,13 @@ public class MySQLStorageService extends AbstractStorageService {
     @Override
     public void init(Properties properties) {
         DatabaseConfig config = new DatabaseConfig();
-        config.setConnectorType(properties.getProperty("dbsyncer.storage.type"));
-        config.setUrl(properties.getProperty("dbsyncer.storage.mysql.url", "jdbc:mysql://127.0.0.1:3306/dbsyncer?rewriteBatchedStatements=true&seUnicode=true&characterEncoding=UTF8&serverTimezone=Asia/Shanghai&useSSL=false&verifyServerCertificate=false&autoReconnect=true&tinyInt1isBit=false&allowPublicKeyRetrieval=true"));
-        String username = properties.getProperty("dbsyncer.storage.mysql.username", "root");
-        String password = properties.getProperty("dbsyncer.storage.mysql.password", "123456");
+        config.setConnectorType(properties.getProperty(ConfigKeys.STORAGE_TYPE));
+        config.setUrl(properties.getProperty(ConfigKeys.STORAGE_MYSQL_URL, "jdbc:mysql://127.0.0.1:3306/dbsyncer?rewriteBatchedStatements=true&seUnicode=true&characterEncoding=UTF8&serverTimezone=Asia/Shanghai&useSSL=false&verifyServerCertificate=false&autoReconnect=true&tinyInt1isBit=false&allowPublicKeyRetrieval=true"));
+        String username = properties.getProperty(ConfigKeys.STORAGE_MYSQL_USERNAME, "root");
+        String password = properties.getProperty(ConfigKeys.STORAGE_MYSQL_PASSWORD, "123456");
         config.setUsername(StringUtil.replace(username.trim(), "\t", StringUtil.EMPTY));
         config.setPassword(StringUtil.replace(password.trim(), "\t", StringUtil.EMPTY));
-        config.setDriverClassName(properties.getProperty("dbsyncer.storage.mysql.driver-class-name"));
+        config.setDriverClassName(properties.getProperty(ConfigKeys.STORAGE_MYSQL_DRIVER_CLASS_NAME));
         logger.info("url:{}", config.getUrl());
         database = DatabaseUtil.getDatabaseName(config.getUrl());
         connectorInstance = new DatabaseConnectorInstance(config);

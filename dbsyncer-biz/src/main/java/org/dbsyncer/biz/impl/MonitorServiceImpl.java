@@ -7,7 +7,7 @@ import org.apache.lucene.index.IndexableField;
 import org.dbsyncer.biz.ErrorQueueRetrier;
 import org.dbsyncer.biz.MonitorService;
 import org.dbsyncer.biz.ConfigService;
-import org.dbsyncer.parser.impl.SystemConfigRegistry;
+import org.dbsyncer.parser.impl.ConfigRegistry;
 import org.dbsyncer.biz.enums.BufferActuatorMetricEnum;
 import org.dbsyncer.biz.enums.DiskMetricEnum;
 import org.dbsyncer.biz.enums.MetricEnum;
@@ -99,7 +99,7 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob {
     private ConfigService systemConfigService;
 
     @Resource
-    private SystemConfigRegistry configRegistry;
+    private ConfigRegistry configRegistry;
 
     @Resource
     private MetricGroupProcessor metricGroupProcessor;

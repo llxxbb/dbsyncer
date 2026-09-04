@@ -31,7 +31,7 @@ public class LogServiceImpl implements LogService {
 
     @Lazy
     @Resource
-    private SystemConfigRegistry configRegistry;
+    private ConfigRegistry configRegistry;
 
     @Lazy
     @Resource

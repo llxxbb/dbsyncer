@@ -7,7 +7,7 @@ import org.dbsyncer.common.ProcessEvent;
 import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.parser.FullSyncExecutor;
 import org.dbsyncer.parser.ProfileComponent;
-import org.dbsyncer.parser.impl.SystemConfigRegistry;
+import org.dbsyncer.parser.impl.ConfigRegistry;
 import org.dbsyncer.parser.model.*;
 import org.dbsyncer.parser.pipeline.SyncPipeline;
 import org.dbsyncer.parser.pipeline.SyncTask;
@@ -57,7 +57,7 @@ public class FullSyncExecutorImpl implements FullSyncExecutor {
     private ProfileComponent profileComponent;
 
     @Resource
-    private SystemConfigRegistry configRegistry;
+    private ConfigRegistry configRegistry;
 
     @Resource
     private ErrorQueueCollector errorQueueCollector;

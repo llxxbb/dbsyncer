@@ -4,6 +4,7 @@
 package org.dbsyncer.web.controller.helpdoc;
 
 import org.dbsyncer.biz.UserConfigService;
+import org.dbsyncer.common.config.ConfigKeys;
 import org.dbsyncer.biz.vo.RestResult;
 import org.dbsyncer.biz.vo.UserInfoVo;
 import org.dbsyncer.web.controller.BaseController;
@@ -40,7 +41,7 @@ public class HelpDocController extends BaseController {
     @Resource
     private UserConfigService userConfigService;
 
-    @Value("${helpdoc.path:./helpdocs}")
+    @Value("${" + ConfigKeys.HELPDOC_PATH + ":./helpdocs}")
     private String helpDocPath;
 
     private File helpDocDir;

@@ -1,7 +1,7 @@
 package org.dbsyncer.web.controller;
 
 import org.dbsyncer.biz.ConfigService;
-import org.dbsyncer.parser.impl.SystemConfigRegistry;
+import org.dbsyncer.parser.impl.ConfigRegistry;
 import org.dbsyncer.biz.UserConfigService;
 import org.dbsyncer.biz.vo.UserInfoVo;
 import org.springframework.boot.web.server.ErrorPage;
@@ -25,7 +25,7 @@ public class DefaultController implements ErrorPageRegistrar {
     private ConfigService systemConfigService;
 
     @Resource
-    private SystemConfigRegistry configRegistry;
+    private ConfigRegistry configRegistry;
     
     @Resource
     private UserConfigService userConfigService;

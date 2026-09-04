@@ -1,5 +1,6 @@
 package org.dbsyncer.biz.impl;
 
+import org.dbsyncer.common.config.ConfigKeys;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.sdk.notify.NotifyMessage;
 import org.dbsyncer.sdk.notify.NotifyService;
@@ -59,7 +60,7 @@ public class SelfRestartService {
             return true;
         }
         // 检测配置开关
-        String enabled = System.getProperty("dbsyncer.runtime.self-restart.enabled");
+        String enabled = System.getProperty(ConfigKeys.RUNTIME_SELF_RESTART_ENABLED);
         if ("true".equalsIgnoreCase(enabled)) {
             return true;
         }
