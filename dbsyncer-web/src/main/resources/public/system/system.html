@@ -17,6 +17,7 @@
         <li role="presentation"><a href="#tab-retry" data-toggle="tab">重试策略</a></li>
         <li role="presentation"><a href="#tab-notify" data-toggle="tab">通知通道</a></li>
         <li role="presentation"><a href="#tab-error" data-toggle="tab">错误处理</a></li>
+        <li role="presentation"><a href="#tab-monitor" data-toggle="tab">监控定时任务</a></li>
         <li role="presentation"><a href="#tab-runtime" data-toggle="tab">运行时</a></li>
         <li role="presentation"><a href="#tab-template" data-toggle="tab">模板引擎</a></li>
     </ul>
@@ -162,13 +163,6 @@
                     </div>
                 </div>
 
-                <h4>调度线程池 <small class="text-muted">驱动所有定时任务</small></h4>
-                <div class="form-group">
-                    <label class="col-sm-2 control-label">调度线程数<i class="fa fa-question-circle fa_gray" title="taskScheduler 的线程数，决定同时运行的定时任务数量。重启后生效。"></i></label>
-                    <div class="col-sm-4">
-                        <input type="number" class="form-control" min="1" name="schedulerPoolSize" id="exec_schedulerPoolSize"/>
-                    </div>
-                </div>
             </form>
         </div>
 
@@ -404,6 +398,54 @@
                     <label class="col-sm-2 control-label">致命关键字<i class="fa fa-question-circle fa_gray" title="每行一个。命中时任务直接终止。"></i></label>
                     <div class="col-sm-10">
                         <textarea class="form-control" rows="3" id="error_fatalKeywords" placeholder="每行一个关键字"></textarea>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Tab: 监控定时任务 -->
+        <div role="tabpanel" class="tab-pane" id="tab-monitor">
+            <div class="alert alert-info">以下配置修改后<strong>立即生效</strong>。控制所有监控相关定时任务的执行间隔。</div>
+            <form id="monitorForm" class="form-horizontal" role="form">
+                <div class="form-group">
+                    <div class="text-right col-sm-12">
+                        <button type="button" class="btn btn-primary btn-save-tab" data-tab="monitor"><span class="fa fa-save"></span>保存</button>
+                        <button type="button" class="btn btn-default btn-reset-tab" data-tab="monitor"><span class="fa fa-undo"></span>恢复系统默认</button>
+                    </div>
+                </div>
+                <h4>调度线程池</h4>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">调度线程数<i class="fa fa-question-circle fa_gray" title="taskScheduler 的线程数，决定同时运行的定时任务数量。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1" name="schedulerPoolSize" id="monitor_schedulerPoolSize"/>
+                    </div>
+                </div>
+                <h4>采集间隔（毫秒）</h4>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">CPU/内存采集<i class="fa fa-question-circle fa_gray" title="CPU 和内存指标采集间隔，默认 5000 毫秒。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1000" name="cpuMemoryIntervalMs" id="monitor_cpuMemoryIntervalMs"/>
+                    </div>
+                    <label class="col-sm-2 control-label">健康检查<i class="fa fa-question-circle fa_gray" title="连接器健康检查间隔，默认 10000 毫秒。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1000" name="healthCheckIntervalMs" id="monitor_healthCheckIntervalMs"/>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">过期数据清理<i class="fa fa-question-circle fa_gray" title="过期同步数据和日志的清理间隔，默认 30000 毫秒。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1000" name="cleanupIntervalMs" id="monitor_cleanupIntervalMs"/>
+                    </div>
+                    <label class="col-sm-2 control-label">指标上报<i class="fa fa-question-circle fa_gray" title="应用指标上报间隔，默认 5000 毫秒。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1000" name="metricReportIntervalMs" id="monitor_metricReportIntervalMs"/>
+                    </div>
+                </div>
+                <h4>预警</h4>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">预警 Cron<i class="fa fa-question-circle fa_gray" title="预警任务的 Cron 表达式，默认每 10 分钟执行。"></i></label>
+                    <div class="col-sm-6">
+                        <input type="text" class="form-control" name="alertCron" id="monitor_alertCron"/>
                     </div>
                 </div>
             </form>

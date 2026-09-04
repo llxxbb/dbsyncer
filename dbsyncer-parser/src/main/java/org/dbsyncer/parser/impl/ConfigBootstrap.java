@@ -136,6 +136,12 @@ public class ConfigBootstrap {
                 db.getBuffers() != null ? db.getBuffers().toConfigEntries() : null,
                 merged.getBuffers() != null ? merged.getBuffers().toConfigEntries() : null);
 
+        // C 类：监控定时任务
+        printSection(sb, "C类：监控定时任务配置",
+                props.getMonitor() != null ? props.getMonitor().toConfigEntries() : null,
+                db.getMonitor() != null ? db.getMonitor().toConfigEntries() : null,
+                merged.getMonitor() != null ? merged.getMonitor().toConfigEntries() : null);
+
         // C 类：重试策略
         printSection(sb, "C类：重试策略配置", 
                 props.getRetry() != null ? props.getRetry().toConfigEntries() : null,

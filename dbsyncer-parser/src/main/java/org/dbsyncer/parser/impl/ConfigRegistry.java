@@ -117,6 +117,7 @@ public class ConfigRegistry {
         // B/C 类：DB 优先
         merged.setExecutors(db.getExecutors() != null ? db.getExecutors() : props.getExecutors());
         merged.setBuffers(db.getBuffers() != null ? db.getBuffers() : props.getBuffers());
+        merged.setMonitor(db.getMonitor() != null ? db.getMonitor() : props.getMonitor());
         merged.setRetry(db.getRetry() != null ? db.getRetry() : props.getRetry());
         merged.setNotify(db.getNotify() != null ? db.getNotify() : props.getNotify());
         merged.setError(db.getError() != null ? db.getError() : props.getError());
@@ -200,7 +201,6 @@ public class ConfigRegistry {
         dispatchPool.setThreadQueueCapacity(environment.getProperty(ConfigKeys.EXECUTOR_DISPATCH_THREAD_QUEUE_CAPACITY, Integer.class));
         executors.setDispatch(dispatchPool);
 
-        executors.setSchedulerPoolSize(environment.getProperty(ConfigKeys.EXECUTOR_SCHEDULER_POOL_SIZE, Integer.class));
         config.setExecutors(executors);
 
         BufferProps buffers = new BufferProps();
@@ -220,6 +220,15 @@ public class ConfigRegistry {
         config.setBuffers(buffers);
 
         // ===== C 类（重试 + 通知 + 错误 + 运行时 + 模板） =====
+
+        MonitorProps monitor = new MonitorProps();
+        monitor.setSchedulerPoolSize(environment.getProperty(ConfigKeys.MONITOR_SCHEDULER_POOL_SIZE, Integer.class));
+        monitor.setCpuMemoryIntervalMs(environment.getProperty(ConfigKeys.MONITOR_CPU_MEMORY_INTERVAL_MS, Integer.class));
+        monitor.setHealthCheckIntervalMs(environment.getProperty(ConfigKeys.MONITOR_HEALTH_CHECK_INTERVAL_MS, Integer.class));
+        monitor.setCleanupIntervalMs(environment.getProperty(ConfigKeys.MONITOR_CLEANUP_INTERVAL_MS, Integer.class));
+        monitor.setMetricReportIntervalMs(environment.getProperty(ConfigKeys.MONITOR_METRIC_REPORT_INTERVAL_MS, Integer.class));
+        monitor.setAlertCron(environment.getProperty(ConfigKeys.MONITOR_ALERT_CRON, String.class));
+        config.setMonitor(monitor);
 
         RetryProps retry = new RetryProps();
         retry.setDisable(environment.getProperty(ConfigKeys.RETRY_DISABLE, Boolean.class));

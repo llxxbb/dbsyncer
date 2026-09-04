@@ -8,15 +8,18 @@ import org.dbsyncer.biz.enums.StatisticEnum;
 import org.dbsyncer.biz.enums.ThreadPoolMetricEnum;
 import org.dbsyncer.biz.model.*;
 import org.dbsyncer.biz.vo.HistoryStackVo;
+import org.dbsyncer.common.config.props.MonitorProps;
 import org.dbsyncer.common.metric.Bucket;
 import org.dbsyncer.common.metric.TimeRegistry;
 import org.dbsyncer.common.model.Paging;
 import org.dbsyncer.common.scheduled.ScheduledTaskJob;
 import org.dbsyncer.common.scheduled.ScheduledTaskService;
+import org.dbsyncer.common.scheduled.StartupTaskRegistrar;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.DateFormatUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.ProfileComponent;
+import org.dbsyncer.parser.impl.ConfigRegistry;
 import org.dbsyncer.parser.flush.BufferActuator;
 import org.dbsyncer.parser.flush.impl.BufferActuatorRouter;
 import org.dbsyncer.parser.flush.impl.MetaBufferActuator;
@@ -33,7 +36,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -52,7 +54,7 @@ import java.util.stream.Stream;
  * @Date 2020-04-23 11:30
  */
 @Component
-public class MetricReporter implements ScheduledTaskJob {
+public class MetricReporter implements ScheduledTaskJob, StartupTaskRegistrar {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -69,6 +71,9 @@ public class MetricReporter implements ScheduledTaskJob {
     private ScheduledTaskService scheduledTaskService;
 
     @Resource
+    private ConfigRegistry configRegistry;
+
+    @Resource
     private StorageService storageService;
 
     @Resource
@@ -82,9 +87,10 @@ public class MetricReporter implements ScheduledTaskJob {
 
     private final AppReportMetric report = new AppReportMetric();
 
-    @PostConstruct
-    private void init() {
-        scheduledTaskService.start(5000, this);
+    @Override
+    public void registerScheduledTasks() {
+        MonitorProps m = configRegistry.getConfig().getMonitor();
+        scheduledTaskService.start(m.getMetricReportIntervalMs(), this);
     }
 
     public List<MetricResponse> getMetricInfo() {

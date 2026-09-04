@@ -7,8 +7,6 @@ import org.dbsyncer.common.util.StringUtil;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
-import java.time.LocalDate;
-
 /**
  * @author AE86
  * @version 1.0.0

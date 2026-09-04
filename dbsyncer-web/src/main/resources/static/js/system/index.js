@@ -12,6 +12,7 @@ function loadTabs() {
             fillRetryTab(tabsData.retry);
             fillNotifyTab(tabsData.notify);
             fillErrorTab(tabsData.error);
+            fillMonitorTab(tabsData.monitor);
             fillRuntimeTab(tabsData.runtime);
             fillTemplateTab(tabsData.template);
         }
@@ -61,7 +62,6 @@ function fillExecutorsTab(exec) {
         $('#exec_dispatch_maxThreadSize').val(exec.dispatch.maxThreadSize);
         $('#exec_dispatch_threadQueueCapacity').val(exec.dispatch.threadQueueCapacity);
     }
-    $('#exec_schedulerPoolSize').val(exec.schedulerPoolSize);
 }
 
 function fillBuffersTab(buf) {
@@ -122,6 +122,16 @@ function fillErrorTab(error) {
     $('#error_fatalKeywords').val((error.fatalKeywords || []).join('\n'));
 }
 
+function fillMonitorTab(monitor) {
+    if (!monitor) return;
+    $('#monitor_schedulerPoolSize').val(monitor.schedulerPoolSize || 8);
+    $('#monitor_cpuMemoryIntervalMs').val(monitor.cpuMemoryIntervalMs || 5000);
+    $('#monitor_healthCheckIntervalMs').val(monitor.healthCheckIntervalMs || 10000);
+    $('#monitor_cleanupIntervalMs').val(monitor.cleanupIntervalMs || 30000);
+    $('#monitor_metricReportIntervalMs').val(monitor.metricReportIntervalMs || 5000);
+    $('#monitor_alertCron').val(monitor.alertCron || '0 */10 * * * ?');
+}
+
 // ===== Tab 保存 =====
 
 function saveTab(tab) {
@@ -175,8 +185,7 @@ function buildPayload(tab) {
                     threadCoreSize: parseInt($('#exec_dispatch_threadCoreSize').val()),
                     maxThreadSize: parseInt($('#exec_dispatch_maxThreadSize').val()),
                     threadQueueCapacity: parseInt($('#exec_dispatch_threadQueueCapacity').val())
-                },
-                schedulerPoolSize: parseInt($('#exec_schedulerPoolSize').val())
+                }
             };
         case 'buffers':
             return {
@@ -225,6 +234,15 @@ function buildPayload(tab) {
                 threshold: parseInt($('#error_threshold').val()),
                 fatalMatchMode: $('#error_fatalMatchMode').val(),
                 fatalKeywords: textToLines($('#error_fatalKeywords').val())
+            };
+        case 'monitor':
+            return {
+                schedulerPoolSize: parseInt($('#monitor_schedulerPoolSize').val()),
+                cpuMemoryIntervalMs: parseInt($('#monitor_cpuMemoryIntervalMs').val()),
+                healthCheckIntervalMs: parseInt($('#monitor_healthCheckIntervalMs').val()),
+                cleanupIntervalMs: parseInt($('#monitor_cleanupIntervalMs').val()),
+                metricReportIntervalMs: parseInt($('#monitor_metricReportIntervalMs').val()),
+                alertCron: $('#monitor_alertCron').val()
             };
         case 'runtime':
             return {

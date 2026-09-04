@@ -20,9 +20,6 @@ public class ExecutorProps implements Serializable {
     /** 调度任务执行器 → ExecutorFactory */
     private PoolProps dispatch;
 
-    /** 调度线程池 → SchedulerConfig.poolSize */
-    private Integer schedulerPoolSize;
-
     public PoolProps getGeneral() {
         return general;
     }
@@ -47,14 +44,6 @@ public class ExecutorProps implements Serializable {
         this.dispatch = dispatch;
     }
 
-    public Integer getSchedulerPoolSize() {
-        return schedulerPoolSize;
-    }
-
-    public void setSchedulerPoolSize(Integer schedulerPoolSize) {
-        this.schedulerPoolSize = schedulerPoolSize;
-    }
-
     /**
      * 校验执行器配置，返回错误信息列表。
      *
@@ -70,9 +59,6 @@ public class ExecutorProps implements Serializable {
         }
         if (dispatch != null) {
             errors.addAll(dispatch.validate("调度任务执行器"));
-        }
-        if (schedulerPoolSize != null && schedulerPoolSize < 1) {
-            errors.add("调度线程数必须 > 0");
         }
         return errors;
     }
@@ -91,7 +77,6 @@ public class ExecutorProps implements Serializable {
         if (dispatch != null) {
             entries.addAll(dispatch.toConfigEntries("dbsyncer.common.dispatch"));
         }
-        entries.add(new ConfigEntry("dbsyncer.web.scheduler.pool-size", schedulerPoolSize));
         return entries;
     }
 }

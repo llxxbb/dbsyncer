@@ -242,6 +242,7 @@ public class ConfigServiceImpl implements ConfigService {
         result.put("executors", config.getExecutors());
         result.put("buffers", config.getBuffers());
         // C 类
+        result.put("monitor", config.getMonitor());
         result.put("retry", config.getRetry());
         result.put("notify", config.getNotify());
         result.put("error", config.getError());
@@ -346,6 +347,8 @@ public class ConfigServiceImpl implements ConfigService {
                 return ((ExecutorProps) props).validate();
             case BUFFERS:
                 return ((BufferProps) props).validate();
+            case MONITOR:
+                return ((MonitorProps) props).validate();
             case RETRY:
                 return ((RetryProps) props).validate();
             case NOTIFY:
@@ -371,6 +374,9 @@ public class ConfigServiceImpl implements ConfigService {
                 break;
             case BUFFERS:
                 cfg.setBuffers((BufferProps) props);
+                break;
+            case MONITOR:
+                cfg.setMonitor((MonitorProps) props);
                 break;
             case RETRY:
                 cfg.setRetry((RetryProps) props);

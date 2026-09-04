@@ -18,6 +18,9 @@ import org.dbsyncer.biz.model.MetricResponse;
 import org.dbsyncer.biz.model.Sample;
 import org.dbsyncer.biz.vo.HistoryStackVo;
 import org.dbsyncer.biz.vo.RestResult;
+import org.dbsyncer.common.config.props.MonitorProps;
+import org.dbsyncer.common.scheduled.ScheduledTaskService;
+import org.dbsyncer.common.scheduled.StartupTaskRegistrar;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.DateFormatUtil;
 import org.dbsyncer.common.util.NumberUtil;
@@ -32,7 +35,6 @@ import org.springframework.boot.actuate.health.HealthComponent;
 import org.springframework.boot.actuate.health.HealthEndpoint;
 import org.springframework.boot.actuate.health.SystemHealth;
 import org.springframework.boot.actuate.metrics.MetricsEndpoint;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
@@ -52,7 +54,7 @@ import java.util.HashMap;
 
 @Controller
 @RequestMapping("/monitor")
-public class MonitorController extends BaseController {
+public class MonitorController extends BaseController implements StartupTaskRegistrar {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -96,6 +98,9 @@ public class MonitorController extends BaseController {
     @Resource
     private HistoryStackValueFormatter memoryHistoryStackValueFormatterImpl;
 
+    @Resource
+    private ScheduledTaskService scheduledTaskService;
+
     @RequestMapping("")
     @PreAuthorize("hasRole('admin')")
     public String index(HttpServletRequest request, ModelMap model) {
@@ -116,24 +121,31 @@ public class MonitorController extends BaseController {
         return "monitor/retry.html";
     }
 
-    @Scheduled(fixedRate = 5000)
-    public void recordHistoryStackMetric() {
+    @Override
+    public void registerScheduledTasks() {
+        MonitorProps m = configRegistry.getConfig().getMonitor();
+        scheduledTaskService.start("monitor-cpu", m.getCpuMemoryIntervalMs(), this::recordHistoryStackMetric);
+        scheduledTaskService.start("monitor-health", m.getHealthCheckIntervalMs(), this::refreshConnectorHealth);
+        scheduledTaskService.start("monitor-cleanup", m.getCleanupIntervalMs(), () -> {
+            try {
+                deleteExpiredDataAndLog();
+            } catch (Exception e) {
+                logger.error("清理过期数据失败", e);
+            }
+        });
+    }
+
+    private void recordHistoryStackMetric() {
         recordHistoryStackMetric(MetricEnum.CPU_USAGE, cpu, cpuHistoryStackValueFormatterImpl);
         recordHistoryStackMetric(MetricEnum.MEMORY_USED, memory, memoryHistoryStackValueFormatterImpl);
     }
 
-    @Scheduled(fixedRate = 10000)
-    public void refreshConnectorHealth() {
-        if (preloadTemplate.isPreloadCompleted()) {
-            connectorService.refreshHealth();
-        }
+    private void refreshConnectorHealth() {
+        connectorService.refreshHealth();
     }
 
-    @Scheduled(fixedRate = 30000)
-    public void deleteExpiredDataAndLog() throws Exception {
-        if (preloadTemplate.isPreloadCompleted()) {
-            monitorService.deleteExpiredDataAndLog();
-        }
+    private void deleteExpiredDataAndLog() throws Exception {
+        monitorService.deleteExpiredDataAndLog();
     }
 
     @GetMapping("/queryData")

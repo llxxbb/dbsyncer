@@ -65,6 +65,9 @@ public class SystemConfig extends ConfigModel {
 
     // ===== C 类（立即生效） =====
 
+    /** 监控定时任务，null=未覆盖 */
+    private MonitorProps monitor;
+
     /** Tab 4 重试策略，null=未覆盖 */
     private RetryProps retry;
 
@@ -158,6 +161,14 @@ public class SystemConfig extends ConfigModel {
     }
 
     // ===== C 类子对象 =====
+
+    public MonitorProps getMonitor() {
+        return monitor;
+    }
+
+    public void setMonitor(MonitorProps monitor) {
+        this.monitor = monitor;
+    }
 
     public RetryProps getRetry() {
         return retry;

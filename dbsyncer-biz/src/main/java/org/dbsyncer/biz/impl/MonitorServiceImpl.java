@@ -25,9 +25,11 @@ import org.dbsyncer.biz.vo.DataVo;
 import org.dbsyncer.biz.vo.LogVo;
 import org.dbsyncer.biz.vo.MetaVo;
 import org.dbsyncer.biz.vo.MetricResponseVo;
+import org.dbsyncer.common.config.props.MonitorProps;
 import org.dbsyncer.common.model.Paging;
 import org.dbsyncer.common.scheduled.ScheduledTaskJob;
 import org.dbsyncer.common.scheduled.ScheduledTaskService;
+import org.dbsyncer.common.scheduled.StartupTaskRegistrar;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.NumberUtil;
@@ -73,7 +75,7 @@ import java.util.stream.Collectors;
  * @Date 2020-04-27 10:20
  */
 @Service
-public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob {
+public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob, StartupTaskRegistrar {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -124,9 +126,12 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob {
         metricMap.putIfAbsent(DiskMetricEnum.THRESHOLD.getCode(), new DiskMetricDetailFormatter());
         metricMap.putIfAbsent(DiskMetricEnum.FREE.getCode(), new DiskMetricDetailFormatter());
         metricMap.putIfAbsent(DiskMetricEnum.TOTAL.getCode(), new DiskMetricDetailFormatter());
+    }
 
-        // 间隔10分钟预警
-        scheduledTaskService.start("0 */10 * * * ?", this);
+    @Override
+    public void registerScheduledTasks() {
+        MonitorProps m = configRegistry.getConfig().getMonitor();
+        scheduledTaskService.start(m.getAlertCron(), this);
     }
 
     @Override

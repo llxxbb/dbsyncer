@@ -5,6 +5,7 @@ package org.dbsyncer.manager.impl;
 
 import org.dbsyncer.parser.impl.ConfigBootstrap;
 import org.dbsyncer.common.model.Paging;
+import org.dbsyncer.common.scheduled.StartupTaskRegistrar;
 import org.dbsyncer.common.startup.StartupGate;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
@@ -73,6 +74,9 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
     private List<StartupGate> startupGates;
 
     @Resource
+    private List<StartupTaskRegistrar> startupTaskRegistrars;
+
+    @Resource
     private ConfigBootstrap configService;
 
     private boolean preloadCompleted;
@@ -89,15 +93,26 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
         // 2. 填充 Registry + 迁移 + 打印对照表（由 ConfigService 编排）
         configService.onPreloadCompleted(profileComponent.getSystemConfig());
 
-        // 3. Load connectorInstances
+        // 3. 配置已完全加载，注册启动期定时任务
+        if (startupTaskRegistrars != null) {
+            for (StartupTaskRegistrar registrar : startupTaskRegistrars) {
+                try {
+                    registrar.registerScheduledTasks();
+                } catch (Exception e) {
+                    logger.error("注册定时任务失败: {}", registrar.getClass().getSimpleName(), e);
+                }
+            }
+        }
+
+        // 4. Load connectorInstances
         loadConnectorInstance();
 
         logger.info("+++++++++++++++配置预加载完成++++++++++++++++");
 
-        // 4. Launch drivers（最后启动任务）
+        // 5. Launch drivers（最后启动任务）
         launch();
 
-        // 5. 开放端口
+        // 6. 开放端口
         openStartupGates();
         preloadCompleted = true;
     }

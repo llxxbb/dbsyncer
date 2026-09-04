@@ -85,9 +85,6 @@ public final class ConfigKeys {
     public static final String EXECUTOR_DISPATCH_MAX_THREAD_SIZE = "dbsyncer.common.dispatch.max-thread-size";
     public static final String EXECUTOR_DISPATCH_THREAD_QUEUE_CAPACITY = "dbsyncer.common.dispatch.thread-queue-capacity";
 
-    // 调度线程池
-    public static final String EXECUTOR_SCHEDULER_POOL_SIZE = "dbsyncer.web.scheduler.pool-size";
-
     // ===== B 类：缓冲区配置（需重启） =====
 
     // 通用缓冲区
@@ -139,4 +136,13 @@ public final class ConfigKeys {
     // ===== 模板引擎配置 =====
 
     public static final String TEMPLATE_MAX_DEPTH = "dbsyncer.template.maxDepth";
+
+    // ===== 监控定时任务配置 =====
+
+    public static final String MONITOR_SCHEDULER_POOL_SIZE = "dbsyncer.monitor.scheduler-pool-size";
+    public static final String MONITOR_CPU_MEMORY_INTERVAL_MS = "dbsyncer.monitor.cpu-memory-interval-ms";
+    public static final String MONITOR_HEALTH_CHECK_INTERVAL_MS = "dbsyncer.monitor.health-check-interval-ms";
+    public static final String MONITOR_CLEANUP_INTERVAL_MS = "dbsyncer.monitor.cleanup-interval-ms";
+    public static final String MONITOR_METRIC_REPORT_INTERVAL_MS = "dbsyncer.monitor.metric-report-interval-ms";
+    public static final String MONITOR_ALERT_CRON = "dbsyncer.monitor.alert-cron";
 }

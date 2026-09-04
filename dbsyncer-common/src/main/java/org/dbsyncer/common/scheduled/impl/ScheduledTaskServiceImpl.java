@@ -1,6 +1,7 @@
 package org.dbsyncer.common.scheduled.impl;
 
 import org.dbsyncer.common.CommonException;
+import org.dbsyncer.common.config.SchedulerFactory;
 import org.dbsyncer.common.scheduled.ScheduledTaskJob;
 import org.dbsyncer.common.scheduled.ScheduledTaskService;
 import org.dbsyncer.common.util.UUIDUtil;
@@ -27,23 +28,25 @@ public class ScheduledTaskServiceImpl implements ScheduledTaskService, Disposabl
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     /**
-     * 定时任务线程池
+     * 调度线程池工厂（ADR-0032：延迟创建，配置完全加载后使用）
      */
     @Resource
-    private ThreadPoolTaskScheduler taskScheduler;
+    private SchedulerFactory schedulerFactory;
 
     private final Map<String, ScheduledFuture> map = new ConcurrentHashMap<>();
 
     @Override
     public void start(String key, String cron, ScheduledTaskJob job) {
         logger.info("[{}], Started task [{}]", cron, job.getClass().getSimpleName());
-        apply(key, () -> taskScheduler.schedule(job, (trigger) -> new CronTrigger(cron).nextExecutionTime(trigger)));
+        ThreadPoolTaskScheduler scheduler = schedulerFactory.getTaskScheduler();
+        apply(key, () -> scheduler.schedule(job, (trigger) -> new CronTrigger(cron).nextExecutionTime(trigger)));
     }
 
     @Override
     public void start(String key, long period, ScheduledTaskJob job) {
         logger.info("[period={}], Started task [{}]", period, job.getClass().getSimpleName());
-        apply(key, () -> taskScheduler.scheduleAtFixedRate(job, period));
+        ThreadPoolTaskScheduler scheduler = schedulerFactory.getTaskScheduler();
+        apply(key, () -> scheduler.scheduleAtFixedRate(job, period));
     }
 
     @Override

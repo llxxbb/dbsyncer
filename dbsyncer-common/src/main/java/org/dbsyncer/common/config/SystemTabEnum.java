@@ -16,6 +16,7 @@ public enum SystemTabEnum {
     BUFFERS("buffers", BufferProps.class, true, true),
 
     // C 类（立即生效）
+    MONITOR("monitor", MonitorProps.class, false, true),
     RETRY("retry", RetryProps.class, false, true),
     NOTIFY("notify", NotifyProps.class, false, true),
     ERROR("error", ErrorProps.class, false, true),
