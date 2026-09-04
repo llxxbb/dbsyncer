@@ -10,12 +10,17 @@ import org.dbsyncer.common.config.props.*;
  */
 public enum SystemTabEnum {
 
+    // 基础 + B 类
     BASIC("basic", BasicProps.class, false, false),
     EXECUTORS("executors", ExecutorProps.class, true, true),
     BUFFERS("buffers", BufferProps.class, true, true),
+
+    // C 类（立即生效）
     RETRY("retry", RetryProps.class, false, true),
     NOTIFY("notify", NotifyProps.class, false, true),
-    ERROR("error", ErrorProps.class, false, true);
+    ERROR("error", ErrorProps.class, false, true),
+    RUNTIME("runtime", RuntimeProps.class, false, true),
+    TEMPLATE("template", TemplateProps.class, false, true);
 
     private final String key;
     private final Class<?> propsType;

@@ -27,7 +27,7 @@ public class SystemConfig extends ConfigModel {
     /** 配置版本号，默认 0 表示未迁移 */
     private int schemaVersion;
 
-    // ===== A 类（@JsonIgnore：不落库，每次启动时从 Environment 现读） =====
+    // ===== A 类（@JsonIgnore，不落库，启动时从 Environment 读取） =====
 
     @JsonIgnore
     private ServerProps server = new ServerProps();
@@ -46,6 +46,14 @@ public class SystemConfig extends ConfigModel {
 
     @JsonIgnore
     private LicenseProps license;
+
+    // ===== 运行时控制（C 类：立即生效） =====
+
+    private RuntimeProps runtime;
+
+    // ===== 模板引擎（C 类：立即生效） =====
+
+    private TemplateProps template;
 
     // ===== B 类（需重启） =====
 
@@ -183,5 +191,25 @@ public class SystemConfig extends ConfigModel {
 
     public void setBasic(BasicProps basic) {
         this.basic = basic;
+    }
+
+    // ===== RuntimeProps =====
+
+    public RuntimeProps getRuntime() {
+        return runtime;
+    }
+
+    public void setRuntime(RuntimeProps runtime) {
+        this.runtime = runtime;
+    }
+
+    // ===== TemplateProps =====
+
+    public TemplateProps getTemplate() {
+        return template;
+    }
+
+    public void setTemplate(TemplateProps template) {
+        this.template = template;
     }
 }

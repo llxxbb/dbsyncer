@@ -1,5 +1,6 @@
 package org.dbsyncer.biz.impl;
 
+import org.dbsyncer.common.config.ConfigKeys;
 import org.dbsyncer.common.config.props.*;
 import org.dbsyncer.parser.model.SystemConfig;
 import org.slf4j.Logger;
@@ -32,6 +33,9 @@ public class SidecarPropertyWriter {
 
     /**
      * 全量重写 sidecar 文件。
+     * <p>
+     * 只写入 B 类配置（执行器、缓冲区）和 C 类配置（Runtime、Template）。
+     * A 类配置不落库，从 Environment 读取，不写入 sidecar。
      *
      * @param cfg 当前 SystemConfig
      */
@@ -53,7 +57,7 @@ public class SidecarPropertyWriter {
                 putPoolProps(props, "dbsyncer.storage", exec.getStorage());
                 putPoolProps(props, "dbsyncer.common.dispatch", exec.getDispatch());
                 if (exec.getSchedulerPoolSize() != null) {
-                    props.setProperty("dbsyncer.web.scheduler.pool-size", String.valueOf(exec.getSchedulerPoolSize()));
+                    props.setProperty(ConfigKeys.EXECUTOR_SCHEDULER_POOL_SIZE, String.valueOf(exec.getSchedulerPoolSize()));
                 }
             }
 
@@ -62,6 +66,18 @@ public class SidecarPropertyWriter {
             if (buf != null) {
                 putBufferProps(props, "dbsyncer.parser.general", buf.getGeneral());
                 putBufferProps(props, "dbsyncer.storage", buf.getStorage());
+            }
+
+            // C 类：运行时控制
+            RuntimeProps runtime = cfg.getRuntime();
+            if (runtime != null && runtime.getSelfRestartEnabled() != null) {
+                props.setProperty(ConfigKeys.RUNTIME_SELF_RESTART_ENABLED, String.valueOf(runtime.getSelfRestartEnabled()));
+            }
+
+            // C 类：模板引擎
+            TemplateProps template = cfg.getTemplate();
+            if (template != null && template.getMaxDepth() != null) {
+                props.setProperty(ConfigKeys.TEMPLATE_MAX_DEPTH, String.valueOf(template.getMaxDepth()));
             }
 
             // 写入文件

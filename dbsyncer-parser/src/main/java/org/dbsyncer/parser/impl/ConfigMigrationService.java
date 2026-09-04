@@ -93,7 +93,7 @@ public class ConfigMigrationService {
      */
     private void migrateV0ToV1() {
         logger.info("执行迁移 v0 → v1：把 props 默认值固化到 DB");
-        // 把 propsConfig 作为新的 dbConfig（Registry 内部过滤 A 类并重新合并）
+        // 把 propsConfig 作为新的 dbConfig
         configRegistry.setDbConfig(configRegistry.getPropsConfig());
     }
 }

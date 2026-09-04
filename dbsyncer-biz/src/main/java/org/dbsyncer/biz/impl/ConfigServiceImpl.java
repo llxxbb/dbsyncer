@@ -243,12 +243,16 @@ public class ConfigServiceImpl implements ConfigService {
     public Map<String, Object> getTabs() throws Exception {
         SystemConfig config = configRegistry.getConfig();
         Map<String, Object> result = new LinkedHashMap<>();
+        // 基础 + B 类
         result.put("basic", config.getBasic());
         result.put("executors", config.getExecutors());
         result.put("buffers", config.getBuffers());
+        // C 类
         result.put("retry", config.getRetry());
         result.put("notify", config.getNotify());
         result.put("error", config.getError());
+        result.put("runtime", config.getRuntime());
+        result.put("template", config.getTemplate());
         return result;
     }
 
@@ -269,26 +273,46 @@ public class ConfigServiceImpl implements ConfigService {
 
     @Override
     public Map<String, Object> getServerInfo() throws Exception {
+        SystemConfig config = configRegistry.getConfig();
         Map<String, Object> info = new LinkedHashMap<>();
-        // A 类配置从 Environment 现取（不读 Bean，不读 DB）
-        info.put("serverPort", environment.getProperty(ConfigKeys.SERVER_PORT, "18686"));
-        info.put("sslEnabled", environment.getProperty(ConfigKeys.SERVER_SSL_ENABLED, "false"));
-        info.put("httpPort", environment.getProperty(ConfigKeys.SERVER_HTTP_PORT, "0"));
-        info.put("httpRedirect", environment.getProperty(ConfigKeys.SERVER_HTTP_REDIRECT, "false"));
-        info.put("contextPath", environment.getProperty(ConfigKeys.SERVER_SERVLET_CONTEXT_PATH, "/"));
-        info.put("sessionTimeout", environment.getProperty(ConfigKeys.SERVER_SERVLET_SESSION_TIMEOUT, "1800"));
-        info.put("storageType", environment.getProperty(ConfigKeys.STORAGE_TYPE, "disk"));
 
-        // 数据库信息脱敏
-        String dbUrl = environment.getProperty(ConfigKeys.STORAGE_MYSQL_URL, "");
-        info.put("databaseUrl", maskIp(dbUrl));
-        String dbUser = environment.getProperty(ConfigKeys.STORAGE_MYSQL_USERNAME, "");
-        info.put("databaseUsername", maskUsername(dbUser));
-        // 密码不展示
+        // A 类配置从 SystemConfig 读取（DB 优先，Environment 兜底）
+        ServerProps server = config.getServer();
+        if (server != null) {
+            info.put("serverPort", server.getPort() != null ? server.getPort() : 18686);
+            info.put("sslEnabled", server.getSslEnabled() != null ? server.getSslEnabled() : false);
+            info.put("httpPort", server.getHttpPort() != null ? server.getHttpPort() : 0);
+            info.put("httpRedirect", server.getHttpRedirect() != null ? server.getHttpRedirect() : false);
+            info.put("contextPath", server.getContextPath() != null ? server.getContextPath() : "/");
+            info.put("sessionTimeout", server.getSessionTimeout() != null ? server.getSessionTimeout() : 1800);
+        }
 
-        info.put("workerId", environment.getProperty(ConfigKeys.WORKER_ID, "1"));
-        info.put("helpdocPath", environment.getProperty(ConfigKeys.HELPDOC_PATH, "./helpdocs"));
-        info.put("logLevel", environment.getProperty(ConfigKeys.LOGGING_LEVEL_ROOT, "info"));
+        StorageConnectionProps storageConn = config.getStorageConn();
+        if (storageConn != null) {
+            info.put("storageType", storageConn.getType() != null ? storageConn.getType() : "disk");
+            // 数据库信息脱敏
+            String dbUrl = storageConn.getMysqlUrl() != null ? storageConn.getMysqlUrl() : "";
+            info.put("databaseUrl", maskIp(dbUrl));
+            String dbUser = storageConn.getMysqlUsername() != null ? storageConn.getMysqlUsername() : "";
+            info.put("databaseUsername", maskUsername(dbUser));
+            // 密码不展示
+        }
+
+        WorkerProps worker = config.getWorker();
+        if (worker != null) {
+            info.put("workerId", worker.getId() != null ? worker.getId() : 1);
+        }
+
+        HelpdocProps helpdoc = config.getHelpdoc();
+        if (helpdoc != null) {
+            info.put("helpdocPath", helpdoc.getPath() != null ? helpdoc.getPath() : "./helpdocs");
+        }
+
+        LoggingProps logging = config.getLogging();
+        if (logging != null) {
+            info.put("logLevel", logging.getLevelRoot() != null ? logging.getLevelRoot() : "info");
+        }
+
         return info;
     }
 
@@ -335,6 +359,10 @@ public class ConfigServiceImpl implements ConfigService {
                 return ((NotifyProps) props).validate();
             case ERROR:
                 return ((ErrorProps) props).validate();
+            case RUNTIME:
+                return ((RuntimeProps) props).validate();
+            case TEMPLATE:
+                return ((TemplateProps) props).validate();
             default:
                 return Collections.emptyList();
         }
@@ -359,6 +387,12 @@ public class ConfigServiceImpl implements ConfigService {
                 break;
             case ERROR:
                 cfg.setError((ErrorProps) props);
+                break;
+            case RUNTIME:
+                cfg.setRuntime((RuntimeProps) props);
+                break;
+            case TEMPLATE:
+                cfg.setTemplate((TemplateProps) props);
                 break;
             default:
                 break;
@@ -388,8 +422,6 @@ public class ConfigServiceImpl implements ConfigService {
             }
         }
     }
-
-
 
     /**
      * 通知所有配置变更监听器。

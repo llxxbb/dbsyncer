@@ -77,6 +77,20 @@ public class ServerProps implements Serializable {
         this.sessionTimeout = env.getProperty(ConfigKeys.SERVER_SESSION_TIMEOUT, Integer.class);
     }
 
+    public List<String> validate() {
+        List<String> errors = new ArrayList<>();
+        if (port != null && (port < 1 || port > 65535)) {
+            errors.add("服务器端口必须在 1-65535 之间");
+        }
+        if (httpPort != null && (httpPort < 1 || httpPort > 65535)) {
+            errors.add("HTTP 端口必须在 1-65535 之间");
+        }
+        if (sessionTimeout != null && sessionTimeout < 1) {
+            errors.add("会话超时时间必须 >= 1 秒");
+        }
+        return errors;
+    }
+
     /**
      * 返回配置条目列表，用于启动期配置对照表打印。
      */

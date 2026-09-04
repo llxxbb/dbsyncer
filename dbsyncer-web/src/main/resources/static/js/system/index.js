@@ -12,32 +12,11 @@ function loadTabs() {
             fillRetryTab(tabsData.retry);
             fillNotifyTab(tabsData.notify);
             fillErrorTab(tabsData.error);
+            fillRuntimeTab(tabsData.runtime);
+            fillTemplateTab(tabsData.template);
         }
     });
 }
-
-function loadServerInfo() {
-    doGet('/system/serverInfo', function (data) {
-        if (data.success) {
-            var info = data.resultValue || data.result;
-            var html = '<table class="table table-condensed table-striped">';
-            html += '<tr><td>服务端口</td><td>' + (info.serverPort || '-') + '</td></tr>';
-            html += '<tr><td>SSL</td><td>' + (info.sslEnabled || 'false') + '</td></tr>';
-            html += '<tr><td>HTTP 端口</td><td>' + (info.httpPort || '-') + '</td></tr>';
-            html += '<tr><td>上下文路径</td><td>' + (info.contextPath || '/') + '</td></tr>';
-            html += '<tr><td>存储类型</td><td>' + (info.storageType || '-') + '</td></tr>';
-            html += '<tr><td>数据库地址</td><td>' + (info.databaseUrl || '-') + '</td></tr>';
-            html += '<tr><td>数据库用户</td><td>' + (info.databaseUsername || '-') + '</td></tr>';
-            html += '<tr><td>Worker ID</td><td>' + (info.workerId || '-') + '</td></tr>';
-            html += '<tr><td>帮助文档路径</td><td>' + (info.helpdocPath || '-') + '</td></tr>';
-            html += '<tr><td>日志级别</td><td>' + (info.logLevel || '-') + '</td></tr>';
-            html += '</table>';
-            $('#serverInfoContent').html(html);
-        }
-    });
-}
-
-// ===== Tab 填充 =====
 
 function fillBasicTab(basic) {
     if (!basic) return;
@@ -53,6 +32,16 @@ function fillBasicTab(basic) {
     $('#basic_enablePrintTraceInfo').prop('checked', basic.enablePrintTraceInfo === true);
     toggleWatermark();
     toggleStorageErrorLength();
+}
+
+function fillRuntimeTab(runtime) {
+    if (!runtime) return;
+    $('#runtime_selfRestartEnabled').prop('checked', runtime.selfRestartEnabled === true);
+}
+
+function fillTemplateTab(template) {
+    if (!template) return;
+    $('#template_maxDepth').val(template.maxDepth);
 }
 
 function fillExecutorsTab(exec) {
@@ -237,6 +226,14 @@ function buildPayload(tab) {
                 fatalMatchMode: $('#error_fatalMatchMode').val(),
                 fatalKeywords: textToLines($('#error_fatalKeywords').val())
             };
+        case 'runtime':
+            return {
+                selfRestartEnabled: $('#runtime_selfRestartEnabled').is(':checked')
+            };
+        case 'template':
+            return {
+                maxDepth: parseInt($('#template_maxDepth').val())
+            };
         default:
             return {};
     }
@@ -325,9 +322,4 @@ $(function () {
     // 开关切换
     $('#basic_enableWatermark').change(toggleWatermark);
     $('#basic_enableStorageWriteFail').change(toggleStorageErrorLength);
-
-    // 加载 A 类信息
-    $('#serverInfoPanel').on('shown.bs.collapse', function () {
-        loadServerInfo();
-    });
 });

@@ -12,11 +12,13 @@
     <!-- Tab 导航 -->
     <ul class="nav nav-tabs" role="tablist" id="systemTab">
         <li role="presentation" class="active"><a href="#tab-basic" data-toggle="tab">基础设置</a></li>
-        <li role="presentation"><a href="#tab-executors" data-toggle="tab">执行器 <span class="text-warning" title="修改后需重启应用"></span></a></li>
-        <li role="presentation"><a href="#tab-buffers" data-toggle="tab">缓冲区 <span class="text-warning" title="修改后需重启应用"></span></a></li>
+        <li role="presentation"><a href="#tab-executors" data-toggle="tab">执行器 <span class="text-warning" title="修改后需重启应用">⚠</span></a></li>
+        <li role="presentation"><a href="#tab-buffers" data-toggle="tab">缓冲区 <span class="text-warning" title="修改后需重启应用">⚠</span></a></li>
         <li role="presentation"><a href="#tab-retry" data-toggle="tab">重试策略</a></li>
         <li role="presentation"><a href="#tab-notify" data-toggle="tab">通知通道</a></li>
         <li role="presentation"><a href="#tab-error" data-toggle="tab">错误处理</a></li>
+        <li role="presentation"><a href="#tab-runtime" data-toggle="tab">运行时</a></li>
+        <li role="presentation"><a href="#tab-template" data-toggle="tab">模板引擎</a></li>
     </ul>
 
     <!-- Tab 内容 -->
@@ -87,18 +89,6 @@
                     <label class="col-sm-2 control-label">打印trace信息<i class="fa fa-question-circle fa_gray" title="是否打印 trace 级别的调试信息。仅用于排查问题。"></i></label>
                     <div class="col-sm-4">
                         <input type="checkbox" name="enablePrintTraceInfo" id="basic_enablePrintTraceInfo"/>
-                    </div>
-                </div>
-
-                <!-- A 类只读区（折叠） -->
-                <div class="panel panel-default" style="margin-top: 20px;">
-                    <div class="panel-heading" data-toggle="collapse" data-target="#serverInfoPanel" style="cursor: pointer;">
-                        <h4 class="panel-title">服务器信息（只读） <span class="caret"></span></h4>
-                    </div>
-                    <div id="serverInfoPanel" class="panel-collapse collapse">
-                        <div class="panel-body" id="serverInfoContent">
-                            <p class="text-muted">加载中...</p>
-                        </div>
                     </div>
                 </div>
             </form>
@@ -414,6 +404,44 @@
                     <label class="col-sm-2 control-label">致命关键字<i class="fa fa-question-circle fa_gray" title="每行一个。命中时任务直接终止。"></i></label>
                     <div class="col-sm-10">
                         <textarea class="form-control" rows="3" id="error_fatalKeywords" placeholder="每行一个关键字"></textarea>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Tab: 运行时 -->
+        <div role="tabpanel" class="tab-pane" id="tab-runtime">
+            <div class="alert alert-info">以下配置修改后<strong>立即生效</strong>。</div>
+            <form id="runtimeForm" class="form-horizontal" role="form">
+                <div class="form-group">
+                    <div class="text-right col-sm-12">
+                        <button type="button" class="btn btn-primary btn-save-tab" data-tab="runtime"><span class="fa fa-save"></span>保存</button>
+                        <button type="button" class="btn btn-default btn-reset-tab" data-tab="runtime"><span class="fa fa-undo"></span>恢复系统默认</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">启用自重启<i class="fa fa-question-circle fa_gray" title="是否允许应用自动重启（配置变更后）。立即生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="checkbox" name="selfRestartEnabled" id="runtime_selfRestartEnabled"/>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Tab: 模板引擎 -->
+        <div role="tabpanel" class="tab-pane" id="tab-template">
+            <div class="alert alert-info">以下配置修改后<strong>立即生效</strong>。</div>
+            <form id="templateForm" class="form-horizontal" role="form">
+                <div class="form-group">
+                    <div class="text-right col-sm-12">
+                        <button type="button" class="btn btn-primary btn-save-tab" data-tab="template"><span class="fa fa-save"></span>保存</button>
+                        <button type="button" class="btn btn-default btn-reset-tab" data-tab="template"><span class="fa fa-undo"></span>恢复系统默认</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">最大依赖深度<i class="fa fa-question-circle fa_gray" title="模板解析的最大依赖深度（>=1）。立即生效。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1" name="maxDepth" id="template_maxDepth"/>
                     </div>
                 </div>
             </form>

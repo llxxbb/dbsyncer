@@ -1,8 +1,11 @@
 package org.dbsyncer.common.config.props;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.dbsyncer.common.config.ConfigKeys;
+import org.springframework.core.env.Environment;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * A 类：存储连接配置（只读，不落库）
@@ -28,4 +31,25 @@ public class StorageConnectionProps implements Serializable {
     public void setMysqlPassword(String mysqlPassword) { this.mysqlPassword = mysqlPassword; }
     public String getMysqlDriverClassName() { return mysqlDriverClassName; }
     public void setMysqlDriverClassName(String mysqlDriverClassName) { this.mysqlDriverClassName = mysqlDriverClassName; }
+
+    public void loadFromEnvironment(Environment env) {
+        this.type = env.getProperty(ConfigKeys.STORAGE_TYPE, String.class);
+        this.mysqlUrl = env.getProperty(ConfigKeys.STORAGE_MYSQL_URL, String.class);
+        this.mysqlUsername = env.getProperty(ConfigKeys.STORAGE_MYSQL_USERNAME, String.class);
+        this.mysqlPassword = env.getProperty(ConfigKeys.STORAGE_MYSQL_PASSWORD, String.class);
+        this.mysqlDriverClassName = env.getProperty(ConfigKeys.STORAGE_MYSQL_DRIVER_CLASS_NAME, String.class);
+    }
+
+    public List<String> validate() {
+        List<String> errors = new ArrayList<>();
+        if (type != null && "mysql".equalsIgnoreCase(type)) {
+            if (mysqlUrl == null || mysqlUrl.trim().isEmpty()) {
+                errors.add("MySQL 存储 URL 不能为空");
+            }
+            if (mysqlUsername == null || mysqlUsername.trim().isEmpty()) {
+                errors.add("MySQL 存储用户名不能为空");
+            }
+        }
+        return errors;
+    }
 }
