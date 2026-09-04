@@ -3,8 +3,9 @@
  */
 package org.dbsyncer.parser.flush.impl;
 
-import org.dbsyncer.common.config.StorageConfig;
+import org.dbsyncer.common.config.ExecutorFactory;
 import org.dbsyncer.parser.flush.AbstractBufferActuator;
+import org.dbsyncer.parser.impl.ConfigRegistry;
 import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.parser.model.StorageRequest;
@@ -29,21 +30,20 @@ import java.util.concurrent.Executor;
 @Component
 public final class StorageBufferActuator extends AbstractBufferActuator<StorageRequest, StorageResponse> {
 
-
-    @Resource
-    private StorageConfig storageConfig;
-
     @Lazy
     @Resource
     private StorageService storageService;
 
     @Resource
-    private Executor storageExecutor;
+    private ExecutorFactory executorFactory;
+
+    @Resource
+    private ConfigRegistry configRegistry;
 
     @PostConstruct
     private void init() {
-        setConfig(storageConfig);
-        buildConfig();
+        setConfigRegistry(configRegistry);
+        setBufferPropsSupplier(() -> configRegistry.getConfig().getBuffers().getStorage());
     }
 
     @Override
@@ -59,7 +59,7 @@ public final class StorageBufferActuator extends AbstractBufferActuator<StorageR
 
     @Override
     public void pull(StorageResponse response) {
-        storageExecutor.execute(() -> {
+        executorFactory.getStorageExecutor().execute(() -> {
             try {
                 storageService.addBatch(StorageEnum.DATA, response.getMetaId(), response.getDataList());
             } catch (Exception e) {
@@ -81,6 +81,6 @@ public final class StorageBufferActuator extends AbstractBufferActuator<StorageR
 
     @Override
     public Executor getExecutor() {
-        return storageExecutor;
+        return executorFactory.getStorageExecutor();
     }
 }

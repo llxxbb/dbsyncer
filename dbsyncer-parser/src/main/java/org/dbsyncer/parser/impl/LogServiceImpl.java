@@ -19,7 +19,6 @@ import org.springframework.context.annotation.Lazy;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.Executor;
 
 /**
  * @version 1.0.0
@@ -41,7 +40,7 @@ public class LogServiceImpl implements LogService {
     private SnowflakeIdWorker snowflakeIdWorker;
 
     @Resource
-    private Executor storageExecutor;
+    private org.dbsyncer.common.config.ExecutorFactory executorFactory;
 
     @Override
     public void log(Object model, LogType logType, LogLevel logLevel, String msg) {
@@ -68,7 +67,7 @@ public class LogServiceImpl implements LogService {
     }
 
     private void asyncWrite(String modelType, String modelId, LogType logType, LogLevel logLevel, String msg) {
-        storageExecutor.execute(() -> {
+        executorFactory.getStorageExecutor().execute(() -> {
             Map<String, Object> params = new HashMap();
             params.put(ConfigConstant.CONFIG_MODEL_ID, String.valueOf(snowflakeIdWorker.nextId()));
             params.put(ConfigConstant.CONFIG_MODEL_TYPE, modelType);

@@ -3,7 +3,7 @@
  */
 package org.dbsyncer.parser.flush.impl;
 
-import org.dbsyncer.common.config.GeneralBufferConfig;
+import org.dbsyncer.common.config.ExecutorFactory;
 import org.dbsyncer.common.metric.TimeRegistry;
 import org.dbsyncer.common.scheduled.ScheduledTaskService;
 import org.dbsyncer.connector.base.ConnectorFactory;
@@ -26,7 +26,6 @@ import javax.annotation.Resource;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -43,10 +42,7 @@ public final class BufferActuatorRouter implements DisposableBean {
     private ProfileComponent profileComponent;
 
     @Resource
-    private GeneralBufferConfig generalBufferConfig;
-
-    @Resource
-    private Executor generalExecutor;
+    private ExecutorFactory executorFactory;
 
     @Resource
     private ConnectorFactory connectorFactory;
@@ -148,9 +144,7 @@ public final class BufferActuatorRouter implements DisposableBean {
      */
     public MetaBufferActuator getOrCreateActuator(String metaId) {
         return metaActuatorMap.computeIfAbsent(metaId, k -> {
-            MetaBufferActuator newActuator = createMetaActuator(metaId);
-            newActuator.buildConfig();
-            return newActuator;
+            return createMetaActuator(metaId);
         });
     }
 
@@ -161,8 +155,8 @@ public final class BufferActuatorRouter implements DisposableBean {
         MetaBufferActuator actuator = new MetaBufferActuator();
         actuator.setMetaId(metaId);
         // 手动注入所有依赖
-        actuator.setGeneralBufferConfig(generalBufferConfig);
-        actuator.setGeneralExecutor(generalExecutor);
+        actuator.setGeneralExecutor(executorFactory.getGeneralExecutor());
+        actuator.setBufferPropsSupplier(() -> configRegistry.getConfig().getBuffers().getGeneral());
         actuator.setConnectorFactory(connectorFactory);
         actuator.setProfileComponent(profileComponent);
         actuator.setCounterService(counterService);

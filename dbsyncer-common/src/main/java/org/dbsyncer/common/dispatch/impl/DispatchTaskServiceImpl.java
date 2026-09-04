@@ -3,6 +3,7 @@
  */
 package org.dbsyncer.common.dispatch.impl;
 
+import org.dbsyncer.common.config.ExecutorFactory;
 import org.dbsyncer.common.dispatch.DispatchTask;
 import org.dbsyncer.common.dispatch.DispatchTaskService;
 import org.slf4j.Logger;
@@ -27,12 +28,13 @@ public class DispatchTaskServiceImpl implements DispatchTaskService {
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     @Resource
-    private ThreadPoolTaskExecutor dispatchTaskExecutor;
+    private ExecutorFactory executorFactory;
 
     private final Map<String, DispatchTask> active = new ConcurrentHashMap<>();
 
     @Override
     public void execute(DispatchTask task) {
+        ThreadPoolTaskExecutor dispatchTaskExecutor = executorFactory.getDispatchExecutor();
         dispatchTaskExecutor.execute(active.compute(task.getUniqueId(), (k, t) -> {
             if (t != null) {
                 t.destroy();

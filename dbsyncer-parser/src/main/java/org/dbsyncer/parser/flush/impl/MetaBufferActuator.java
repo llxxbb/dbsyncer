@@ -3,7 +3,6 @@
  */
 package org.dbsyncer.parser.flush.impl;
 
-import org.dbsyncer.common.config.GeneralBufferConfig;
 import org.dbsyncer.common.metric.TimeRegistry;
 import org.dbsyncer.common.model.Result;
 import org.dbsyncer.common.util.CollectionUtils;
@@ -54,7 +53,6 @@ import java.util.stream.Collectors;
 public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, WriterResponse> {
 
     private String metaId;
-    private GeneralBufferConfig generalBufferConfig;
     private Executor generalExecutor;
     private ConnectorFactory connectorFactory;
     private CounterService counterService;
@@ -63,17 +61,11 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
     private TableGroupModelService tableGroupModelService;
     private ErrorQueueCollector errorQueueCollector;
     public MessageService messageService;
-    private ConfigRegistry configRegistry;
 
     /**
      * 是否有待处理的任务（事件进入队列时设置为 true，队列为空时设置为 false）
      */
     private volatile boolean hasPendingTask = false;
-
-    public void buildConfig() {
-        setConfig(generalBufferConfig);
-        super.buildConfig();
-    }
 
     @Override
     protected String getPartitionKey(WriterRequest request) {
@@ -526,10 +518,6 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         this.metaId = metaId;
     }
 
-    public void setGeneralBufferConfig(GeneralBufferConfig generalBufferConfig) {
-        this.generalBufferConfig = generalBufferConfig;
-    }
-
     public void setGeneralExecutor(Executor generalExecutor) {
         this.generalExecutor = generalExecutor;
     }
@@ -558,7 +546,4 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         this.errorQueueCollector = errorQueueCollector;
     }
 
-    public void setConfigRegistry(ConfigRegistry configRegistry) {
-        this.configRegistry = configRegistry;
-    }
 }

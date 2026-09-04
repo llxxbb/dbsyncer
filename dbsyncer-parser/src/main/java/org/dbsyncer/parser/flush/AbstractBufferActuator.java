@@ -3,13 +3,14 @@
  */
 package org.dbsyncer.parser.flush;
 
-import org.dbsyncer.common.config.BufferActuatorConfig;
+import org.dbsyncer.common.config.props.BufferActuatorProps;
 import org.dbsyncer.common.metric.TimeRegistry;
 import org.dbsyncer.common.scheduled.ScheduledTaskJob;
 import org.dbsyncer.common.scheduled.ScheduledTaskService;
 import org.dbsyncer.common.util.UUIDUtil;
 import org.dbsyncer.common.ParserException;
 import org.dbsyncer.parser.ProfileComponent;
+import org.dbsyncer.parser.impl.ConfigRegistry;
 import org.dbsyncer.sdk.enums.MetaEnum;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.parser.model.AbstractWriter;
@@ -31,11 +32,15 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
 
 /**
  * 任务缓存执行器
  * <p>1. 任务优先进入缓存队列
  * <p>2. 将任务分区合并，批量执行
+ * <p>
+ * ADR-0031：不再依赖 BufferActuatorConfig，改为从 ConfigRegistry 动态读取缓冲区参数。
+ * 队列和调度器延迟到首次 offer() 时初始化，确保 ConfigRegistry 已从 DB 加载配置。
  *
  * @author AE86
  * @version 1.0.0
@@ -43,12 +48,30 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public abstract class AbstractBufferActuator<Request extends BufferRequest, Response extends BufferResponse> implements BufferActuator, ScheduledTaskJob {
 
+    // ===== 默认值（与原 BufferActuatorConfig 一致） =====
+    private static final int DEFAULT_BUFFER_WRITER_COUNT = 100;
+    private static final int DEFAULT_BUFFER_PULL_COUNT = 1000;
+    private static final int DEFAULT_BUFFER_QUEUE_CAPACITY = 30000;
+    private static final int DEFAULT_BUFFER_PERIOD_MILLISECOND = 300;
+
     protected final Logger logger = LoggerFactory.getLogger(getClass());
     private Class<Response> responseClazz;
     private Lock taskLock;
-    private BufferActuatorConfig config;
-    private BlockingQueue<Request> queue;
+    private volatile BlockingQueue<Request> queue;
     private String taskKey;
+
+    /**
+     * 缓冲区参数来源，由子类设置。
+     * 例如：() -> configRegistry.getConfig().getBuffers().getGeneral()
+     */
+    private Supplier<BufferActuatorProps> bufferPropsSupplier;
+
+    protected ConfigRegistry configRegistry;
+
+    /**
+     * 延迟初始化标志：队列和调度器是否已初始化
+     */
+    private volatile boolean initialized = false;
 
     @Resource
     private ScheduledTaskService scheduledTaskService;
@@ -75,16 +98,35 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
     }
 
     /**
-     * 初始化配置
+     * 设置缓冲区参数来源。
+     *
+     * @param bufferPropsSupplier 返回当前生效的 BufferActuatorProps
      */
-    protected void buildConfig() {
-        Assert.notNull(config, "请先配置缓存执行器，setConfig(BufferActuatorConfig config)");
-        buildQueueConfig();
-        // 生成唯一的 taskKey
-        if (taskKey == null) {
-            taskKey = UUIDUtil.getUUID();
+    public void setBufferPropsSupplier(Supplier<BufferActuatorProps> bufferPropsSupplier) {
+        this.bufferPropsSupplier = bufferPropsSupplier;
+    }
+
+    /**
+     * 延迟初始化：创建队列 + 启动调度器。
+     * 首次 offer() 时调用，确保此时 ConfigRegistry 已就绪。
+     */
+    protected void ensureInitialized() {
+        if (!initialized) {
+            synchronized (this) {
+                if (!initialized) {
+                    Assert.notNull(bufferPropsSupplier, "请先设置 bufferPropsSupplier");
+                    Assert.notNull(configRegistry, "请先设置 configRegistry");
+                    buildQueueConfig();
+                    if (taskKey == null) {
+                        taskKey = UUIDUtil.getUUID();
+                    }
+                    scheduledTaskService.start(taskKey, getBufferPeriodMillisecond(), this);
+                    initialized = true;
+                    logger.info("[{}] 延迟初始化完成: queueCapacity={}, period={}ms",
+                            getClass().getSimpleName(), getBufferQueueCapacity(), getBufferPeriodMillisecond());
+                }
+            }
         }
-        scheduledTaskService.start(taskKey, config.getBufferPeriodMillisecond(), this);
     }
 
     /**
@@ -92,7 +134,7 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
      */
     protected void buildQueueConfig() {
         taskLock = new ReentrantLock();
-        this.queue = new LinkedBlockingQueue<>(config.getBufferQueueCapacity());
+        this.queue = new LinkedBlockingQueue<>(getBufferQueueCapacity());
     }
 
     /**
@@ -189,6 +231,7 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
 
     @Override
     public void offer(BufferRequest request) {
+        ensureInitialized();
         if (queue.offer((Request) request)) {
             return;
         }
@@ -221,7 +264,7 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
 
     @Override
     public int getQueueCapacity() {
-        return config.getBufferQueueCapacity();
+        return getBufferQueueCapacity();
     }
 
     private void submit() throws Exception {
@@ -233,6 +276,7 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
         AtomicLong batchIndexCounter = new AtomicLong();  // 批次序号计数器，用于同一 position 保序
         Map<String, Response> map = new HashMap<>();
         WriterResponse maxOffsetResponse = null;
+        int bufferPullCount = getBufferPullCount();
         while (!queue.isEmpty()) {
             Request poll = queue.poll();
             String key = getPartitionKey(poll);
@@ -260,7 +304,7 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
             }
 
             // 当达到批次大小时，处理当前批次
-            if (batchCounter.get() >= config.getBufferPullCount()) {
+            if (batchCounter.get() >= bufferPullCount) {
                 process(map, maxOffsetResponse);
                 map.clear();
                 meter(timeRegistry, batchCounter.get());
@@ -286,12 +330,31 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
         batchCounter = null;
     }
 
-    public void setConfig(BufferActuatorConfig config) {
-        this.config = config;
+    // ===== 从 ConfigRegistry 动态读取缓冲区参数 =====
+
+    protected BufferActuatorProps getBufferProps() {
+        BufferActuatorProps props = bufferPropsSupplier.get();
+        return props != null ? props : new BufferActuatorProps();
     }
 
     protected int getBufferWriterCount() {
-        return config.getBufferWriterCount();
+        Integer v = getBufferProps().getBufferWriterCount();
+        return v != null ? v : DEFAULT_BUFFER_WRITER_COUNT;
+    }
+
+    protected int getBufferPullCount() {
+        Integer v = getBufferProps().getBufferPullCount();
+        return v != null ? v : DEFAULT_BUFFER_PULL_COUNT;
+    }
+
+    protected int getBufferQueueCapacity() {
+        Integer v = getBufferProps().getBufferQueueCapacity();
+        return v != null ? v : DEFAULT_BUFFER_QUEUE_CAPACITY;
+    }
+
+    protected int getBufferPeriodMillisecond() {
+        Integer v = getBufferProps().getBufferPeriodMillisecond();
+        return v != null ? v : DEFAULT_BUFFER_PERIOD_MILLISECOND;
     }
 
     /**
@@ -336,5 +399,12 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
      */
     public void setTimeRegistry(TimeRegistry timeRegistry) {
         this.timeRegistry = timeRegistry;
+    }
+
+    /**
+     * 设置 ConfigRegistry（用于手动注入依赖）
+     */
+    public void setConfigRegistry(ConfigRegistry configRegistry) {
+        this.configRegistry = configRegistry;
     }
 }

@@ -14,7 +14,6 @@ import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
-import javax.servlet.http.HttpServletRequest;
 import java.util.Map;
 
 @Controller
@@ -31,19 +30,6 @@ public class SystemController extends BaseController {
     public String index(ModelMap model) throws Exception {
         model.put("config", systemConfigService.getSystemConfigVo());
         return "system/system";
-    }
-
-    @PostMapping("/edit")
-    @ResponseBody
-    @Deprecated
-    public RestResult edit(HttpServletRequest request) {
-        try {
-            Map<String, String> params = getParams(request);
-            return RestResult.restSuccess(systemConfigService.edit(params));
-        } catch (Exception e) {
-            logger.error(e.getLocalizedMessage(), e);
-            return RestResult.restFail(e.getMessage());
-        }
     }
 
     // ===== ADR-0029 Tab 接口 =====

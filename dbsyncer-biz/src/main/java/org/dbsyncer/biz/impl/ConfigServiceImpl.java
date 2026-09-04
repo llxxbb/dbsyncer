@@ -79,9 +79,6 @@ public class ConfigServiceImpl implements ConfigService {
     private SelfRestartService selfRestartService;
 
     @Resource
-    private SidecarPropertyWriter sidecarPropertyWriter;
-
-    @Resource
     private Environment environment;
 
     @Resource
@@ -208,10 +205,7 @@ public class ConfigServiceImpl implements ConfigService {
         // ① DB 落库
         profileComponent.editConfigModel(cfg);
 
-        // ② 重建 sidecar（下次启动的输入）
-        sidecarPropertyWriter.rewrite(cfg);
-
-        // ③ 通知 Registry 重新合并
+        // ② 通知 Registry 重新合并
         configRegistry.onDbConfigChanged(cfg);
 
         // ④ 通知所有监听器更新 Bean 状态
@@ -264,7 +258,6 @@ public class ConfigServiceImpl implements ConfigService {
         SystemConfig cfg = getSystemConfig();
         setTabProps(cfg, tabEnum, null);
         profileComponent.editConfigModel(cfg);
-        sidecarPropertyWriter.rewrite(cfg);
         configRegistry.onDbConfigChanged(cfg);
         notifyListeners();
 

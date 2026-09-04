@@ -11,13 +11,13 @@ public class ExecutorProps implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    /** 通用执行器 → GeneralBufferConfig */
+    /** 通用执行器 → ExecutorFactory */
     private PoolProps general;
 
-    /** 存储执行器 → StorageConfig */
+    /** 存储执行器 → ExecutorFactory */
     private PoolProps storage;
 
-    /** 调度任务执行器 → DispatchTaskConfig */
+    /** 调度任务执行器 → ExecutorFactory */
     private PoolProps dispatch;
 
     /** 调度线程池 → SchedulerConfig.poolSize */

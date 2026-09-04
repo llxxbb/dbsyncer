@@ -6,7 +6,7 @@ import org.dbsyncer.common.config.props.*;
  * Tab 元数据单一来源。
  * <p>
  * 每个枚举项对应 SystemConfig 中的一个子对象 Tab，
- * 驱动 UI 渲染、校验、提示与 sidecar 键生成。
+ * 驱动 UI 渲染、校验、提示与配置持久化。
  */
 public enum SystemTabEnum {
 

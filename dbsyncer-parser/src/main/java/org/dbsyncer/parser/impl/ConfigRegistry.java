@@ -130,6 +130,21 @@ public class ConfigRegistry {
         return merged;
     }
 
+    /**
+     * 过滤 A 类配置（A 类不落库，只从 Environment 读取）。
+     */
+    private void filterAClass(SystemConfig config) {
+        if (config == null) {
+            return;
+        }
+        config.setServer(null);
+        config.setStorageConn(null);
+        config.setLogging(null);
+        config.setHelpdoc(null);
+        config.setWorker(null);
+        config.setLicense(null);
+    }
+
     // ===== 配置加载 =====
 
     /**

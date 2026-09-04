@@ -29,7 +29,7 @@ import java.util.concurrent.CompletableFuture;
  * <p>
  * 安全约束：
  * - 必须检测进程守护是否存在（systemd/docker），无守护时降级为仅提示
- * - 重启前必须确保 DB 提交 + sidecar 重写都已成功
+ * - 重启前必须确保 DB 提交已成功
  */
 @Service
 public class SelfRestartService {

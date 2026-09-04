@@ -11,10 +11,10 @@ public class BufferProps implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    /** 通用执行器缓冲 → GeneralBufferConfig */
+    /** 通用执行器缓冲 → ExecutorFactory */
     private BufferActuatorProps general;
 
-    /** 存储执行器缓冲 → StorageConfig */
+    /** 存储执行器缓冲 → ExecutorFactory */
     private BufferActuatorProps storage;
 
     public BufferActuatorProps getGeneral() {
