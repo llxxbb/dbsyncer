@@ -6,8 +6,6 @@ package org.dbsyncer.biz.impl;
 import org.apache.commons.io.FileUtils;
 import org.dbsyncer.biz.ConfigService;
 import org.dbsyncer.biz.UserConfigService;
-import org.dbsyncer.biz.checker.Checker;
-import org.dbsyncer.biz.checker.impl.system.SystemConfigTabChecker;
 import org.dbsyncer.biz.vo.SystemConfigVo;
 import org.dbsyncer.biz.vo.VersionVo;
 import org.dbsyncer.common.config.AppConfig;
@@ -15,6 +13,7 @@ import org.dbsyncer.common.config.SystemTabEnum;
 import org.dbsyncer.common.config.props.*;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
+import org.dbsyncer.common.util.NetworkUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.impl.ConfigMigrationService;
@@ -26,6 +25,7 @@ import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.model.ConfigModel;
 import org.dbsyncer.parser.model.SystemConfig;
 import org.dbsyncer.manager.impl.PreloadTemplate;
+import org.dbsyncer.storage.impl.SnowflakeIdWorker;
 import org.dbsyncer.common.enums.FileSuffixEnum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,10 +63,7 @@ public class SystemConfigServiceImpl implements ConfigService {
     private PreloadTemplate preloadTemplate;
 
     @Resource
-    private Checker systemConfigChecker;
-
-    @Resource
-    private SystemConfigTabChecker systemConfigTabChecker;
+    private SnowflakeIdWorker snowflakeIdWorker;
 
     @Resource
     private LogService logService;
@@ -76,9 +73,6 @@ public class SystemConfigServiceImpl implements ConfigService {
 
     @Resource
     private AppConfig appConfig;
-
-    @Resource
-    private RuntimeConfigValidator runtimeConfigValidator;
 
     @Resource
     private SelfRestartService selfRestartService;
@@ -93,9 +87,11 @@ public class SystemConfigServiceImpl implements ConfigService {
     private List<ConfigChangeListener> configChangeListeners;
 
     @Override
+    @Deprecated
     public String edit(Map<String, String> params) throws Exception {
-        ConfigModel model = systemConfigChecker.checkEditConfigModel(params);
-        profileComponent.editConfigModel(model);
+        SystemConfig cfg = getSystemConfig();
+        BeanUtils.copyProperties(params, cfg);
+        profileComponent.editConfigModel(cfg);
         return "修改成功.";
     }
 
@@ -117,7 +113,7 @@ public class SystemConfigServiceImpl implements ConfigService {
         synchronized (this) {
             config = configRegistry.getConfig();
             if (null == config) {
-                config = (SystemConfig) systemConfigChecker.checkAddConfigModel(new HashMap<>());
+                config = createDefaultSystemConfig();
             }
             return config;
         }
@@ -179,11 +175,16 @@ public class SystemConfigServiceImpl implements ConfigService {
         Object props = JsonUtil.jsonToObj(payload, tabEnum.getPropsType());
         Assert.notNull(props, "Tab payload 解析失败");
 
-        // 结构/必填校验
-        systemConfigTabChecker.check(tabEnum, props);
-
-        // 前置校验（L4：null 安全）
+        // 数据范围校验（委托给 Props 自身）
         List<String> errors = validateTab(tabEnum, props);
+
+        // CDN 特殊校验（涉及外部状态，保留在 Service 层）
+        if (tabEnum == SystemTabEnum.BASIC) {
+            BasicProps basic = (BasicProps) props;
+            if (Boolean.TRUE.equals(basic.getEnableCDN()) && !NetworkUtil.isInternetAvailable()) {
+                errors.add("无法访问互联网，不支持开启[CDN静态资源]");
+            }
+        }
         if (!errors.isEmpty()) {
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("success", false);
@@ -305,20 +306,34 @@ public class SystemConfigServiceImpl implements ConfigService {
 
     // ===== 内部方法 =====
 
+    /**
+     * 创建默认系统配置并落库（原 SystemConfigChecker.checkAddConfigModel 内联）。
+     */
+    private SystemConfig createDefaultSystemConfig() throws Exception {
+        SystemConfig config = new SystemConfig();
+        config.setName("系统配置");
+        config.setId(String.valueOf(snowflakeIdWorker.nextId()));
+        long now = java.time.Instant.now().toEpochMilli();
+        config.setCreateTime(now);
+        config.setUpdateTime(now);
+        profileComponent.addConfigModel(config);
+        return config;
+    }
+
     private List<String> validateTab(SystemTabEnum tabEnum, Object props) {
         switch (tabEnum) {
             case BASIC:
-                return runtimeConfigValidator.validate((BasicProps) props);
+                return ((BasicProps) props).validate();
             case EXECUTORS:
-                return runtimeConfigValidator.validate((ExecutorProps) props);
+                return ((ExecutorProps) props).validate();
             case BUFFERS:
-                return runtimeConfigValidator.validate((BufferProps) props);
+                return ((BufferProps) props).validate();
             case RETRY:
-                return runtimeConfigValidator.validate((RetryProps) props);
+                return ((RetryProps) props).validate();
             case NOTIFY:
-                return runtimeConfigValidator.validate((NotifyProps) props);
+                return ((NotifyProps) props).validate();
             case ERROR:
-                return runtimeConfigValidator.validate((ErrorProps) props);
+                return ((ErrorProps) props).validate();
             default:
                 return Collections.emptyList();
         }

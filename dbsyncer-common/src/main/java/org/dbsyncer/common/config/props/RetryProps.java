@@ -4,8 +4,8 @@ import org.dbsyncer.common.retry.TerminationMode;
 import org.dbsyncer.common.util.MatchMode;
 
 import java.io.Serializable;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Tab 4 重试策略（字段对齐 RetryPolicy）。
@@ -113,6 +113,31 @@ public class RetryProps implements Serializable {
 
     public void setExcludeKeywords(List<String> excludeKeywords) {
         this.excludeKeywords = excludeKeywords;
+    }
+
+    /**
+     * 校验重试策略配置，返回错误信息列表。
+     *
+     * @return 错误信息列表，为空表示校验通过
+     */
+    public List<String> validate() {
+        List<String> errors = new ArrayList<>();
+        if (maxAttempts != null && maxAttempts < 1) {
+            errors.add("最大重试次数必须 >= 1");
+        }
+        if (initialIntervalMs != null && initialIntervalMs < 0) {
+            errors.add("初始重试间隔不能 < 0");
+        }
+        if (maxIntervalMs != null && maxIntervalMs < 0) {
+            errors.add("最大重试间隔不能 < 0");
+        }
+        if (multiplier != null && multiplier < 1.0) {
+            errors.add("退避倍数必须 >= 1.0");
+        }
+        if (maxDurationMs != null && maxDurationMs < 0) {
+            errors.add("重试总时长不能 < 0（0 表示不限制）");
+        }
+        return errors;
     }
 
     /**

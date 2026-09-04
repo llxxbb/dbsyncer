@@ -56,6 +56,28 @@ public class ExecutorProps implements Serializable {
     }
 
     /**
+     * 校验执行器配置，返回错误信息列表。
+     *
+     * @return 错误信息列表，为空表示校验通过
+     */
+    public List<String> validate() {
+        List<String> errors = new ArrayList<>();
+        if (general != null) {
+            errors.addAll(general.validate("通用执行器"));
+        }
+        if (storage != null) {
+            errors.addAll(storage.validate("存储执行器"));
+        }
+        if (dispatch != null) {
+            errors.addAll(dispatch.validate("调度任务执行器"));
+        }
+        if (schedulerPoolSize != null && schedulerPoolSize < 1) {
+            errors.add("调度线程数必须 > 0");
+        }
+        return errors;
+    }
+
+    /**
      * 返回配置条目列表，用于启动期配置对照表打印。
      */
     public List<ConfigEntry> toConfigEntries() {

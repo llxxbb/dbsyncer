@@ -3,8 +3,8 @@ package org.dbsyncer.common.config.props;
 import org.dbsyncer.common.util.MatchMode;
 
 import java.io.Serializable;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Tab 6 错误处理（字段对齐 ErrorQueueConfig）。
@@ -40,6 +40,19 @@ public class ErrorProps implements Serializable {
 
     public void setFatalKeywords(List<String> fatalKeywords) {
         this.fatalKeywords = fatalKeywords;
+    }
+
+    /**
+     * 校验错误处理配置，返回错误信息列表。
+     *
+     * @return 错误信息列表，为空表示校验通过
+     */
+    public List<String> validate() {
+        List<String> errors = new ArrayList<>();
+        if (threshold != null && threshold < 0) {
+            errors.add("熔断阈值不能 < 0（0 表示不启用熔断）");
+        }
+        return errors;
     }
 
     /**

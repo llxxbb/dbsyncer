@@ -104,6 +104,31 @@ public class BasicProps implements Serializable {
     }
 
     /**
+     * 校验基础设置，返回错误信息列表。
+     *
+     * @return 错误信息列表，为空表示校验通过
+     */
+    public List<String> validate() {
+        List<String> errors = new ArrayList<>();
+        if (expireDataDays != null && expireDataDays < 1) {
+            errors.add("同步数据过期时间必须 >= 1 天");
+        }
+        if (expireLogDays != null && expireLogDays < 1) {
+            errors.add("系统日志过期时间必须 >= 1 天");
+        }
+        if (refreshIntervalSeconds != null && refreshIntervalSeconds < 1) {
+            errors.add("刷新间隔必须 >= 1 秒");
+        }
+        if (maxStorageErrorLength != null && maxStorageErrorLength < 100) {
+            errors.add("失败日志最大长度必须 >= 100");
+        }
+        if (watermark != null && watermark.length() > 64) {
+            errors.add("水印内容最多 64 个字符");
+        }
+        return errors;
+    }
+
+    /**
      * 返回配置条目列表，用于启动期配置对照表打印。
      */
     public List<ConfigEntry> toConfigEntries() {

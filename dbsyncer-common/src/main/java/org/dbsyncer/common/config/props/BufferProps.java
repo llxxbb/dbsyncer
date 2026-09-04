@@ -34,6 +34,22 @@ public class BufferProps implements Serializable {
     }
 
     /**
+     * 校验缓冲区配置，返回错误信息列表。
+     *
+     * @return 错误信息列表，为空表示校验通过
+     */
+    public List<String> validate() {
+        List<String> errors = new ArrayList<>();
+        if (general != null) {
+            errors.addAll(general.validate("通用缓冲区"));
+        }
+        if (storage != null) {
+            errors.addAll(storage.validate("存储缓冲区"));
+        }
+        return errors;
+    }
+
+    /**
      * 返回配置条目列表，用于启动期配置对照表打印。
      */
     public List<ConfigEntry> toConfigEntries() {

@@ -41,6 +41,30 @@ public class PoolProps implements Serializable {
     }
 
     /**
+     * 校验线程池参数，返回错误信息列表。
+     *
+     * @param name 执行器名称（用于错误提示）
+     * @return 错误信息列表，为空表示校验通过
+     */
+    public List<String> validate(String name) {
+        List<String> errors = new ArrayList<>();
+        if (threadCoreSize != null && threadCoreSize < 1) {
+            errors.add(name + "核心线程数必须 > 0");
+        }
+        if (maxThreadSize != null && maxThreadSize < 1) {
+            errors.add(name + "最大线程数必须 > 0");
+        }
+        if (threadCoreSize != null && maxThreadSize != null
+                && threadCoreSize > maxThreadSize) {
+            errors.add(name + "核心线程数不能大于最大线程数");
+        }
+        if (threadQueueCapacity != null && threadQueueCapacity < 1) {
+            errors.add(name + "队列容量必须 > 0");
+        }
+        return errors;
+    }
+
+    /**
      * 返回配置条目列表，用于启动期配置对照表打印。
      * @param prefix 配置键前缀（如 dbsyncer.parser.general）
      */

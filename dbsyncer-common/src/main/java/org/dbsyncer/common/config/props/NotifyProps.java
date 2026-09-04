@@ -1,8 +1,8 @@
 package org.dbsyncer.common.config.props;
 
 import java.io.Serializable;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Tab 5 通知通道配置
@@ -37,6 +37,22 @@ public class NotifyProps implements Serializable {
 
     public void setDingtalk(DingTalkProps dingtalk) {
         this.dingtalk = dingtalk;
+    }
+
+    /**
+     * 校验通知通道配置，返回错误信息列表。
+     *
+     * @return 错误信息列表，为空表示校验通过
+     */
+    public List<String> validate() {
+        List<String> errors = new ArrayList<>();
+        if (mail != null) {
+            errors.addAll(mail.validate());
+        }
+        if (dingtalk != null) {
+            errors.addAll(dingtalk.validate());
+        }
+        return errors;
     }
 
     /**
