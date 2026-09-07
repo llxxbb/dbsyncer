@@ -2,7 +2,6 @@ package org.dbsyncer.parser.config;
 
 import org.dbsyncer.common.config.ConfigRegistry;
 import org.dbsyncer.common.config.SnowflakeIdWorker;
-import org.dbsyncer.common.config.props.WorkerProps;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -21,14 +20,8 @@ public class SnowflakeIdWorkerConfig {
     @Bean
     public SnowflakeIdWorker snowflakeIdWorker(ConfigRegistry configRegistry) {
         return new SnowflakeIdWorker(
-            () -> {
-                WorkerProps worker = configRegistry.getConfig().getWorker();
-                return worker != null && worker.getId() != null ? worker.getId() : 1L;
-            },
-            () -> {
-                WorkerProps worker = configRegistry.getConfig().getWorker();
-                return worker != null && worker.getDataCenterId() != null ? worker.getDataCenterId() : 1L;
-            }
+            () -> configRegistry.getConfig().getWorker().getId(),
+            () -> configRegistry.getConfig().getWorker().getDataCenterId()
         );
     }
 }

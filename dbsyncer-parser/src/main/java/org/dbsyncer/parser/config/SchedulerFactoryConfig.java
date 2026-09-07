@@ -5,19 +5,14 @@ import org.dbsyncer.common.config.ConfigRegistry;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import javax.annotation.Resource;
-
 /**
  * ADR-0032：注册 SchedulerFactory，替代原 SchedulerConfig。
  */
 @Configuration
 public class SchedulerFactoryConfig {
 
-    @Resource
-    private ConfigRegistry configRegistry;
-
     @Bean
-    public SchedulerFactory schedulerFactory() {
+    public SchedulerFactory schedulerFactory(ConfigRegistry configRegistry) {
         return new SchedulerFactory(() -> {
             Integer poolSize = configRegistry.getConfig().getMonitor().getSchedulerPoolSize();
             return poolSize != null ? poolSize : Runtime.getRuntime().availableProcessors();

@@ -5,9 +5,10 @@ import org.dbsyncer.common.config.props.*;
 import org.dbsyncer.common.model.SystemConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
-import javax.annotation.Resource;
+import java.lang.reflect.Field;
 import java.util.List;
 
 /**
@@ -27,6 +28,7 @@ import java.util.List;
  * 配置变更时，通过 {@link ConfigChangeListener} 通知所有监听的 Bean，
  * 各 Bean 自行决定如何更新内部状态和清理缓存。
  */
+@Lazy
 @Component
 public class ConfigRegistry {
 
@@ -43,11 +45,19 @@ public class ConfigRegistry {
     private SystemConfig propsConfig;   // 从 Environment 加载
     private SystemConfig dbConfig;      // 从数据库加载
     private SystemConfig mergedConfig;  // 合并后的（最终使用）
+    private volatile boolean ready = false;
 
     /**
      * 业务代码只调用这个方法，获取合并后的最终配置。
+     * <p>
+     * 未初始化时 fail-fast，把运行期 NPE 变成启动期 IllegalStateException。
      */
     public SystemConfig getConfig() {
+        if (!ready) {
+            throw new IllegalStateException(
+                "ConfigRegistry 尚未初始化，请确保在 init() 完成后再调用 getConfig()。"
+                + " 如果在 @PostConstruct / @Bean 中使用，请改用 @Lazy 注入或延迟到运行时读取。");
+        }
         return mergedConfig;
     }
 
@@ -78,6 +88,7 @@ public class ConfigRegistry {
     public synchronized void init(SystemConfig dbConfig) {
         this.dbConfig = dbConfig;
         this.mergedConfig = merge(propsConfig, dbConfig);
+        this.ready = true;
         logger.info("ConfigRegistry 设置 dbConfig 完成");
     }
 

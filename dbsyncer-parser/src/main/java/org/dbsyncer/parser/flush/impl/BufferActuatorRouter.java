@@ -156,7 +156,6 @@ public final class BufferActuatorRouter implements DisposableBean {
         actuator.setMetaId(metaId);
         // 手动注入所有依赖
         actuator.setGeneralExecutor(executorFactory.getGeneralExecutor());
-        actuator.setBufferPropsSupplier(() -> configRegistry.getConfig().getBuffers().getGeneral());
         actuator.setConnectorFactory(connectorFactory);
         actuator.setProfileComponent(profileComponent);
         actuator.setCounterService(counterService);

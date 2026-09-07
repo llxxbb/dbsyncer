@@ -28,7 +28,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Supplier;
 
 /**
  * 任务缓存执行器
@@ -55,12 +54,6 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
     private Lock taskLock;
     private volatile BlockingQueue<Request> queue;
     private String taskKey;
-
-    /**
-     * 缓冲区参数来源，由子类设置。
-     * 例如：() -> configRegistry.getConfig().getBuffers().getGeneral()
-     */
-    private Supplier<BufferActuatorProps> bufferPropsSupplier;
 
     protected ConfigRegistry configRegistry;
 
@@ -93,14 +86,7 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
         Assert.notNull(responseClazz, String.format("%s的父类%s泛型参数Response为空.", getClass().getName(), AbstractBufferActuator.class.getName()));
     }
 
-    /**
-     * 设置缓冲区参数来源。
-     *
-     * @param bufferPropsSupplier 返回当前生效的 BufferActuatorProps
-     */
-    public void setBufferPropsSupplier(Supplier<BufferActuatorProps> bufferPropsSupplier) {
-        this.bufferPropsSupplier = bufferPropsSupplier;
-    }
+
 
     /**
      * 延迟初始化：创建队列 + 启动调度器。
@@ -110,7 +96,6 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
         if (!initialized) {
             synchronized (this) {
                 if (!initialized) {
-                    Assert.notNull(bufferPropsSupplier, "请先设置 bufferPropsSupplier");
                     Assert.notNull(configRegistry, "请先设置 configRegistry");
                     buildQueueConfig();
                     if (taskKey == null) {
@@ -328,10 +313,11 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
 
     // ===== 从 ConfigRegistry 动态读取缓冲区参数 =====
 
-    protected BufferActuatorProps getBufferProps() {
-        BufferActuatorProps props = bufferPropsSupplier.get();
-        return props != null ? props : new BufferActuatorProps();
-    }
+    /**
+     * 获取当前生效的缓冲区参数。
+     * 子类实现此方法，指定读取 general 还是 storage 缓冲区配置。
+     */
+    protected abstract BufferActuatorProps getBufferProps();
 
     protected int getBufferWriterCount() {
         Integer v = getBufferProps().getBufferWriterCount();

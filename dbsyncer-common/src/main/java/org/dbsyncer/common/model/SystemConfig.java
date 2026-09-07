@@ -31,7 +31,7 @@ public class SystemConfig extends ConfigModel {
     // ===== A 类（@JsonIgnore，不落库，启动时从 Environment 读取） =====
 
     @JsonIgnore
-    private ServerProps server = new ServerProps();
+    private ServerProps server;
 
     @JsonIgnore
     private StorageConnectionProps storageConn;

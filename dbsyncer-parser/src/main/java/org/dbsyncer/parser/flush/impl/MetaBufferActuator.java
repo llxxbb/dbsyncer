@@ -19,7 +19,8 @@ import org.dbsyncer.parser.pipeline.SyncTask;
 import org.dbsyncer.sdk.model.*;
 import org.dbsyncer.sdk.notify.NotifyType;
 import org.dbsyncer.parser.service.TableGroupModelService;
-import org.dbsyncer.common.config.ConfigRegistry;
+import org.dbsyncer.common.config.props.BufferActuatorProps;
+import org.dbsyncer.common.config.props.BufferProps;
 import org.dbsyncer.sdk.connector.CounterService;
 import org.dbsyncer.sdk.connector.ErrorQueueCollector;
 import org.dbsyncer.sdk.spi.MessageService;
@@ -66,6 +67,12 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
      * 是否有待处理的任务（事件进入队列时设置为 true，队列为空时设置为 false）
      */
     private volatile boolean hasPendingTask = false;
+
+    @Override
+    protected BufferActuatorProps getBufferProps() {
+        BufferProps buffers = configRegistry.getConfig().getBuffers();
+        return buffers != null && buffers.getGeneral() != null ? buffers.getGeneral() : new BufferActuatorProps();
+    }
 
     @Override
     protected String getPartitionKey(WriterRequest request) {

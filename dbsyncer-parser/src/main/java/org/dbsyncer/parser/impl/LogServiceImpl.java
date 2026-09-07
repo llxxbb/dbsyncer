@@ -29,11 +29,10 @@ import java.util.Map;
 @Component
 public class LogServiceImpl implements LogService {
 
-    @Lazy
     @Resource
     private ConfigRegistry configRegistry;
 
-    @Lazy
+    @Lazy 
     @Resource
     private StorageService storageService;
 
@@ -77,9 +76,7 @@ public class LogServiceImpl implements LogService {
             params.put(ConfigConstant.LOG_LEVEL, logLevel.name());
             int maxLen = 4000;
             try {
-                if (configRegistry.getConfig() != null && configRegistry.getConfig().getBasic() != null) {
-                    maxLen = configRegistry.getConfig().getBasic().getMaxStorageErrorLength();
-                }
+                maxLen = configRegistry.getConfig().getBasic().getMaxStorageErrorLength();
             } catch (Exception e) { /* ignore */ }
             params.put("json", StringUtil.substring(msg, 0, maxLen));
             params.put("createTime", Instant.now().toEpochMilli());

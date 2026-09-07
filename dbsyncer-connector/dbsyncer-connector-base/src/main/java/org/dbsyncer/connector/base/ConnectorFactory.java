@@ -246,7 +246,7 @@ public class ConnectorFactory implements DisposableBean {
             event = ConnectorConstant.OPERTION_UPSERT;
             ctx.setEvent(event);
         }
-        RetryPolicy policy = configRegistry.getConfig() != null && configRegistry.getConfig().getRetry() != null 
+        RetryPolicy policy = configRegistry.getConfig().getRetry() != null
                 ? configRegistry.getConfig().getRetry().toGlobalPolicy() : new RetryPolicy();
         String mappingId = syncRows.get(0).getMapping() != null ? syncRows.get(0).getMapping().getId() : null;
         Result result;

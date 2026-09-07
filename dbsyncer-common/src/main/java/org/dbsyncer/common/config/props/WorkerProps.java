@@ -26,6 +26,12 @@ public class WorkerProps implements Serializable {
     public void loadFromEnvironment(Environment env) {
         this.id = env.getProperty(ConfigKeys.WORKER_ID, Long.class);
         this.dataCenterId = env.getProperty(ConfigKeys.WORKER_DATA_CENTER_ID, Long.class);
+        if (this.id == null) {
+            this.id = 1L; // 默认值
+        }
+        if (this.dataCenterId == null) {
+            this.dataCenterId = 1L; // 默认值
+        }
     }
 
     public List<String> validate() {

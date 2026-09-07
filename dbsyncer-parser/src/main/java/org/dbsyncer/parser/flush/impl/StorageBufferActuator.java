@@ -6,6 +6,8 @@ package org.dbsyncer.parser.flush.impl;
 import org.dbsyncer.common.config.ExecutorFactory;
 import org.dbsyncer.parser.flush.AbstractBufferActuator;
 import org.dbsyncer.common.config.ConfigRegistry;
+import org.dbsyncer.common.config.props.BufferActuatorProps;
+import org.dbsyncer.common.config.props.BufferProps;
 import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.parser.model.StorageRequest;
@@ -43,7 +45,12 @@ public final class StorageBufferActuator extends AbstractBufferActuator<StorageR
     @PostConstruct
     private void init() {
         setConfigRegistry(configRegistry);
-        setBufferPropsSupplier(() -> configRegistry.getConfig().getBuffers().getStorage());
+    }
+
+    @Override
+    protected BufferActuatorProps getBufferProps() {
+        BufferProps buffers = configRegistry.getConfig().getBuffers();
+        return buffers != null && buffers.getStorage() != null ? buffers.getStorage() : new BufferActuatorProps();
     }
 
     @Override

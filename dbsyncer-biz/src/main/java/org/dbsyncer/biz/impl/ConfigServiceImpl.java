@@ -9,7 +9,6 @@ import org.dbsyncer.biz.UserConfigService;
 import org.dbsyncer.biz.vo.SystemConfigVo;
 import org.dbsyncer.biz.vo.VersionVo;
 import org.dbsyncer.common.config.AppConfig;
-import org.dbsyncer.common.config.ConfigKeys;
 import org.dbsyncer.common.config.SystemTabEnum;
 import org.dbsyncer.common.config.props.*;
 import org.dbsyncer.common.util.CollectionUtils;
@@ -26,12 +25,10 @@ import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.common.model.ConfigModel;
 import org.dbsyncer.common.model.SystemConfig;
 import org.dbsyncer.manager.impl.PreloadTemplate;
-import org.dbsyncer.common.config.SnowflakeIdWorker;
 import org.dbsyncer.common.enums.FileSuffixEnum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
-import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
@@ -64,9 +61,6 @@ public class ConfigServiceImpl implements ConfigService {
     private PreloadTemplate preloadTemplate;
 
     @Resource
-    private SnowflakeIdWorker snowflakeIdWorker;
-
-    @Resource
     private LogService logService;
 
     @Resource
@@ -77,9 +71,6 @@ public class ConfigServiceImpl implements ConfigService {
 
     @Resource
     private SelfRestartService selfRestartService;
-
-    @Resource
-    private Environment environment;
 
     @Resource
     private List<ConfigChangeListener> configChangeListeners;
@@ -103,18 +94,7 @@ public class ConfigServiceImpl implements ConfigService {
 
     @Override
     public SystemConfig getSystemConfig() throws Exception {
-        SystemConfig config = configRegistry.getConfig();
-        if (null != config) {
-            return config;
-        }
-
-        synchronized (this) {
-            config = configRegistry.getConfig();
-            if (null == config) {
-                config = createDefaultSystemConfig();
-            }
-            return config;
-        }
+        return configRegistry.getConfig();
     }
 
     @Override
@@ -324,20 +304,6 @@ public class ConfigServiceImpl implements ConfigService {
     }
 
     // ===== 内部方法 =====
-
-    /**
-     * 创建默认系统配置并落库（原 SystemConfigChecker.checkAddConfigModel 内联）。
-     */
-    private SystemConfig createDefaultSystemConfig() throws Exception {
-        SystemConfig config = new SystemConfig();
-        config.setName("系统配置");
-        config.setId(String.valueOf(snowflakeIdWorker.nextId()));
-        long now = java.time.Instant.now().toEpochMilli();
-        config.setCreateTime(now);
-        config.setUpdateTime(now);
-        profileComponent.addConfigModel(config);
-        return config;
-    }
 
     private List<String> validateTab(SystemTabEnum tabEnum, Object props) {
         switch (tabEnum) {

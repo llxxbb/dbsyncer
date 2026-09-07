@@ -2,7 +2,6 @@ package org.dbsyncer.connector.sqlserver.ct;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.dbsyncer.common.config.ConfigRegistry;
-import org.dbsyncer.common.model.SystemConfig;
 import org.dbsyncer.common.retry.RetryAfter;
 import org.dbsyncer.common.retry.RetryInterceptor;
 import org.dbsyncer.common.retry.RetryPolicy;
@@ -1221,8 +1220,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
          */
         private RetryPolicy getRetryPolicy() {
             ConfigRegistry configRegistry = SpringContextUtil.getBean(ConfigRegistry.class);
-            SystemConfig config = configRegistry != null ? configRegistry.getConfig() : null;
-            return config != null && config.getRetry() != null ? config.getRetry().toGlobalPolicy() : new RetryPolicy();
+            return configRegistry.getConfig().getRetry() != null ? configRegistry.getConfig().getRetry().toGlobalPolicy() : new RetryPolicy();
         }
 
         @Override
