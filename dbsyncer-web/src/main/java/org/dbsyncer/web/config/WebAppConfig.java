@@ -5,7 +5,7 @@ import org.dbsyncer.biz.vo.RestResult;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.SHA1Util;
 import org.dbsyncer.common.util.StringUtil;
-import org.dbsyncer.parser.impl.ConfigRegistry;
+import org.dbsyncer.common.config.ConfigRegistry;
 import org.dbsyncer.parser.model.UserInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

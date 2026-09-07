@@ -1,7 +1,7 @@
 package org.dbsyncer.parser.model;
 
-import org.dbsyncer.sdk.constant.ConfigConstant;
-import org.dbsyncer.sdk.model.ConfigModel;
+import org.dbsyncer.common.constant.ConfigConstant;
+import org.dbsyncer.common.model.ConfigModel;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -14,7 +14,7 @@ import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.spi.MessageService;
 import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.spi.LogService;
-import org.dbsyncer.sdk.model.ConfigModel;
+import org.dbsyncer.common.model.ConfigModel;
 import org.dbsyncer.parser.model.ProjectGroup;
 import org.dbsyncer.parser.model.UserConfig;
 import org.dbsyncer.parser.model.UserGroup;

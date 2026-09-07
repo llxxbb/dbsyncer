@@ -2,7 +2,7 @@ package org.dbsyncer.sdk.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.dbsyncer.sdk.config.ListenerConfig;
-import org.dbsyncer.sdk.constant.ConfigConstant;
+import org.dbsyncer.common.constant.ConfigConstant;
 
 import java.util.List;
 

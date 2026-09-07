@@ -40,7 +40,7 @@ import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
 import org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance;
 import org.dbsyncer.sdk.connector.database.sql.SqlTemplate;
-import org.dbsyncer.sdk.constant.ConfigConstant;
+import org.dbsyncer.common.constant.ConfigConstant;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.model.Table;

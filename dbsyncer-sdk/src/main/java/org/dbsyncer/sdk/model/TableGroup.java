@@ -3,7 +3,7 @@ package org.dbsyncer.sdk.model;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.StringUtil;
-import org.dbsyncer.sdk.constant.ConfigConstant;
+import org.dbsyncer.common.constant.ConfigConstant;
 
 import java.util.ArrayList;
 import java.util.Collections;

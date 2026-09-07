@@ -1,7 +1,8 @@
 package org.dbsyncer.parser.impl;
 
+import org.dbsyncer.common.config.ConfigRegistry;
 import org.dbsyncer.common.config.props.*;
-import org.dbsyncer.parser.model.SystemConfig;
+import org.dbsyncer.common.model.SystemConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;

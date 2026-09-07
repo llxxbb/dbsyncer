@@ -1,7 +1,8 @@
 package org.dbsyncer.connector.sqlserver.ct;
 
 import org.apache.commons.codec.digest.DigestUtils;
-import org.dbsyncer.common.config.RetryConfig;
+import org.dbsyncer.common.config.ConfigRegistry;
+import org.dbsyncer.common.model.SystemConfig;
 import org.dbsyncer.common.retry.RetryAfter;
 import org.dbsyncer.common.retry.RetryInterceptor;
 import org.dbsyncer.common.retry.RetryPolicy;
@@ -1219,8 +1220,9 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
          * 获取重试策略（直接复用全局配置）
          */
         private RetryPolicy getRetryPolicy() {
-            RetryConfig retryConfig = SpringContextUtil.getBean(RetryConfig.class);
-            return retryConfig != null ? retryConfig.getGlobal() : new RetryPolicy();
+            ConfigRegistry configRegistry = SpringContextUtil.getBean(ConfigRegistry.class);
+            SystemConfig config = configRegistry != null ? configRegistry.getConfig() : null;
+            return config != null && config.getRetry() != null ? config.getRetry().toGlobalPolicy() : new RetryPolicy();
         }
 
         @Override

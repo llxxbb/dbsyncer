@@ -1,9 +1,13 @@
 /**
  * DBSyncer Copyright 2020-2023 All Rights Reserved.
  */
-package org.dbsyncer.sdk.constant;
+package org.dbsyncer.common.constant;
 
 /**
+ * 配置常量。
+ * <p>
+ * 从 dbsyncer-sdk 迁移到 dbsyncer-common，使底层模块可直接访问。
+ *
  * @Author AE86
  * @Version 1.0.0
  * @Date 2019-11-16 22:14

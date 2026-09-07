@@ -5,7 +5,7 @@ package org.dbsyncer.parser.flush.impl;
 
 import org.dbsyncer.common.config.ExecutorFactory;
 import org.dbsyncer.parser.flush.AbstractBufferActuator;
-import org.dbsyncer.parser.impl.ConfigRegistry;
+import org.dbsyncer.common.config.ConfigRegistry;
 import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.parser.model.StorageRequest;

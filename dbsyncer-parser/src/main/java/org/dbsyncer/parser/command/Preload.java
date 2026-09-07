@@ -8,7 +8,7 @@ import org.dbsyncer.parser.model.Connector;
 import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.parser.model.ProjectGroup;
-import org.dbsyncer.parser.model.SystemConfig;
+import org.dbsyncer.common.model.SystemConfig;
 import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.parser.model.UserConfig;
 import org.dbsyncer.parser.model.UserGroup;

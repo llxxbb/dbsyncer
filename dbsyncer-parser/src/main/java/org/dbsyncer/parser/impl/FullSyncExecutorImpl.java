@@ -7,7 +7,7 @@ import org.dbsyncer.common.ProcessEvent;
 import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.parser.FullSyncExecutor;
 import org.dbsyncer.parser.ProfileComponent;
-import org.dbsyncer.parser.impl.ConfigRegistry;
+import org.dbsyncer.common.config.ConfigRegistry;
 import org.dbsyncer.parser.model.*;
 import org.dbsyncer.parser.pipeline.SyncPipeline;
 import org.dbsyncer.parser.pipeline.SyncTask;

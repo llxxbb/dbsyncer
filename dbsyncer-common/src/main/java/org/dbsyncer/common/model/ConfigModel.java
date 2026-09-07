@@ -1,7 +1,12 @@
-package org.dbsyncer.sdk.model;
+package org.dbsyncer.common.model;
 
-import org.dbsyncer.sdk.constant.ConfigConstant;
+import org.dbsyncer.common.constant.ConfigConstant;
 
+/**
+ * 配置模型基类。
+ * <p>
+ * 从 dbsyncer-sdk 迁移到 dbsyncer-common，使底层模块可直接访问。
+ */
 public class ConfigModel {
 
     private String id;

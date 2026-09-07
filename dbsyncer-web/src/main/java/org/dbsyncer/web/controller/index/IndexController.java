@@ -8,7 +8,7 @@ import org.dbsyncer.biz.vo.MappingVo;
 import org.dbsyncer.biz.PermissionService;
 import org.dbsyncer.biz.ProjectGroupService;
 import org.dbsyncer.biz.ConfigService;
-import org.dbsyncer.parser.impl.ConfigRegistry;
+import org.dbsyncer.common.config.ConfigRegistry;
 import org.dbsyncer.biz.UserConfigService;
 import org.dbsyncer.biz.MappingService;
 import org.dbsyncer.biz.vo.ProjectGroupVo;

@@ -5,7 +5,7 @@ package org.dbsyncer.parser.strategy.impl;
 
 import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.parser.strategy.GroupStrategy;
-import org.dbsyncer.sdk.constant.ConfigConstant;
+import org.dbsyncer.common.constant.ConfigConstant;
 
 /**
  * @author AE86

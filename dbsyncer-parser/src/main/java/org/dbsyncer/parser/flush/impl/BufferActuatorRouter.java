@@ -12,7 +12,7 @@ import org.dbsyncer.parser.TableGroupContext;
 import org.dbsyncer.parser.ddl.DDLParser;
 import org.dbsyncer.parser.model.WriterRequest;
 import org.dbsyncer.parser.service.TableGroupModelService;
-import org.dbsyncer.parser.impl.ConfigRegistry;
+import org.dbsyncer.common.config.ConfigRegistry;
 import org.dbsyncer.sdk.connector.CounterService;
 import org.dbsyncer.sdk.connector.ErrorQueueCollector;
 

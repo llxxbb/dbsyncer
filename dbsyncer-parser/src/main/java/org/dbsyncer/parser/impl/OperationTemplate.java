@@ -9,7 +9,7 @@ import org.dbsyncer.common.ParserException;
 import org.dbsyncer.parser.command.impl.PersistenceCommand;
 import org.dbsyncer.parser.enums.CommandEnum;
 import org.dbsyncer.parser.enums.GroupStrategyEnum;
-import org.dbsyncer.sdk.model.ConfigModel;
+import org.dbsyncer.common.model.ConfigModel;
 import org.dbsyncer.parser.model.Group;
 import org.dbsyncer.parser.model.OperationConfig;
 import org.dbsyncer.parser.model.QueryConfig;

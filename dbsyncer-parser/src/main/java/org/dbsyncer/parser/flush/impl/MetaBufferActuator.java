@@ -19,7 +19,7 @@ import org.dbsyncer.parser.pipeline.SyncTask;
 import org.dbsyncer.sdk.model.*;
 import org.dbsyncer.sdk.notify.NotifyType;
 import org.dbsyncer.parser.service.TableGroupModelService;
-import org.dbsyncer.parser.impl.ConfigRegistry;
+import org.dbsyncer.common.config.ConfigRegistry;
 import org.dbsyncer.sdk.connector.CounterService;
 import org.dbsyncer.sdk.connector.ErrorQueueCollector;
 import org.dbsyncer.sdk.spi.MessageService;

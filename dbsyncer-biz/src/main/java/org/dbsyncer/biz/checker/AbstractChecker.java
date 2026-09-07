@@ -9,10 +9,10 @@ import org.dbsyncer.common.config.SnowflakeIdWorker;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.sdk.model.AbstractConfigModel;
-import org.dbsyncer.sdk.model.ConfigModel;
+import org.dbsyncer.common.model.ConfigModel;
 import org.dbsyncer.sdk.model.Convert;
 
-import org.dbsyncer.sdk.constant.ConfigConstant;
+import org.dbsyncer.common.constant.ConfigConstant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.Assert;

@@ -7,9 +7,9 @@ import org.dbsyncer.biz.checker.AbstractChecker;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.ProfileComponent;
-import org.dbsyncer.sdk.model.ConfigModel;
+import org.dbsyncer.common.model.ConfigModel;
 import org.dbsyncer.parser.model.UserGroup;
-import org.dbsyncer.sdk.constant.ConfigConstant;
+import org.dbsyncer.common.constant.ConfigConstant;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 

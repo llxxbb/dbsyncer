@@ -17,7 +17,7 @@ import org.dbsyncer.parser.flush.impl.MetaBufferActuator;
 import org.dbsyncer.parser.model.Picker;
 import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.config.DDLConfig;
-import org.dbsyncer.sdk.constant.ConfigConstant;
+import org.dbsyncer.common.constant.ConfigConstant;
 import org.dbsyncer.sdk.constant.ConnectorConstant;
 import org.dbsyncer.sdk.enums.StorageEnum;
 import org.dbsyncer.sdk.filter.FieldResolver;

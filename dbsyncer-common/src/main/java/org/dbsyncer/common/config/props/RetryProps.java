@@ -130,6 +130,25 @@ public class RetryProps implements Serializable {
     }
 
     /**
+     * 将 RetryProps 转换为全局 RetryPolicy。
+     */
+    public RetryPolicy toGlobalPolicy() {
+        RetryPolicy policy = new RetryPolicy();
+        if (disable != null) policy.setDisable(disable);
+        if (maxAttempts != null) policy.setMaxAttempts(maxAttempts);
+        if (initialIntervalMs != null) policy.setInitialIntervalMs(initialIntervalMs);
+        if (maxIntervalMs != null) policy.setMaxIntervalMs(maxIntervalMs);
+        if (multiplier != null) policy.setMultiplier(multiplier);
+        if (maxDurationMs != null) policy.setMaxDurationMs(maxDurationMs);
+        if (terminationMode != null) policy.setTerminationMode(terminationMode);
+        if (useKeyword != null) policy.setUseKeyword(useKeyword);
+        if (matchMode != null) policy.setMatchMode(matchMode);
+        if (keywords != null) policy.setKeywords(keywords);
+        if (excludeKeywords != null) policy.setExcludeKeywords(excludeKeywords);
+        return policy;
+    }
+
+    /**
      * 校验重试策略配置，返回错误信息列表。
      *
      * @return 错误信息列表，为空表示校验通过

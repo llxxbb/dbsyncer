@@ -4,7 +4,7 @@
 package org.dbsyncer.connector.base;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.dbsyncer.common.config.RetryConfig;
+import org.dbsyncer.common.config.ConfigRegistry;
 import org.dbsyncer.common.model.Result;
 import org.dbsyncer.common.retry.RetryAfter;
 import org.dbsyncer.common.retry.RetryInterceptor;
@@ -70,7 +70,7 @@ public class ConnectorFactory implements DisposableBean {
     private MessageService messageService;
 
     @Resource
-    private RetryConfig retryConfig;
+    private ConfigRegistry configRegistry;
 
     private static final RetryInterceptor retryInterceptor = new RetryInterceptor();
 
@@ -246,7 +246,8 @@ public class ConnectorFactory implements DisposableBean {
             event = ConnectorConstant.OPERTION_UPSERT;
             ctx.setEvent(event);
         }
-        RetryPolicy policy = retryConfig != null ? retryConfig.getGlobal() : new RetryPolicy();
+        RetryPolicy policy = configRegistry.getConfig() != null && configRegistry.getConfig().getRetry() != null 
+                ? configRegistry.getConfig().getRetry().toGlobalPolicy() : new RetryPolicy();
         String mappingId = syncRows.get(0).getMapping() != null ? syncRows.get(0).getMapping().getId() : null;
         Result result;
         switch (event) {

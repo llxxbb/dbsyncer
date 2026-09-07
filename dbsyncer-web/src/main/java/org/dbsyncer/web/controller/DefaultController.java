@@ -1,7 +1,7 @@
 package org.dbsyncer.web.controller;
 
 import org.dbsyncer.biz.ConfigService;
-import org.dbsyncer.parser.impl.ConfigRegistry;
+import org.dbsyncer.common.config.ConfigRegistry;
 import org.dbsyncer.biz.UserConfigService;
 import org.dbsyncer.biz.vo.UserInfoVo;
 import org.springframework.boot.web.server.ErrorPage;

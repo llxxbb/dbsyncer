@@ -4,7 +4,7 @@
 package org.dbsyncer.parser.model;
 
 import org.dbsyncer.parser.enums.GroupStrategyEnum;
-import org.dbsyncer.sdk.model.ConfigModel;
+import org.dbsyncer.common.model.ConfigModel;
 
 public class QueryConfig<T> {
 

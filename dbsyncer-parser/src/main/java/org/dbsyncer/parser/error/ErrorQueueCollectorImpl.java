@@ -12,7 +12,7 @@ import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.flush.BufferActuator;
 import org.dbsyncer.parser.model.StorageRequest;
 import org.dbsyncer.sdk.connector.CounterService;
-import org.dbsyncer.sdk.constant.ConfigConstant;
+import org.dbsyncer.common.constant.ConfigConstant;
 import org.dbsyncer.sdk.constant.ConnectorConstant;
 import org.dbsyncer.sdk.enums.MetaEnum;
 import org.dbsyncer.sdk.enums.StorageEnum;

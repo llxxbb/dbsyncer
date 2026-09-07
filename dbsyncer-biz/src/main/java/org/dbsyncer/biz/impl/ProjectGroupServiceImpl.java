@@ -17,7 +17,7 @@ import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.spi.LogLevel;
-import org.dbsyncer.sdk.model.ConfigModel;
+import org.dbsyncer.common.model.ConfigModel;
 import org.dbsyncer.parser.model.Connector;
 import org.dbsyncer.parser.model.ProjectGroup;
 import org.dbsyncer.parser.model.UserGroup;

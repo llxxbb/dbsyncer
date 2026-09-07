@@ -2,15 +2,16 @@
  * DBSyncer Copyright 2020-2023 All Rights Reserved.
  */
 
-package org.dbsyncer.parser.model;
+package org.dbsyncer.common.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.dbsyncer.common.config.props.*;
-import org.dbsyncer.sdk.constant.ConfigConstant;
-import org.dbsyncer.sdk.model.ConfigModel;
+import org.dbsyncer.common.constant.ConfigConstant;
 
 /**
- * 系统配置
+ * 系统配置。
+ * <p>
+ * 从 dbsyncer-parser 迁移到 dbsyncer-common，使底层模块可直接访问配置。
  *
  * @version 1.0.0
  * @Author AE86

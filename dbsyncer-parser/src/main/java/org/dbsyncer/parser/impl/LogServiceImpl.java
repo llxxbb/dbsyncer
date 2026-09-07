@@ -4,14 +4,15 @@
 package org.dbsyncer.parser.impl;
 
 import org.dbsyncer.common.util.StringUtil;
-import org.dbsyncer.sdk.constant.ConfigConstant;
+import org.dbsyncer.common.constant.ConfigConstant;
 import org.dbsyncer.sdk.enums.StorageEnum;
-import org.dbsyncer.sdk.model.ConfigModel;
+import org.dbsyncer.common.model.ConfigModel;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.storage.StorageService;
 import org.springframework.stereotype.Component;
+import org.dbsyncer.common.config.ConfigRegistry;
 import org.dbsyncer.common.config.SnowflakeIdWorker;
 
 import javax.annotation.Resource;

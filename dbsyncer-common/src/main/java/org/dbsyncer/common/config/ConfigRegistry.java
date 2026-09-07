@@ -1,9 +1,8 @@
-package org.dbsyncer.parser.impl;
+package org.dbsyncer.common.config;
 
-import org.dbsyncer.common.config.ConfigKeys;
+import org.dbsyncer.common.config.listener.ConfigChangeListener;
 import org.dbsyncer.common.config.props.*;
-import org.dbsyncer.parser.listener.ConfigChangeListener;
-import org.dbsyncer.parser.model.SystemConfig;
+import org.dbsyncer.common.model.SystemConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
@@ -13,6 +12,8 @@ import java.util.List;
 
 /**
  * ADR-0029/0030：SystemConfigRegistry - 三源分离架构 + 配置变更通知。
+ * <p>
+ * 从 dbsyncer-parser 迁移到 dbsyncer-common，使底层模块可直接访问配置。
  * <p>
  * 持有三个 SystemConfig 实例：
  * <ul>
@@ -65,7 +66,6 @@ public class ConfigRegistry {
     }
 
     /**
-        /**
      * 设置 DB 配置。
      * <p>
      * 由 ConfigMigrationService 调用，用于首次迁移时把 props 默认值写入 DB。
@@ -75,7 +75,7 @@ public class ConfigRegistry {
         this.dbConfig = dbConfig;
         this.propsConfig = loadFromEnvironment();
         this.mergedConfig = merge(propsConfig, dbConfig);
-        logger.info("SystemConfigRegistry 设置 dbConfig 完成");
+        logger.info("ConfigRegistry 设置 dbConfig 完成");
     }
 
     /**
@@ -87,7 +87,7 @@ public class ConfigRegistry {
     public synchronized void onDbConfigChanged(SystemConfig newDbConfig) {
         this.dbConfig = newDbConfig;
         this.mergedConfig = merge(propsConfig, dbConfig);
-        logger.info("SystemConfigRegistry 重新合并完成");
+        logger.info("ConfigRegistry 重新合并完成");
     }
 
     /**

@@ -1,5 +1,7 @@
 package org.dbsyncer.sdk.model;
 
+import org.dbsyncer.common.model.ConfigModel;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;

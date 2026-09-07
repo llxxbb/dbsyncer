@@ -7,7 +7,7 @@ import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.common.config.SnowflakeIdWorker;
 import org.dbsyncer.sdk.enums.MetaEnum;
 import org.dbsyncer.sdk.model.Meta;
-import org.dbsyncer.sdk.constant.ConfigConstant;
+import org.dbsyncer.common.constant.ConfigConstant;
 import org.dbsyncer.sdk.model.TableGroup;
 import org.springframework.stereotype.Service;
 

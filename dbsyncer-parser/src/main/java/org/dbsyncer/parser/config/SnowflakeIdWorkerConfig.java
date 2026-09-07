@@ -1,8 +1,8 @@
 package org.dbsyncer.parser.config;
 
+import org.dbsyncer.common.config.ConfigRegistry;
 import org.dbsyncer.common.config.SnowflakeIdWorker;
 import org.dbsyncer.common.config.props.WorkerProps;
-import org.dbsyncer.parser.impl.ConfigRegistry;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 

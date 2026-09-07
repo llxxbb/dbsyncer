@@ -1,7 +1,7 @@
 package org.dbsyncer.parser.config;
 
 import org.dbsyncer.common.config.ExecutorFactory;
-import org.dbsyncer.parser.impl.ConfigRegistry;
+import org.dbsyncer.common.config.ConfigRegistry;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 

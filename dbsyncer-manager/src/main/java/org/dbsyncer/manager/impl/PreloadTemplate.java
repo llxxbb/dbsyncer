@@ -20,11 +20,11 @@ import org.dbsyncer.parser.enums.GroupStrategyEnum;
 import org.dbsyncer.sdk.enums.MetaEnum;
 import org.dbsyncer.parser.impl.OperationTemplate;
 import org.dbsyncer.parser.model.*;
-import org.dbsyncer.sdk.model.ConfigModel;
+import org.dbsyncer.common.model.ConfigModel;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.sdk.model.Mapping;
 
-import org.dbsyncer.sdk.constant.ConfigConstant;
+import org.dbsyncer.common.constant.ConfigConstant;
 import org.dbsyncer.sdk.enums.StorageEnum;
 import org.dbsyncer.sdk.filter.Query;
 import org.dbsyncer.sdk.storage.StorageService;
