@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Tab 6 错误处理（字段对齐 ErrorQueueConfig）。
+ * Tab 6 错误处理。
  * S1：全部包装类型。
  */
 public class ErrorProps implements Serializable, EnvironmentLoadable {

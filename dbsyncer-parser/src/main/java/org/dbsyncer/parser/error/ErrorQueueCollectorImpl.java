@@ -1,7 +1,13 @@
 package org.dbsyncer.parser.error;
 
+import org.dbsyncer.common.config.ConfigRegistry;
+import org.dbsyncer.common.config.listener.ConfigChangeListener;
+import org.dbsyncer.common.config.props.ErrorProps;
 import org.dbsyncer.common.model.Paging;
+import org.dbsyncer.common.model.SystemConfig;
+import org.dbsyncer.common.retry.KeywordMatcher;
 import org.dbsyncer.common.util.JsonUtil;
+import org.dbsyncer.common.util.MatchMode;
 import org.dbsyncer.sdk.config.DDLConfig;
 import org.dbsyncer.sdk.connector.ErrorQueueCollector;
 import org.dbsyncer.sdk.spi.LogLevel;
@@ -35,9 +41,10 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Component
-public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
+public class ErrorQueueCollectorImpl implements ErrorQueueCollector, ConfigChangeListener {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -48,7 +55,7 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
     private CounterService counterService;
 
     @Resource
-    private ErrorQueueConfig errorQueueConfig;
+    private ConfigRegistry configRegistry;
 
     @Resource
     private MessageService messageService;
@@ -68,6 +75,44 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
     @Resource
     private StorageService storageService;
 
+    /** 致命关键字匹配器（volatile + DCL，配置变更时置 null 失效） */
+    private volatile KeywordMatcher fatalMatcher;
+
+    // ===== ConfigChangeListener =====
+
+    @Override
+    public void onConfigChanged(SystemConfig newConfig) {
+        this.fatalMatcher = null;
+    }
+
+    // ===== 致命错误检测 =====
+
+    private boolean isFatalError(String message) {
+        ErrorProps error = configRegistry.getConfig().getError();
+        List<String> keywords = error.getFatalKeywords();
+        if (keywords == null || keywords.isEmpty()) {
+            return false;
+        }
+        if (fatalMatcher == null) {
+            synchronized (this) {
+                if (fatalMatcher == null) {
+                    MatchMode mode = error.getFatalMatchMode();
+                    if (mode == null) mode = MatchMode.CONTAINS_IGNORE_CASE;
+                    List<String> valid = keywords.stream()
+                            .filter(k -> k != null && !k.isEmpty())
+                            .collect(Collectors.toList());
+                    fatalMatcher = new KeywordMatcher(valid, mode);
+                    logger.info("致命关键字匹配器已初始化: matchMode={}, keywords={}", mode, valid);
+                }
+            }
+        }
+        String matched = fatalMatcher.findMatch(message);
+        if (matched != null) {
+            logger.warn("检测到致命错误消息: keyword={}, message={}", matched, message);
+        }
+        return matched != null;
+    }
+
     @Override
     public void handleFailData(Mapping mapping, Meta meta, TableGroup tableGroup, String targetTableName,
             String event, List<Map> failData, List<String> failReasons, Exception e, boolean isErrQueueRetry) throws Exception {
@@ -80,7 +125,7 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
         if (isErrQueueRetry) {
             throw e;
         }
-        if (errorQueueConfig.isFatalError(e.getMessage())) {
+        if (isFatalError(e.getMessage())) {
             closeTask(meta, targetTableName, e, failData.size(), NotifyType.FATAL_MATCHED);
             throw e;
         }
@@ -106,7 +151,7 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
         if (isErrQueueRetry) {
             throw e;
         }
-        if (errorQueueConfig.isFatalError(e.getMessage())) {
+        if (isFatalError(e.getMessage())) {
             closeTask(meta, targetTableName, e, 1, NotifyType.FATAL_MATCHED);
             throw e;
         }
@@ -212,7 +257,8 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector {
     }
 
     private void checkCircuitBreaker(Meta meta, String tableName) {
-        int threshold = errorQueueConfig.getThreshold();
+        Integer t = configRegistry.getConfig().getError().getThreshold();
+        int threshold = t != null ? t : 0;
         if (threshold <= 0) {
             return;
         }
