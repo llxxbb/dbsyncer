@@ -19,7 +19,6 @@ import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.io.File;
 import java.io.IOException;
@@ -44,26 +43,38 @@ public class HelpDocController extends BaseController {
     @Resource
     private ConfigRegistry configRegistry;
 
-    private File helpDocDir;
+    private volatile File helpDocDir;
 
-    @PostConstruct
-    public void init() {
-        // 从 ConfigRegistry 读取帮助文档路径（A 类，从 Environment 加载）
-        String helpDocPath = configRegistry.getConfig().getHelpdoc().getPath();
-        if (StringUtil.isBlank(helpDocPath)) {
-            helpDocPath = "./helpdocs";
+    /**
+     * 懒加载获取帮助文档目录。
+     * <p>
+     * 首次调用时才从 ConfigRegistry 读取配置并初始化目录，
+     * 确保 ConfigRegistry 已就位。
+     */
+    private File getHelpDocDir() {
+        if (helpDocDir == null) {
+            synchronized (this) {
+                if (helpDocDir == null) {
+                    // 从 ConfigRegistry 读取帮助文档路径（A 类，从 Environment 加载）
+                    String helpDocPath = configRegistry.getConfig().getHelpdoc().getPath();
+                    if (StringUtil.isBlank(helpDocPath)) {
+                        helpDocPath = "./helpdocs";
+                    }
+                    File path = new File(helpDocPath);
+                    if (!path.isAbsolute()) {
+                        String userDir = System.getProperty("user.dir");
+                        helpDocDir = new File(userDir, helpDocPath);
+                    } else {
+                        helpDocDir = path;
+                    }
+                    if (!helpDocDir.exists()) {
+                        helpDocDir.mkdirs();
+                    }
+                    logger.info("帮助文档存储路径: {}", helpDocDir.getAbsolutePath());
+                }
+            }
         }
-        File path = new File(helpDocPath);
-        if (!path.isAbsolute()) {
-            String userDir = System.getProperty("user.dir");
-            helpDocDir = new File(userDir, helpDocPath);
-        } else {
-            helpDocDir = path;
-        }
-        if (!helpDocDir.exists()) {
-            helpDocDir.mkdirs();
-        }
-        logger.info("帮助文档存储路径: {}", helpDocDir.getAbsolutePath());
+        return helpDocDir;
     }
 
     @RequestMapping("")
@@ -100,7 +111,7 @@ public class HelpDocController extends BaseController {
     @ResponseBody
     public RestResult get(@RequestParam("fileName") String fileName) {
         try {
-            File file = new File(helpDocDir, fileName);
+            File file = new File(getHelpDocDir(), fileName);
             if (!file.exists()) {
                 return RestResult.restFail("文档不存在");
             }
@@ -121,7 +132,7 @@ public class HelpDocController extends BaseController {
     public RestResult save(@RequestParam("fileName") String fileName, 
                            @RequestParam("content") String content) {
         try {
-            File file = new File(helpDocDir, fileName);
+            File file = new File(getHelpDocDir(), fileName);
             Files.write(file.toPath(), content.getBytes(StandardCharsets.UTF_8));
             return RestResult.restSuccess("保存成功");
         } catch (Exception e) {
@@ -138,7 +149,7 @@ public class HelpDocController extends BaseController {
             if (!fileName.endsWith(".html") && !fileName.endsWith(".md")) {
                 fileName = fileName + ".html";
             }
-            File file = new File(helpDocDir, fileName);
+            File file = new File(getHelpDocDir(), fileName);
             if (file.exists()) {
                 return RestResult.restFail("文档已存在");
             }
@@ -156,7 +167,7 @@ public class HelpDocController extends BaseController {
     @PreAuthorize("hasRole('admin')")
     public RestResult delete(@RequestParam("fileName") String fileName) {
         try {
-            File file = new File(helpDocDir, fileName);
+            File file = new File(getHelpDocDir(), fileName);
             if (!file.exists()) {
                 return RestResult.restFail("文档不存在");
             }
@@ -174,14 +185,14 @@ public class HelpDocController extends BaseController {
     public RestResult rename(@RequestParam("oldName") String oldName, 
                              @RequestParam("newName") String newName) {
         try {
-            File oldFile = new File(helpDocDir, oldName);
+            File oldFile = new File(getHelpDocDir(), oldName);
             if (!oldFile.exists()) {
                 return RestResult.restFail("文档不存在");
             }
             if (!newName.endsWith(".html") && !newName.endsWith(".md")) {
                 newName = newName + ".html";
             }
-            File newFile = new File(helpDocDir, newName);
+            File newFile = new File(getHelpDocDir(), newName);
             if (newFile.exists()) {
                 return RestResult.restFail("目标文档名已存在");
             }
@@ -207,7 +218,7 @@ public class HelpDocController extends BaseController {
                 extension = originalFilename.substring(originalFilename.lastIndexOf("."));
             }
             String fileName = "img_" + System.currentTimeMillis() + extension;
-            File imageDir = new File(helpDocDir, "images");
+            File imageDir = new File(getHelpDocDir(), "images");
             if (!imageDir.exists()) {
                 imageDir.mkdirs();
             }
@@ -225,7 +236,7 @@ public class HelpDocController extends BaseController {
 
     private List<Map<String, Object>> getDocList() {
         List<Map<String, Object>> docs = new ArrayList<>();
-        File[] files = helpDocDir.listFiles((dir, name) -> 
+        File[] files = getHelpDocDir().listFiles((dir, name) -> 
             name.endsWith(".html") || name.endsWith(".md"));
         if (files != null) {
             for (File file : files) {
