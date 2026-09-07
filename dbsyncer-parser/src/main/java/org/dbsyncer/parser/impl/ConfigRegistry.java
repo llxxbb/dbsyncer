@@ -82,7 +82,6 @@ public class ConfigRegistry {
      * A 类配置不落库，写入前过滤。
      */
     public synchronized void setDbConfig(SystemConfig newDbConfig) {
-        filterAClass(newDbConfig);
         this.dbConfig = newDbConfig;
         this.mergedConfig = merge(propsConfig, dbConfig);
         logger.info("SystemConfigRegistry 设置 dbConfig 完成");
@@ -129,21 +128,6 @@ public class ConfigRegistry {
         merged.setSchemaVersion(db.getSchemaVersion());
 
         return merged;
-    }
-
-    /**
-     * 过滤 A 类配置（A 类不落库，只从 Environment 读取）。
-     */
-    private void filterAClass(SystemConfig config) {
-        if (config == null) {
-            return;
-        }
-        config.setServer(null);
-        config.setStorageConn(null);
-        config.setLogging(null);
-        config.setHelpdoc(null);
-        config.setWorker(null);
-        config.setLicense(null);
     }
 
     // ===== 配置加载 =====
