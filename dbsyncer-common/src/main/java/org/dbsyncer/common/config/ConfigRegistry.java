@@ -32,8 +32,12 @@ public class ConfigRegistry {
 
     private static final Logger logger = LoggerFactory.getLogger(ConfigRegistry.class);
 
-    @Resource
     private Environment environment;
+
+    public ConfigRegistry(Environment environment) {
+        this.environment = environment;
+        this.propsConfig = loadFromEnvironment();
+    }
 
     // 三个实例
     private SystemConfig propsConfig;   // 从 Environment 加载
@@ -73,7 +77,6 @@ public class ConfigRegistry {
      */
     public synchronized void init(SystemConfig dbConfig) {
         this.dbConfig = dbConfig;
-        this.propsConfig = loadFromEnvironment();
         this.mergedConfig = merge(propsConfig, dbConfig);
         logger.info("ConfigRegistry 设置 dbConfig 完成");
     }
