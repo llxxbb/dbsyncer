@@ -1,6 +1,7 @@
 package org.dbsyncer.common.config.props;
 
 import org.dbsyncer.common.config.ConfigKeys;
+import org.dbsyncer.common.config.EnvironmentLoadable;
 import org.springframework.core.env.Environment;
 
 import java.io.Serializable;
@@ -12,7 +13,7 @@ import java.util.List;
  * A 类：日志配置（只读，不落库）
  */
 
-public class LoggingProps implements Serializable {
+public class LoggingProps implements Serializable, EnvironmentLoadable {
 
     private static final long serialVersionUID = 1L;
 

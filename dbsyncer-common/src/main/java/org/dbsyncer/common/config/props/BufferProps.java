@@ -1,5 +1,9 @@
 package org.dbsyncer.common.config.props;
 
+import org.dbsyncer.common.config.ConfigKeys;
+import org.dbsyncer.common.config.EnvironmentLoadable;
+import org.springframework.core.env.Environment;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -7,7 +11,7 @@ import java.util.List;
 /**
  * Tab 3 缓冲区配置
  */
-public class BufferProps implements Serializable {
+public class BufferProps implements Serializable, EnvironmentLoadable {
 
     private static final long serialVersionUID = 1L;
 
@@ -31,6 +35,23 @@ public class BufferProps implements Serializable {
 
     public void setStorage(BufferActuatorProps storage) {
         this.storage = storage;
+    }
+
+    @Override
+    public void loadFromEnvironment(Environment env) {
+        BufferActuatorProps generalBuffer = new BufferActuatorProps();
+        generalBuffer.setBufferWriterCount(env.getProperty(ConfigKeys.BUFFER_GENERAL_WRITER_COUNT, Integer.class));
+        generalBuffer.setBufferPullCount(env.getProperty(ConfigKeys.BUFFER_GENERAL_PULL_COUNT, Integer.class));
+        generalBuffer.setBufferQueueCapacity(env.getProperty(ConfigKeys.BUFFER_GENERAL_QUEUE_CAPACITY, Integer.class));
+        generalBuffer.setBufferPeriodMillisecond(env.getProperty(ConfigKeys.BUFFER_GENERAL_PERIOD_MILLISECOND, Integer.class));
+        this.general = generalBuffer;
+
+        BufferActuatorProps storageBuffer = new BufferActuatorProps();
+        storageBuffer.setBufferWriterCount(env.getProperty(ConfigKeys.BUFFER_STORAGE_WRITER_COUNT, Integer.class));
+        storageBuffer.setBufferPullCount(env.getProperty(ConfigKeys.BUFFER_STORAGE_PULL_COUNT, Integer.class));
+        storageBuffer.setBufferQueueCapacity(env.getProperty(ConfigKeys.BUFFER_STORAGE_QUEUE_CAPACITY, Integer.class));
+        storageBuffer.setBufferPeriodMillisecond(env.getProperty(ConfigKeys.BUFFER_STORAGE_PERIOD_MILLISECOND, Integer.class));
+        this.storage = storageBuffer;
     }
 
     /**

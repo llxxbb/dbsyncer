@@ -1,6 +1,7 @@
 package org.dbsyncer.common.config.props;
 
 import org.dbsyncer.common.config.ConfigKeys;
+import org.dbsyncer.common.config.EnvironmentLoadable;
 import org.springframework.core.env.Environment;
 
 import java.io.Serializable;
@@ -11,7 +12,7 @@ import java.util.List;
 /**
  * 运行时控制配置（C 类：立即生效）
  */
-public class RuntimeProps implements Serializable {
+public class RuntimeProps implements Serializable, EnvironmentLoadable {
 
     private static final long serialVersionUID = 1L;
 

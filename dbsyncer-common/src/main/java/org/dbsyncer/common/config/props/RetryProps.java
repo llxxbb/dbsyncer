@@ -1,8 +1,11 @@
 package org.dbsyncer.common.config.props;
 
+import org.dbsyncer.common.config.ConfigKeys;
+import org.dbsyncer.common.config.EnvironmentLoadable;
 import org.dbsyncer.common.retry.RetryPolicy;
 import org.dbsyncer.common.retry.TerminationMode;
 import org.dbsyncer.common.util.MatchMode;
+import org.springframework.core.env.Environment;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -14,7 +17,7 @@ import java.util.Map;
  * Tab 4 重试策略（字段对齐 RetryPolicy）。
  * S1：全部包装类型。
  */
-public class RetryProps implements Serializable {
+public class RetryProps implements Serializable, EnvironmentLoadable {
 
     private static final long serialVersionUID = 1L;
 
@@ -127,6 +130,17 @@ public class RetryProps implements Serializable {
 
     public void setTask(Map<String, RetryPolicy> task) {
         this.task = task;
+    }
+
+    @Override
+    public void loadFromEnvironment(Environment env) {
+        this.disable = env.getProperty(ConfigKeys.RETRY_DISABLE, Boolean.class);
+        this.maxAttempts = env.getProperty(ConfigKeys.RETRY_MAX_ATTEMPTS, Integer.class);
+        this.initialIntervalMs = env.getProperty(ConfigKeys.RETRY_INITIAL_INTERVAL_MS, Long.class);
+        this.maxIntervalMs = env.getProperty(ConfigKeys.RETRY_MAX_INTERVAL_MS, Long.class);
+        this.multiplier = env.getProperty(ConfigKeys.RETRY_MULTIPLIER, Double.class);
+        this.maxDurationMs = env.getProperty(ConfigKeys.RETRY_MAX_DURATION_MS, Long.class);
+        this.useKeyword = env.getProperty(ConfigKeys.RETRY_USE_KEYWORD, Boolean.class);
     }
 
     /**

@@ -1,5 +1,9 @@
 package org.dbsyncer.common.config.props;
 
+import org.dbsyncer.common.config.ConfigKeys;
+import org.dbsyncer.common.config.EnvironmentLoadable;
+import org.springframework.core.env.Environment;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -7,7 +11,7 @@ import java.util.List;
 /**
  * Tab 2 执行器配置
  */
-public class ExecutorProps implements Serializable {
+public class ExecutorProps implements Serializable, EnvironmentLoadable {
 
     private static final long serialVersionUID = 1L;
 
@@ -42,6 +46,27 @@ public class ExecutorProps implements Serializable {
 
     public void setDispatch(PoolProps dispatch) {
         this.dispatch = dispatch;
+    }
+
+    @Override
+    public void loadFromEnvironment(Environment env) {
+        PoolProps generalPool = new PoolProps();
+        generalPool.setThreadCoreSize(env.getProperty(ConfigKeys.EXECUTOR_GENERAL_THREAD_CORE_SIZE, Integer.class));
+        generalPool.setMaxThreadSize(env.getProperty(ConfigKeys.EXECUTOR_GENERAL_MAX_THREAD_SIZE, Integer.class));
+        generalPool.setThreadQueueCapacity(env.getProperty(ConfigKeys.EXECUTOR_GENERAL_THREAD_QUEUE_CAPACITY, Integer.class));
+        this.general = generalPool;
+
+        PoolProps storagePool = new PoolProps();
+        storagePool.setThreadCoreSize(env.getProperty(ConfigKeys.EXECUTOR_STORAGE_THREAD_CORE_SIZE, Integer.class));
+        storagePool.setMaxThreadSize(env.getProperty(ConfigKeys.EXECUTOR_STORAGE_MAX_THREAD_SIZE, Integer.class));
+        storagePool.setThreadQueueCapacity(env.getProperty(ConfigKeys.EXECUTOR_STORAGE_THREAD_QUEUE_CAPACITY, Integer.class));
+        this.storage = storagePool;
+
+        PoolProps dispatchPool = new PoolProps();
+        dispatchPool.setThreadCoreSize(env.getProperty(ConfigKeys.EXECUTOR_DISPATCH_THREAD_CORE_SIZE, Integer.class));
+        dispatchPool.setMaxThreadSize(env.getProperty(ConfigKeys.EXECUTOR_DISPATCH_MAX_THREAD_SIZE, Integer.class));
+        dispatchPool.setThreadQueueCapacity(env.getProperty(ConfigKeys.EXECUTOR_DISPATCH_THREAD_QUEUE_CAPACITY, Integer.class));
+        this.dispatch = dispatchPool;
     }
 
     /**

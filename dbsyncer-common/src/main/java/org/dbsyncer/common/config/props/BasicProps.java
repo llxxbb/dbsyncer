@@ -1,6 +1,7 @@
 package org.dbsyncer.common.config.props;
 
 import org.dbsyncer.common.config.ConfigKeys;
+import org.dbsyncer.common.config.EnvironmentLoadable;
 import org.springframework.core.env.Environment;
 
 import java.io.Serializable;
@@ -11,7 +12,7 @@ import java.util.List;
  * 基础设置（原 SystemConfig 扁平字段组织成子对象）。
  * S1：全部包装类型。
  */
-public class BasicProps implements Serializable {
+public class BasicProps implements Serializable, EnvironmentLoadable {
 
     private static final long serialVersionUID = 1L;
 

@@ -1,5 +1,9 @@
 package org.dbsyncer.common.config.props;
 
+import org.dbsyncer.common.config.ConfigKeys;
+import org.dbsyncer.common.config.EnvironmentLoadable;
+import org.springframework.core.env.Environment;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -9,7 +13,7 @@ import java.util.List;
  * <p>
  * 控制所有监控相关定时任务的执行间隔，统一从 ConfigRegistry 管理。
  */
-public class MonitorProps implements Serializable {
+public class MonitorProps implements Serializable, EnvironmentLoadable {
 
     private static final long serialVersionUID = 1L;
 
@@ -77,6 +81,16 @@ public class MonitorProps implements Serializable {
 
     public void setAlertCron(String alertCron) {
         this.alertCron = alertCron;
+    }
+
+    @Override
+    public void loadFromEnvironment(Environment env) {
+        this.schedulerPoolSize = env.getProperty(ConfigKeys.MONITOR_SCHEDULER_POOL_SIZE, Integer.class);
+        this.cpuMemoryIntervalMs = env.getProperty(ConfigKeys.MONITOR_CPU_MEMORY_INTERVAL_MS, Integer.class);
+        this.healthCheckIntervalMs = env.getProperty(ConfigKeys.MONITOR_HEALTH_CHECK_INTERVAL_MS, Integer.class);
+        this.cleanupIntervalMs = env.getProperty(ConfigKeys.MONITOR_CLEANUP_INTERVAL_MS, Integer.class);
+        this.metricReportIntervalMs = env.getProperty(ConfigKeys.MONITOR_METRIC_REPORT_INTERVAL_MS, Integer.class);
+        this.alertCron = env.getProperty(ConfigKeys.MONITOR_ALERT_CRON, String.class);
     }
 
     /**

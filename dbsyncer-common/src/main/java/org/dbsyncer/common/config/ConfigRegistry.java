@@ -8,8 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
-import java.lang.reflect.Field;
-import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * ADR-0029/0030：SystemConfigRegistry - 三源分离架构 + 配置变更通知。
@@ -139,146 +138,43 @@ public class ConfigRegistry {
 
     /**
      * 从 Environment 加载 A/B/C 类配置。
+     * <p>
+     * 所有 Props 均实现 {@link EnvironmentLoadable}，此处只做编排：
+     * 创建实例 → 调用 loadFromEnvironment → 挂载到 SystemConfig。
      */
     private SystemConfig loadFromEnvironment() {
         SystemConfig config = new SystemConfig();
 
         // ===== A 类 =====
+        config.setServer(load(ServerProps::new));
+        config.setStorageConn(load(StorageConnectionProps::new));
+        config.setLogging(load(LoggingProps::new));
+        config.setHelpdoc(load(HelpdocProps::new));
+        config.setWorker(load(WorkerProps::new));
+        config.setLicense(load(LicenseProps::new));
 
-        ServerProps server = new ServerProps();
-        server.loadFromEnvironment(environment);
-        config.setServer(server);
+        // ===== B 类 =====
+        config.setExecutors(load(ExecutorProps::new));
+        config.setBuffers(load(BufferProps::new));
 
-        StorageConnectionProps storageConn = new StorageConnectionProps();
-        storageConn.loadFromEnvironment(environment);
-        config.setStorageConn(storageConn);
-
-        LoggingProps logging = new LoggingProps();
-        logging.loadFromEnvironment(environment);
-        config.setLogging(logging);
-
-        HelpdocProps helpdoc = new HelpdocProps();
-        helpdoc.loadFromEnvironment(environment);
-        config.setHelpdoc(helpdoc);
-
-        WorkerProps worker = new WorkerProps();
-        worker.loadFromEnvironment(environment);
-        config.setWorker(worker);
-
-        LicenseProps license = new LicenseProps();
-        license.loadFromEnvironment(environment);
-        config.setLicense(license);
-
-        // ===== B 类（执行器 + 缓冲区） =====
-
-        ExecutorProps executors = new ExecutorProps();
-        PoolProps generalPool = new PoolProps();
-        generalPool.setThreadCoreSize(environment.getProperty(ConfigKeys.EXECUTOR_GENERAL_THREAD_CORE_SIZE, Integer.class));
-        generalPool.setMaxThreadSize(environment.getProperty(ConfigKeys.EXECUTOR_GENERAL_MAX_THREAD_SIZE, Integer.class));
-        generalPool.setThreadQueueCapacity(environment.getProperty(ConfigKeys.EXECUTOR_GENERAL_THREAD_QUEUE_CAPACITY, Integer.class));
-        executors.setGeneral(generalPool);
-
-        PoolProps storagePool = new PoolProps();
-        storagePool.setThreadCoreSize(environment.getProperty(ConfigKeys.EXECUTOR_STORAGE_THREAD_CORE_SIZE, Integer.class));
-        storagePool.setMaxThreadSize(environment.getProperty(ConfigKeys.EXECUTOR_STORAGE_MAX_THREAD_SIZE, Integer.class));
-        storagePool.setThreadQueueCapacity(environment.getProperty(ConfigKeys.EXECUTOR_STORAGE_THREAD_QUEUE_CAPACITY, Integer.class));
-        executors.setStorage(storagePool);
-
-        PoolProps dispatchPool = new PoolProps();
-        dispatchPool.setThreadCoreSize(environment.getProperty(ConfigKeys.EXECUTOR_DISPATCH_THREAD_CORE_SIZE, Integer.class));
-        dispatchPool.setMaxThreadSize(environment.getProperty(ConfigKeys.EXECUTOR_DISPATCH_MAX_THREAD_SIZE, Integer.class));
-        dispatchPool.setThreadQueueCapacity(environment.getProperty(ConfigKeys.EXECUTOR_DISPATCH_THREAD_QUEUE_CAPACITY, Integer.class));
-        executors.setDispatch(dispatchPool);
-
-        config.setExecutors(executors);
-
-        BufferProps buffers = new BufferProps();
-        BufferActuatorProps generalBuffer = new BufferActuatorProps();
-        generalBuffer.setBufferWriterCount(environment.getProperty(ConfigKeys.BUFFER_GENERAL_WRITER_COUNT, Integer.class));
-        generalBuffer.setBufferPullCount(environment.getProperty(ConfigKeys.BUFFER_GENERAL_PULL_COUNT, Integer.class));
-        generalBuffer.setBufferQueueCapacity(environment.getProperty(ConfigKeys.BUFFER_GENERAL_QUEUE_CAPACITY, Integer.class));
-        generalBuffer.setBufferPeriodMillisecond(environment.getProperty(ConfigKeys.BUFFER_GENERAL_PERIOD_MILLISECOND, Integer.class));
-        buffers.setGeneral(generalBuffer);
-
-        BufferActuatorProps storageBuffer = new BufferActuatorProps();
-        storageBuffer.setBufferWriterCount(environment.getProperty(ConfigKeys.BUFFER_STORAGE_WRITER_COUNT, Integer.class));
-        storageBuffer.setBufferPullCount(environment.getProperty(ConfigKeys.BUFFER_STORAGE_PULL_COUNT, Integer.class));
-        storageBuffer.setBufferQueueCapacity(environment.getProperty(ConfigKeys.BUFFER_STORAGE_QUEUE_CAPACITY, Integer.class));
-        storageBuffer.setBufferPeriodMillisecond(environment.getProperty(ConfigKeys.BUFFER_STORAGE_PERIOD_MILLISECOND, Integer.class));
-        buffers.setStorage(storageBuffer);
-        config.setBuffers(buffers);
-
-        // ===== C 类（基础 + 重试 + 通知 + 错误 + 运行时 + 模板） =====
-
-        BasicProps basic = new BasicProps();
-        basic.loadFromEnvironment(environment);
-        config.setBasic(basic);
-
-        MonitorProps monitor = new MonitorProps();
-        monitor.setSchedulerPoolSize(environment.getProperty(ConfigKeys.MONITOR_SCHEDULER_POOL_SIZE, Integer.class));
-        monitor.setCpuMemoryIntervalMs(environment.getProperty(ConfigKeys.MONITOR_CPU_MEMORY_INTERVAL_MS, Integer.class));
-        monitor.setHealthCheckIntervalMs(environment.getProperty(ConfigKeys.MONITOR_HEALTH_CHECK_INTERVAL_MS, Integer.class));
-        monitor.setCleanupIntervalMs(environment.getProperty(ConfigKeys.MONITOR_CLEANUP_INTERVAL_MS, Integer.class));
-        monitor.setMetricReportIntervalMs(environment.getProperty(ConfigKeys.MONITOR_METRIC_REPORT_INTERVAL_MS, Integer.class));
-        monitor.setAlertCron(environment.getProperty(ConfigKeys.MONITOR_ALERT_CRON, String.class));
-        config.setMonitor(monitor);
-
-        RetryProps retry = new RetryProps();
-        retry.setDisable(environment.getProperty(ConfigKeys.RETRY_DISABLE, Boolean.class));
-        retry.setMaxAttempts(environment.getProperty(ConfigKeys.RETRY_MAX_ATTEMPTS, Integer.class));
-        retry.setInitialIntervalMs(environment.getProperty(ConfigKeys.RETRY_INITIAL_INTERVAL_MS, Long.class));
-        retry.setMaxIntervalMs(environment.getProperty(ConfigKeys.RETRY_MAX_INTERVAL_MS, Long.class));
-        retry.setMultiplier(environment.getProperty(ConfigKeys.RETRY_MULTIPLIER, Double.class));
-        retry.setMaxDurationMs(environment.getProperty(ConfigKeys.RETRY_MAX_DURATION_MS, Long.class));
-        retry.setUseKeyword(environment.getProperty(ConfigKeys.RETRY_USE_KEYWORD, Boolean.class));
-        config.setRetry(retry);
-
-        NotifyProps notify = new NotifyProps();
-        List<String> notifyChannels = environment.getProperty(ConfigKeys.NOTIFY_CHANNELS, List.class);
-        if (notifyChannels != null) {
-            notify.setChannels(notifyChannels);
-        }
-        MailProps mail = new MailProps();
-        mail.setUsername(environment.getProperty(ConfigKeys.NOTIFY_MAIL_USERNAME, String.class));
-        mail.setPassword(environment.getProperty(ConfigKeys.NOTIFY_MAIL_PASSWORD, String.class));
-        List<String> mailNotifyTypes = environment.getProperty(ConfigKeys.NOTIFY_MAIL_NOTIFY_TYPES, List.class);
-        if (mailNotifyTypes != null) {
-            mail.setNotifyTypes(mailNotifyTypes);
-        }
-        notify.setMail(mail);
-        DingTalkProps dingtalk = new DingTalkProps();
-        dingtalk.setWebhookUrl(environment.getProperty(ConfigKeys.NOTIFY_DINGTALK_WEBHOOK_URL, String.class));
-        dingtalk.setSecret(environment.getProperty(ConfigKeys.NOTIFY_DINGTALK_SECRET, String.class));
-        List<String> dingtalkNotifyTypes = environment.getProperty(ConfigKeys.NOTIFY_DINGTALK_NOTIFY_TYPES, List.class);
-        if (dingtalkNotifyTypes != null) {
-            dingtalk.setNotifyTypes(dingtalkNotifyTypes);
-        }
-        notify.setDingtalk(dingtalk);
-        config.setNotify(notify);
-
-        ErrorProps error = new ErrorProps();
-        error.setThreshold(environment.getProperty(ConfigKeys.ERROR_THRESHOLD, Integer.class));
-        String fatalMatchMode = environment.getProperty(ConfigKeys.ERROR_FATAL_MATCH_MODE, String.class);
-        if (fatalMatchMode != null) {
-            try {
-                error.setFatalMatchMode(org.dbsyncer.common.util.MatchMode.valueOf(fatalMatchMode));
-            } catch (IllegalArgumentException ignored) {
-            }
-        }
-        List<String> fatalKeywords = environment.getProperty(ConfigKeys.ERROR_FATAL_KEYWORDS, List.class);
-        if (fatalKeywords != null) {
-            error.setFatalKeywords(fatalKeywords);
-        }
-        config.setError(error);
-
-        RuntimeProps runtime = new RuntimeProps();
-        runtime.loadFromEnvironment(environment);
-        config.setRuntime(runtime);
-
-        TemplateProps template = new TemplateProps();
-        template.loadFromEnvironment(environment);
-        config.setTemplate(template);
+        // ===== C 类 =====
+        config.setBasic(load(BasicProps::new));
+        config.setMonitor(load(MonitorProps::new));
+        config.setRetry(load(RetryProps::new));
+        config.setNotify(load(NotifyProps::new));
+        config.setError(load(ErrorProps::new));
+        config.setRuntime(load(RuntimeProps::new));
+        config.setTemplate(load(TemplateProps::new));
 
         return config;
+    }
+
+    /**
+     * 创建 Props 实例并从 Environment 加载配置。
+     */
+    private <T extends EnvironmentLoadable> T load(Supplier<T> factory) {
+        T props = factory.get();
+        props.loadFromEnvironment(environment);
+        return props;
     }
 }

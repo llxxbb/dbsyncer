@@ -1,6 +1,9 @@
 package org.dbsyncer.common.config.props;
 
+import org.dbsyncer.common.config.ConfigKeys;
+import org.dbsyncer.common.config.EnvironmentLoadable;
 import org.dbsyncer.common.util.MatchMode;
+import org.springframework.core.env.Environment;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -10,7 +13,7 @@ import java.util.List;
  * Tab 6 错误处理（字段对齐 ErrorQueueConfig）。
  * S1：全部包装类型。
  */
-public class ErrorProps implements Serializable {
+public class ErrorProps implements Serializable, EnvironmentLoadable {
 
     private static final long serialVersionUID = 1L;
 
@@ -40,6 +43,23 @@ public class ErrorProps implements Serializable {
 
     public void setFatalKeywords(List<String> fatalKeywords) {
         this.fatalKeywords = fatalKeywords;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public void loadFromEnvironment(Environment env) {
+        this.threshold = env.getProperty(ConfigKeys.ERROR_THRESHOLD, Integer.class);
+        String fatalMatchMode = env.getProperty(ConfigKeys.ERROR_FATAL_MATCH_MODE, String.class);
+        if (fatalMatchMode != null) {
+            try {
+                this.fatalMatchMode = MatchMode.valueOf(fatalMatchMode);
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        List<String> fatalKeywords = env.getProperty(ConfigKeys.ERROR_FATAL_KEYWORDS, List.class);
+        if (fatalKeywords != null) {
+            this.fatalKeywords = fatalKeywords;
+        }
     }
 
     /**
