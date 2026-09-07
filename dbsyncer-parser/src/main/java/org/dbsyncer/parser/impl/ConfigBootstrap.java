@@ -44,7 +44,7 @@ public class ConfigBootstrap {
      */
     public void onPreloadCompleted(SystemConfig systemConfig) {
         // 1. 填充 Registry（DB 数据来自 ProfileComponent，不重复查库）
-        configRegistry.setDbConfig(systemConfig);
+        configRegistry.init(systemConfig);
 
         // 2. 配置迁移
         try {

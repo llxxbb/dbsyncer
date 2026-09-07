@@ -2,13 +2,12 @@ package org.dbsyncer.parser.impl;
 
 import org.dbsyncer.common.config.ConfigKeys;
 import org.dbsyncer.common.config.props.*;
+import org.dbsyncer.parser.listener.ConfigChangeListener;
 import org.dbsyncer.parser.model.SystemConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
-
-import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.util.List;
 
@@ -61,14 +60,20 @@ public class ConfigRegistry {
         return dbConfig;
     }
 
+    public synchronized void setDbConfig(SystemConfig newDbConfig) {
+        this.dbConfig = newDbConfig;
+    }
+
     /**
+        /**
      * 设置 DB 配置。
      * <p>
      * 由 ConfigMigrationService 调用，用于首次迁移时把 props 默认值写入 DB。
      * A 类配置不落库，写入前过滤。
      */
-    public synchronized void setDbConfig(SystemConfig newDbConfig) {
-        this.dbConfig = newDbConfig;
+    public synchronized void init(SystemConfig dbConfig) {
+        this.dbConfig = dbConfig;
+        this.propsConfig = loadFromEnvironment();
         this.mergedConfig = merge(propsConfig, dbConfig);
         logger.info("SystemConfigRegistry 设置 dbConfig 完成");
     }
