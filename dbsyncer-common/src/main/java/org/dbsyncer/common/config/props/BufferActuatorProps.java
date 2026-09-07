@@ -12,10 +12,10 @@ public class BufferActuatorProps implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    private Integer bufferWriterCount;
-    private Integer bufferPullCount;
-    private Integer bufferQueueCapacity;
-    private Integer bufferPeriodMillisecond;
+    private Integer bufferWriterCount = 100;
+    private Integer bufferPullCount = 1000;
+    private Integer bufferQueueCapacity = 30000;
+    private Integer bufferPeriodMillisecond = 300;
 
     public Integer getBufferWriterCount() {
         return bufferWriterCount;

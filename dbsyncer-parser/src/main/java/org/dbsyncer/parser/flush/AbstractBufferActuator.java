@@ -43,12 +43,6 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public abstract class AbstractBufferActuator<Request extends BufferRequest, Response extends BufferResponse> implements BufferActuator, ScheduledTaskJob {
 
-    // ===== 默认值（与原 BufferActuatorConfig 一致） =====
-    private static final int DEFAULT_BUFFER_WRITER_COUNT = 100;
-    private static final int DEFAULT_BUFFER_PULL_COUNT = 1000;
-    private static final int DEFAULT_BUFFER_QUEUE_CAPACITY = 30000;
-    private static final int DEFAULT_BUFFER_PERIOD_MILLISECOND = 300;
-
     protected final Logger logger = LoggerFactory.getLogger(getClass());
     private Class<Response> responseClazz;
     private Lock taskLock;
@@ -320,23 +314,19 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
     protected abstract BufferActuatorProps getBufferProps();
 
     protected int getBufferWriterCount() {
-        Integer v = getBufferProps().getBufferWriterCount();
-        return v != null ? v : DEFAULT_BUFFER_WRITER_COUNT;
+        return getBufferProps().getBufferWriterCount();
     }
 
     protected int getBufferPullCount() {
-        Integer v = getBufferProps().getBufferPullCount();
-        return v != null ? v : DEFAULT_BUFFER_PULL_COUNT;
+        return getBufferProps().getBufferPullCount();
     }
 
     protected int getBufferQueueCapacity() {
-        Integer v = getBufferProps().getBufferQueueCapacity();
-        return v != null ? v : DEFAULT_BUFFER_QUEUE_CAPACITY;
+        return getBufferProps().getBufferQueueCapacity();
     }
 
     protected int getBufferPeriodMillisecond() {
-        Integer v = getBufferProps().getBufferPeriodMillisecond();
-        return v != null ? v : DEFAULT_BUFFER_PERIOD_MILLISECOND;
+        return getBufferProps().getBufferPeriodMillisecond();
     }
 
     /**
