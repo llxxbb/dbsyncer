@@ -41,20 +41,6 @@ public class ConfigRegistry {
     private SystemConfig mergedConfig;  // 合并后的（最终使用）
 
     /**
-     * 启动时初始化（只加载 propsConfig，不查 DB）。
-     * <p>
-     * DB 配置由 ConfigService.onPreloadCompleted() 在 PreloadTemplate 加载完后填充，
-     * 避免重复查库。
-     */
-    @PostConstruct
-    public void init() {
-        this.propsConfig = loadFromEnvironment();
-        this.dbConfig = new SystemConfig();
-        this.mergedConfig = merge(propsConfig, dbConfig);
-        logger.info("SystemConfigRegistry 初始化完成（仅 propsConfig）");
-    }
-
-    /**
      * 业务代码只调用这个方法，获取合并后的最终配置。
      */
     public SystemConfig getConfig() {

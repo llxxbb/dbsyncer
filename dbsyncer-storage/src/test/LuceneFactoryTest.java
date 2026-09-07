@@ -43,7 +43,7 @@ import org.dbsyncer.common.util.RandomUtil;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.constant.ConnectorConstant;
 import org.dbsyncer.storage.enums.StorageDataStatusEnum;
-import org.dbsyncer.storage.impl.SnowflakeIdWorker;
+import org.dbsyncer.common.config.SnowflakeIdWorker;
 import org.dbsyncer.storage.lucene.Option;
 import org.dbsyncer.storage.lucene.Shard;
 import org.dbsyncer.storage.util.BinlogMessageUtil;

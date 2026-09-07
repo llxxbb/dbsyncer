@@ -11,7 +11,7 @@ import org.dbsyncer.common.ParserException;
 import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.sdk.model.TableGroup;
-import org.dbsyncer.storage.impl.SnowflakeIdWorker;
+import org.dbsyncer.common.config.SnowflakeIdWorker;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;

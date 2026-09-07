@@ -12,7 +12,7 @@ import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.storage.StorageService;
 import org.springframework.stereotype.Component;
-import org.dbsyncer.storage.impl.SnowflakeIdWorker;
+import org.dbsyncer.common.config.SnowflakeIdWorker;
 
 import javax.annotation.Resource;
 import org.springframework.context.annotation.Lazy;

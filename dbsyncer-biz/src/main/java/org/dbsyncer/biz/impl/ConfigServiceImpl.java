@@ -26,7 +26,7 @@ import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.model.ConfigModel;
 import org.dbsyncer.parser.model.SystemConfig;
 import org.dbsyncer.manager.impl.PreloadTemplate;
-import org.dbsyncer.storage.impl.SnowflakeIdWorker;
+import org.dbsyncer.common.config.SnowflakeIdWorker;
 import org.dbsyncer.common.enums.FileSuffixEnum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
