@@ -5,10 +5,10 @@ import org.dbsyncer.biz.vo.RestResult;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.SHA1Util;
 import org.dbsyncer.common.util.StringUtil;
+import org.dbsyncer.parser.impl.ConfigRegistry;
 import org.dbsyncer.parser.model.UserInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationProvider;
@@ -44,7 +44,6 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @EnableGlobalMethodSecurity(prePostEnabled = true)
-@ConfigurationProperties(prefix = "dbsyncer.web.security")
 public class WebAppConfig extends WebSecurityConfigurerAdapter implements AuthenticationProvider, HttpSessionListener {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -70,10 +69,8 @@ public class WebAppConfig extends WebSecurityConfigurerAdapter implements Authen
     @Resource
     private AccessDeniedHandler accessDeniedHandler;
 
-    /**
-     * 是否重置管理员密码
-     */
-    private boolean resetPwd;
+    @Resource
+    private ConfigRegistry configRegistry;
 
     /**
      * 登录失败
@@ -163,7 +160,9 @@ public class WebAppConfig extends WebSecurityConfigurerAdapter implements Authen
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        // 重置密码
+        // 重置密码（从 ConfigRegistry 读取，C 类配置立即生效）
+        boolean resetPwd = Boolean.TRUE.equals(
+                configRegistry.getConfig().getBasic().getResetPwd());
         if (resetPwd && userInfo != null) {
             UserInfo defUser = userConfigService.getDefaultUser();
             if (StringUtil.equals(defUser.getUsername(), username) && StringUtil.equals(defUser.getPassword(), password)) {
@@ -218,7 +217,4 @@ public class WebAppConfig extends WebSecurityConfigurerAdapter implements Authen
         }
     }
 
-    public void setResetPwd(boolean resetPwd) {
-        this.resetPwd = resetPwd;
-    }
 }

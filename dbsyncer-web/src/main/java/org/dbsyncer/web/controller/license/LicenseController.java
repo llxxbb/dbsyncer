@@ -3,7 +3,6 @@
  */
 package org.dbsyncer.web.controller.license;
 
-import org.dbsyncer.common.config.ConfigKeys;
 import org.apache.commons.io.FileUtils;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
@@ -19,18 +18,18 @@ import org.dbsyncer.biz.vo.RestResult;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.StringUtil;
+import org.dbsyncer.parser.impl.ConfigRegistry;
 import org.dbsyncer.parser.model.SystemConfig;
-import org.dbsyncer.sdk.spi.LogService;
-import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.parser.model.UserInfo;
 import org.dbsyncer.sdk.model.Product;
 import org.dbsyncer.sdk.model.ProductInfo;
 import org.dbsyncer.sdk.spi.LicenseService;
+import org.dbsyncer.sdk.spi.LogService;
+import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.web.Version;
 import org.dbsyncer.web.controller.BaseController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
@@ -75,8 +74,8 @@ public class LicenseController extends BaseController {
     @Resource
     private ConfigService systemConfigService;
 
-    @Value("${" + ConfigKeys.LICENSE_SERVER_ADDRESS + ":http://101.132.145.213:9999/api/license/create}")
-    private String serverAddress;
+    @Resource
+    private ConfigRegistry configRegistry;
 
     public static final Integer SUCCESS = 200;
     public static final String STATUS = "status";
@@ -224,6 +223,11 @@ public class LicenseController extends BaseController {
         StringEntity se = new StringEntity(data);
         se.setContentEncoding("UTF-8");
         se.setContentType("application/json");
+        // 从 ConfigRegistry 读取 License 服务器地址（A 类，从 Environment 加载）
+        String serverAddress = configRegistry.getConfig().getLicense().getServerAddress();
+        if (StringUtil.isBlank(serverAddress)) {
+            serverAddress = "http://101.132.145.213:9999/api/license/create";
+        }
         HttpPost httpPost = new HttpPost(serverAddress);
         httpPost.setEntity(se);
         CloseableHttpClient httpClient = HttpClients.createDefault();
@@ -248,9 +252,5 @@ public class LicenseController extends BaseController {
     private UserInfo getUserInfo() throws Exception {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         return userConfigService.getUserInfo(authentication.getName());
-    }
-
-    public void setServerAddress(String serverAddress) {
-        this.serverAddress = serverAddress;
     }
 }

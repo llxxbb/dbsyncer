@@ -4,13 +4,13 @@
 package org.dbsyncer.web.controller.helpdoc;
 
 import org.dbsyncer.biz.UserConfigService;
-import org.dbsyncer.common.config.ConfigKeys;
 import org.dbsyncer.biz.vo.RestResult;
 import org.dbsyncer.biz.vo.UserInfoVo;
+import org.dbsyncer.common.util.StringUtil;
+import org.dbsyncer.parser.impl.ConfigRegistry;
 import org.dbsyncer.web.controller.BaseController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -41,13 +41,18 @@ public class HelpDocController extends BaseController {
     @Resource
     private UserConfigService userConfigService;
 
-    @Value("${" + ConfigKeys.HELPDOC_PATH + ":./helpdocs}")
-    private String helpDocPath;
+    @Resource
+    private ConfigRegistry configRegistry;
 
     private File helpDocDir;
 
     @PostConstruct
     public void init() {
+        // 从 ConfigRegistry 读取帮助文档路径（A 类，从 Environment 加载）
+        String helpDocPath = configRegistry.getConfig().getHelpdoc().getPath();
+        if (StringUtil.isBlank(helpDocPath)) {
+            helpDocPath = "./helpdocs";
+        }
         File path = new File(helpDocPath);
         if (!path.isAbsolute()) {
             String userDir = System.getProperty("user.dir");

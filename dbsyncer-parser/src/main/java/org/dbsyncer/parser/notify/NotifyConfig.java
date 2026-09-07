@@ -4,33 +4,37 @@ import org.dbsyncer.common.config.props.DingTalkProps;
 import org.dbsyncer.common.config.props.MailProps;
 import org.dbsyncer.common.config.props.NotifyProps;
 import org.dbsyncer.common.util.CollectionUtils;
+import org.dbsyncer.parser.impl.ConfigRegistry;
 import org.dbsyncer.parser.listener.ConfigChangeListener;
 import org.dbsyncer.parser.model.SystemConfig;
 import org.dbsyncer.sdk.notify.NotifyType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 /**
- * 通知全局配置
+ * 通知全局配置。
  * <p>
- * 配置前缀：dbsyncer.plugin.notify
+ * 配置统一从 ConfigRegistry 读取（NotifyProps，C 类）。
+ * 启动时由 PreloadTemplate 触发 onConfigChanged 完成初始化。
  *
  * @author AE86
  * @version 1.0.0
  * @date 2026/06/03
  */
 @Component
-@ConfigurationProperties(prefix = "dbsyncer.plugin.notify")
 public class NotifyConfig implements ConfigChangeListener {
 
     private static final Logger logger = LoggerFactory.getLogger(NotifyConfig.class);
+
+    @Resource
+    private ConfigRegistry configRegistry;
 
     /**
      * 启用的通知通道列表，如 mail, dingtalk
@@ -49,11 +53,16 @@ public class NotifyConfig implements ConfigChangeListener {
 
     @Override
     public void onConfigChanged(SystemConfig newConfig) {
-        NotifyProps notify = newConfig.getNotify();
+        // 从 mergedConfig 读取最终配置（DB 优先，Environment 兜底）
+        NotifyProps notify = configRegistry.getConfig().getNotify();
         if (notify == null) return;
+
+        // channels
         if (notify.getChannels() != null) {
             this.channels = notify.getChannels();
         }
+
+        // mail
         MailProps mailProps = notify.getMail();
         if (mailProps != null) {
             if (mailProps.getUsername() != null) {
@@ -66,6 +75,8 @@ public class NotifyConfig implements ConfigChangeListener {
                 this.mail.setNotifyTypes(mailProps.getNotifyTypes());
             }
         }
+
+        // dingtalk
         DingTalkProps dingtalkProps = notify.getDingtalk();
         if (dingtalkProps != null) {
             if (dingtalkProps.getWebhookUrl() != null) {

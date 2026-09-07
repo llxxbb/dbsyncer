@@ -3,22 +3,31 @@ package org.dbsyncer.parser.error;
 import org.dbsyncer.common.config.props.ErrorProps;
 import org.dbsyncer.common.retry.KeywordMatcher;
 import org.dbsyncer.common.util.MatchMode;
+import org.dbsyncer.parser.impl.ConfigRegistry;
 import org.dbsyncer.parser.listener.ConfigChangeListener;
 import org.dbsyncer.parser.model.SystemConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * 错误队列配置。
+ * <p>
+ * 配置统一从 ConfigRegistry 读取（ErrorProps，C 类）。
+ * 启动时由 PreloadTemplate 触发 onConfigChanged 完成初始化。
+ */
 @Component
-@ConfigurationProperties(prefix = "dbsyncer.error")
 public class ErrorQueueConfig implements ConfigChangeListener {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
+
+    @Resource
+    private ConfigRegistry configRegistry;
 
     private int threshold = 0;
 
@@ -56,7 +65,8 @@ public class ErrorQueueConfig implements ConfigChangeListener {
 
     @Override
     public void onConfigChanged(SystemConfig newConfig) {
-        ErrorProps error = newConfig.getError();
+        // 从 mergedConfig 读取最终配置（DB 优先，Environment 兜底）
+        ErrorProps error = configRegistry.getConfig().getError();
         if (error == null) return;
         if (error.getThreshold() != null) {
             this.threshold = error.getThreshold();

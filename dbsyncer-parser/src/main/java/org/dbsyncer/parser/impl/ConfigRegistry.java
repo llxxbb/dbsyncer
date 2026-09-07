@@ -219,7 +219,11 @@ public class ConfigRegistry {
         buffers.setStorage(storageBuffer);
         config.setBuffers(buffers);
 
-        // ===== C 类（重试 + 通知 + 错误 + 运行时 + 模板） =====
+        // ===== C 类（基础 + 重试 + 通知 + 错误 + 运行时 + 模板） =====
+
+        BasicProps basic = new BasicProps();
+        basic.loadFromEnvironment(environment);
+        config.setBasic(basic);
 
         MonitorProps monitor = new MonitorProps();
         monitor.setSchedulerPoolSize(environment.getProperty(ConfigKeys.MONITOR_SCHEDULER_POOL_SIZE, Integer.class));

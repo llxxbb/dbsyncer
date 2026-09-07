@@ -1,11 +1,14 @@
 package org.dbsyncer.common.config.props;
 
+import org.dbsyncer.common.retry.RetryPolicy;
 import org.dbsyncer.common.retry.TerminationMode;
 import org.dbsyncer.common.util.MatchMode;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Tab 4 重试策略（字段对齐 RetryPolicy）。
@@ -26,6 +29,9 @@ public class RetryProps implements Serializable {
     private MatchMode matchMode;
     private List<String> keywords;
     private List<String> excludeKeywords;
+
+    /** 任务级重试策略覆盖（key 为任务 ID） */
+    private Map<String, RetryPolicy> task = new HashMap<>();
 
     public Boolean getDisable() {
         return disable;
@@ -113,6 +119,14 @@ public class RetryProps implements Serializable {
 
     public void setExcludeKeywords(List<String> excludeKeywords) {
         this.excludeKeywords = excludeKeywords;
+    }
+
+    public Map<String, RetryPolicy> getTask() {
+        return task;
+    }
+
+    public void setTask(Map<String, RetryPolicy> task) {
+        this.task = task;
     }
 
     /**

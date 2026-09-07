@@ -3,6 +3,7 @@ package org.dbsyncer.parser.listener;
 import org.dbsyncer.common.config.RetryConfig;
 import org.dbsyncer.common.config.props.RetryProps;
 import org.dbsyncer.common.retry.RetryPolicy;
+import org.dbsyncer.parser.impl.ConfigRegistry;
 import org.dbsyncer.parser.model.SystemConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,7 +15,7 @@ import javax.annotation.Resource;
  * RetryConfig 的配置变更适配器（ADR-0030）。
  * <p>
  * RetryConfig 在 dbsyncer-common 中，无法直接实现 ConfigChangeListener，
- * 因此用此适配器桥接。
+ * 因此用此适配器桥接。配置统一从 ConfigRegistry 读取（RetryProps，C 类）。
  */
 @Component
 public class RetryConfigAdapter implements ConfigChangeListener {
@@ -24,9 +25,13 @@ public class RetryConfigAdapter implements ConfigChangeListener {
     @Resource
     private RetryConfig retryConfig;
 
+    @Resource
+    private ConfigRegistry configRegistry;
+
     @Override
     public void onConfigChanged(SystemConfig newConfig) {
-        RetryProps retry = newConfig.getRetry();
+        // 从 mergedConfig 读取最终配置（DB 优先，Environment 兜底）
+        RetryProps retry = configRegistry.getConfig().getRetry();
         if (retry == null) return;
 
         RetryPolicy global = retryConfig.getGlobal();

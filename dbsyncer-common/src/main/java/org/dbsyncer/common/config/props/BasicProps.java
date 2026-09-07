@@ -1,5 +1,8 @@
 package org.dbsyncer.common.config.props;
 
+import org.dbsyncer.common.config.ConfigKeys;
+import org.springframework.core.env.Environment;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,6 +25,9 @@ public class BasicProps implements Serializable {
     private String watermark;
     private Boolean enableSchemaResolver;
     private Boolean enablePrintTraceInfo;
+
+    /** 是否重置管理员密码（功能开关，非基础设施配置） */
+    private Boolean resetPwd;
 
     public Integer getExpireDataDays() {
         return expireDataDays;
@@ -103,6 +109,28 @@ public class BasicProps implements Serializable {
         this.enablePrintTraceInfo = enablePrintTraceInfo;
     }
 
+    public Boolean getResetPwd() {
+        return resetPwd;
+    }
+
+    public void setResetPwd(Boolean resetPwd) {
+        this.resetPwd = resetPwd;
+    }
+
+    public void loadFromEnvironment(Environment env) {
+        this.expireDataDays = env.getProperty(ConfigKeys.BASIC_EXPIRE_DATA_DAYS, Integer.class);
+        this.expireLogDays = env.getProperty(ConfigKeys.BASIC_EXPIRE_LOG_DAYS, Integer.class);
+        this.refreshIntervalSeconds = env.getProperty(ConfigKeys.BASIC_REFRESH_INTERVAL_SECONDS, Integer.class);
+        this.enableStorageWriteFail = env.getProperty(ConfigKeys.BASIC_ENABLE_STORAGE_WRITE_FAIL, Boolean.class);
+        this.maxStorageErrorLength = env.getProperty(ConfigKeys.BASIC_MAX_STORAGE_ERROR_LENGTH, Integer.class);
+        this.enableCDN = env.getProperty(ConfigKeys.BASIC_ENABLE_CDN, Boolean.class);
+        this.enableWatermark = env.getProperty(ConfigKeys.BASIC_ENABLE_WATERMARK, Boolean.class);
+        this.watermark = env.getProperty(ConfigKeys.BASIC_WATERMARK, String.class);
+        this.enableSchemaResolver = env.getProperty(ConfigKeys.BASIC_ENABLE_SCHEMA_RESOLVER, Boolean.class);
+        this.enablePrintTraceInfo = env.getProperty(ConfigKeys.BASIC_ENABLE_PRINT_TRACE_INFO, Boolean.class);
+        this.resetPwd = env.getProperty(ConfigKeys.BASIC_RESET_PWD, Boolean.class);
+    }
+
     /**
      * 校验基础设置，返回错误信息列表。
      *
@@ -143,6 +171,7 @@ public class BasicProps implements Serializable {
         entries.add(new ConfigEntry("basic.watermark", watermark));
         entries.add(new ConfigEntry("basic.enable-schema-resolver", enableSchemaResolver));
         entries.add(new ConfigEntry("basic.enable-print-trace-info", enablePrintTraceInfo));
+        entries.add(new ConfigEntry("basic.reset-pwd", resetPwd));
         return entries;
     }
 }

@@ -1,24 +1,42 @@
 package org.dbsyncer.storage.impl;
 
 import org.dbsyncer.common.CommonException;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 
-@Component
-@ConfigurationProperties(prefix = "dbsyncer.web.worker")
+/**
+ * 雪花 ID 生成器。
+ * <p>
+ * 通过 {@code SnowflakeIdWorkerConfig} Bean 工厂注入 id/dataCenterId，
+ * 配置来源为 ConfigRegistry（WorkerProps，A 类）。
+ */
 public class SnowflakeIdWorker {
 
     /**
      * 工作机器ID(0~31)
      */
-    private long id = 1L;
+    private long id;
 
     /**
      * 数据中心ID(0~31)
      */
-    private long dataCenterId = 1L;
+    private long dataCenterId;
+
+    /** 默认构造（测试用），id=1, dataCenterId=1 */
+    public SnowflakeIdWorker() {
+        this(1L, 1L);
+    }
+
+    /**
+     * 指定 id 和 dataCenterId。
+     *
+     * @param id          工作机器 ID (0~31)
+     * @param dataCenterId 数据中心 ID (0~31)
+     */
+    public SnowflakeIdWorker(long id, long dataCenterId) {
+        this.id = id;
+        this.dataCenterId = dataCenterId;
+    }
 
     /**
      * 毫秒内序列(0~4095)
@@ -141,16 +159,8 @@ public class SnowflakeIdWorker {
         return id;
     }
 
-    public void setId(long id) {
-        this.id = id;
-    }
-
     public long getDataCenterId() {
         return dataCenterId;
-    }
-
-    public void setDataCenterId(long dataCenterId) {
-        this.dataCenterId = dataCenterId;
     }
 
     static class SnowflakeId {
