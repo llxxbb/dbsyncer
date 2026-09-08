@@ -9,17 +9,14 @@ import java.util.List;
 /**
  * Props 统一契约：自加载 + 自描述 + 敏感字段声明。
  * <p>
- * 所有 Props（含顶层和嵌套）均实现此接口：
+ * 顶层 Props 实现此接口，复合 Props（如 {@code ExecutorProps}、{@code BufferProps}）
+ * 在内部完成子对象的创建与环境加载，子对象作为纯数据容器无需实现此接口。
  * <ul>
  *   <li>{@link #loadFromEnvironment} — 从 Spring Environment 读取配置值并填充自身字段</li>
  *   <li>{@link #toConfigEntries} — 返回自身的配置条目列表，用于启动期配置对照表打印</li>
  *   <li>{@link #getSensitiveFields} — 声明敏感字段，用于存储加密/解密和展示掩码</li>
  *   <li>{@link #forDisplay} — 返回用于展示的安全副本（敏感字段已掩码）</li>
  * </ul>
- *
- * @version 1.2.0
- * @Author AE86
- * @Date 2025-01-24
  */
 public interface EnvironmentLoadable {
 
@@ -69,18 +66,5 @@ public interface EnvironmentLoadable {
      */
     default EnvironmentLoadable forDisplay() {
         return this;
-    }
-
-    /**
-     * 反序列化后的后处理钩子。
-     * <p>
-     * 复合 Props（如 {@code ExecutorProps}、{@code BufferProps}）从 JSON 反序列化后，
-     * 子对象的运行时注入字段（如 {@code PoolProps} 的 {@code *Key}）为 null。
-     * 覆写此方法重新注入，确保 {@link #toConfigEntries()} 等方法正常工作。
-     * <p>
-     * 由 {@code ConfigRegistry} 在 merge 完成后统一调用。
-     */
-    default void afterDeserialize() {
-        // 默认无操作
     }
 }

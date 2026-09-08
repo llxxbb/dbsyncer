@@ -11,7 +11,9 @@ import java.util.List;
 /**
  * Tab 3 缓冲区配置。
  * <p>
- * 创建子 {@link BufferActuatorProps} 后注入 configKeys，委托子级完成自加载。
+ * 负责子 {@link BufferActuatorProps} 的创建、环境加载和配置条目生成。
+ * 配置键名集中管理于此，子对象作为纯数据容器，
+ * 避免 key 作为实例字段导致反序列化后丢失的问题。
  */
 public class BufferProps implements Serializable, EnvironmentLoadable {
 
@@ -41,23 +43,32 @@ public class BufferProps implements Serializable, EnvironmentLoadable {
 
     @Override
     public void loadFromEnvironment(Environment env) {
-        BufferActuatorProps generalBuffer = new BufferActuatorProps();
-        generalBuffer.setConfigKeys(
+        this.general = readBuffer(env,
                 ConfigKeys.BUFFER_GENERAL_WRITER_COUNT,
                 ConfigKeys.BUFFER_GENERAL_PULL_COUNT,
                 ConfigKeys.BUFFER_GENERAL_QUEUE_CAPACITY,
                 ConfigKeys.BUFFER_GENERAL_PERIOD_MILLISECOND);
-        generalBuffer.loadFromEnvironment(env);
-        this.general = generalBuffer;
 
-        BufferActuatorProps storageBuffer = new BufferActuatorProps();
-        storageBuffer.setConfigKeys(
+        this.storage = readBuffer(env,
                 ConfigKeys.BUFFER_STORAGE_WRITER_COUNT,
                 ConfigKeys.BUFFER_STORAGE_PULL_COUNT,
                 ConfigKeys.BUFFER_STORAGE_QUEUE_CAPACITY,
                 ConfigKeys.BUFFER_STORAGE_PERIOD_MILLISECOND);
-        storageBuffer.loadFromEnvironment(env);
-        this.storage = storageBuffer;
+    }
+
+    private BufferActuatorProps readBuffer(Environment env,
+                                           String writerKey, String pullKey,
+                                           String queueKey, String periodKey) {
+        BufferActuatorProps props = new BufferActuatorProps();
+        Integer wc = env.getProperty(writerKey, Integer.class);
+        if (wc != null) props.setBufferWriterCount(wc);
+        Integer pc = env.getProperty(pullKey, Integer.class);
+        if (pc != null) props.setBufferPullCount(pc);
+        Integer qc = env.getProperty(queueKey, Integer.class);
+        if (qc != null) props.setBufferQueueCapacity(qc);
+        Integer pm = env.getProperty(periodKey, Integer.class);
+        if (pm != null) props.setBufferPeriodMillisecond(pm);
+        return props;
     }
 
     /**
@@ -76,38 +87,29 @@ public class BufferProps implements Serializable, EnvironmentLoadable {
         return errors;
     }
 
-    /**
-     * 反序列化后重新注入子对象 BufferActuatorProps 的配置键。
-     * <p>
-     * DB 反序列化的 JSON 不包含 *Key 字段，需在此补回。
-     */
-    @Override
-    public void afterDeserialize() {
-        if (general != null) {
-            general.setConfigKeys(
-                    ConfigKeys.BUFFER_GENERAL_WRITER_COUNT,
-                    ConfigKeys.BUFFER_GENERAL_PULL_COUNT,
-                    ConfigKeys.BUFFER_GENERAL_QUEUE_CAPACITY,
-                    ConfigKeys.BUFFER_GENERAL_PERIOD_MILLISECOND);
-        }
-        if (storage != null) {
-            storage.setConfigKeys(
-                    ConfigKeys.BUFFER_STORAGE_WRITER_COUNT,
-                    ConfigKeys.BUFFER_STORAGE_PULL_COUNT,
-                    ConfigKeys.BUFFER_STORAGE_QUEUE_CAPACITY,
-                    ConfigKeys.BUFFER_STORAGE_PERIOD_MILLISECOND);
-        }
-    }
-
     @Override
     public List<ConfigEntry> toConfigEntries() {
         List<ConfigEntry> entries = new ArrayList<>();
-        if (general != null) {
-            entries.addAll(general.toConfigEntries());
-        }
-        if (storage != null) {
-            entries.addAll(storage.toConfigEntries());
-        }
+        addBufferEntries(entries, general,
+                ConfigKeys.BUFFER_GENERAL_WRITER_COUNT,
+                ConfigKeys.BUFFER_GENERAL_PULL_COUNT,
+                ConfigKeys.BUFFER_GENERAL_QUEUE_CAPACITY,
+                ConfigKeys.BUFFER_GENERAL_PERIOD_MILLISECOND);
+        addBufferEntries(entries, storage,
+                ConfigKeys.BUFFER_STORAGE_WRITER_COUNT,
+                ConfigKeys.BUFFER_STORAGE_PULL_COUNT,
+                ConfigKeys.BUFFER_STORAGE_QUEUE_CAPACITY,
+                ConfigKeys.BUFFER_STORAGE_PERIOD_MILLISECOND);
         return entries;
+    }
+
+    private void addBufferEntries(List<ConfigEntry> entries, BufferActuatorProps props,
+                                  String writerKey, String pullKey,
+                                  String queueKey, String periodKey) {
+        if (props == null) return;
+        entries.add(new ConfigEntry(writerKey, props.getBufferWriterCount()));
+        entries.add(new ConfigEntry(pullKey, props.getBufferPullCount()));
+        entries.add(new ConfigEntry(queueKey, props.getBufferQueueCapacity()));
+        entries.add(new ConfigEntry(periodKey, props.getBufferPeriodMillisecond()));
     }
 }
