@@ -7,8 +7,10 @@ import org.dbsyncer.common.config.SystemTabEnum;
 import org.dbsyncer.common.config.props.ConfigEntry;
 import org.dbsyncer.common.config.props.EncryptKeyProps;
 import org.dbsyncer.common.model.SystemConfig;
+import org.dbsyncer.parser.ProfileComponent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
@@ -38,17 +40,21 @@ public class ConfigBootstrap {
     @Resource
     private ConfigMigrationService configMigrationService;
 
+    @Lazy
+    @Resource
+    private ProfileComponent profileComponent;
+
     /**
      * 预加载完成后调用。
      * <p>
-     * 编排四件事：
+     * 编排五件事：
      * 1. 初始化加密器（从 EncryptKeyProps 获取密钥）
-     * 2. 解密敏感字段
+     * 2. 首次启动无 DB 记录时，用 props 初始化并写入 DB
      * 3. 填充 Registry
-     * 4. 执行配置迁移
+     * 4. 配置迁移（首次启动跳过）
      * 5. 打印配置对照表
      *
-     * @param systemConfig 从 ProfileComponent 获取的 SystemConfig（唯一一次查库的产物）
+     * @param systemConfig 从 ProfileComponent 获取的 SystemConfig（唯一一次查库的产物，可能为 null）
      */
     public void onPreloadCompleted(SystemConfig systemConfig) {
         // 0. 初始化加密器（从 propsConfig 的 EncryptKeyProps 获取密钥）
@@ -56,22 +62,35 @@ public class ConfigBootstrap {
         ConfigEncryptor encryptor = ConfigEncryptor.fromProps(encryptKeyProps);
         ConfigEncryptor.setInstance(encryptor);
 
-        // 1. 解密敏感字段（如果加密了的话）
-        if (encryptor != null && encryptor.isAvailable() && systemConfig != null) {
-            systemConfig.decryptSensitiveFields(encryptor);
+        // 1. 首次启动无 DB 记录，用 props 初始化并写入 DB
+        if (systemConfig == null) {
+            logger.info("首次启动：使用 props 初始化配置");
+            systemConfig = configRegistry.getPropsConfig();
+            systemConfig.setSchemaVersion(ConfigMigrationService.CURRENT_SCHEMA_VERSION);
+            try {
+                profileComponent.editConfigModel(systemConfig);
+                logger.info("首次启动：配置已写入数据库");
+            } catch (Exception e) {
+                logger.error("首次启动：配置写入数据库失败", e);
+            }
+        } else {
+            // 2. 解密敏感字段（如果加密了的话）
+            if (encryptor != null && encryptor.isAvailable()) {
+                systemConfig.decryptSensitiveFields(encryptor);
+            }
         }
 
-        // 2. 填充 Registry（DB 数据来自 ProfileComponent，不重复查库）
+        // 3. 填充 Registry（DB 数据来自 ProfileComponent，不重复查库）
         configRegistry.init(systemConfig);
 
-        // 3. 配置迁移
+        // 4. 配置迁移（首次启动会跳过，因为 schemaVersion 已经是当前版本）
         try {
             configMigrationService.migrateIfNeeded();
         } catch (Exception e) {
             logger.error("配置迁移失败", e);
         }
 
-        // 4. 打印配置对照表
+        // 5. 打印配置对照表
         try {
             printStartupTable();
         } catch (Exception e) {
@@ -108,22 +127,6 @@ public class ConfigBootstrap {
         sb.append("═══════════════════════════════════════════════════════════════════════════════");
 
         for (SystemTabEnum tab : SystemTabEnum.values()) {
-            EnvironmentLoadable mergedProps = tab.getProps(merged);
-            EnvironmentLoadable propsProps = tab.getProps(props);
-            EnvironmentLoadable dbProps = tab.getProps(db);
-            logger.info("Tab {}: mergedProps={}, dbProps={}, propsProps={}",
-                    tab.name(),
-                    mergedProps != null ? mergedProps.getClass().getSimpleName() : "null",
-                    dbProps != null ? dbProps.getClass().getSimpleName() : "null",
-                    propsProps != null ? propsProps.getClass().getSimpleName() : "null");
-            if (mergedProps != null) {
-                java.util.List<ConfigEntry> testEntries = mergedProps.toConfigEntries();
-                logger.info("  merged entries count: {}", testEntries.size());
-                if (!testEntries.isEmpty()) {
-                    ConfigEntry first = testEntries.get(0);
-                    logger.info("  first entry: key={}, value={}", first.getKey(), first.getDisplayValue());
-                }
-            }
             printSection(sb, tab, props, db, merged);
         }
 

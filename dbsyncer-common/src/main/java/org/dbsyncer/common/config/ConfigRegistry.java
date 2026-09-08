@@ -109,6 +109,11 @@ public class ConfigRegistry {
      * A 类只取 Environment，B/C 类 DB 优先、Environment 兜底。
      */
     private SystemConfig merge(SystemConfig props, SystemConfig db) {
+        // db 为 null 时（首次启动无 DB 记录），merged 直接等于 props
+        if (db == null) {
+            return props;
+        }
+
         SystemConfig merged = new SystemConfig();
 
         for (SystemTabEnum tab : SystemTabEnum.values()) {
