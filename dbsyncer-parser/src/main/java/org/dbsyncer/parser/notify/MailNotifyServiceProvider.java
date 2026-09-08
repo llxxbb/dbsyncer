@@ -12,7 +12,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 
-import javax.annotation.PostConstruct;
 import javax.mail.Authenticator;
 import javax.mail.Message;
 import javax.mail.PasswordAuthentication;
@@ -40,42 +39,13 @@ public final class MailNotifyServiceProvider implements NotifyService {
     private final ConfigRegistry configRegistry;
 
     /**
-     * 邮箱会话
+     * 邮箱会话（懒加载，运行时初始化，避免 @PostConstruct 阶段 ConfigRegistry 尚未就绪）
      */
-    private Session session;
+    private volatile Session session;
 
     public MailNotifyServiceProvider(AppConfig appConfig, ConfigRegistry configRegistry) {
         this.appConfig = appConfig;
         this.configRegistry = configRegistry;
-    }
-
-    @PostConstruct
-    private void init() {
-        MailProps mail = getMailProps();
-        if (mail == null || StringUtil.isBlank(mail.getUsername())) {
-            return;
-        }
-
-        try {
-            final Properties props = new Properties();
-            props.put("mail.smtp.auth", "true");
-            props.put("mail.smtp.host", "smtp.qq.com");
-            props.put("mail.user", mail.getUsername());
-            props.put("mail.password", mail.getPassword());
-            MailSSLSocketFactory sf = new MailSSLSocketFactory();
-            sf.setTrustAllHosts(true);
-            props.put("mail.smtp.ssl.enable", "true");
-            props.put("mail.smtp.ssl.socketFactory", sf);
-            // 构建授权信息，用于进行SMTP身份验证
-            session = Session.getInstance(props, new Authenticator() {
-                @Override
-                protected PasswordAuthentication getPasswordAuthentication() {
-                    return new PasswordAuthentication(mail.getUsername(), mail.getPassword());
-                }
-            });
-        } catch (GeneralSecurityException e) {
-            logger.error("MailNotifyServiceProvider init error!", e);
-        }
     }
 
     private MailProps getMailProps() {
@@ -83,9 +53,47 @@ public final class MailNotifyServiceProvider implements NotifyService {
         return configRegistry.getConfig().getNotify().getMail();
     }
 
+    /**
+     * 懒加载获取邮箱会话，首次调用时从 ConfigRegistry 读取配置并初始化。
+     */
+    private Session getOrCreateSession() {
+        if (session == null) {
+            synchronized (this) {
+                if (session == null) {
+                    MailProps mail = getMailProps();
+                    if (mail == null || StringUtil.isBlank(mail.getUsername())) {
+                        return null;
+                    }
+                    try {
+                        final Properties props = new Properties();
+                        props.put("mail.smtp.auth", "true");
+                        props.put("mail.smtp.host", "smtp.qq.com");
+                        props.put("mail.user", mail.getUsername());
+                        props.put("mail.password", mail.getPassword());
+                        MailSSLSocketFactory sf = new MailSSLSocketFactory();
+                        sf.setTrustAllHosts(true);
+                        props.put("mail.smtp.ssl.enable", "true");
+                        props.put("mail.smtp.ssl.socketFactory", sf);
+                        session = Session.getInstance(props, new Authenticator() {
+                            @Override
+                            protected PasswordAuthentication getPasswordAuthentication() {
+                                return new PasswordAuthentication(mail.getUsername(), mail.getPassword());
+                            }
+                        });
+                    } catch (GeneralSecurityException e) {
+                        logger.error("MailNotifyServiceProvider session init error!", e);
+                        return null;
+                    }
+                }
+            }
+        }
+        return session;
+    }
+
     @Override
     public void sendMessage(NotifyMessage notifyMessage) {
-        if (session == null) {
+        Session currentSession = getOrCreateSession();
+        if (currentSession == null) {
             return;
         }
 
@@ -96,7 +104,7 @@ public final class MailNotifyServiceProvider implements NotifyService {
             String content = createTemplate(appConfig.getName(), notifyMessage.getContent());
 
             // 创建邮件消息
-            MimeMessage message = new MimeMessage(session);
+            MimeMessage message = new MimeMessage(currentSession);
             // 设置发件人
             message.setFrom(new InternetAddress(getMailProps().getUsername()));
 

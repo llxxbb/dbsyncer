@@ -83,7 +83,7 @@ public class ConfigEncryptor {
 
     private static ConfigEncryptor createDefault() {
         EncryptKeyProps props = new EncryptKeyProps();
-        props.loadFromEnvironment();
+        props.loadFromEnvironment(null);
         return fromProps(props);
     }
 
