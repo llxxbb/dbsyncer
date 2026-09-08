@@ -113,10 +113,11 @@ public class BufferActuatorProps implements Serializable, EnvironmentLoadable {
     @Override
     public List<ConfigEntry> toConfigEntries() {
         List<ConfigEntry> entries = new ArrayList<>();
-        entries.add(new ConfigEntry(writerCountKey, bufferWriterCount));
-        entries.add(new ConfigEntry(pullCountKey, bufferPullCount));
-        entries.add(new ConfigEntry(queueCapacityKey, bufferQueueCapacity));
-        entries.add(new ConfigEntry(periodMillisecondKey, bufferPeriodMillisecond));
+        // key 为 null 说明是从 DB 反序列化且未经 setConfigKeys 注入，跳过
+        if (writerCountKey != null) entries.add(new ConfigEntry(writerCountKey, bufferWriterCount));
+        if (pullCountKey != null) entries.add(new ConfigEntry(pullCountKey, bufferPullCount));
+        if (queueCapacityKey != null) entries.add(new ConfigEntry(queueCapacityKey, bufferQueueCapacity));
+        if (periodMillisecondKey != null) entries.add(new ConfigEntry(periodMillisecondKey, bufferPeriodMillisecond));
         return entries;
     }
 }

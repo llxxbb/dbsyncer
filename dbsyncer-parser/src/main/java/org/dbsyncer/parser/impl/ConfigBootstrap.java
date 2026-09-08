@@ -152,8 +152,9 @@ public class ConfigBootstrap {
      * 从配置条目列表中查找指定 key 的显示值。
      */
     private String findValue(List<ConfigEntry> entries, String key) {
+        if (key == null) return null;
         for (ConfigEntry entry : entries) {
-            if (entry.getKey().equals(key)) {
+            if (key.equals(entry.getKey())) {
                 return entry.getDisplayValue();
             }
         }
