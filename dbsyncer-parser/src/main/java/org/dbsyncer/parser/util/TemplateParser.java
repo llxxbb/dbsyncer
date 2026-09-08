@@ -78,7 +78,7 @@ public class TemplateParser {
                        int depth) {
         if (depth > maxDependencyDepth) {
             throw new ParserException("Maximum dependency depth exceeded: " + maxDependencyDepth + 
-                    " (configurable via -Ddbsyncer.template.maxDepth=N)");
+                    " (configurable via -D" + ConfigKeys.TEMPLATE_MAX_DEPTH + "=N)");
         }
 
         if (tempMark.contains(refId)) {

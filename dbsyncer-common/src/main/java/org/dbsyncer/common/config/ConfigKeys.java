@@ -45,6 +45,7 @@ public final class ConfigKeys {
 
     // ===== A 类：存储连接配置（只读，不落库） =====
 
+    public static final String STORAGE_PREFIX = "dbsyncer.storage";
     public static final String STORAGE_TYPE = "dbsyncer.storage.type";
     public static final String STORAGE_MYSQL_URL = "dbsyncer.storage.mysql.url";
     public static final String STORAGE_MYSQL_USERNAME = "dbsyncer.storage.mysql.username";

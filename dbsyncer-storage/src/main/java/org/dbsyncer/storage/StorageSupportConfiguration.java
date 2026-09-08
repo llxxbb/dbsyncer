@@ -3,6 +3,7 @@
  */
 package org.dbsyncer.storage;
 
+import org.dbsyncer.common.config.ConfigKeys;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.sdk.storage.StorageService;
@@ -31,9 +32,9 @@ import java.util.Properties;
 @Configuration
 public class StorageSupportConfiguration {
 
-    private final String PREFIX_STORAGE = "dbsyncer.storage";
+    private final String PREFIX_STORAGE = ConfigKeys.STORAGE_PREFIX;
 
-    private final String STORAGE_TYPE = "dbsyncer.storage.type";
+    private final String STORAGE_TYPE = ConfigKeys.STORAGE_TYPE;
 
     @Resource
     private Environment environment;
