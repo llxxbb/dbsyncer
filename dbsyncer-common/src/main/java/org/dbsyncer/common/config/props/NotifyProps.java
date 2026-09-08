@@ -9,7 +9,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Tab 5 通知通道配置
+ * Tab 5 通知通道配置。
+ * <p>
+ * 创建子 Props 后委托子级完成自加载。
  */
 public class NotifyProps implements Serializable, EnvironmentLoadable {
 
@@ -51,23 +53,13 @@ public class NotifyProps implements Serializable, EnvironmentLoadable {
             this.channels = notifyChannels;
         }
 
-        MailProps mail = new MailProps();
-        mail.setUsername(env.getProperty(ConfigKeys.NOTIFY_MAIL_USERNAME, String.class));
-        mail.setPassword(env.getProperty(ConfigKeys.NOTIFY_MAIL_PASSWORD, String.class));
-        List<String> mailNotifyTypes = env.getProperty(ConfigKeys.NOTIFY_MAIL_NOTIFY_TYPES, List.class);
-        if (mailNotifyTypes != null) {
-            mail.setNotifyTypes(mailNotifyTypes);
-        }
-        this.mail = mail;
+        MailProps mailProps = new MailProps();
+        mailProps.loadFromEnvironment(env);
+        this.mail = mailProps;
 
-        DingTalkProps dingtalk = new DingTalkProps();
-        dingtalk.setWebhookUrl(env.getProperty(ConfigKeys.NOTIFY_DINGTALK_WEBHOOK_URL, String.class));
-        dingtalk.setSecret(env.getProperty(ConfigKeys.NOTIFY_DINGTALK_SECRET, String.class));
-        List<String> dingtalkNotifyTypes = env.getProperty(ConfigKeys.NOTIFY_DINGTALK_NOTIFY_TYPES, List.class);
-        if (dingtalkNotifyTypes != null) {
-            dingtalk.setNotifyTypes(dingtalkNotifyTypes);
-        }
-        this.dingtalk = dingtalk;
+        DingTalkProps dingtalkProps = new DingTalkProps();
+        dingtalkProps.loadFromEnvironment(env);
+        this.dingtalk = dingtalkProps;
     }
 
     /**
@@ -86,9 +78,7 @@ public class NotifyProps implements Serializable, EnvironmentLoadable {
         return errors;
     }
 
-    /**
-     * 返回配置条目列表，用于启动期配置对照表打印。
-     */
+    @Override
     public List<ConfigEntry> toConfigEntries() {
         List<ConfigEntry> entries = new ArrayList<>();
         entries.add(new ConfigEntry(ConfigKeys.NOTIFY_CHANNELS, channels));

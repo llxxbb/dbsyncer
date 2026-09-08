@@ -9,7 +9,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Tab 2 执行器配置
+ * Tab 2 执行器配置。
+ * <p>
+ * 创建子 {@link PoolProps} 后注入 configKeys，委托子级完成自加载。
  */
 public class ExecutorProps implements Serializable, EnvironmentLoadable {
 
@@ -51,21 +53,27 @@ public class ExecutorProps implements Serializable, EnvironmentLoadable {
     @Override
     public void loadFromEnvironment(Environment env) {
         PoolProps generalPool = new PoolProps();
-        generalPool.setThreadCoreSize(env.getProperty(ConfigKeys.EXECUTOR_GENERAL_THREAD_CORE_SIZE, Integer.class));
-        generalPool.setMaxThreadSize(env.getProperty(ConfigKeys.EXECUTOR_GENERAL_MAX_THREAD_SIZE, Integer.class));
-        generalPool.setThreadQueueCapacity(env.getProperty(ConfigKeys.EXECUTOR_GENERAL_THREAD_QUEUE_CAPACITY, Integer.class));
+        generalPool.setConfigKeys(
+                ConfigKeys.EXECUTOR_GENERAL_THREAD_CORE_SIZE,
+                ConfigKeys.EXECUTOR_GENERAL_MAX_THREAD_SIZE,
+                ConfigKeys.EXECUTOR_GENERAL_THREAD_QUEUE_CAPACITY);
+        generalPool.loadFromEnvironment(env);
         this.general = generalPool;
 
         PoolProps storagePool = new PoolProps();
-        storagePool.setThreadCoreSize(env.getProperty(ConfigKeys.EXECUTOR_STORAGE_THREAD_CORE_SIZE, Integer.class));
-        storagePool.setMaxThreadSize(env.getProperty(ConfigKeys.EXECUTOR_STORAGE_MAX_THREAD_SIZE, Integer.class));
-        storagePool.setThreadQueueCapacity(env.getProperty(ConfigKeys.EXECUTOR_STORAGE_THREAD_QUEUE_CAPACITY, Integer.class));
+        storagePool.setConfigKeys(
+                ConfigKeys.EXECUTOR_STORAGE_THREAD_CORE_SIZE,
+                ConfigKeys.EXECUTOR_STORAGE_MAX_THREAD_SIZE,
+                ConfigKeys.EXECUTOR_STORAGE_THREAD_QUEUE_CAPACITY);
+        storagePool.loadFromEnvironment(env);
         this.storage = storagePool;
 
         PoolProps dispatchPool = new PoolProps();
-        dispatchPool.setThreadCoreSize(env.getProperty(ConfigKeys.EXECUTOR_DISPATCH_THREAD_CORE_SIZE, Integer.class));
-        dispatchPool.setMaxThreadSize(env.getProperty(ConfigKeys.EXECUTOR_DISPATCH_MAX_THREAD_SIZE, Integer.class));
-        dispatchPool.setThreadQueueCapacity(env.getProperty(ConfigKeys.EXECUTOR_DISPATCH_THREAD_QUEUE_CAPACITY, Integer.class));
+        dispatchPool.setConfigKeys(
+                ConfigKeys.EXECUTOR_DISPATCH_THREAD_CORE_SIZE,
+                ConfigKeys.EXECUTOR_DISPATCH_MAX_THREAD_SIZE,
+                ConfigKeys.EXECUTOR_DISPATCH_THREAD_QUEUE_CAPACITY);
+        dispatchPool.loadFromEnvironment(env);
         this.dispatch = dispatchPool;
     }
 
@@ -88,28 +96,17 @@ public class ExecutorProps implements Serializable, EnvironmentLoadable {
         return errors;
     }
 
-    /**
-     * 返回配置条目列表，用于启动期配置对照表打印。
-     */
+    @Override
     public List<ConfigEntry> toConfigEntries() {
         List<ConfigEntry> entries = new ArrayList<>();
         if (general != null) {
-            entries.addAll(general.toConfigEntries(
-                    ConfigKeys.EXECUTOR_GENERAL_THREAD_CORE_SIZE,
-                    ConfigKeys.EXECUTOR_GENERAL_MAX_THREAD_SIZE,
-                    ConfigKeys.EXECUTOR_GENERAL_THREAD_QUEUE_CAPACITY));
+            entries.addAll(general.toConfigEntries());
         }
         if (storage != null) {
-            entries.addAll(storage.toConfigEntries(
-                    ConfigKeys.EXECUTOR_STORAGE_THREAD_CORE_SIZE,
-                    ConfigKeys.EXECUTOR_STORAGE_MAX_THREAD_SIZE,
-                    ConfigKeys.EXECUTOR_STORAGE_THREAD_QUEUE_CAPACITY));
+            entries.addAll(storage.toConfigEntries());
         }
         if (dispatch != null) {
-            entries.addAll(dispatch.toConfigEntries(
-                    ConfigKeys.EXECUTOR_DISPATCH_THREAD_CORE_SIZE,
-                    ConfigKeys.EXECUTOR_DISPATCH_MAX_THREAD_SIZE,
-                    ConfigKeys.EXECUTOR_DISPATCH_THREAD_QUEUE_CAPACITY));
+            entries.addAll(dispatch.toConfigEntries());
         }
         return entries;
     }

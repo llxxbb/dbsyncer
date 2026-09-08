@@ -9,7 +9,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Tab 3 缓冲区配置
+ * Tab 3 缓冲区配置。
+ * <p>
+ * 创建子 {@link BufferActuatorProps} 后注入 configKeys，委托子级完成自加载。
  */
 public class BufferProps implements Serializable, EnvironmentLoadable {
 
@@ -40,17 +42,21 @@ public class BufferProps implements Serializable, EnvironmentLoadable {
     @Override
     public void loadFromEnvironment(Environment env) {
         BufferActuatorProps generalBuffer = new BufferActuatorProps();
-        generalBuffer.setBufferWriterCount(env.getProperty(ConfigKeys.BUFFER_GENERAL_WRITER_COUNT, Integer.class));
-        generalBuffer.setBufferPullCount(env.getProperty(ConfigKeys.BUFFER_GENERAL_PULL_COUNT, Integer.class));
-        generalBuffer.setBufferQueueCapacity(env.getProperty(ConfigKeys.BUFFER_GENERAL_QUEUE_CAPACITY, Integer.class));
-        generalBuffer.setBufferPeriodMillisecond(env.getProperty(ConfigKeys.BUFFER_GENERAL_PERIOD_MILLISECOND, Integer.class));
+        generalBuffer.setConfigKeys(
+                ConfigKeys.BUFFER_GENERAL_WRITER_COUNT,
+                ConfigKeys.BUFFER_GENERAL_PULL_COUNT,
+                ConfigKeys.BUFFER_GENERAL_QUEUE_CAPACITY,
+                ConfigKeys.BUFFER_GENERAL_PERIOD_MILLISECOND);
+        generalBuffer.loadFromEnvironment(env);
         this.general = generalBuffer;
 
         BufferActuatorProps storageBuffer = new BufferActuatorProps();
-        storageBuffer.setBufferWriterCount(env.getProperty(ConfigKeys.BUFFER_STORAGE_WRITER_COUNT, Integer.class));
-        storageBuffer.setBufferPullCount(env.getProperty(ConfigKeys.BUFFER_STORAGE_PULL_COUNT, Integer.class));
-        storageBuffer.setBufferQueueCapacity(env.getProperty(ConfigKeys.BUFFER_STORAGE_QUEUE_CAPACITY, Integer.class));
-        storageBuffer.setBufferPeriodMillisecond(env.getProperty(ConfigKeys.BUFFER_STORAGE_PERIOD_MILLISECOND, Integer.class));
+        storageBuffer.setConfigKeys(
+                ConfigKeys.BUFFER_STORAGE_WRITER_COUNT,
+                ConfigKeys.BUFFER_STORAGE_PULL_COUNT,
+                ConfigKeys.BUFFER_STORAGE_QUEUE_CAPACITY,
+                ConfigKeys.BUFFER_STORAGE_PERIOD_MILLISECOND);
+        storageBuffer.loadFromEnvironment(env);
         this.storage = storageBuffer;
     }
 
@@ -70,24 +76,14 @@ public class BufferProps implements Serializable, EnvironmentLoadable {
         return errors;
     }
 
-    /**
-     * 返回配置条目列表，用于启动期配置对照表打印。
-     */
+    @Override
     public List<ConfigEntry> toConfigEntries() {
         List<ConfigEntry> entries = new ArrayList<>();
         if (general != null) {
-            entries.addAll(general.toConfigEntries(
-                    ConfigKeys.BUFFER_GENERAL_WRITER_COUNT,
-                    ConfigKeys.BUFFER_GENERAL_PULL_COUNT,
-                    ConfigKeys.BUFFER_GENERAL_QUEUE_CAPACITY,
-                    ConfigKeys.BUFFER_GENERAL_PERIOD_MILLISECOND));
+            entries.addAll(general.toConfigEntries());
         }
         if (storage != null) {
-            entries.addAll(storage.toConfigEntries(
-                    ConfigKeys.BUFFER_STORAGE_WRITER_COUNT,
-                    ConfigKeys.BUFFER_STORAGE_PULL_COUNT,
-                    ConfigKeys.BUFFER_STORAGE_QUEUE_CAPACITY,
-                    ConfigKeys.BUFFER_STORAGE_PERIOD_MILLISECOND));
+            entries.addAll(storage.toConfigEntries());
         }
         return entries;
     }
