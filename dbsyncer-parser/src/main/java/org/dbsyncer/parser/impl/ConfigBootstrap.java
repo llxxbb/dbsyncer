@@ -1,12 +1,11 @@
 package org.dbsyncer.parser.impl;
 
-import org.dbsyncer.common.config.ConfigEncryptor;
-import org.dbsyncer.common.config.ConfigRegistry;
-import org.dbsyncer.common.config.EnvironmentLoadable;
-import org.dbsyncer.common.config.SystemTabEnum;
+import org.dbsyncer.common.config.*;
 import org.dbsyncer.common.config.props.ConfigEntry;
 import org.dbsyncer.common.config.props.EncryptKeyProps;
+import org.dbsyncer.common.constant.ConfigConstant;
 import org.dbsyncer.common.model.SystemConfig;
+import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.parser.ProfileComponent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +14,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 
@@ -44,15 +44,18 @@ public class ConfigBootstrap {
     @Resource
     private ProfileComponent profileComponent;
 
+    @Resource
+    private SnowflakeIdWorker snowflakeIdWorker;
+
     /**
      * 预加载完成后调用。
      * <p>
      * 编排五件事：
-     * 1. 初始化加密器（从 EncryptKeyProps 获取密钥）
-     * 2. 首次启动无 DB 记录时，用 props 初始化并写入 DB
-     * 3. 填充 Registry
-     * 4. 配置迁移（首次启动跳过）
-     * 5. 打印配置对照表
+     * 0. 初始化加密器（从 EncryptKeyProps 获取密钥）
+     * 1. 填充 Registry（首次启动 db 为 null，merge 直接用 props）
+     * 2. 首次启动无 DB 记录时，分配 ID 并 INSERT 到 DB
+     * 3. 配置迁移（首次启动跳过）
+     * 4. 打印配置对照表
      *
      * @param systemConfig 从 ProfileComponent 获取的 SystemConfig（唯一一次查库的产物，可能为 null）
      */
@@ -62,35 +65,46 @@ public class ConfigBootstrap {
         ConfigEncryptor encryptor = ConfigEncryptor.fromProps(encryptKeyProps);
         ConfigEncryptor.setInstance(encryptor);
 
-        // 1. 首次启动无 DB 记录，用 props 初始化并写入 DB
+        // 1. 填充 Registry（db 为 null 时 merge 直接返回 props，确保 Registry ready 后 SnowflakeIdWorker 可用）
+        configRegistry.init(systemConfig);
+
+        // 2. 首次启动无 DB 记录，分配 ID 并 INSERT
         if (systemConfig == null) {
             logger.info("首次启动：使用 props 初始化配置");
-            systemConfig = configRegistry.getPropsConfig();
+            systemConfig = configRegistry.getConfig();
+            systemConfig.setId(String.valueOf(snowflakeIdWorker.nextId()));
+            systemConfig.setName(ConfigConstant.SYSTEM);
+            long now = Instant.now().toEpochMilli();
+            systemConfig.setCreateTime(now);
+            systemConfig.setUpdateTime(now);
             systemConfig.setSchemaVersion(ConfigMigrationService.CURRENT_SCHEMA_VERSION);
             try {
-                profileComponent.editConfigModel(systemConfig);
+                // 深拷贝 + 加密后写入 DB，避免污染内存中的明文配置
+                SystemConfig toStore = JsonUtil.jsonToObj(
+                        JsonUtil.objToJson(systemConfig), SystemConfig.class);
+                if (encryptor != null && encryptor.isAvailable()) {
+                    toStore.encryptSensitiveFields(encryptor);
+                }
+                profileComponent.addConfigModel(toStore);
                 logger.info("首次启动：配置已写入数据库");
             } catch (Exception e) {
                 logger.error("首次启动：配置写入数据库失败", e);
             }
         } else {
-            // 2. 解密敏感字段（如果加密了的话）
+            // 3. 解密敏感字段（如果加密了的话）
             if (encryptor != null && encryptor.isAvailable()) {
                 systemConfig.decryptSensitiveFields(encryptor);
             }
         }
 
-        // 3. 填充 Registry（DB 数据来自 ProfileComponent，不重复查库）
-        configRegistry.init(systemConfig);
-
-        // 4. 配置迁移（首次启动会跳过，因为 schemaVersion 已经是当前版本）
+        // 3. 配置迁移（首次启动会跳过，因为 schemaVersion 已经是当前版本）
         try {
             configMigrationService.migrateIfNeeded();
         } catch (Exception e) {
             logger.error("配置迁移失败", e);
         }
 
-        // 5. 打印配置对照表
+        // 4. 打印配置对照表
         try {
             printStartupTable();
         } catch (Exception e) {
