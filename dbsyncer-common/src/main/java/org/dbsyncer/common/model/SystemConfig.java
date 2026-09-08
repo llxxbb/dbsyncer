@@ -5,6 +5,10 @@
 package org.dbsyncer.common.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.dbsyncer.common.config.ConfigEncryptor;
+import org.dbsyncer.common.config.EnvironmentLoadable;
+import org.dbsyncer.common.config.SensitiveField;
+import org.dbsyncer.common.config.SystemTabEnum;
 import org.dbsyncer.common.config.props.*;
 import org.dbsyncer.common.constant.ConfigConstant;
 
@@ -223,5 +227,83 @@ public class SystemConfig extends ConfigModel {
 
     public void setTemplate(TemplateProps template) {
         this.template = template;
+    }
+
+    // ===== 敏感字段加解密 =====
+
+    /**
+     * 对所有敏感字段执行加密（存储前调用）。
+     *
+     * @param encryptor 加密器
+     */
+    public void encryptSensitiveFields(ConfigEncryptor encryptor) {
+        if (encryptor == null || !encryptor.isAvailable()) {
+            return;
+        }
+        for (SystemTabEnum tab : SystemTabEnum.values()) {
+            EnvironmentLoadable props = tab.getProps(this);
+            if (props != null) {
+                for (SensitiveField field : props.getSensitiveFields()) {
+                    field.encrypt(encryptor);
+                }
+            }
+        }
+    }
+
+    /**
+     * 对所有敏感字段执行解密（存储后调用）。
+     * <p>
+     * 兼容明文旧数据：解密失败时保留原值。
+     *
+     * @param encryptor 加密器
+     */
+    public void decryptSensitiveFields(ConfigEncryptor encryptor) {
+        if (encryptor == null || !encryptor.isAvailable()) {
+            return;
+        }
+        for (SystemTabEnum tab : SystemTabEnum.values()) {
+            EnvironmentLoadable props = tab.getProps(this);
+            if (props != null) {
+                for (SensitiveField field : props.getSensitiveFields()) {
+                    field.decrypt(encryptor);
+                }
+            }
+        }
+    }
+
+    /**
+     * 恢复被掩码的敏感字段：对比 incoming 和 existing，如果 incoming 的敏感字段仍为掩码值，
+     * 则从 existing 恢复原值。用于保存保护。
+     *
+     * @param incoming 前端传入的配置（可能包含掩码值）
+     * @param existing 数据库中的现有配置（明文）
+     */
+    public void restoreMaskedSensitiveFields(SystemConfig incoming, SystemConfig existing) {
+        if (incoming == null || existing == null) {
+            return;
+        }
+        for (SystemTabEnum tab : SystemTabEnum.values()) {
+            EnvironmentLoadable inProps = tab.getProps(incoming);
+            EnvironmentLoadable exProps = tab.getProps(existing);
+            if (inProps != null && exProps != null) {
+                restoreMaskedFields(inProps.getSensitiveFields(), exProps.getSensitiveFields());
+            }
+        }
+    }
+
+    private void restoreMaskedFields(java.util.List<SensitiveField> incoming,
+                                     java.util.List<SensitiveField> existing) {
+        java.util.Map<String, SensitiveField> exMap = new java.util.HashMap<>();
+        for (SensitiveField f : existing) {
+            exMap.put(f.getName(), f);
+        }
+        for (SensitiveField inField : incoming) {
+            if (inField.isMaskedValue()) {
+                SensitiveField exField = exMap.get(inField.getName());
+                if (exField != null && exField.getValue() != null) {
+                    inField.setValue(exField.getValue());
+                }
+            }
+        }
     }
 }

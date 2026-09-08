@@ -107,11 +107,13 @@ function fillNotifyTab(notify) {
     // mail
     if (notify.mail) {
         $('#notify_mail_username').val(notify.mail.username || '');
-        // password 不预填（脱敏）
+        // 密码掩码预填（保存时若未修改则保留原值）
+        $('#notify_mail_password').val(notify.mail.password || '');
     }
     // dingtalk
     if (notify.dingtalk) {
         $('#notify_dingtalk_webhookUrl').val(notify.dingtalk.webhookUrl || '');
+        // 密钥掩码预填（保存时若未修改则保留原值）
         $('#notify_dingtalk_secret').val(notify.dingtalk.secret || '');
     }
 }
@@ -224,7 +226,7 @@ function buildPayload(tab) {
                 channels: channels,
                 mail: {
                     username: $('#notify_mail_username').val(),
-                    password: $('#notify_mail_password').val() || '********'
+                    password: $('#notify_mail_password').val()
                 },
                 dingtalk: {
                     webhookUrl: $('#notify_dingtalk_webhookUrl').val(),

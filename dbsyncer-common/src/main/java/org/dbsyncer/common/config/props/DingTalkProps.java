@@ -2,6 +2,7 @@ package org.dbsyncer.common.config.props;
 
 import org.dbsyncer.common.config.ConfigKeys;
 import org.dbsyncer.common.config.EnvironmentLoadable;
+import org.dbsyncer.common.config.SensitiveField;
 import org.springframework.core.env.Environment;
 
 import java.io.Serializable;
@@ -73,5 +74,12 @@ public class DingTalkProps implements Serializable, EnvironmentLoadable {
         entries.add(new ConfigEntry(ConfigKeys.NOTIFY_DINGTALK_SECRET, secret, true));
         entries.add(new ConfigEntry(ConfigKeys.NOTIFY_DINGTALK_NOTIFY_TYPES, notifyTypes));
         return entries;
+    }
+
+    @Override
+    public List<SensitiveField> getSensitiveFields() {
+        return Collections.singletonList(
+            new SensitiveField("dingtalk.secret", () -> secret, v -> this.secret = v)
+        );
     }
 }

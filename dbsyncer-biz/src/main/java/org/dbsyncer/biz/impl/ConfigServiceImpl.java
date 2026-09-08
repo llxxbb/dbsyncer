@@ -9,6 +9,8 @@ import org.dbsyncer.biz.UserConfigService;
 import org.dbsyncer.biz.vo.SystemConfigVo;
 import org.dbsyncer.biz.vo.VersionVo;
 import org.dbsyncer.common.config.AppConfig;
+import org.dbsyncer.common.config.ConfigEncryptor;
+import org.dbsyncer.common.config.EnvironmentLoadable;
 import org.dbsyncer.common.config.SystemTabEnum;
 import org.dbsyncer.common.config.props.*;
 import org.dbsyncer.common.util.CollectionUtils;
@@ -173,17 +175,24 @@ public class ConfigServiceImpl implements ConfigService {
 
         // 读-改-写（引用语义，C4）
         SystemConfig cfg = getSystemConfig();
+        SystemConfig existing = getSystemConfig();
 
-        // 密钥脱敏保护：notify Tab 保存时，若密码字段仍为掩码则保留原值
-        if (tabEnum == SystemTabEnum.NOTIFY) {
-            protectSecrets(cfg, (NotifyProps) props);
-        }
+        // 敏感字段保护：前端传回掩码值时保留原值（通用机制，不依赖具体字段）
+        cfg.restoreMaskedSensitiveFields((SystemConfig) props, existing);
 
         // 设置子对象到 SystemConfig
         setTabProps(cfg, tabEnum, props);
 
-        // ① DB 落库
-        profileComponent.editConfigModel(cfg);
+        // ① DB 落库（加密存储）
+        ConfigEncryptor encryptor = ConfigEncryptor.getInstance();
+        if (encryptor != null && encryptor.isAvailable()) {
+            // 深拷贝 + 加密 + 序列化存储
+            SystemConfig toStore = JsonUtil.jsonToObj(JsonUtil.objToJson(cfg), SystemConfig.class);
+            toStore.encryptSensitiveFields(encryptor);
+            profileComponent.editConfigModel(toStore);
+        } else {
+            profileComponent.editConfigModel(cfg);
+        }
 
         // ② 通知 Registry 重新合并
         configRegistry.onDbConfigChanged(cfg);
@@ -218,7 +227,12 @@ public class ConfigServiceImpl implements ConfigService {
         SystemConfig config = configRegistry.getConfig();
         Map<String, Object> result = new LinkedHashMap<>();
         for (SystemTabEnum tab : SystemTabEnum.getEditableTabs()) {
-            result.put(tab.getKey(), tab.getProps(config));
+            Object props = tab.getProps(config);
+            // 敏感字段掩码：委托 Props 自身的 forDisplay()
+            if (props instanceof EnvironmentLoadable) {
+                props = ((EnvironmentLoadable) props).forDisplay();
+            }
+            result.put(tab.getKey(), props);
         }
         return result;
     }
@@ -324,30 +338,6 @@ public class ConfigServiceImpl implements ConfigService {
 
     private void setTabProps(SystemConfig cfg, SystemTabEnum tabEnum, Object props) {
         tabEnum.setProps(cfg, props);
-    }
-
-    /**
-     * 密钥脱敏保护：保存时若密码字段仍为掩码，则保留原值。
-     */
-    private void protectSecrets(SystemConfig cfg, NotifyProps incoming) {
-        NotifyProps existing = cfg.getNotify();
-        if (existing == null) {
-            return;
-        }
-        // 邮件密码
-        if (incoming.getMail() != null && existing.getMail() != null) {
-            String pwd = incoming.getMail().getPassword();
-            if ("********".equals(pwd)) {
-                incoming.getMail().setPassword(existing.getMail().getPassword());
-            }
-        }
-        // 钉钉密钥
-        if (incoming.getDingtalk() != null && existing.getDingtalk() != null) {
-            String secret = incoming.getDingtalk().getSecret();
-            if (secret != null && secret.endsWith("****") && secret.length() > 4) {
-                incoming.getDingtalk().setSecret(existing.getDingtalk().getSecret());
-            }
-        }
     }
 
     /**

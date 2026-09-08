@@ -2,6 +2,7 @@ package org.dbsyncer.common.config.props;
 
 import org.dbsyncer.common.config.ConfigKeys;
 import org.dbsyncer.common.config.EnvironmentLoadable;
+import org.dbsyncer.common.config.SensitiveField;
 import org.springframework.core.env.Environment;
 
 import java.io.Serializable;
@@ -73,5 +74,12 @@ public class MailProps implements Serializable, EnvironmentLoadable {
         entries.add(new ConfigEntry(ConfigKeys.NOTIFY_MAIL_PASSWORD, password, true));
         entries.add(new ConfigEntry(ConfigKeys.NOTIFY_MAIL_NOTIFY_TYPES, notifyTypes));
         return entries;
+    }
+
+    @Override
+    public List<SensitiveField> getSensitiveFields() {
+        return Collections.singletonList(
+            new SensitiveField("mail.password", () -> password, v -> this.password = v)
+        );
     }
 }

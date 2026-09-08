@@ -2,6 +2,7 @@ package org.dbsyncer.common.config.props;
 
 import org.dbsyncer.common.config.ConfigKeys;
 import org.dbsyncer.common.config.EnvironmentLoadable;
+import org.dbsyncer.common.config.SensitiveField;
 import org.springframework.core.env.Environment;
 
 import java.io.Serializable;
@@ -89,5 +90,44 @@ public class NotifyProps implements Serializable, EnvironmentLoadable {
             entries.addAll(dingtalk.toConfigEntries());
         }
         return entries;
+    }
+
+    /**
+     * 递归收集所有敏感字段（包括子级 MailProps、DingTalkProps）。
+     */
+    @Override
+    public List<SensitiveField> getSensitiveFields() {
+        List<SensitiveField> fields = new ArrayList<>();
+        if (mail != null) {
+            fields.addAll(mail.getSensitiveFields());
+        }
+        if (dingtalk != null) {
+            fields.addAll(dingtalk.getSensitiveFields());
+        }
+        return fields;
+    }
+
+    /**
+     * 返回掩码后的副本（不修改原对象）。
+     */
+    @Override
+    public EnvironmentLoadable forDisplay() {
+        NotifyProps copy = new NotifyProps();
+        copy.setChannels(this.channels);
+        if (this.mail != null) {
+            MailProps mailCopy = new MailProps();
+            mailCopy.setUsername(mail.getUsername());
+            mailCopy.setPassword(SensitiveField.mask(mail.getPassword()));
+            mailCopy.setNotifyTypes(mail.getNotifyTypes());
+            copy.setMail(mailCopy);
+        }
+        if (this.dingtalk != null) {
+            DingTalkProps dtCopy = new DingTalkProps();
+            dtCopy.setWebhookUrl(dingtalk.getWebhookUrl());
+            dtCopy.setSecret(SensitiveField.mask(dingtalk.getSecret()));
+            dtCopy.setNotifyTypes(dingtalk.getNotifyTypes());
+            copy.setDingtalk(dtCopy);
+        }
+        return copy;
     }
 }

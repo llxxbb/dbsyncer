@@ -43,6 +43,17 @@ public final class ConfigKeys {
     public static final String SERVER_CONTEXT_PATH = "server.context-path";
     public static final String SERVER_SESSION_TIMEOUT = "server.session-timeout";
 
+    // ===== A 类：加密密钥配置（只读，不落库，脱敏显示） =====
+
+    /**
+     * 敏感配置加密密钥。
+     * <p>
+     * 优先级：系统属性 > 环境变量 > 缺省值（开发环境）。
+     * <p>
+     * 生产环境务必通过系统属性或环境变量覆盖！
+     */
+    public static final String SERVER_ENCRYPT_KEY = "dbsyncer.encrypt.key";
+
     // ===== A 类：存储连接配置（只读，不落库） =====
 
     public static final String STORAGE_PREFIX = "dbsyncer.storage";

@@ -1,5 +1,6 @@
 package org.dbsyncer.parser.impl;
 
+import org.dbsyncer.common.config.ConfigEncryptor;
 import org.dbsyncer.common.config.ConfigRegistry;
 import org.dbsyncer.common.config.EnvironmentLoadable;
 import org.dbsyncer.common.config.SystemTabEnum;
@@ -47,6 +48,12 @@ public class ConfigBootstrap {
      * @param systemConfig 从 ProfileComponent 获取的 SystemConfig（唯一一次查库的产物）
      */
     public void onPreloadCompleted(SystemConfig systemConfig) {
+        // 0. 解密敏感字段（如果加密了的话）
+        ConfigEncryptor encryptor = ConfigEncryptor.getInstance();
+        if (encryptor != null && encryptor.isAvailable() && systemConfig != null) {
+            systemConfig.decryptSensitiveFields(encryptor);
+        }
+
         // 1. 填充 Registry（DB 数据来自 ProfileComponent，不重复查库）
         configRegistry.init(systemConfig);
 
@@ -82,6 +89,15 @@ public class ConfigBootstrap {
         sb.append("═══════════════════════════════════════════════════════════════════════════════\n");
         sb.append("  配置对照表（schemaVersion=").append(merged.getSchemaVersion()).append("）\n");
         sb.append("  三源：props（Environment）、db（数据库）、final（合并后，DB 优先）\n");
+        
+        // 显示加密密钥来源
+        ConfigEncryptor encryptor = ConfigEncryptor.getInstance();
+        if (encryptor != null && encryptor.isAvailable()) {
+            sb.append("  敏感配置加密：已启用（密钥来源：").append(encryptor.getKeySource()).append("）\n");
+        } else {
+            sb.append("  敏感配置加密：未启用\n");
+        }
+        
         sb.append("═══════════════════════════════════════════════════════════════════════════════");
 
         for (SystemTabEnum tab : SystemTabEnum.values()) {
