@@ -71,7 +71,9 @@ public class ConfigBootstrap {
         // 2. 首次启动无 DB 记录，分配 ID 并 INSERT
         if (systemConfig == null) {
             logger.info("首次启动：使用 props 初始化配置");
-            systemConfig = configRegistry.getConfig();
+            // 深拷贝，避免污染 propsConfig（db 为 null 时 mergedConfig 与 propsConfig 同引用）
+            systemConfig = JsonUtil.jsonToObj(
+                    JsonUtil.objToJson(configRegistry.getConfig()), SystemConfig.class);
             systemConfig.setId(String.valueOf(snowflakeIdWorker.nextId()));
             systemConfig.setName(ConfigConstant.SYSTEM);
             long now = Instant.now().toEpochMilli();
@@ -79,13 +81,15 @@ public class ConfigBootstrap {
             systemConfig.setUpdateTime(now);
             systemConfig.setSchemaVersion(ConfigMigrationService.CURRENT_SCHEMA_VERSION);
             try {
-                // 深拷贝 + 加密后写入 DB，避免污染内存中的明文配置
+                // 加密后写入 DB
                 SystemConfig toStore = JsonUtil.jsonToObj(
                         JsonUtil.objToJson(systemConfig), SystemConfig.class);
                 if (encryptor != null && encryptor.isAvailable()) {
                     toStore.encryptSensitiveFields(encryptor);
                 }
                 profileComponent.addConfigModel(toStore);
+                // 用写入后的副本重新初始化 Registry
+                configRegistry.onDbConfigChanged(systemConfig);
                 logger.info("首次启动：配置已写入数据库");
             } catch (Exception e) {
                 logger.error("首次启动：配置写入数据库失败", e);
@@ -159,7 +163,7 @@ public class ConfigBootstrap {
         }
 
         List<ConfigEntry> propsEntries = entries(tab.getProps(props));
-        List<ConfigEntry> dbEntries = entries(tab.getProps(db));
+        List<ConfigEntry> dbEntries = db != null ? entries(tab.getProps(db)) : Collections.emptyList();
 
         sb.append("\n【").append(tab.getTitle()).append("】\n");
 

@@ -5,6 +5,8 @@ import org.dbsyncer.common.config.EnvironmentLoadable;
 import org.dbsyncer.common.config.SensitiveField;
 import org.springframework.core.env.Environment;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -77,6 +79,7 @@ public class DingTalkProps implements Serializable, EnvironmentLoadable {
     }
 
     @Override
+    @JsonIgnore
     public List<SensitiveField> getSensitiveFields() {
         return Collections.singletonList(
             new SensitiveField("dingtalk.secret", () -> secret, v -> this.secret = v)

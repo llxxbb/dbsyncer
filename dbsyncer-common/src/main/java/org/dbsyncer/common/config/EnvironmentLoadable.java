@@ -1,5 +1,6 @@
 package org.dbsyncer.common.config;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.dbsyncer.common.config.props.ConfigEntry;
 import org.springframework.core.env.Environment;
 
@@ -52,6 +53,7 @@ public interface EnvironmentLoadable {
      *
      * @return 敏感字段列表，不为 null
      */
+    @JsonIgnore
     default List<SensitiveField> getSensitiveFields() {
         return Collections.emptyList();
     }
@@ -64,6 +66,7 @@ public interface EnvironmentLoadable {
      *
      * @return 掩码后的副本，或 this（如果不需掩码）
      */
+    @JsonIgnore
     default EnvironmentLoadable forDisplay() {
         return this;
     }

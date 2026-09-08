@@ -5,6 +5,8 @@ import org.dbsyncer.common.config.EnvironmentLoadable;
 import org.dbsyncer.common.config.SensitiveField;
 import org.springframework.core.env.Environment;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -96,6 +98,7 @@ public class NotifyProps implements Serializable, EnvironmentLoadable {
      * 递归收集所有敏感字段（包括子级 MailProps、DingTalkProps）。
      */
     @Override
+    @JsonIgnore
     public List<SensitiveField> getSensitiveFields() {
         List<SensitiveField> fields = new ArrayList<>();
         if (mail != null) {
@@ -111,6 +114,7 @@ public class NotifyProps implements Serializable, EnvironmentLoadable {
      * 返回掩码后的副本（不修改原对象）。
      */
     @Override
+    @JsonIgnore
     public EnvironmentLoadable forDisplay() {
         NotifyProps copy = new NotifyProps();
         copy.setChannels(this.channels);
