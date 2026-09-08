@@ -53,6 +53,10 @@ public final class ConfigKeys {
      * 生产环境务必通过系统属性或环境变量覆盖！
      */
     public static final String SERVER_ENCRYPT_KEY = "dbsyncer.encrypt.key";
+    /**
+     * 加密密钥来源描述（用于 UI 展示）。
+     */
+    public static final String SERVER_ENCRYPT_KEY_SOURCE = "dbsyncer.encrypt.key.source";
 
     // ===== A 类：存储连接配置（只读，不落库） =====
 

@@ -39,10 +39,13 @@ public class SensitiveField {
     }
 
     /**
-     * 判断当前值是否为掩码值（用于保存保护：前端传回掩码时保留原值）。
+     * 判断当前值是否为“未修改”状态（用于保存保护）。
+     * <p>
+     * 未修改状态：空字符串或 null（前端未输入新值）。
      */
-    public boolean isMaskedValue() {
-        return MASK.equals(getter.get());
+    public boolean isUnchanged() {
+        String val = getter.get();
+        return val == null || val.isEmpty();
     }
 
     /**
@@ -77,8 +80,25 @@ public class SensitiveField {
 
     /**
      * 对字符串执行掩码（静态工具方法，供 forDisplay() 使用）。
+     * <p>
+     * 脱敏规则：
+     * <ul>
+     *   <li>长度 <= 4：全掩码 ****</li>
+     *   <li>长度 <= 8：前2后2，中间 ****</li>
+     *   <li>长度 > 8：前4后4，中间 ****</li>
+     * </ul>
      */
     public static String mask(String value) {
-        return (value != null && !value.isEmpty()) ? MASK : "";
+        if (value == null || value.isEmpty()) {
+            return "";
+        }
+        int len = value.length();
+        if (len <= 4) {
+            return "****";
+        } else if (len <= 8) {
+            return value.substring(0, 2) + "****" + value.substring(len - 2);
+        } else {
+            return value.substring(0, 4) + "****" + value.substring(len - 4);
+        }
     }
 }

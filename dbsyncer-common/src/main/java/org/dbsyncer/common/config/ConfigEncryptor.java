@@ -1,5 +1,6 @@
 package org.dbsyncer.common.config;
 
+import org.dbsyncer.common.config.props.EncryptKeyProps;
 import org.dbsyncer.common.util.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,14 +33,6 @@ public class ConfigEncryptor {
     private static final String TRANSFORMATION = "AES/GCM/NoPadding";
     private static final int GCM_IV_LENGTH = 12;
     private static final int GCM_TAG_LENGTH = 128;
-    private static final String ENV_KEY = "DBSYNCER_ENCRYPT_KEY";
-
-    /**
-     * 缺省加密密钥（仅开发环境使用）。
-     * <p>
-     * 生产环境务必通过系统属性或环境变量覆盖！
-     */
-    private static final String DEFAULT_KEY = "dbsyncer-dev-default-key-2024";
 
     /** 密文前缀标识，用于区分加密值和明文旧数据 */
     private static final String ENCRYPTED_PREFIX = "ENC:";
@@ -56,17 +49,42 @@ public class ConfigEncryptor {
     }
 
     /**
-     * 获取全局实例。
+     * 从 EncryptKeyProps 创建实例。
+     */
+    public static ConfigEncryptor fromProps(EncryptKeyProps props) {
+        if (props == null) {
+            logger.warn("EncryptKeyProps 为空，使用缺省密钥");
+            return createDefault();
+        }
+        logger.info("敏感配置加密密钥来源: {}", props.getKeySource());
+        return new ConfigEncryptor(props.getKeyValue(), props.getKeySource());
+    }
+
+    /**
+     * 获取全局实例（向后兼容）。
      */
     public static ConfigEncryptor getInstance() {
         if (instance == null) {
             synchronized (ConfigEncryptor.class) {
                 if (instance == null) {
-                    instance = createInstance();
+                    instance = createDefault();
                 }
             }
         }
         return instance;
+    }
+
+    /**
+     * 设置全局实例（由 ConfigBootstrap 调用）。
+     */
+    public static void setInstance(ConfigEncryptor encryptor) {
+        instance = encryptor;
+    }
+
+    private static ConfigEncryptor createDefault() {
+        EncryptKeyProps props = new EncryptKeyProps();
+        props.loadFromEnvironment();
+        return fromProps(props);
     }
 
     /**
@@ -142,27 +160,6 @@ public class ConfigEncryptor {
             logger.warn("解密失败（可能是明文旧数据或密钥不匹配）: {}", e.getMessage());
             return value;
         }
-    }
-
-    private static ConfigEncryptor createInstance() {
-        // 1. 优先系统属性
-        String key = System.getProperty(ConfigKeys.SERVER_ENCRYPT_KEY);
-        if (StringUtil.isNotBlank(key)) {
-            logger.info("敏感配置加密密钥来源: 系统属性 ({})", ConfigKeys.SERVER_ENCRYPT_KEY);
-            return new ConfigEncryptor(key, "系统属性");
-        }
-
-        // 2. 其次环境变量
-        key = System.getenv(ENV_KEY);
-        if (StringUtil.isNotBlank(key)) {
-            logger.info("敏感配置加密密钥来源: 环境变量 ({})", ENV_KEY);
-            return new ConfigEncryptor(key, "环境变量");
-        }
-
-        // 3. 缺省值（仅开发环境）
-        logger.warn("未配置加密密钥，使用缺省值（仅适用于开发环境）。生产环境请通过 -D{}=<密钥> 或环境变量 {} 配置！",
-                ConfigKeys.SERVER_ENCRYPT_KEY, ENV_KEY);
-        return new ConfigEncryptor(DEFAULT_KEY, "缺省值（开发环境）");
     }
 
     /**

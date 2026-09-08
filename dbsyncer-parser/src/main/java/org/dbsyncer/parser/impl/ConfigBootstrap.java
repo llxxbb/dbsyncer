@@ -5,6 +5,7 @@ import org.dbsyncer.common.config.ConfigRegistry;
 import org.dbsyncer.common.config.EnvironmentLoadable;
 import org.dbsyncer.common.config.SystemTabEnum;
 import org.dbsyncer.common.config.props.ConfigEntry;
+import org.dbsyncer.common.config.props.EncryptKeyProps;
 import org.dbsyncer.common.model.SystemConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,31 +41,37 @@ public class ConfigBootstrap {
     /**
      * 预加载完成后调用。
      * <p>
-     * 编排三件事：
-     * 1. 将 ProfileComponent 中的 SystemConfig 填充到 Registry（不重复查库）
-     * 2. 执行配置迁移
-     * 3. 打印配置对照表
+     * 编排四件事：
+     * 1. 初始化加密器（从 EncryptKeyProps 获取密钥）
+     * 2. 解密敏感字段
+     * 3. 填充 Registry
+     * 4. 执行配置迁移
+     * 5. 打印配置对照表
      *
      * @param systemConfig 从 ProfileComponent 获取的 SystemConfig（唯一一次查库的产物）
      */
     public void onPreloadCompleted(SystemConfig systemConfig) {
-        // 0. 解密敏感字段（如果加密了的话）
-        ConfigEncryptor encryptor = ConfigEncryptor.getInstance();
+        // 0. 初始化加密器（从 propsConfig 的 EncryptKeyProps 获取密钥）
+        EncryptKeyProps encryptKeyProps = configRegistry.getPropsConfig().getEncryptKey();
+        ConfigEncryptor encryptor = ConfigEncryptor.fromProps(encryptKeyProps);
+        ConfigEncryptor.setInstance(encryptor);
+
+        // 1. 解密敏感字段（如果加密了的话）
         if (encryptor != null && encryptor.isAvailable() && systemConfig != null) {
             systemConfig.decryptSensitiveFields(encryptor);
         }
 
-        // 1. 填充 Registry（DB 数据来自 ProfileComponent，不重复查库）
+        // 2. 填充 Registry（DB 数据来自 ProfileComponent，不重复查库）
         configRegistry.init(systemConfig);
 
-        // 2. 配置迁移
+        // 3. 配置迁移
         try {
             configMigrationService.migrateIfNeeded();
         } catch (Exception e) {
             logger.error("配置迁移失败", e);
         }
 
-        // 3. 打印配置对照表
+        // 4. 打印配置对照表
         try {
             printStartupTable();
         } catch (Exception e) {

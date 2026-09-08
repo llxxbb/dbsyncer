@@ -46,6 +46,10 @@ public enum SystemTabEnum {
     LICENSE(ConfigCategory.A, "A类：许可证配置",
             SystemConfig::getLicense, (c, p) -> c.setLicense((LicenseProps) p), LicenseProps.class),
 
+    /** 加密密钥配置（A 类：环境敏感，只读展示密钥来源） */
+    ENCRYPT_KEY(ConfigCategory.A, "A类：加密密钥配置",
+            SystemConfig::getEncryptKey, (c, p) -> c.setEncryptKey((EncryptKeyProps) p), EncryptKeyProps.class),
+
     // ===== 基础设置 =====
 
     BASIC(ConfigCategory.C, "基础配置",

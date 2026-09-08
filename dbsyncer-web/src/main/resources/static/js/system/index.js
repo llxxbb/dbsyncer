@@ -107,14 +107,28 @@ function fillNotifyTab(notify) {
     // mail
     if (notify.mail) {
         $('#notify_mail_username').val(notify.mail.username || '');
-        // 密码掩码预填（保存时若未修改则保留原值）
-        $('#notify_mail_password').val(notify.mail.password || '');
+        // 密码：如果是掩码值，显示在 placeholder 中，value 留空
+        var pwd = notify.mail.password;
+        if (pwd && pwd.indexOf('****') >= 0) {
+            $('#notify_mail_password').attr('placeholder', '已配置 (' + pwd + ')，留空则保留原值');
+            $('#notify_mail_password').val('');
+        } else {
+            $('#notify_mail_password').attr('placeholder', '未配置，请输入');
+            $('#notify_mail_password').val('');
+        }
     }
     // dingtalk
     if (notify.dingtalk) {
         $('#notify_dingtalk_webhookUrl').val(notify.dingtalk.webhookUrl || '');
-        // 密钥掩码预填（保存时若未修改则保留原值）
-        $('#notify_dingtalk_secret').val(notify.dingtalk.secret || '');
+        // 密钥：如果是掩码值，显示在 placeholder 中，value 留空
+        var secret = notify.dingtalk.secret;
+        if (secret && secret.indexOf('****') >= 0) {
+            $('#notify_dingtalk_secret').attr('placeholder', '已配置 (' + secret + ')，留空则保留原值');
+            $('#notify_dingtalk_secret').val('');
+        } else {
+            $('#notify_dingtalk_secret').attr('placeholder', '未配置，请输入');
+            $('#notify_dingtalk_secret').val('');
+        }
     }
 }
 

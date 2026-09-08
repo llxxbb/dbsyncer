@@ -144,6 +144,7 @@ public class ConfigRegistry {
         config.setHelpdoc(load(HelpdocProps::new));
         config.setWorker(load(WorkerProps::new));
         config.setLicense(load(LicenseProps::new));
+        config.setEncryptKey(load(EncryptKeyProps::new));
 
         // ===== B 类 =====
         config.setExecutors(load(ExecutorProps::new));

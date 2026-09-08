@@ -52,6 +52,10 @@ public class SystemConfig extends ConfigModel {
     @JsonIgnore
     private LicenseProps license;
 
+    /** 加密密钥配置（A 类：环境敏感，只读展示） */
+    @JsonIgnore
+    private EncryptKeyProps encryptKey;
+
     // ===== 运行时控制（C 类：立即生效） =====
 
     private RuntimeProps runtime;
@@ -145,6 +149,14 @@ public class SystemConfig extends ConfigModel {
 
     public void setLicense(LicenseProps license) {
         this.license = license;
+    }
+
+    public EncryptKeyProps getEncryptKey() {
+        return encryptKey;
+    }
+
+    public void setEncryptKey(EncryptKeyProps encryptKey) {
+        this.encryptKey = encryptKey;
     }
 
     // ===== B 类子对象 =====
@@ -298,7 +310,8 @@ public class SystemConfig extends ConfigModel {
             exMap.put(f.getName(), f);
         }
         for (SensitiveField inField : incoming) {
-            if (inField.isMaskedValue()) {
+            // 前端未输入新值（空字符串）时，保留原值
+            if (inField.isUnchanged()) {
                 SensitiveField exField = exMap.get(inField.getName());
                 if (exField != null && exField.getValue() != null) {
                     inField.setValue(exField.getValue());
