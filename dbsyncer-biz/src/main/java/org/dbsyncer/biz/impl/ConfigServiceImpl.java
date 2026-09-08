@@ -217,17 +217,9 @@ public class ConfigServiceImpl implements ConfigService {
     public Map<String, Object> getTabs() throws Exception {
         SystemConfig config = configRegistry.getConfig();
         Map<String, Object> result = new LinkedHashMap<>();
-        // 基础 + B 类
-        result.put("basic", config.getBasic());
-        result.put("executors", config.getExecutors());
-        result.put("buffers", config.getBuffers());
-        // C 类
-        result.put("monitor", config.getMonitor());
-        result.put("retry", config.getRetry());
-        result.put("notify", config.getNotify());
-        result.put("error", config.getError());
-        result.put("runtime", config.getRuntime());
-        result.put("template", config.getTemplate());
+        for (SystemTabEnum tab : SystemTabEnum.getEditableTabs()) {
+            result.put(tab.getKey(), tab.getProps(config));
+        }
         return result;
     }
 
@@ -331,37 +323,7 @@ public class ConfigServiceImpl implements ConfigService {
     }
 
     private void setTabProps(SystemConfig cfg, SystemTabEnum tabEnum, Object props) {
-        switch (tabEnum) {
-            case BASIC:
-                cfg.setBasic((BasicProps) props);
-                break;
-            case EXECUTORS:
-                cfg.setExecutors((ExecutorProps) props);
-                break;
-            case BUFFERS:
-                cfg.setBuffers((BufferProps) props);
-                break;
-            case MONITOR:
-                cfg.setMonitor((MonitorProps) props);
-                break;
-            case RETRY:
-                cfg.setRetry((RetryProps) props);
-                break;
-            case NOTIFY:
-                cfg.setNotify((NotifyProps) props);
-                break;
-            case ERROR:
-                cfg.setError((ErrorProps) props);
-                break;
-            case RUNTIME:
-                cfg.setRuntime((RuntimeProps) props);
-                break;
-            case TEMPLATE:
-                cfg.setTemplate((TemplateProps) props);
-                break;
-            default:
-                break;
-        }
+        tabEnum.setProps(cfg, props);
     }
 
     /**

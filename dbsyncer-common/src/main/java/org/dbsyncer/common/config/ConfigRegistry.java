@@ -104,29 +104,21 @@ public class ConfigRegistry {
     }
 
     /**
-     * 合并策略：A 类只取 Environment，B/C 类 DB 优先、Environment 兜底。
+     * 合并策略：由 {@link SystemTabEnum} 驱动。
+     * <p>
+     * A 类只取 Environment，B/C 类 DB 优先、Environment 兜底。
      */
     private SystemConfig merge(SystemConfig props, SystemConfig db) {
         SystemConfig merged = new SystemConfig();
 
-        // A 类：只从 Environment（不落库）
-        merged.setServer(props.getServer());
-        merged.setStorageConn(props.getStorageConn());
-        merged.setLogging(props.getLogging());
-        merged.setHelpdoc(props.getHelpdoc());
-        merged.setWorker(props.getWorker());
-        merged.setLicense(props.getLicense());
-
-        // B/C 类：DB 优先
-        merged.setExecutors(db.getExecutors() != null ? db.getExecutors() : props.getExecutors());
-        merged.setBuffers(db.getBuffers() != null ? db.getBuffers() : props.getBuffers());
-        merged.setMonitor(db.getMonitor() != null ? db.getMonitor() : props.getMonitor());
-        merged.setRetry(db.getRetry() != null ? db.getRetry() : props.getRetry());
-        merged.setNotify(db.getNotify() != null ? db.getNotify() : props.getNotify());
-        merged.setError(db.getError() != null ? db.getError() : props.getError());
-        merged.setBasic(db.getBasic() != null ? db.getBasic() : props.getBasic());
-        merged.setRuntime(db.getRuntime() != null ? db.getRuntime() : props.getRuntime());
-        merged.setTemplate(db.getTemplate() != null ? db.getTemplate() : props.getTemplate());
+        for (SystemTabEnum tab : SystemTabEnum.values()) {
+            if (tab.isEnvironmentOnly()) {
+                tab.setProps(merged, tab.getProps(props));
+            } else {
+                EnvironmentLoadable dbProps = tab.getProps(db);
+                tab.setProps(merged, dbProps != null ? dbProps : tab.getProps(props));
+            }
+        }
 
         // schemaVersion 从 DB 取
         merged.setSchemaVersion(db.getSchemaVersion());

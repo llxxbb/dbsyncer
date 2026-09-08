@@ -31,6 +31,7 @@ function fillBasicTab(basic) {
     $('#basic_enableWatermark').prop('checked', basic.enableWatermark === true);
     $('#basic_watermark').val(basic.watermark || '');
     $('#basic_enablePrintTraceInfo').prop('checked', basic.enablePrintTraceInfo === true);
+    $('#basic_resetPwd').prop('checked', basic.resetPwd === true);
     toggleWatermark();
     toggleStorageErrorLength();
 }
@@ -167,7 +168,8 @@ function buildPayload(tab) {
                 enableSchemaResolver: $('#basic_enableSchemaResolver').is(':checked'),
                 enableWatermark: $('#basic_enableWatermark').is(':checked'),
                 watermark: $('#basic_watermark').val(),
-                enablePrintTraceInfo: $('#basic_enablePrintTraceInfo').is(':checked')
+                enablePrintTraceInfo: $('#basic_enablePrintTraceInfo').is(':checked'),
+                resetPwd: $('#basic_resetPwd').is(':checked')
             };
         case 'executors':
             return {
