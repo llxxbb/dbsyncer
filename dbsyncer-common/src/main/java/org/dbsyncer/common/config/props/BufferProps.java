@@ -76,6 +76,29 @@ public class BufferProps implements Serializable, EnvironmentLoadable {
         return errors;
     }
 
+    /**
+     * 反序列化后重新注入子对象 BufferActuatorProps 的配置键。
+     * <p>
+     * DB 反序列化的 JSON 不包含 *Key 字段，需在此补回。
+     */
+    @Override
+    public void afterDeserialize() {
+        if (general != null) {
+            general.setConfigKeys(
+                    ConfigKeys.BUFFER_GENERAL_WRITER_COUNT,
+                    ConfigKeys.BUFFER_GENERAL_PULL_COUNT,
+                    ConfigKeys.BUFFER_GENERAL_QUEUE_CAPACITY,
+                    ConfigKeys.BUFFER_GENERAL_PERIOD_MILLISECOND);
+        }
+        if (storage != null) {
+            storage.setConfigKeys(
+                    ConfigKeys.BUFFER_STORAGE_WRITER_COUNT,
+                    ConfigKeys.BUFFER_STORAGE_PULL_COUNT,
+                    ConfigKeys.BUFFER_STORAGE_QUEUE_CAPACITY,
+                    ConfigKeys.BUFFER_STORAGE_PERIOD_MILLISECOND);
+        }
+    }
+
     @Override
     public List<ConfigEntry> toConfigEntries() {
         List<ConfigEntry> entries = new ArrayList<>();

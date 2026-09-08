@@ -70,4 +70,17 @@ public interface EnvironmentLoadable {
     default EnvironmentLoadable forDisplay() {
         return this;
     }
+
+    /**
+     * 反序列化后的后处理钩子。
+     * <p>
+     * 复合 Props（如 {@code ExecutorProps}、{@code BufferProps}）从 JSON 反序列化后，
+     * 子对象的运行时注入字段（如 {@code PoolProps} 的 {@code *Key}）为 null。
+     * 覆写此方法重新注入，确保 {@link #toConfigEntries()} 等方法正常工作。
+     * <p>
+     * 由 {@code ConfigRegistry} 在 merge 完成后统一调用。
+     */
+    default void afterDeserialize() {
+        // 默认无操作
+    }
 }

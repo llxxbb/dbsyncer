@@ -108,6 +108,22 @@ public class ConfigBootstrap {
         sb.append("═══════════════════════════════════════════════════════════════════════════════");
 
         for (SystemTabEnum tab : SystemTabEnum.values()) {
+            EnvironmentLoadable mergedProps = tab.getProps(merged);
+            EnvironmentLoadable propsProps = tab.getProps(props);
+            EnvironmentLoadable dbProps = tab.getProps(db);
+            logger.info("Tab {}: mergedProps={}, dbProps={}, propsProps={}",
+                    tab.name(),
+                    mergedProps != null ? mergedProps.getClass().getSimpleName() : "null",
+                    dbProps != null ? dbProps.getClass().getSimpleName() : "null",
+                    propsProps != null ? propsProps.getClass().getSimpleName() : "null");
+            if (mergedProps != null) {
+                java.util.List<ConfigEntry> testEntries = mergedProps.toConfigEntries();
+                logger.info("  merged entries count: {}", testEntries.size());
+                if (!testEntries.isEmpty()) {
+                    ConfigEntry first = testEntries.get(0);
+                    logger.info("  first entry: key={}, value={}", first.getKey(), first.getDisplayValue());
+                }
+            }
             printSection(sb, tab, props, db, merged);
         }
 

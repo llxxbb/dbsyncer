@@ -123,6 +123,14 @@ public class ConfigRegistry {
         // schemaVersion 从 DB 取
         merged.setSchemaVersion(db.getSchemaVersion());
 
+        // 反序列化后处理：复合 Props（如 ExecutorProps、BufferProps）重新注入子对象的运行时字段
+        for (SystemTabEnum tab : SystemTabEnum.values()) {
+            EnvironmentLoadable mergedProps = tab.getProps(merged);
+            if (mergedProps != null) {
+                mergedProps.afterDeserialize();
+            }
+        }
+
         return merged;
     }
 
