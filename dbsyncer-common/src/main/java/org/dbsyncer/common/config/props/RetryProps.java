@@ -192,17 +192,17 @@ public class RetryProps implements Serializable, EnvironmentLoadable {
      */
     public List<ConfigEntry> toConfigEntries() {
         List<ConfigEntry> entries = new ArrayList<>();
-        entries.add(new ConfigEntry("dbsyncer.retry.global.disable", disable));
-        entries.add(new ConfigEntry("dbsyncer.retry.global.max-attempts", maxAttempts));
-        entries.add(new ConfigEntry("dbsyncer.retry.global.initial-interval-ms", initialIntervalMs));
-        entries.add(new ConfigEntry("dbsyncer.retry.global.max-interval-ms", maxIntervalMs));
-        entries.add(new ConfigEntry("dbsyncer.retry.global.multiplier", multiplier));
-        entries.add(new ConfigEntry("dbsyncer.retry.global.max-duration-ms", maxDurationMs));
-        entries.add(new ConfigEntry("dbsyncer.retry.global.termination-mode", terminationMode));
-        entries.add(new ConfigEntry("dbsyncer.retry.global.use-keyword", useKeyword));
-        entries.add(new ConfigEntry("dbsyncer.retry.global.match-mode", matchMode));
-        entries.add(new ConfigEntry("dbsyncer.retry.global.keywords", keywords));
-        entries.add(new ConfigEntry("dbsyncer.retry.global.exclude-keywords", excludeKeywords));
+        entries.add(new ConfigEntry(ConfigKeys.RETRY_DISABLE, disable));
+        entries.add(new ConfigEntry(ConfigKeys.RETRY_MAX_ATTEMPTS, maxAttempts));
+        entries.add(new ConfigEntry(ConfigKeys.RETRY_INITIAL_INTERVAL_MS, initialIntervalMs));
+        entries.add(new ConfigEntry(ConfigKeys.RETRY_MAX_INTERVAL_MS, maxIntervalMs));
+        entries.add(new ConfigEntry(ConfigKeys.RETRY_MULTIPLIER, multiplier));
+        entries.add(new ConfigEntry(ConfigKeys.RETRY_MAX_DURATION_MS, maxDurationMs));
+        entries.add(new ConfigEntry(ConfigKeys.RETRY_TERMINATION_MODE, terminationMode));
+        entries.add(new ConfigEntry(ConfigKeys.RETRY_USE_KEYWORD, useKeyword));
+        entries.add(new ConfigEntry(ConfigKeys.RETRY_MATCH_MODE, matchMode));
+        entries.add(new ConfigEntry(ConfigKeys.RETRY_KEYWORDS, keywords));
+        entries.add(new ConfigEntry(ConfigKeys.RETRY_EXCLUDE_KEYWORDS, excludeKeywords));
         return entries;
     }
 }

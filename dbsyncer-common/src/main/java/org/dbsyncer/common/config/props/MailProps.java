@@ -1,5 +1,7 @@
 package org.dbsyncer.common.config.props;
 
+import org.dbsyncer.common.config.ConfigKeys;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -54,9 +56,9 @@ public class MailProps implements Serializable {
      */
     public List<ConfigEntry> toConfigEntries() {
         List<ConfigEntry> entries = new ArrayList<>();
-        entries.add(new ConfigEntry("dbsyncer.plugin.notify.mail.username", username));
-        entries.add(new ConfigEntry("dbsyncer.plugin.notify.mail.password", password, true));
-        entries.add(new ConfigEntry("dbsyncer.plugin.notify.mail.notify-types", notifyTypes));
+        entries.add(new ConfigEntry(ConfigKeys.NOTIFY_MAIL_USERNAME, username));
+        entries.add(new ConfigEntry(ConfigKeys.NOTIFY_MAIL_PASSWORD, password, true));
+        entries.add(new ConfigEntry(ConfigKeys.NOTIFY_MAIL_NOTIFY_TYPES, notifyTypes));
         return entries;
     }
 }

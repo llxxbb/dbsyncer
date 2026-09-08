@@ -97,16 +97,16 @@ public class ServerProps implements Serializable, EnvironmentLoadable {
      */
     public List<ConfigEntry> toConfigEntries() {
         List<ConfigEntry> entries = new ArrayList<>();
-        entries.add(new ConfigEntry("server.port", port));
-        entries.add(new ConfigEntry("server.ssl.enabled", sslEnabled));
-        entries.add(new ConfigEntry("server.ssl.key-store", sslKeyStore));
-        entries.add(new ConfigEntry("server.ssl.key-store-password", sslKeyStorePassword, true));
-        entries.add(new ConfigEntry("server.ssl.key-store-type", sslKeyStoreType));
-        entries.add(new ConfigEntry("server.ssl.key-alias", sslKeyAlias));
-        entries.add(new ConfigEntry("server.http.port", httpPort));
-        entries.add(new ConfigEntry("server.http.redirect", httpRedirect));
-        entries.add(new ConfigEntry("server.context-path", contextPath));
-        entries.add(new ConfigEntry("server.session-timeout", sessionTimeout));
+        entries.add(new ConfigEntry(ConfigKeys.SERVER_PORT, port));
+        entries.add(new ConfigEntry(ConfigKeys.SERVER_SSL_ENABLED, sslEnabled));
+        entries.add(new ConfigEntry(ConfigKeys.SERVER_SSL_KEY_STORE, sslKeyStore));
+        entries.add(new ConfigEntry(ConfigKeys.SERVER_SSL_KEY_STORE_PASSWORD, sslKeyStorePassword, true));
+        entries.add(new ConfigEntry(ConfigKeys.SERVER_SSL_KEY_STORE_TYPE, sslKeyStoreType));
+        entries.add(new ConfigEntry(ConfigKeys.SERVER_SSL_KEY_ALIAS, sslKeyAlias));
+        entries.add(new ConfigEntry(ConfigKeys.SERVER_HTTP_PORT, httpPort));
+        entries.add(new ConfigEntry(ConfigKeys.SERVER_HTTP_REDIRECT, httpRedirect));
+        entries.add(new ConfigEntry(ConfigKeys.SERVER_CONTEXT_PATH, contextPath));
+        entries.add(new ConfigEntry(ConfigKeys.SERVER_SESSION_TIMEOUT, sessionTimeout));
         return entries;
     }
 }

@@ -162,17 +162,17 @@ public class BasicProps implements Serializable, EnvironmentLoadable {
      */
     public List<ConfigEntry> toConfigEntries() {
         List<ConfigEntry> entries = new ArrayList<>();
-        entries.add(new ConfigEntry("basic.expire-data-days", expireDataDays));
-        entries.add(new ConfigEntry("basic.expire-log-days", expireLogDays));
-        entries.add(new ConfigEntry("basic.refresh-interval-seconds", refreshIntervalSeconds));
-        entries.add(new ConfigEntry("basic.enable-storage-write-fail", enableStorageWriteFail));
-        entries.add(new ConfigEntry("basic.max-storage-error-length", maxStorageErrorLength));
-        entries.add(new ConfigEntry("basic.enable-cdn", enableCDN));
-        entries.add(new ConfigEntry("basic.enable-watermark", enableWatermark));
-        entries.add(new ConfigEntry("basic.watermark", watermark));
-        entries.add(new ConfigEntry("basic.enable-schema-resolver", enableSchemaResolver));
-        entries.add(new ConfigEntry("basic.enable-print-trace-info", enablePrintTraceInfo));
-        entries.add(new ConfigEntry("basic.reset-pwd", resetPwd));
+        entries.add(new ConfigEntry(ConfigKeys.BASIC_EXPIRE_DATA_DAYS, expireDataDays));
+        entries.add(new ConfigEntry(ConfigKeys.BASIC_EXPIRE_LOG_DAYS, expireLogDays));
+        entries.add(new ConfigEntry(ConfigKeys.BASIC_REFRESH_INTERVAL_SECONDS, refreshIntervalSeconds));
+        entries.add(new ConfigEntry(ConfigKeys.BASIC_ENABLE_STORAGE_WRITE_FAIL, enableStorageWriteFail));
+        entries.add(new ConfigEntry(ConfigKeys.BASIC_MAX_STORAGE_ERROR_LENGTH, maxStorageErrorLength));
+        entries.add(new ConfigEntry(ConfigKeys.BASIC_ENABLE_CDN, enableCDN));
+        entries.add(new ConfigEntry(ConfigKeys.BASIC_ENABLE_WATERMARK, enableWatermark));
+        entries.add(new ConfigEntry(ConfigKeys.BASIC_WATERMARK, watermark));
+        entries.add(new ConfigEntry(ConfigKeys.BASIC_ENABLE_SCHEMA_RESOLVER, enableSchemaResolver));
+        entries.add(new ConfigEntry(ConfigKeys.BASIC_ENABLE_PRINT_TRACE_INFO, enablePrintTraceInfo));
+        entries.add(new ConfigEntry(ConfigKeys.BASIC_RESET_PWD, resetPwd));
         return entries;
     }
 }

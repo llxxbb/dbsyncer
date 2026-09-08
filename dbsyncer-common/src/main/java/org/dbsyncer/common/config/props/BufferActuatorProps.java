@@ -71,14 +71,18 @@ public class BufferActuatorProps implements Serializable {
 
     /**
      * 返回配置条目列表，用于启动期配置对照表打印。
-     * @param prefix 配置键前缀（如 dbsyncer.parser.general）
+     *
+     * @param writerCountKey       写入线程数配置键（引用 {@link org.dbsyncer.common.config.ConfigKeys}）
+     * @param pullCountKey         每次消费任务数配置键
+     * @param queueCapacityKey     队列容量配置键
+     * @param periodMillisecondKey 消费间隔配置键
      */
-    public List<ConfigEntry> toConfigEntries(String prefix) {
+    public List<ConfigEntry> toConfigEntries(String writerCountKey, String pullCountKey, String queueCapacityKey, String periodMillisecondKey) {
         List<ConfigEntry> entries = new ArrayList<>();
-        entries.add(new ConfigEntry(prefix + ".buffer-writer-count", bufferWriterCount));
-        entries.add(new ConfigEntry(prefix + ".buffer-pull-count", bufferPullCount));
-        entries.add(new ConfigEntry(prefix + ".buffer-queue-capacity", bufferQueueCapacity));
-        entries.add(new ConfigEntry(prefix + ".buffer-period-millisecond", bufferPeriodMillisecond));
+        entries.add(new ConfigEntry(writerCountKey, bufferWriterCount));
+        entries.add(new ConfigEntry(pullCountKey, bufferPullCount));
+        entries.add(new ConfigEntry(queueCapacityKey, bufferQueueCapacity));
+        entries.add(new ConfigEntry(periodMillisecondKey, bufferPeriodMillisecond));
         return entries;
     }
 }

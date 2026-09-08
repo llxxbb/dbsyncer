@@ -123,12 +123,12 @@ public class MonitorProps implements Serializable, EnvironmentLoadable {
      */
     public List<ConfigEntry> toConfigEntries() {
         List<ConfigEntry> entries = new ArrayList<>();
-        entries.add(new ConfigEntry("dbsyncer.monitor.scheduler-pool-size", schedulerPoolSize));
-        entries.add(new ConfigEntry("dbsyncer.monitor.cpu-memory-interval-ms", cpuMemoryIntervalMs));
-        entries.add(new ConfigEntry("dbsyncer.monitor.health-check-interval-ms", healthCheckIntervalMs));
-        entries.add(new ConfigEntry("dbsyncer.monitor.cleanup-interval-ms", cleanupIntervalMs));
-        entries.add(new ConfigEntry("dbsyncer.monitor.metric-report-interval-ms", metricReportIntervalMs));
-        entries.add(new ConfigEntry("dbsyncer.monitor.alert-cron", alertCron));
+        entries.add(new ConfigEntry(ConfigKeys.MONITOR_SCHEDULER_POOL_SIZE, schedulerPoolSize));
+        entries.add(new ConfigEntry(ConfigKeys.MONITOR_CPU_MEMORY_INTERVAL_MS, cpuMemoryIntervalMs));
+        entries.add(new ConfigEntry(ConfigKeys.MONITOR_HEALTH_CHECK_INTERVAL_MS, healthCheckIntervalMs));
+        entries.add(new ConfigEntry(ConfigKeys.MONITOR_CLEANUP_INTERVAL_MS, cleanupIntervalMs));
+        entries.add(new ConfigEntry(ConfigKeys.MONITOR_METRIC_REPORT_INTERVAL_MS, metricReportIntervalMs));
+        entries.add(new ConfigEntry(ConfigKeys.MONITOR_ALERT_CRON, alertCron));
         return entries;
     }
 }

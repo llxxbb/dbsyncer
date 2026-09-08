@@ -91,7 +91,7 @@ public class NotifyProps implements Serializable, EnvironmentLoadable {
      */
     public List<ConfigEntry> toConfigEntries() {
         List<ConfigEntry> entries = new ArrayList<>();
-        entries.add(new ConfigEntry("dbsyncer.plugin.notify.channels", channels));
+        entries.add(new ConfigEntry(ConfigKeys.NOTIFY_CHANNELS, channels));
         if (mail != null) {
             entries.addAll(mail.toConfigEntries());
         }

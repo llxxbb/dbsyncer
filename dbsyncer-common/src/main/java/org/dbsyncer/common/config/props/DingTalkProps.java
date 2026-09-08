@@ -1,5 +1,7 @@
 package org.dbsyncer.common.config.props;
 
+import org.dbsyncer.common.config.ConfigKeys;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -54,9 +56,9 @@ public class DingTalkProps implements Serializable {
      */
     public List<ConfigEntry> toConfigEntries() {
         List<ConfigEntry> entries = new ArrayList<>();
-        entries.add(new ConfigEntry("dbsyncer.plugin.notify.dingtalk.webhook-url", webhookUrl, true));
-        entries.add(new ConfigEntry("dbsyncer.plugin.notify.dingtalk.secret", secret, true));
-        entries.add(new ConfigEntry("dbsyncer.plugin.notify.dingtalk.notify-types", notifyTypes));
+        entries.add(new ConfigEntry(ConfigKeys.NOTIFY_DINGTALK_WEBHOOK_URL, webhookUrl, true));
+        entries.add(new ConfigEntry(ConfigKeys.NOTIFY_DINGTALK_SECRET, secret, true));
+        entries.add(new ConfigEntry(ConfigKeys.NOTIFY_DINGTALK_NOTIFY_TYPES, notifyTypes));
         return entries;
     }
 }

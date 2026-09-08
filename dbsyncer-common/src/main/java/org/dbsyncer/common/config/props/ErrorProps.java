@@ -80,9 +80,9 @@ public class ErrorProps implements Serializable, EnvironmentLoadable {
      */
     public List<ConfigEntry> toConfigEntries() {
         List<ConfigEntry> entries = new ArrayList<>();
-        entries.add(new ConfigEntry("dbsyncer.error.threshold", threshold));
-        entries.add(new ConfigEntry("dbsyncer.error.fatal-match-mode", fatalMatchMode));
-        entries.add(new ConfigEntry("dbsyncer.error.fatal-keywords", fatalKeywords));
+        entries.add(new ConfigEntry(ConfigKeys.ERROR_THRESHOLD, threshold));
+        entries.add(new ConfigEntry(ConfigKeys.ERROR_FATAL_MATCH_MODE, fatalMatchMode));
+        entries.add(new ConfigEntry(ConfigKeys.ERROR_FATAL_KEYWORDS, fatalKeywords));
         return entries;
     }
 }

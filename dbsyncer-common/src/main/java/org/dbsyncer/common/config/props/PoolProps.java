@@ -66,13 +66,16 @@ public class PoolProps implements Serializable {
 
     /**
      * 返回配置条目列表，用于启动期配置对照表打印。
-     * @param prefix 配置键前缀（如 dbsyncer.parser.general）
+     *
+     * @param threadCoreSizeKey     核心线程数配置键（引用 {@link org.dbsyncer.common.config.ConfigKeys}）
+     * @param maxThreadSizeKey      最大线程数配置键
+     * @param threadQueueCapacityKey 队列容量配置键
      */
-    public List<ConfigEntry> toConfigEntries(String prefix) {
+    public List<ConfigEntry> toConfigEntries(String threadCoreSizeKey, String maxThreadSizeKey, String threadQueueCapacityKey) {
         List<ConfigEntry> entries = new ArrayList<>();
-        entries.add(new ConfigEntry(prefix + ".thread-core-size", threadCoreSize));
-        entries.add(new ConfigEntry(prefix + ".max-thread-size", maxThreadSize));
-        entries.add(new ConfigEntry(prefix + ".thread-queue-capacity", threadQueueCapacity));
+        entries.add(new ConfigEntry(threadCoreSizeKey, threadCoreSize));
+        entries.add(new ConfigEntry(maxThreadSizeKey, maxThreadSize));
+        entries.add(new ConfigEntry(threadQueueCapacityKey, threadQueueCapacity));
         return entries;
     }
 }

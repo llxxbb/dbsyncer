@@ -94,13 +94,22 @@ public class ExecutorProps implements Serializable, EnvironmentLoadable {
     public List<ConfigEntry> toConfigEntries() {
         List<ConfigEntry> entries = new ArrayList<>();
         if (general != null) {
-            entries.addAll(general.toConfigEntries("dbsyncer.parser.general"));
+            entries.addAll(general.toConfigEntries(
+                    ConfigKeys.EXECUTOR_GENERAL_THREAD_CORE_SIZE,
+                    ConfigKeys.EXECUTOR_GENERAL_MAX_THREAD_SIZE,
+                    ConfigKeys.EXECUTOR_GENERAL_THREAD_QUEUE_CAPACITY));
         }
         if (storage != null) {
-            entries.addAll(storage.toConfigEntries("dbsyncer.storage"));
+            entries.addAll(storage.toConfigEntries(
+                    ConfigKeys.EXECUTOR_STORAGE_THREAD_CORE_SIZE,
+                    ConfigKeys.EXECUTOR_STORAGE_MAX_THREAD_SIZE,
+                    ConfigKeys.EXECUTOR_STORAGE_THREAD_QUEUE_CAPACITY));
         }
         if (dispatch != null) {
-            entries.addAll(dispatch.toConfigEntries("dbsyncer.common.dispatch"));
+            entries.addAll(dispatch.toConfigEntries(
+                    ConfigKeys.EXECUTOR_DISPATCH_THREAD_CORE_SIZE,
+                    ConfigKeys.EXECUTOR_DISPATCH_MAX_THREAD_SIZE,
+                    ConfigKeys.EXECUTOR_DISPATCH_THREAD_QUEUE_CAPACITY));
         }
         return entries;
     }

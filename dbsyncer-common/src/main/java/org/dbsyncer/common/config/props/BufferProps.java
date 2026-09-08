@@ -76,10 +76,18 @@ public class BufferProps implements Serializable, EnvironmentLoadable {
     public List<ConfigEntry> toConfigEntries() {
         List<ConfigEntry> entries = new ArrayList<>();
         if (general != null) {
-            entries.addAll(general.toConfigEntries("dbsyncer.parser.general"));
+            entries.addAll(general.toConfigEntries(
+                    ConfigKeys.BUFFER_GENERAL_WRITER_COUNT,
+                    ConfigKeys.BUFFER_GENERAL_PULL_COUNT,
+                    ConfigKeys.BUFFER_GENERAL_QUEUE_CAPACITY,
+                    ConfigKeys.BUFFER_GENERAL_PERIOD_MILLISECOND));
         }
         if (storage != null) {
-            entries.addAll(storage.toConfigEntries("dbsyncer.storage"));
+            entries.addAll(storage.toConfigEntries(
+                    ConfigKeys.BUFFER_STORAGE_WRITER_COUNT,
+                    ConfigKeys.BUFFER_STORAGE_PULL_COUNT,
+                    ConfigKeys.BUFFER_STORAGE_QUEUE_CAPACITY,
+                    ConfigKeys.BUFFER_STORAGE_PERIOD_MILLISECOND));
         }
         return entries;
     }
