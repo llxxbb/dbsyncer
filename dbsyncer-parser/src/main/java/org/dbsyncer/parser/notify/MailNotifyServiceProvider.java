@@ -2,6 +2,8 @@ package org.dbsyncer.parser.notify;
 
 import com.sun.mail.util.MailSSLSocketFactory;
 import org.dbsyncer.common.config.AppConfig;
+import org.dbsyncer.common.config.ConfigRegistry;
+import org.dbsyncer.common.config.props.MailProps;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.sdk.notify.NotifyMessage;
 import org.dbsyncer.sdk.notify.NotifyService;
@@ -35,22 +37,22 @@ public final class MailNotifyServiceProvider implements NotifyService {
     private static final Logger logger = LoggerFactory.getLogger(MailNotifyServiceProvider.class);
 
     private final AppConfig appConfig;
-    private final NotifyConfig notifyConfig;
+    private final ConfigRegistry configRegistry;
 
     /**
      * 邮箱会话
      */
     private Session session;
 
-    public MailNotifyServiceProvider(AppConfig appConfig, NotifyConfig notifyConfig) {
+    public MailNotifyServiceProvider(AppConfig appConfig, ConfigRegistry configRegistry) {
         this.appConfig = appConfig;
-        this.notifyConfig = notifyConfig;
+        this.configRegistry = configRegistry;
     }
 
     @PostConstruct
     private void init() {
-        NotifyConfig.MailConfig mail = notifyConfig.getMail();
-        if (StringUtil.isBlank(mail.getUsername())) {
+        MailProps mail = getMailProps();
+        if (mail == null || StringUtil.isBlank(mail.getUsername())) {
             return;
         }
 
@@ -76,6 +78,11 @@ public final class MailNotifyServiceProvider implements NotifyService {
         }
     }
 
+    private MailProps getMailProps() {
+        if (configRegistry.getConfig().getNotify() == null) return null;
+        return configRegistry.getConfig().getNotify().getMail();
+    }
+
     @Override
     public void sendMessage(NotifyMessage notifyMessage) {
         if (session == null) {
@@ -91,7 +98,7 @@ public final class MailNotifyServiceProvider implements NotifyService {
             // 创建邮件消息
             MimeMessage message = new MimeMessage(session);
             // 设置发件人
-            message.setFrom(new InternetAddress(notifyConfig.getMail().getUsername()));
+            message.setFrom(new InternetAddress(getMailProps().getUsername()));
 
             // 接收人
             List<String> messageReceivers = notifyMessage.getReceivers();
