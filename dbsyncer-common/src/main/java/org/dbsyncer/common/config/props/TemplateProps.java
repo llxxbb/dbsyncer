@@ -37,6 +37,7 @@ public class TemplateProps implements Serializable, EnvironmentLoadable {
         }
     }
 
+    @Override
     public List<String> validate() {
         List<String> errors = new ArrayList<>();
         if (maxDepth != null && maxDepth < 1) {

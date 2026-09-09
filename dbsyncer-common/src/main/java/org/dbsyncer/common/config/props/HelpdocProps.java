@@ -26,6 +26,7 @@ public class HelpdocProps implements Serializable, EnvironmentLoadable {
         this.path = env.getProperty(ConfigKeys.HELPDOC_PATH, String.class, path);
     }
 
+    @Override
     public List<String> validate() {
         return Collections.emptyList();
     }

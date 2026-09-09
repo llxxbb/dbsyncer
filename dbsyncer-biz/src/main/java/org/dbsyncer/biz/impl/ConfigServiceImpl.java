@@ -314,28 +314,10 @@ public class ConfigServiceImpl implements ConfigService {
     // ===== 内部方法 =====
 
     private List<String> validateTab(SystemTabEnum tabEnum, Object props) {
-        switch (tabEnum) {
-            case BASIC:
-                return ((BasicProps) props).validate();
-            case EXECUTORS:
-                return ((ExecutorProps) props).validate();
-            case BUFFERS:
-                return ((BufferProps) props).validate();
-            case MONITOR:
-                return ((MonitorProps) props).validate();
-            case RETRY:
-                return ((RetryProps) props).validate();
-            case NOTIFY:
-                return ((NotifyProps) props).validate();
-            case ERROR:
-                return ((ErrorProps) props).validate();
-            case RUNTIME:
-                return ((RuntimeProps) props).validate();
-            case TEMPLATE:
-                return ((TemplateProps) props).validate();
-            default:
-                return Collections.emptyList();
+        if (props instanceof EnvironmentLoadable) {
+            return ((EnvironmentLoadable) props).validate();
         }
+        return Collections.emptyList();
     }
 
     private void setTabProps(SystemConfig cfg, SystemTabEnum tabEnum, Object props) {

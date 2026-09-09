@@ -29,6 +29,7 @@ public class WorkerProps implements Serializable, EnvironmentLoadable {
         this.dataCenterId = env.getProperty(ConfigKeys.WORKER_DATA_CENTER_ID, Long.class, dataCenterId);
     }
 
+    @Override
     public List<String> validate() {
         List<String> errors = new ArrayList<>();
         if ((id < 0 || id > 31)) {

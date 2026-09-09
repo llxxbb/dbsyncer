@@ -70,6 +70,7 @@ public class NotifyProps implements Serializable, EnvironmentLoadable {
      *
      * @return 错误信息列表，为空表示校验通过
      */
+    @Override
     public List<String> validate() {
         List<String> errors = new ArrayList<>();
         if (mail != null) {

@@ -26,6 +26,7 @@ public class LicenseProps implements Serializable, EnvironmentLoadable {
         this.serverAddress = env.getProperty(ConfigKeys.LICENSE_SERVER_ADDRESS, String.class, serverAddress);
     }
 
+    @Override
     public List<String> validate() {
         return Collections.emptyList();
     }

@@ -78,6 +78,7 @@ public class ServerProps implements Serializable, EnvironmentLoadable {
         this.sessionTimeout = env.getProperty(ConfigKeys.SERVER_SESSION_TIMEOUT, Integer.class, sessionTimeout);
     }
 
+    @Override
     public List<String> validate() {
         List<String> errors = new ArrayList<>();
         if ((port < 1 || port > 65535)) {

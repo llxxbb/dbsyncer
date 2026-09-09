@@ -41,6 +41,7 @@ public class StorageConnectionProps implements Serializable, EnvironmentLoadable
         this.mysqlDriverClassName = env.getProperty(ConfigKeys.STORAGE_MYSQL_DRIVER_CLASS_NAME, String.class, mysqlDriverClassName);
     }
 
+    @Override
     public List<String> validate() {
         List<String> errors = new ArrayList<>();
         if (type != null && "mysql".equalsIgnoreCase(type)) {

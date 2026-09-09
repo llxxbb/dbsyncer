@@ -26,6 +26,7 @@ public class RuntimeProps implements Serializable, EnvironmentLoadable {
         this.selfRestartEnabled = env.getProperty(ConfigKeys.RUNTIME_SELF_RESTART_ENABLED, Boolean.class, selfRestartEnabled);
     }
 
+    @Override
     public List<String> validate() {
         return Collections.emptyList();
     }

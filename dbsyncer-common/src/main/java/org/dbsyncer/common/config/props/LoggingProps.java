@@ -26,6 +26,7 @@ public class LoggingProps implements Serializable, EnvironmentLoadable {
         this.levelRoot = env.getProperty(ConfigKeys.LOGGING_LEVEL_ROOT, String.class, levelRoot);
     }
 
+    @Override
     public List<String> validate() {
         List<String> errors = new ArrayList<>();
         if (levelRoot != null) {

@@ -70,4 +70,16 @@ public interface EnvironmentLoadable {
     default EnvironmentLoadable forDisplay() {
         return this;
     }
+
+    /**
+     * 校验配置值的合法性（范围、非空等）。
+     * <p>
+     * 各 Props 子类覆写此方法实现自身字段的校验逻辑。
+     * 复合 Props（如 {@code ExecutorProps}、{@code BufferProps}）应递归校验子级。
+     *
+     * @return 错误信息列表，为空表示校验通过，不为 null
+     */
+    default List<String> validate() {
+        return Collections.emptyList();
+    }
 }
