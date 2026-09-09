@@ -16,16 +16,16 @@ public class BasicProps implements Serializable, EnvironmentLoadable {
 
     private static final long serialVersionUID = 1L;
 
-    private Integer expireDataDays;
-    private Integer expireLogDays;
-    private Integer refreshIntervalSeconds;
-    private Boolean enableStorageWriteFail;
-    private Integer maxStorageErrorLength;
+    private Integer expireDataDays = 7;
+    private Integer expireLogDays = 30;
+    private Integer refreshIntervalSeconds = 5;
+    private Boolean enableStorageWriteFail = true;
+    private Integer maxStorageErrorLength = 2048;
     private Boolean enableCDN = false;
-    private Boolean enableWatermark;
+    private Boolean enableWatermark = false;
     private String watermark;
-    private Boolean enableSchemaResolver;
-    private Boolean enablePrintTraceInfo;
+    private Boolean enableSchemaResolver = true;
+    private Boolean enablePrintTraceInfo = false;
 
     /** 是否重置管理员密码（功能开关，非基础设施配置） */
     private Boolean resetPwd;
