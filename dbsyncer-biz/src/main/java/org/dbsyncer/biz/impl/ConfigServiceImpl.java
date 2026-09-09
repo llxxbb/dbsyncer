@@ -177,8 +177,10 @@ public class ConfigServiceImpl implements ConfigService {
         SystemConfig original = getSystemConfig();
         SystemConfig cfg = JsonUtil.jsonToObj(JsonUtil.objToJson(original), SystemConfig.class);
 
-        // 敏感字段保护：前端传回掩码值/空值时从 original 恢复（通用机制，不依赖具体字段）
-        cfg.restoreMaskedSensitiveFields((SystemConfig) props, original);
+        // 敏感字段保护：前端传回掩码值/空值时从 original 恢复（仅当前 Tab）
+        if (props instanceof EnvironmentLoadable) {
+            cfg.restoreMaskedSensitiveFields(tabEnum, (EnvironmentLoadable) props, original);
+        }
 
         // 设置子对象到 SystemConfig
         setTabProps(cfg, tabEnum, props);

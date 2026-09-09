@@ -117,6 +117,17 @@ public class ConfigRegistry {
     private SystemConfig merge(SystemConfig props, SystemConfig db) {
         SystemConfig merged = new SystemConfig();
 
+        // 复制 ConfigModel 基类字段（id, type, name, createTime, updateTime）
+        // 优先从 db 取（DB 有记录），否则从 props 取（首次启动场景）
+        SystemConfig source = db != null ? db : props;
+        if (source != null) {
+            merged.setId(source.getId());
+            merged.setType(source.getType());
+            merged.setName(source.getName());
+            merged.setCreateTime(source.getCreateTime());
+            merged.setUpdateTime(source.getUpdateTime());
+        }
+
         for (SystemTabEnum tab : SystemTabEnum.values()) {
             Object mergedItem;
             if (db == null || tab.isEnvironmentOnly()) {

@@ -284,22 +284,22 @@ public class SystemConfig extends ConfigModel {
     }
 
     /**
-     * 恢复被掩码的敏感字段：对比 incoming 和 existing，如果 incoming 的敏感字段仍为掩码值，
-     * 则从 existing 恢复原值。用于保存保护。
+     * 恢复指定 Tab 的被掩码敏感字段。
+     * 用于 editTab 场景：只编辑单个 Tab，无需遍历所有 Tab。
      *
-     * @param incoming 前端传入的配置（可能包含掩码值）
-     * @param existing 数据库中的现有配置（明文）
+     * @param tabEnum 当前编辑的 Tab
+     * @param incoming 前端传入的 Tab 级 Props（可能包含掩码值）
+     * @param existing 数据库中的现有 SystemConfig（明文）
      */
-    public void restoreMaskedSensitiveFields(SystemConfig incoming, SystemConfig existing) {
+    public void restoreMaskedSensitiveFields(SystemTabEnum tabEnum,
+                                             EnvironmentLoadable incoming,
+                                             SystemConfig existing) {
         if (incoming == null || existing == null) {
             return;
         }
-        for (SystemTabEnum tab : SystemTabEnum.values()) {
-            EnvironmentLoadable inProps = tab.getProps(incoming);
-            EnvironmentLoadable exProps = tab.getProps(existing);
-            if (inProps != null && exProps != null) {
-                restoreMaskedFields(inProps.getSensitiveFields(), exProps.getSensitiveFields());
-            }
+        EnvironmentLoadable exProps = tabEnum.getProps(existing);
+        if (exProps != null) {
+            restoreMaskedFields(incoming.getSensitiveFields(), exProps.getSensitiveFields());
         }
     }
 
