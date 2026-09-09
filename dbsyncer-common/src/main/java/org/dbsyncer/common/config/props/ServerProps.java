@@ -16,21 +16,21 @@ public class ServerProps implements Serializable, EnvironmentLoadable {
 
     private static final long serialVersionUID = 1L;
 
-    private Integer port;
-    private Boolean sslEnabled;
+    private int port = 18686;
+    private boolean sslEnabled = false;
     private String sslKeyStore;
     private String sslKeyStorePassword;
     private String sslKeyStoreType;
     private String sslKeyAlias;
-    private Integer httpPort;
-    private Boolean httpRedirect;
+    private int httpPort = 8080;
+    private boolean httpRedirect = false;
     private String contextPath;
-    private Integer sessionTimeout;
+    private int sessionTimeout = 1800;
 
-    public Integer getPort() { return port; }
-    public void setPort(Integer port) { this.port = port; }
-    public Boolean getSslEnabled() { return sslEnabled; }
-    public void setSslEnabled(Boolean sslEnabled) { this.sslEnabled = sslEnabled; }
+    public int getPort() { return port; }
+    public void setPort(int port) { this.port = port; }
+    public boolean getSslEnabled() { return sslEnabled; }
+    public void setSslEnabled(boolean sslEnabled) { this.sslEnabled = sslEnabled; }
     public String getSslKeyStore() { return sslKeyStore; }
     public void setSslKeyStore(String sslKeyStore) { this.sslKeyStore = sslKeyStore; }
     public String getSslKeyStorePassword() { return sslKeyStorePassword; }
@@ -39,14 +39,14 @@ public class ServerProps implements Serializable, EnvironmentLoadable {
     public void setSslKeyStoreType(String sslKeyStoreType) { this.sslKeyStoreType = sslKeyStoreType; }
     public String getSslKeyAlias() { return sslKeyAlias; }
     public void setSslKeyAlias(String sslKeyAlias) { this.sslKeyAlias = sslKeyAlias; }
-    public Integer getHttpPort() { return httpPort; }
-    public void setHttpPort(Integer httpPort) { this.httpPort = httpPort; }
-    public Boolean getHttpRedirect() { return httpRedirect; }
-    public void setHttpRedirect(Boolean httpRedirect) { this.httpRedirect = httpRedirect; }
+    public int getHttpPort() { return httpPort; }
+    public void setHttpPort(int httpPort) { this.httpPort = httpPort; }
+    public boolean getHttpRedirect() { return httpRedirect; }
+    public void setHttpRedirect(boolean httpRedirect) { this.httpRedirect = httpRedirect; }
     public String getContextPath() { return contextPath; }
     public void setContextPath(String contextPath) { this.contextPath = contextPath; }
-    public Integer getSessionTimeout() { return sessionTimeout; }
-    public void setSessionTimeout(Integer sessionTimeout) { this.sessionTimeout = sessionTimeout; }
+    public int getSessionTimeout() { return sessionTimeout; }
+    public void setSessionTimeout(int sessionTimeout) { this.sessionTimeout = sessionTimeout; }
 
     /**
      * 从 Environment 读取配置值（A 类配置，只读，不落库）。
@@ -61,32 +61,32 @@ public class ServerProps implements Serializable, EnvironmentLoadable {
         }
         
         // server.ssl.*
-        this.sslEnabled = env.getProperty(ConfigKeys.SERVER_SSL_ENABLED, Boolean.class);
+        this.sslEnabled = env.getProperty(ConfigKeys.SERVER_SSL_ENABLED, Boolean.class, sslEnabled);
         this.sslKeyStore = env.getProperty(ConfigKeys.SERVER_SSL_KEY_STORE);
         this.sslKeyStorePassword = env.getProperty(ConfigKeys.SERVER_SSL_KEY_STORE_PASSWORD);
         this.sslKeyStoreType = env.getProperty(ConfigKeys.SERVER_SSL_KEY_STORE_TYPE);
         this.sslKeyAlias = env.getProperty(ConfigKeys.SERVER_SSL_KEY_ALIAS);
         
         // server.http.*
-        this.httpPort = env.getProperty(ConfigKeys.SERVER_HTTP_PORT, Integer.class);
-        this.httpRedirect = env.getProperty(ConfigKeys.SERVER_HTTP_REDIRECT, Boolean.class);
+        this.httpPort = env.getProperty(ConfigKeys.SERVER_HTTP_PORT, Integer.class, httpPort);
+        this.httpRedirect = env.getProperty(ConfigKeys.SERVER_HTTP_REDIRECT, Boolean.class, httpRedirect);
         
         // server.context-path
         this.contextPath = env.getProperty(ConfigKeys.SERVER_CONTEXT_PATH);
         
         // server.session-timeout
-        this.sessionTimeout = env.getProperty(ConfigKeys.SERVER_SESSION_TIMEOUT, Integer.class);
+        this.sessionTimeout = env.getProperty(ConfigKeys.SERVER_SESSION_TIMEOUT, Integer.class, sessionTimeout);
     }
 
     public List<String> validate() {
         List<String> errors = new ArrayList<>();
-        if (port != null && (port < 1 || port > 65535)) {
+        if ((port < 1 || port > 65535)) {
             errors.add("服务器端口必须在 1-65535 之间");
         }
-        if (httpPort != null && (httpPort < 1 || httpPort > 65535)) {
+        if ((httpPort < 1 || httpPort > 65535)) {
             errors.add("HTTP 端口必须在 1-65535 之间");
         }
-        if (sessionTimeout != null && sessionTimeout < 1) {
+        if (sessionTimeout < 1) {
             errors.add("会话超时时间必须 >= 1 秒");
         }
         return errors;

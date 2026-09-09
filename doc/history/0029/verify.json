@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "adrId": "0029",
+  "title": "运行时配置 UI 化",
+  "verifier": "@dbsyncer-team",
+  "verifyDate": "2026-09-09",
+  "status": "in_progress",
+  "requirements": [
+    {
+      "id": 1,
+      "title": "标量不装箱（D1）",
+      "description": "Props 简单配置字段用 int/long/boolean/double，boolean 不再有 null；例外 PoolProps 与 TemplateProps.maxDepth",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "11 个 Props 类 35 处标量字段为基本类型，PoolProps/TemplateProps 保持装箱",
+          "file": "dbsyncer-common/src/main/java/org/dbsyncer/common/config/props/BasicProps.java",
+          "code": "private boolean resetPwd = false;"
+        }
+      ],
+      "status": "passed",
+      "notes": "mvn -o -pl dbsyncer-common test 全绿（78 项）"
+    },
+    {
+      "id": 2,
+      "title": "默认值唯一权威是字段初值（D3）",
+      "description": "loadFromEnvironment 用三参 getProperty(key,Type,当前值)，key 缺失不抹初值；空 env 加载后字段值必须不变",
+      "verifyMethods": [
+        {
+          "type": "test",
+          "criteria": "PropsDefaultValueTest 逐类断言 空 env 加载 == 加载前",
+          "file": "dbsyncer-common/src/test/java/org/dbsyncer/common/config/PropsDefaultValueTest.java",
+          "code": "assertLoadKeepsDefaults"
+        }
+      ],
+      "status": "passed",
+      "notes": "mvn -o -pl dbsyncer-common test 全绿（78 项）"
+    },
+    {
+      "id": 3,
+      "title": "合并维持对象级择一（D4）",
+      "description": "A 类或 DB 子对象为 null 才用 props；DB 有子对象则整块采纳，类型默认值视为有效值",
+      "verifyMethods": [
+        {
+          "type": "test",
+          "criteria": "ConfigRegistryMergeTest: dbWinsOverEnvironment / resetTabFallsBackToEnvironment / environmentOnlyTabWinsEvenWhenDbHasValue",
+          "file": "dbsyncer-common/src/test/java/org/dbsyncer/common/config/ConfigRegistryMergeTest.java",
+          "code": "dbWinsOverEnvironment()"
+        }
+      ],
+      "status": "passed",
+      "notes": "mvn -o -pl dbsyncer-common test 全绿（78 项）"
+    },
+    {
+      "id": 4,
+      "title": "merged 无损深拷贝（D5）",
+      "description": "不经 JsonUtil（NON_DEFAULT 吞 false/0，@JsonIgnore 吞 A 类子对象）；merged 不与 props/db 共享引用",
+      "verifyMethods": [
+        {
+          "type": "test",
+          "criteria": "ConfigRegistryMergeTest: mergedIsDeepCopyAndSharesNoReference / firstStartupWithoutDbKeepsEnvironmentOnlyTabs",
+          "file": "dbsyncer-common/src/main/java/org/dbsyncer/common/config/ConfigCopy.java",
+          "code": "public static <T> T copy(T src, Class<? extends T> type)"
+        }
+      ],
+      "status": "passed",
+      "notes": "mvn -o -pl dbsyncer-common test 全绿（78 项）"
+    },
+    {
+      "id": 5,
+      "title": "不装箱后 boolean 恒有值（报障回归网）",
+      "description": "存量 DB 缺 resetPwd key 时 merged 读到 false 而不是 null",
+      "verifyMethods": [
+        {
+          "type": "test",
+          "criteria": "ConfigRegistryMergeTest.booleanInMergedIsNeverNull",
+          "file": "dbsyncer-common/src/test/java/org/dbsyncer/common/config/ConfigRegistryMergeTest.java",
+          "code": "booleanInMergedIsNeverNull()"
+        }
+      ],
+      "status": "passed",
+      "notes": "mvn -o -pl dbsyncer-common test 全绿（78 项）"
+    }
+  ],
+  "summary": {
+    "total": 5,
+    "passed": 5,
+    "failed": 0,
+    "pending": 0
+  },
+  "notes": "本清单目前仅覆盖〈实施修订 R1〉（D1/D3/D4/D5）。ADR-0029 的 UI Tab、sidecar、迁移与重启流程等要求待补。"
+}

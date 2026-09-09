@@ -52,8 +52,8 @@ public class MailProps implements Serializable, EnvironmentLoadable {
     @SuppressWarnings("unchecked")
     @Override
     public void loadFromEnvironment(Environment env) {
-        this.username = env.getProperty(ConfigKeys.NOTIFY_MAIL_USERNAME, String.class);
-        this.password = env.getProperty(ConfigKeys.NOTIFY_MAIL_PASSWORD, String.class);
+        this.username = env.getProperty(ConfigKeys.NOTIFY_MAIL_USERNAME, String.class, username);
+        this.password = env.getProperty(ConfigKeys.NOTIFY_MAIL_PASSWORD, String.class, password);
         List<String> types = env.getProperty(ConfigKeys.NOTIFY_MAIL_NOTIFY_TYPES, List.class);
         if (types != null) {
             this.notifyTypes = types;

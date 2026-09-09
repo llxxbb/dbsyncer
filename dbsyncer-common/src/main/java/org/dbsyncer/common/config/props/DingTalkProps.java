@@ -52,8 +52,8 @@ public class DingTalkProps implements Serializable, EnvironmentLoadable {
     @SuppressWarnings("unchecked")
     @Override
     public void loadFromEnvironment(Environment env) {
-        this.webhookUrl = env.getProperty(ConfigKeys.NOTIFY_DINGTALK_WEBHOOK_URL, String.class);
-        this.secret = env.getProperty(ConfigKeys.NOTIFY_DINGTALK_SECRET, String.class);
+        this.webhookUrl = env.getProperty(ConfigKeys.NOTIFY_DINGTALK_WEBHOOK_URL, String.class, webhookUrl);
+        this.secret = env.getProperty(ConfigKeys.NOTIFY_DINGTALK_SECRET, String.class, secret);
         List<String> types = env.getProperty(ConfigKeys.NOTIFY_DINGTALK_NOTIFY_TYPES, List.class);
         if (types != null) {
             this.notifyTypes = types;

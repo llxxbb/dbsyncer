@@ -257,8 +257,7 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector, ConfigChang
     }
 
     private void checkCircuitBreaker(Meta meta, String tableName) {
-        Integer t = configRegistry.getConfig().getError().getThreshold();
-        int threshold = t != null ? t : 0;
+        int threshold = configRegistry.getConfig().getError().getThreshold();
         if (threshold <= 0) {
             return;
         }

@@ -11,21 +11,21 @@ import java.util.List;
 
 /**
  * Tab 6 错误处理。
- * S1：全部包装类型。
+ * 标量不装箱（ADR-0029 实施修订 R1 / D1）：类型默认值就是有效值，运行期不出现 null。
  */
 public class ErrorProps implements Serializable, EnvironmentLoadable {
 
     private static final long serialVersionUID = 1L;
 
-    private Integer threshold;
+    private int threshold = 1;
     private MatchMode fatalMatchMode;
     private List<String> fatalKeywords;
 
-    public Integer getThreshold() {
+    public int getThreshold() {
         return threshold;
     }
 
-    public void setThreshold(Integer threshold) {
+    public void setThreshold(int threshold) {
         this.threshold = threshold;
     }
 
@@ -48,7 +48,7 @@ public class ErrorProps implements Serializable, EnvironmentLoadable {
     @SuppressWarnings("unchecked")
     @Override
     public void loadFromEnvironment(Environment env) {
-        this.threshold = env.getProperty(ConfigKeys.ERROR_THRESHOLD, Integer.class);
+        this.threshold = env.getProperty(ConfigKeys.ERROR_THRESHOLD, Integer.class, threshold);
         String fatalMatchMode = env.getProperty(ConfigKeys.ERROR_FATAL_MATCH_MODE, String.class);
         if (fatalMatchMode != null) {
             try {
@@ -69,7 +69,7 @@ public class ErrorProps implements Serializable, EnvironmentLoadable {
      */
     public List<String> validate() {
         List<String> errors = new ArrayList<>();
-        if (threshold != null && threshold < 0) {
+        if (threshold < 0) {
             errors.add("熔断阈值不能 < 0（0 表示不启用熔断）");
         }
         return errors;

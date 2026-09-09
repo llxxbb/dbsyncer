@@ -18,60 +18,60 @@ public class MonitorProps implements Serializable, EnvironmentLoadable {
     private static final long serialVersionUID = 1L;
 
     /** 调度线程池大小（B 类语义，但在此统一管理） */
-    private Integer schedulerPoolSize;
+    private int schedulerPoolSize = 8;
 
     /** CPU/内存指标采集间隔（毫秒），默认 5000 */
-    private Integer cpuMemoryIntervalMs;
+    private int cpuMemoryIntervalMs = 5000;
 
     /** 连接器健康检查间隔（毫秒），默认 10000 */
-    private Integer healthCheckIntervalMs;
+    private int healthCheckIntervalMs = 10000;
 
     /** 过期数据清理间隔（毫秒），默认 30000 */
-    private Integer cleanupIntervalMs;
+    private int cleanupIntervalMs = 30000;
 
     /** 指标上报间隔（毫秒），默认 5000 */
-    private Integer metricReportIntervalMs;
+    private int metricReportIntervalMs = 5000;
 
     /** 预警 cron 表达式，默认 "0 *&#47;10 * * * ?" */
     private String alertCron;
 
-    public Integer getSchedulerPoolSize() {
+    public int getSchedulerPoolSize() {
         return schedulerPoolSize;
     }
 
-    public void setSchedulerPoolSize(Integer schedulerPoolSize) {
+    public void setSchedulerPoolSize(int schedulerPoolSize) {
         this.schedulerPoolSize = schedulerPoolSize;
     }
 
-    public Integer getCpuMemoryIntervalMs() {
+    public int getCpuMemoryIntervalMs() {
         return cpuMemoryIntervalMs;
     }
 
-    public void setCpuMemoryIntervalMs(Integer cpuMemoryIntervalMs) {
+    public void setCpuMemoryIntervalMs(int cpuMemoryIntervalMs) {
         this.cpuMemoryIntervalMs = cpuMemoryIntervalMs;
     }
 
-    public Integer getHealthCheckIntervalMs() {
+    public int getHealthCheckIntervalMs() {
         return healthCheckIntervalMs;
     }
 
-    public void setHealthCheckIntervalMs(Integer healthCheckIntervalMs) {
+    public void setHealthCheckIntervalMs(int healthCheckIntervalMs) {
         this.healthCheckIntervalMs = healthCheckIntervalMs;
     }
 
-    public Integer getCleanupIntervalMs() {
+    public int getCleanupIntervalMs() {
         return cleanupIntervalMs;
     }
 
-    public void setCleanupIntervalMs(Integer cleanupIntervalMs) {
+    public void setCleanupIntervalMs(int cleanupIntervalMs) {
         this.cleanupIntervalMs = cleanupIntervalMs;
     }
 
-    public Integer getMetricReportIntervalMs() {
+    public int getMetricReportIntervalMs() {
         return metricReportIntervalMs;
     }
 
-    public void setMetricReportIntervalMs(Integer metricReportIntervalMs) {
+    public void setMetricReportIntervalMs(int metricReportIntervalMs) {
         this.metricReportIntervalMs = metricReportIntervalMs;
     }
 
@@ -85,12 +85,12 @@ public class MonitorProps implements Serializable, EnvironmentLoadable {
 
     @Override
     public void loadFromEnvironment(Environment env) {
-        this.schedulerPoolSize = env.getProperty(ConfigKeys.MONITOR_SCHEDULER_POOL_SIZE, Integer.class);
-        this.cpuMemoryIntervalMs = env.getProperty(ConfigKeys.MONITOR_CPU_MEMORY_INTERVAL_MS, Integer.class);
-        this.healthCheckIntervalMs = env.getProperty(ConfigKeys.MONITOR_HEALTH_CHECK_INTERVAL_MS, Integer.class);
-        this.cleanupIntervalMs = env.getProperty(ConfigKeys.MONITOR_CLEANUP_INTERVAL_MS, Integer.class);
-        this.metricReportIntervalMs = env.getProperty(ConfigKeys.MONITOR_METRIC_REPORT_INTERVAL_MS, Integer.class);
-        this.alertCron = env.getProperty(ConfigKeys.MONITOR_ALERT_CRON, String.class);
+        this.schedulerPoolSize = env.getProperty(ConfigKeys.MONITOR_SCHEDULER_POOL_SIZE, Integer.class, schedulerPoolSize);
+        this.cpuMemoryIntervalMs = env.getProperty(ConfigKeys.MONITOR_CPU_MEMORY_INTERVAL_MS, Integer.class, cpuMemoryIntervalMs);
+        this.healthCheckIntervalMs = env.getProperty(ConfigKeys.MONITOR_HEALTH_CHECK_INTERVAL_MS, Integer.class, healthCheckIntervalMs);
+        this.cleanupIntervalMs = env.getProperty(ConfigKeys.MONITOR_CLEANUP_INTERVAL_MS, Integer.class, cleanupIntervalMs);
+        this.metricReportIntervalMs = env.getProperty(ConfigKeys.MONITOR_METRIC_REPORT_INTERVAL_MS, Integer.class, metricReportIntervalMs);
+        this.alertCron = env.getProperty(ConfigKeys.MONITOR_ALERT_CRON, String.class, alertCron);
     }
 
     /**
@@ -100,19 +100,19 @@ public class MonitorProps implements Serializable, EnvironmentLoadable {
      */
     public List<String> validate() {
         List<String> errors = new ArrayList<>();
-        if (schedulerPoolSize != null && schedulerPoolSize < 1) {
+        if (schedulerPoolSize < 1) {
             errors.add("调度线程数必须 > 0");
         }
-        if (cpuMemoryIntervalMs != null && cpuMemoryIntervalMs < 1000) {
+        if (cpuMemoryIntervalMs < 1000) {
             errors.add("CPU/内存采集间隔必须 >= 1000 毫秒");
         }
-        if (healthCheckIntervalMs != null && healthCheckIntervalMs < 1000) {
+        if (healthCheckIntervalMs < 1000) {
             errors.add("健康检查间隔必须 >= 1000 毫秒");
         }
-        if (cleanupIntervalMs != null && cleanupIntervalMs < 1000) {
+        if (cleanupIntervalMs < 1000) {
             errors.add("数据清理间隔必须 >= 1000 毫秒");
         }
-        if (metricReportIntervalMs != null && metricReportIntervalMs < 1000) {
+        if (metricReportIntervalMs < 1000) {
             errors.add("指标上报间隔必须 >= 1000 毫秒");
         }
         return errors;

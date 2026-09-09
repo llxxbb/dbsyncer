@@ -15,40 +15,40 @@ public class BufferActuatorProps implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    private Integer bufferWriterCount = 100;
-    private Integer bufferPullCount = 1000;
-    private Integer bufferQueueCapacity = 30000;
-    private Integer bufferPeriodMillisecond = 300;
+    private int bufferWriterCount = 100;
+    private int bufferPullCount = 1000;
+    private int bufferQueueCapacity = 30000;
+    private int bufferPeriodMillisecond = 300;
 
-    public Integer getBufferWriterCount() {
+    public int getBufferWriterCount() {
         return bufferWriterCount;
     }
 
-    public void setBufferWriterCount(Integer bufferWriterCount) {
+    public void setBufferWriterCount(int bufferWriterCount) {
         this.bufferWriterCount = bufferWriterCount;
     }
 
-    public Integer getBufferPullCount() {
+    public int getBufferPullCount() {
         return bufferPullCount;
     }
 
-    public void setBufferPullCount(Integer bufferPullCount) {
+    public void setBufferPullCount(int bufferPullCount) {
         this.bufferPullCount = bufferPullCount;
     }
 
-    public Integer getBufferQueueCapacity() {
+    public int getBufferQueueCapacity() {
         return bufferQueueCapacity;
     }
 
-    public void setBufferQueueCapacity(Integer bufferQueueCapacity) {
+    public void setBufferQueueCapacity(int bufferQueueCapacity) {
         this.bufferQueueCapacity = bufferQueueCapacity;
     }
 
-    public Integer getBufferPeriodMillisecond() {
+    public int getBufferPeriodMillisecond() {
         return bufferPeriodMillisecond;
     }
 
-    public void setBufferPeriodMillisecond(Integer bufferPeriodMillisecond) {
+    public void setBufferPeriodMillisecond(int bufferPeriodMillisecond) {
         this.bufferPeriodMillisecond = bufferPeriodMillisecond;
     }
 
@@ -60,13 +60,13 @@ public class BufferActuatorProps implements Serializable {
      */
     public List<String> validate(String name) {
         List<String> errors = new ArrayList<>();
-        if (bufferQueueCapacity != null && bufferQueueCapacity < 1) {
+        if (bufferQueueCapacity < 1) {
             errors.add(name + "队列容量必须 > 0");
         }
-        if (bufferPeriodMillisecond != null && bufferPeriodMillisecond < 1) {
+        if (bufferPeriodMillisecond < 1) {
             errors.add(name + "消费间隔必须 > 0 毫秒");
         }
-        if (bufferPullCount != null && bufferPullCount < 1) {
+        if (bufferPullCount < 1) {
             errors.add(name + "每次消费任务数必须 > 0");
         }
         return errors;

@@ -23,7 +23,7 @@ public class HelpdocProps implements Serializable, EnvironmentLoadable {
     public void setPath(String path) { this.path = path; }
 
     public void loadFromEnvironment(Environment env) {
-        this.path = env.getProperty(ConfigKeys.HELPDOC_PATH, String.class);
+        this.path = env.getProperty(ConfigKeys.HELPDOC_PATH, String.class, path);
     }
 
     public List<String> validate() {

@@ -15,7 +15,13 @@ public class TemplateProps implements Serializable, EnvironmentLoadable {
 
     private static final long serialVersionUID = 1L;
 
-    /** 最大依赖深度 */
+    /**
+     * 最大依赖深度。
+     * <p>
+     * <b>例外（ADR-0029 实施修订 R1 / D2）：保持装箱。</b>{@code dbsyncer.template.maxDepth}
+     * 没有 Java 消费方，实际只经 {@code System.getProperty} 生效（见 config-ledger.md:174），
+     * 不为它编造一个从未生效过的产品默认值。
+     */
     private Integer maxDepth;
 
     public Integer getMaxDepth() { return maxDepth; }

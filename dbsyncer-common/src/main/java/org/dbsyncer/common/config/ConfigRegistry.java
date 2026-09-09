@@ -3,7 +3,6 @@ package org.dbsyncer.common.config;
 import org.dbsyncer.common.config.listener.ConfigChangeListener;
 import org.dbsyncer.common.config.props.*;
 import org.dbsyncer.common.model.SystemConfig;
-import org.dbsyncer.common.util.JsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
@@ -20,7 +19,7 @@ import java.util.function.Supplier;
  * <ul>
  *   <li>propsConfig - 从 Spring Environment 加载（所有配置）</li>
  *   <li>dbConfig - 从数据库加载（所有配置）</li>
- *   <li>mergedConfig - 合并后的最终配置（DB 优先，Environment 兜底）</li>
+ *   <li>mergedConfig - 合并后的最终配置（DB 优先，Environment 仅在未迁移 / resetTab 时参与）</li>
  * </ul>
  * <p>
  * 业务代码只通过 {@link #getConfig()} 获取最终配置。
@@ -105,30 +104,32 @@ public class ConfigRegistry {
     }
 
     /**
-     * 合并策略：由 {@link SystemTabEnum} 驱动。
-     * <p>
-     * A 类只取 Environment，B/C 类 DB 优先、Environment 兜底。
+     * 合并策略：由 {@link SystemTabEnum} 驱动的<b>整块 Tab（子对象）择一</b>。
+     * <ul>
+     *   <li>A 类（仅 Environment）：恒取 props</li>
+     *   <li>db == null（首次启动 / 尚未迁移）：取 props</li>
+     *   <li>Tab 子对象为 null（resetTab 恢复系统默认）：回落 props</li>
+     *   <li>其余：取 db，DB 优先。props 自首次迁移起就不再参与运行期取值</li>
+     * </ul>
+     * 不做字段级合并：DB 里写了什么就是什么（含 {@code false} / {@code 0} / {@code ""}）。
+     * 每个 Tab 都产出新对象，mergedConfig 不与 propsConfig / dbConfig 共享子对象引用（m1）。
      */
     private SystemConfig merge(SystemConfig props, SystemConfig db) {
-        // db 为 null 时（首次启动无 DB 记录），深拷贝 props 作为 merged，
-        // 避免 mergedConfig 与 propsConfig 共享引用（m1 修复）
-        if (db == null) {
-            return JsonUtil.jsonToObj(JsonUtil.objToJson(props), SystemConfig.class);
-        }
-
         SystemConfig merged = new SystemConfig();
 
         for (SystemTabEnum tab : SystemTabEnum.values()) {
-            if (tab.isEnvironmentOnly()) {
-                tab.setProps(merged, tab.getProps(props));
+            Object mergedItem;
+            if (db == null || tab.isEnvironmentOnly()) {
+                mergedItem = tab.getProps(props);
             } else {
-                EnvironmentLoadable dbProps = tab.getProps(db);
-                tab.setProps(merged, dbProps != null ? dbProps : tab.getProps(props));
+                EnvironmentLoadable dbItem = tab.getProps(db);
+                mergedItem = dbItem != null ? dbItem : tab.getProps(props);
             }
+            tab.setProps(merged, ConfigCopy.copy(mergedItem, tab.getPropsType()));
         }
 
-        // schemaVersion 从 DB 取
-        merged.setSchemaVersion(db.getSchemaVersion());
+        // schemaVersion 从 DB 取（无 DB 记录时沿用 props，首次启动由 ConfigBootstrap 赋版本）
+        merged.setSchemaVersion(db != null ? db.getSchemaVersion() : props.getSchemaVersion());
 
         return merged;
     }

@@ -23,7 +23,7 @@ public class LoggingProps implements Serializable, EnvironmentLoadable {
     public void setLevelRoot(String levelRoot) { this.levelRoot = levelRoot; }
 
     public void loadFromEnvironment(Environment env) {
-        this.levelRoot = env.getProperty(ConfigKeys.LOGGING_LEVEL_ROOT, String.class);
+        this.levelRoot = env.getProperty(ConfigKeys.LOGGING_LEVEL_ROOT, String.class, levelRoot);
     }
 
     public List<String> validate() {

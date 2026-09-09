@@ -34,11 +34,11 @@ public class StorageConnectionProps implements Serializable, EnvironmentLoadable
     public void setMysqlDriverClassName(String mysqlDriverClassName) { this.mysqlDriverClassName = mysqlDriverClassName; }
 
     public void loadFromEnvironment(Environment env) {
-        this.type = env.getProperty(ConfigKeys.STORAGE_TYPE, String.class);
-        this.mysqlUrl = env.getProperty(ConfigKeys.STORAGE_MYSQL_URL, String.class);
-        this.mysqlUsername = env.getProperty(ConfigKeys.STORAGE_MYSQL_USERNAME, String.class);
-        this.mysqlPassword = env.getProperty(ConfigKeys.STORAGE_MYSQL_PASSWORD, String.class);
-        this.mysqlDriverClassName = env.getProperty(ConfigKeys.STORAGE_MYSQL_DRIVER_CLASS_NAME, String.class);
+        this.type = env.getProperty(ConfigKeys.STORAGE_TYPE, String.class, type);
+        this.mysqlUrl = env.getProperty(ConfigKeys.STORAGE_MYSQL_URL, String.class, mysqlUrl);
+        this.mysqlUsername = env.getProperty(ConfigKeys.STORAGE_MYSQL_USERNAME, String.class, mysqlUsername);
+        this.mysqlPassword = env.getProperty(ConfigKeys.STORAGE_MYSQL_PASSWORD, String.class, mysqlPassword);
+        this.mysqlDriverClassName = env.getProperty(ConfigKeys.STORAGE_MYSQL_DRIVER_CLASS_NAME, String.class, mysqlDriverClassName);
     }
 
     public List<String> validate() {

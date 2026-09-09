@@ -15,20 +15,20 @@ import java.util.Map;
 
 /**
  * Tab 4 重试策略（字段对齐 RetryPolicy）。
- * S1：全部包装类型。
+ * 标量不装箱（ADR-0029 实施修订 R1 / D1）：类型默认值就是有效值，运行期不出现 null。
  */
 public class RetryProps implements Serializable, EnvironmentLoadable {
 
     private static final long serialVersionUID = 1L;
 
-    private Boolean disable;
-    private Integer maxAttempts;
-    private Long initialIntervalMs;
-    private Long maxIntervalMs;
-    private Double multiplier;
-    private Long maxDurationMs;
+    private boolean disable = false;
+    private int maxAttempts = 3;
+    private long initialIntervalMs = 1000L;
+    private long maxIntervalMs = 60000L;
+    private double multiplier = 2.0;
+    private long maxDurationMs = 20000L;
     private TerminationMode terminationMode;
-    private Boolean useKeyword;
+    private boolean useKeyword = false;
     private MatchMode matchMode;
     private List<String> keywords;
     private List<String> excludeKeywords;
@@ -36,51 +36,51 @@ public class RetryProps implements Serializable, EnvironmentLoadable {
     /** 任务级重试策略覆盖（key 为任务 ID） */
     private Map<String, RetryPolicy> task = new HashMap<>();
 
-    public Boolean getDisable() {
+    public boolean getDisable() {
         return disable;
     }
 
-    public void setDisable(Boolean disable) {
+    public void setDisable(boolean disable) {
         this.disable = disable;
     }
 
-    public Integer getMaxAttempts() {
+    public int getMaxAttempts() {
         return maxAttempts;
     }
 
-    public void setMaxAttempts(Integer maxAttempts) {
+    public void setMaxAttempts(int maxAttempts) {
         this.maxAttempts = maxAttempts;
     }
 
-    public Long getInitialIntervalMs() {
+    public long getInitialIntervalMs() {
         return initialIntervalMs;
     }
 
-    public void setInitialIntervalMs(Long initialIntervalMs) {
+    public void setInitialIntervalMs(long initialIntervalMs) {
         this.initialIntervalMs = initialIntervalMs;
     }
 
-    public Long getMaxIntervalMs() {
+    public long getMaxIntervalMs() {
         return maxIntervalMs;
     }
 
-    public void setMaxIntervalMs(Long maxIntervalMs) {
+    public void setMaxIntervalMs(long maxIntervalMs) {
         this.maxIntervalMs = maxIntervalMs;
     }
 
-    public Double getMultiplier() {
+    public double getMultiplier() {
         return multiplier;
     }
 
-    public void setMultiplier(Double multiplier) {
+    public void setMultiplier(double multiplier) {
         this.multiplier = multiplier;
     }
 
-    public Long getMaxDurationMs() {
+    public long getMaxDurationMs() {
         return maxDurationMs;
     }
 
-    public void setMaxDurationMs(Long maxDurationMs) {
+    public void setMaxDurationMs(long maxDurationMs) {
         this.maxDurationMs = maxDurationMs;
     }
 
@@ -92,11 +92,11 @@ public class RetryProps implements Serializable, EnvironmentLoadable {
         this.terminationMode = terminationMode;
     }
 
-    public Boolean getUseKeyword() {
+    public boolean getUseKeyword() {
         return useKeyword;
     }
 
-    public void setUseKeyword(Boolean useKeyword) {
+    public void setUseKeyword(boolean useKeyword) {
         this.useKeyword = useKeyword;
     }
 
@@ -134,13 +134,13 @@ public class RetryProps implements Serializable, EnvironmentLoadable {
 
     @Override
     public void loadFromEnvironment(Environment env) {
-        this.disable = env.getProperty(ConfigKeys.RETRY_DISABLE, Boolean.class);
-        this.maxAttempts = env.getProperty(ConfigKeys.RETRY_MAX_ATTEMPTS, Integer.class);
-        this.initialIntervalMs = env.getProperty(ConfigKeys.RETRY_INITIAL_INTERVAL_MS, Long.class);
-        this.maxIntervalMs = env.getProperty(ConfigKeys.RETRY_MAX_INTERVAL_MS, Long.class);
-        this.multiplier = env.getProperty(ConfigKeys.RETRY_MULTIPLIER, Double.class);
-        this.maxDurationMs = env.getProperty(ConfigKeys.RETRY_MAX_DURATION_MS, Long.class);
-        this.useKeyword = env.getProperty(ConfigKeys.RETRY_USE_KEYWORD, Boolean.class);
+        this.disable = env.getProperty(ConfigKeys.RETRY_DISABLE, Boolean.class, disable);
+        this.maxAttempts = env.getProperty(ConfigKeys.RETRY_MAX_ATTEMPTS, Integer.class, maxAttempts);
+        this.initialIntervalMs = env.getProperty(ConfigKeys.RETRY_INITIAL_INTERVAL_MS, Long.class, initialIntervalMs);
+        this.maxIntervalMs = env.getProperty(ConfigKeys.RETRY_MAX_INTERVAL_MS, Long.class, maxIntervalMs);
+        this.multiplier = env.getProperty(ConfigKeys.RETRY_MULTIPLIER, Double.class, multiplier);
+        this.maxDurationMs = env.getProperty(ConfigKeys.RETRY_MAX_DURATION_MS, Long.class, maxDurationMs);
+        this.useKeyword = env.getProperty(ConfigKeys.RETRY_USE_KEYWORD, Boolean.class, useKeyword);
     }
 
     /**
@@ -148,14 +148,14 @@ public class RetryProps implements Serializable, EnvironmentLoadable {
      */
     public RetryPolicy toGlobalPolicy() {
         RetryPolicy policy = new RetryPolicy();
-        if (disable != null) policy.setDisable(disable);
-        if (maxAttempts != null) policy.setMaxAttempts(maxAttempts);
-        if (initialIntervalMs != null) policy.setInitialIntervalMs(initialIntervalMs);
-        if (maxIntervalMs != null) policy.setMaxIntervalMs(maxIntervalMs);
-        if (multiplier != null) policy.setMultiplier(multiplier);
-        if (maxDurationMs != null) policy.setMaxDurationMs(maxDurationMs);
+        policy.setDisable(disable);
+        policy.setMaxAttempts(maxAttempts);
+        policy.setInitialIntervalMs(initialIntervalMs);
+        policy.setMaxIntervalMs(maxIntervalMs);
+        policy.setMultiplier(multiplier);
+        policy.setMaxDurationMs(maxDurationMs);
         if (terminationMode != null) policy.setTerminationMode(terminationMode);
-        if (useKeyword != null) policy.setUseKeyword(useKeyword);
+        policy.setUseKeyword(useKeyword);
         if (matchMode != null) policy.setMatchMode(matchMode);
         if (keywords != null) policy.setKeywords(keywords);
         if (excludeKeywords != null) policy.setExcludeKeywords(excludeKeywords);
@@ -169,19 +169,19 @@ public class RetryProps implements Serializable, EnvironmentLoadable {
      */
     public List<String> validate() {
         List<String> errors = new ArrayList<>();
-        if (maxAttempts != null && maxAttempts < 1) {
+        if (maxAttempts < 1) {
             errors.add("最大重试次数必须 >= 1");
         }
-        if (initialIntervalMs != null && initialIntervalMs < 0) {
+        if (initialIntervalMs < 0) {
             errors.add("初始重试间隔不能 < 0");
         }
-        if (maxIntervalMs != null && maxIntervalMs < 0) {
+        if (maxIntervalMs < 0) {
             errors.add("最大重试间隔不能 < 0");
         }
-        if (multiplier != null && multiplier < 1.0) {
+        if (multiplier < 1.0) {
             errors.add("退避倍数必须 >= 1.0");
         }
-        if (maxDurationMs != null && maxDurationMs < 0) {
+        if (maxDurationMs < 0) {
             errors.add("重试总时长不能 < 0（0 表示不限制）");
         }
         return errors;

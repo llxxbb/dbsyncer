@@ -16,31 +16,25 @@ public class WorkerProps implements Serializable, EnvironmentLoadable {
 
     private static final long serialVersionUID = 1L;
 
-    private Long id;
-    private Long dataCenterId;
+    private long id = 1L;
+    private long dataCenterId = 1L;
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-    public Long getDataCenterId() { return dataCenterId; }
-    public void setDataCenterId(Long dataCenterId) { this.dataCenterId = dataCenterId; }
+    public long getId() { return id; }
+    public void setId(long id) { this.id = id; }
+    public long getDataCenterId() { return dataCenterId; }
+    public void setDataCenterId(long dataCenterId) { this.dataCenterId = dataCenterId; }
 
     public void loadFromEnvironment(Environment env) {
-        this.id = env.getProperty(ConfigKeys.WORKER_ID, Long.class);
-        this.dataCenterId = env.getProperty(ConfigKeys.WORKER_DATA_CENTER_ID, Long.class);
-        if (this.id == null) {
-            this.id = 1L; // 默认值
-        }
-        if (this.dataCenterId == null) {
-            this.dataCenterId = 1L; // 默认值
-        }
+        this.id = env.getProperty(ConfigKeys.WORKER_ID, Long.class, id);
+        this.dataCenterId = env.getProperty(ConfigKeys.WORKER_DATA_CENTER_ID, Long.class, dataCenterId);
     }
 
     public List<String> validate() {
         List<String> errors = new ArrayList<>();
-        if (id != null && (id < 0 || id > 31)) {
+        if ((id < 0 || id > 31)) {
             errors.add("Worker ID 必须在 0-31 之间");
         }
-        if (dataCenterId != null && (dataCenterId < 0 || dataCenterId > 31)) {
+        if ((dataCenterId < 0 || dataCenterId > 31)) {
             errors.add("Data Center ID 必须在 0-31 之间");
         }
         return errors;

@@ -13,9 +13,6 @@ public class SchedulerFactoryConfig {
 
     @Bean
     public SchedulerFactory schedulerFactory(ConfigRegistry configRegistry) {
-        return new SchedulerFactory(() -> {
-            Integer poolSize = configRegistry.getConfig().getMonitor().getSchedulerPoolSize();
-            return poolSize != null ? poolSize : Runtime.getRuntime().availableProcessors();
-        });
+        return new SchedulerFactory(() -> configRegistry.getConfig().getMonitor().getSchedulerPoolSize());
     }
 }

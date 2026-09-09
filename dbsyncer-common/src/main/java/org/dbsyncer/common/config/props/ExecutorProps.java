@@ -72,9 +72,9 @@ public class ExecutorProps implements Serializable, EnvironmentLoadable {
 
     private PoolProps readPool(Environment env, String coreKey, String maxKey, String queueKey) {
         PoolProps pool = new PoolProps();
-        pool.setThreadCoreSize(env.getProperty(coreKey, Integer.class));
-        pool.setMaxThreadSize(env.getProperty(maxKey, Integer.class));
-        pool.setThreadQueueCapacity(env.getProperty(queueKey, Integer.class));
+        pool.setThreadCoreSize(env.getProperty(coreKey, Integer.class, pool.getThreadCoreSize()));
+        pool.setMaxThreadSize(env.getProperty(maxKey, Integer.class, pool.getMaxThreadSize()));
+        pool.setThreadQueueCapacity(env.getProperty(queueKey, Integer.class, pool.getThreadQueueCapacity()));
         return pool;
     }
 

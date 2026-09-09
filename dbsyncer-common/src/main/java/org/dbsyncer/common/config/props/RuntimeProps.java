@@ -17,13 +17,13 @@ public class RuntimeProps implements Serializable, EnvironmentLoadable {
     private static final long serialVersionUID = 1L;
 
     /** 是否启用自重启 */
-    private Boolean selfRestartEnabled;
+    private boolean selfRestartEnabled = false;
 
-    public Boolean getSelfRestartEnabled() { return selfRestartEnabled; }
-    public void setSelfRestartEnabled(Boolean selfRestartEnabled) { this.selfRestartEnabled = selfRestartEnabled; }
+    public boolean getSelfRestartEnabled() { return selfRestartEnabled; }
+    public void setSelfRestartEnabled(boolean selfRestartEnabled) { this.selfRestartEnabled = selfRestartEnabled; }
 
     public void loadFromEnvironment(Environment env) {
-        this.selfRestartEnabled = env.getProperty(ConfigKeys.RUNTIME_SELF_RESTART_ENABLED, Boolean.class);
+        this.selfRestartEnabled = env.getProperty(ConfigKeys.RUNTIME_SELF_RESTART_ENABLED, Boolean.class, selfRestartEnabled);
     }
 
     public List<String> validate() {

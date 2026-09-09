@@ -256,15 +256,15 @@ public class ConfigServiceImpl implements ConfigService {
         SystemConfig config = configRegistry.getConfig();
         Map<String, Object> info = new LinkedHashMap<>();
 
-        // A 类配置从 SystemConfig 读取（DB 优先，Environment 兜底）
+        // A 类配置只来自 Environment（不落库），默认值已由 Props 字段初值担保
         ServerProps server = config.getServer();
         if (server != null) {
-            info.put("serverPort", server.getPort() != null ? server.getPort() : 18686);
-            info.put("sslEnabled", server.getSslEnabled() != null ? server.getSslEnabled() : false);
-            info.put("httpPort", server.getHttpPort() != null ? server.getHttpPort() : 0);
-            info.put("httpRedirect", server.getHttpRedirect() != null ? server.getHttpRedirect() : false);
+            info.put("serverPort", server.getPort());
+            info.put("sslEnabled", server.getSslEnabled());
+            info.put("httpPort", server.getHttpPort());
+            info.put("httpRedirect", server.getHttpRedirect());
             info.put("contextPath", server.getContextPath() != null ? server.getContextPath() : "/");
-            info.put("sessionTimeout", server.getSessionTimeout() != null ? server.getSessionTimeout() : 1800);
+            info.put("sessionTimeout", server.getSessionTimeout());
         }
 
         StorageConnectionProps storageConn = config.getStorageConn();
@@ -280,7 +280,7 @@ public class ConfigServiceImpl implements ConfigService {
 
         WorkerProps worker = config.getWorker();
         if (worker != null) {
-            info.put("workerId", worker.getId() != null ? worker.getId() : 1);
+            info.put("workerId", worker.getId());
         }
 
         HelpdocProps helpdoc = config.getHelpdoc();
