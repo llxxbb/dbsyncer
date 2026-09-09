@@ -3,6 +3,7 @@ package org.dbsyncer.common.config;
 import org.dbsyncer.common.config.listener.ConfigChangeListener;
 import org.dbsyncer.common.config.props.*;
 import org.dbsyncer.common.model.SystemConfig;
+import org.dbsyncer.common.util.JsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
@@ -109,9 +110,10 @@ public class ConfigRegistry {
      * A 类只取 Environment，B/C 类 DB 优先、Environment 兜底。
      */
     private SystemConfig merge(SystemConfig props, SystemConfig db) {
-        // db 为 null 时（首次启动无 DB 记录），merged 直接等于 props
+        // db 为 null 时（首次启动无 DB 记录），深拷贝 props 作为 merged，
+        // 避免 mergedConfig 与 propsConfig 共享引用（m1 修复）
         if (db == null) {
-            return props;
+            return JsonUtil.jsonToObj(JsonUtil.objToJson(props), SystemConfig.class);
         }
 
         SystemConfig merged = new SystemConfig();

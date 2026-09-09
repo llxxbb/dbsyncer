@@ -173,12 +173,12 @@ public class ConfigServiceImpl implements ConfigService {
             return result;
         }
 
-        // 读-改-写（引用语义，C4）
-        SystemConfig cfg = getSystemConfig();
-        SystemConfig existing = getSystemConfig();
+        // 深拷贝 mergedConfig，避免直接修改 live 引用（C1 修复）
+        SystemConfig original = getSystemConfig();
+        SystemConfig cfg = JsonUtil.jsonToObj(JsonUtil.objToJson(original), SystemConfig.class);
 
-        // 敏感字段保护：前端传回掩码值时保留原值（通用机制，不依赖具体字段）
-        cfg.restoreMaskedSensitiveFields((SystemConfig) props, existing);
+        // 敏感字段保护：前端传回掩码值/空值时从 original 恢复（通用机制，不依赖具体字段）
+        cfg.restoreMaskedSensitiveFields((SystemConfig) props, original);
 
         // 设置子对象到 SystemConfig
         setTabProps(cfg, tabEnum, props);
@@ -186,7 +186,7 @@ public class ConfigServiceImpl implements ConfigService {
         // ① DB 落库（加密存储）
         ConfigEncryptor encryptor = ConfigEncryptor.getInstance();
         if (encryptor != null && encryptor.isAvailable()) {
-            // 深拷贝 + 加密 + 序列化存储
+            // 再深拷贝一份用于加密存储，避免加密污染 cfg
             SystemConfig toStore = JsonUtil.jsonToObj(JsonUtil.objToJson(cfg), SystemConfig.class);
             toStore.encryptSensitiveFields(encryptor);
             profileComponent.editConfigModel(toStore);
@@ -194,7 +194,7 @@ public class ConfigServiceImpl implements ConfigService {
             profileComponent.editConfigModel(cfg);
         }
 
-        // ② 通知 Registry 重新合并
+        // ② 通知 Registry 重新合并（cfg 此时是干净的待存副本，不是 live 引用）
         configRegistry.onDbConfigChanged(cfg);
 
         // ④ 通知所有监听器更新 Bean 状态

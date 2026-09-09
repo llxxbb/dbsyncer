@@ -3,7 +3,9 @@ package org.dbsyncer.parser.notify;
 import com.sun.mail.util.MailSSLSocketFactory;
 import org.dbsyncer.common.config.AppConfig;
 import org.dbsyncer.common.config.ConfigRegistry;
+import org.dbsyncer.common.config.listener.ConfigChangeListener;
 import org.dbsyncer.common.config.props.MailProps;
+import org.dbsyncer.common.model.SystemConfig;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.sdk.notify.NotifyMessage;
 import org.dbsyncer.sdk.notify.NotifyService;
@@ -31,7 +33,7 @@ import java.util.Properties;
  * @date 2022/11/13 22:20
  */
 @Component("mailNotifyService")
-public final class MailNotifyServiceProvider implements NotifyService {
+public final class MailNotifyServiceProvider implements NotifyService, ConfigChangeListener {
 
     private static final Logger logger = LoggerFactory.getLogger(MailNotifyServiceProvider.class);
 
@@ -60,34 +62,47 @@ public final class MailNotifyServiceProvider implements NotifyService {
         if (session == null) {
             synchronized (this) {
                 if (session == null) {
-                    MailProps mail = getMailProps();
-                    if (mail == null || StringUtil.isBlank(mail.getUsername())) {
-                        return null;
-                    }
-                    try {
-                        final Properties props = new Properties();
-                        props.put("mail.smtp.auth", "true");
-                        props.put("mail.smtp.host", "smtp.qq.com");
-                        props.put("mail.user", mail.getUsername());
-                        props.put("mail.password", mail.getPassword());
-                        MailSSLSocketFactory sf = new MailSSLSocketFactory();
-                        sf.setTrustAllHosts(true);
-                        props.put("mail.smtp.ssl.enable", "true");
-                        props.put("mail.smtp.ssl.socketFactory", sf);
-                        session = Session.getInstance(props, new Authenticator() {
-                            @Override
-                            protected PasswordAuthentication getPasswordAuthentication() {
-                                return new PasswordAuthentication(mail.getUsername(), mail.getPassword());
-                            }
-                        });
-                    } catch (GeneralSecurityException e) {
-                        logger.error("MailNotifyServiceProvider session init error!", e);
-                        return null;
-                    }
+                    session = createSession();
                 }
             }
         }
         return session;
+    }
+
+    private Session createSession() {
+        MailProps mail = getMailProps();
+        if (mail == null || StringUtil.isBlank(mail.getUsername())) {
+            return null;
+        }
+        try {
+            final Properties props = new Properties();
+            props.put("mail.smtp.auth", "true");
+            props.put("mail.smtp.host", "smtp.qq.com");
+            props.put("mail.user", mail.getUsername());
+            props.put("mail.password", mail.getPassword());
+            MailSSLSocketFactory sf = new MailSSLSocketFactory();
+            sf.setTrustAllHosts(true);
+            props.put("mail.smtp.ssl.enable", "true");
+            props.put("mail.smtp.ssl.socketFactory", sf);
+            return Session.getInstance(props, new Authenticator() {
+                @Override
+                protected PasswordAuthentication getPasswordAuthentication() {
+                    return new PasswordAuthentication(mail.getUsername(), mail.getPassword());
+                }
+            });
+        } catch (GeneralSecurityException e) {
+            logger.error("MailNotifyServiceProvider session init error!", e);
+            return null;
+        }
+    }
+
+    @Override
+    public void onConfigChanged(SystemConfig config) {
+        // 通知配置变更时，使缓存的 Session 失效，下次发送时重新创建
+        synchronized (this) {
+            this.session = null;
+        }
+        logger.debug("邮件 Session 已失效，将在下次发送时重建");
     }
 
     @Override

@@ -86,17 +86,18 @@ public final class ConfigKeys {
 
     // ===== C 类：基础设置（立即生效） =====
 
-    public static final String BASIC_EXPIRE_DATA_DAYS = "basic.expire-data-days";
-    public static final String BASIC_EXPIRE_LOG_DAYS = "basic.expire-log-days";
-    public static final String BASIC_REFRESH_INTERVAL_SECONDS = "basic.refresh-interval-seconds";
-    public static final String BASIC_ENABLE_STORAGE_WRITE_FAIL = "basic.enable-storage-write-fail";
-    public static final String BASIC_MAX_STORAGE_ERROR_LENGTH = "basic.max-storage-error-length";
-    public static final String BASIC_ENABLE_CDN = "basic.enable-cdn";
-    public static final String BASIC_ENABLE_WATERMARK = "basic.enable-watermark";
-    public static final String BASIC_WATERMARK = "basic.watermark";
-    public static final String BASIC_ENABLE_SCHEMA_RESOLVER = "basic.enable-schema-resolver";
-    public static final String BASIC_ENABLE_PRINT_TRACE_INFO = "basic.enable-print-trace-info";
-    public static final String BASIC_RESET_PWD = "basic.reset-pwd";
+    public static final String BASIC_PREFIX = "dbsyncer.basic";
+    public static final String BASIC_EXPIRE_DATA_DAYS = "dbsyncer.basic.expire-data-days";
+    public static final String BASIC_EXPIRE_LOG_DAYS = "dbsyncer.basic.expire-log-days";
+    public static final String BASIC_REFRESH_INTERVAL_SECONDS = "dbsyncer.basic.refresh-interval-seconds";
+    public static final String BASIC_ENABLE_STORAGE_WRITE_FAIL = "dbsyncer.basic.enable-storage-write-fail";
+    public static final String BASIC_MAX_STORAGE_ERROR_LENGTH = "dbsyncer.basic.max-storage-error-length";
+    public static final String BASIC_ENABLE_CDN = "dbsyncer.basic.enable-cdn";
+    public static final String BASIC_ENABLE_WATERMARK = "dbsyncer.basic.enable-watermark";
+    public static final String BASIC_WATERMARK = "dbsyncer.basic.watermark";
+    public static final String BASIC_ENABLE_SCHEMA_RESOLVER = "dbsyncer.basic.enable-schema-resolver";
+    public static final String BASIC_ENABLE_PRINT_TRACE_INFO = "dbsyncer.basic.enable-print-trace-info";
+    public static final String BASIC_RESET_PWD = "dbsyncer.basic.reset-pwd";
 
     // ===== B 类：执行器线程池配置（需重启） =====
 

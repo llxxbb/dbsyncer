@@ -71,9 +71,8 @@ public class ConfigBootstrap {
         // 2. 首次启动无 DB 记录，分配 ID 并 INSERT
         if (systemConfig == null) {
             logger.info("首次启动：使用 props 初始化配置");
-            // 深拷贝，避免污染 propsConfig（db 为 null 时 mergedConfig 与 propsConfig 同引用）
-            systemConfig = JsonUtil.jsonToObj(
-                    JsonUtil.objToJson(configRegistry.getConfig()), SystemConfig.class);
+            // mergedConfig 已在 ConfigRegistry.merge() 中深拷贝，不会污染 propsConfig
+            systemConfig = configRegistry.getConfig();
             systemConfig.setId(String.valueOf(snowflakeIdWorker.nextId()));
             systemConfig.setName(ConfigConstant.SYSTEM);
             long now = Instant.now().toEpochMilli();

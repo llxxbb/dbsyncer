@@ -27,7 +27,7 @@ public class LoggingProps implements Serializable, EnvironmentLoadable {
     }
 
     public List<String> validate() {
-        List<String> errors = new java.util.ArrayList<>();
+        List<String> errors = new ArrayList<>();
         if (levelRoot != null) {
             List<String> valid = Arrays.asList("TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL", "OFF");
             if (!valid.contains(levelRoot.toUpperCase())) {

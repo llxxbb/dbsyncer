@@ -125,8 +125,17 @@ public enum SystemTabEnum {
         return getter.apply(config);
     }
 
-    /** 设置子对象 */
+    /**
+     * 设置子对象（带类型检查）。
+     * <p>
+     * 如果 props 非 null 且类型不匹配当前 Tab 的 PropsType，抛出 ClassCastException。
+     */
     public void setProps(SystemConfig config, Object props) {
+        if (props != null && !propsType.isInstance(props)) {
+            throw new ClassCastException(
+                String.format("Tab %s 期望 %s，实际为 %s",
+                    name(), propsType.getName(), props.getClass().getName()));
+        }
         setter.accept(config, props);
     }
 
