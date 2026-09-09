@@ -129,8 +129,9 @@ public class MetricReporter implements ScheduledTaskJob, StartupTaskRegistrar {
         // 堆积任务(所有 meta 的执行器)
         report.setQueueUp(bufferActuatorRouter.getQueueSize().get());
         report.setQueueCapacity(bufferActuatorRouter.getQueueCapacity().get());
-        // 持久化任务
-        report.setStorageQueueUp(storageBufferActuator.getQueue().size());
+        // 持久化任务（队列可能为null：ADR-0031延迟初始化，首次offer()前queue未创建）
+        Queue storageQueue = storageBufferActuator.getQueue();
+        report.setStorageQueueUp(storageQueue != null ? storageQueue.size() : 0);
         report.setStorageQueueCapacity(storageBufferActuator.getQueueCapacity());
         // 执行器TPS
         report.setTps(getOneMinBufferActuatorRate());
@@ -259,7 +260,8 @@ public class MetricReporter implements ScheduledTaskJob, StartupTaskRegistrar {
         MetricResponseInfo info = new MetricResponseInfo();
         ThreadPoolTaskExecutor threadTask = (ThreadPoolTaskExecutor) bufferActuator.getExecutor();
         ThreadPoolExecutor pool = threadTask.getThreadPoolExecutor();
-        info.setQueueUp(bufferActuator.getQueue().size());
+        Queue q = bufferActuator.getQueue();
+        info.setQueueUp(q != null ? q.size() : 0);
         String msg = "堆积" + StringUtil.COLON + info.getQueueUp() +
                 StringUtil.FORWARD_SLASH + bufferActuator.getQueueCapacity() + StringUtil.SPACE +
                 ThreadPoolMetricEnum.CORE_SIZE.getMetricName() + StringUtil.COLON + pool.getActiveCount() +

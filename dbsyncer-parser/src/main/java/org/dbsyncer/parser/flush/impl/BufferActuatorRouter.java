@@ -114,7 +114,12 @@ public final class BufferActuatorRouter implements DisposableBean {
 
     public AtomicLong getQueueSize() {
         AtomicLong total = new AtomicLong();
-        metaActuatorMap.values().forEach(actuator -> total.addAndGet(actuator.getQueue().size()));
+        metaActuatorMap.values().forEach(actuator -> {
+            java.util.Queue q = actuator.getQueue();
+            if (q != null) {
+                total.addAndGet(q.size());
+            }
+        });
         return total;
     }
 
