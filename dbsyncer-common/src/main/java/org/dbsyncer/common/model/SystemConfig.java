@@ -64,7 +64,7 @@ public class SystemConfig extends ConfigModel {
 
     private TemplateProps template;
 
-    // ===== B 类（需重启） =====
+    // ===== B 类（热重载） =====
 
     /** Tab 2 执行器，null=未覆盖 */
     private ExecutorProps executors;

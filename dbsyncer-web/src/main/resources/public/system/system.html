@@ -12,8 +12,8 @@
     <!-- Tab 导航 -->
     <ul class="nav nav-tabs" role="tablist" id="systemTab">
         <li role="presentation" class="active"><a href="#tab-basic" data-toggle="tab">基础设置</a></li>
-        <li role="presentation"><a href="#tab-executors" data-toggle="tab">执行器 <span class="text-warning" title="修改后需重启应用">⚠</span></a></li>
-        <li role="presentation"><a href="#tab-buffers" data-toggle="tab">缓冲区 <span class="text-warning" title="修改后需重启应用">⚠</span></a></li>
+        <li role="presentation"><a href="#tab-executors" data-toggle="tab">执行器 <span class="text-info" title="修改后自动热重载">⟳</span></a></li>
+        <li role="presentation"><a href="#tab-buffers" data-toggle="tab">缓冲区 <span class="text-info" title="修改后自动热重载">⟳</span></a></li>
         <li role="presentation"><a href="#tab-retry" data-toggle="tab">重试策略</a></li>
         <li role="presentation"><a href="#tab-notify" data-toggle="tab">通知通道</a></li>
         <li role="presentation"><a href="#tab-error" data-toggle="tab">错误处理</a></li>
@@ -467,12 +467,7 @@
                         <button type="button" class="btn btn-default btn-reset-tab" data-tab="runtime"><span class="fa fa-undo"></span>恢复系统默认</button>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label class="col-sm-2 control-label">启用自重启<i class="fa fa-question-circle fa_gray" title="是否允许应用自动重启（配置变更后）。立即生效。"></i></label>
-                    <div class="col-sm-4">
-                        <input type="checkbox" name="selfRestartEnabled" id="runtime_selfRestartEnabled"/>
-                    </div>
-                </div>
+
             </form>
         </div>
 

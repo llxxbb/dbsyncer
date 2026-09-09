@@ -13,8 +13,8 @@ package org.dbsyncer.common.config;
  *   <li>HELPDOC_* — 帮助文档配置（A 类，只读）</li>
  *   <li>WORKER_* — Worker 标识配置（A 类，只读）</li>
  *   <li>LICENSE_* — 许可证配置（A 类，只读）</li>
- *   <li>EXECUTOR_* — 执行器线程池配置（B 类，需重启）</li>
- *   <li>BUFFER_* — 缓冲区配置（B 类，需重启）</li>
+ *   <li>EXECUTOR_* — 执行器线程池配置（B 类，热重载）</li>
+ *   <li>BUFFER_* — 缓冲区配置（B 类，热重载）</li>
  *   <li>RETRY_* — 重试策略配置（C 类，立即生效）</li>
  *   <li>NOTIFY_* — 通知通道配置（C 类，立即生效）</li>
  *   <li>ERROR_* — 错误处理配置（C 类，立即生效）</li>
@@ -99,7 +99,7 @@ public final class ConfigKeys {
     public static final String BASIC_ENABLE_PRINT_TRACE_INFO = "dbsyncer.basic.enable-print-trace-info";
     public static final String BASIC_RESET_PWD = "dbsyncer.basic.reset-pwd";
 
-    // ===== B 类：执行器线程池配置（需重启） =====
+    // ===== B 类：执行器线程池配置（热重载） =====
 
     // 通用执行器
     public static final String EXECUTOR_GENERAL_THREAD_CORE_SIZE = "dbsyncer.parser.general.thread-core-size";
@@ -116,7 +116,7 @@ public final class ConfigKeys {
     public static final String EXECUTOR_DISPATCH_MAX_THREAD_SIZE = "dbsyncer.common.dispatch.max-thread-size";
     public static final String EXECUTOR_DISPATCH_THREAD_QUEUE_CAPACITY = "dbsyncer.common.dispatch.thread-queue-capacity";
 
-    // ===== B 类：缓冲区配置（需重启） =====
+    // ===== B 类：缓冲区配置（热重载） =====
 
     // 通用缓冲区
     public static final String BUFFER_GENERAL_WRITER_COUNT = "dbsyncer.parser.general.buffer-writer-count";
@@ -159,10 +159,6 @@ public final class ConfigKeys {
     public static final String ERROR_THRESHOLD = "dbsyncer.error.threshold";
     public static final String ERROR_FATAL_MATCH_MODE = "dbsyncer.error.fatal-match-mode";
     public static final String ERROR_FATAL_KEYWORDS = "dbsyncer.error.fatal-keywords";
-
-    // ===== 运行时控制配置 =====
-
-    public static final String RUNTIME_SELF_RESTART_ENABLED = "dbsyncer.runtime.self-restart.enabled";
 
     // ===== 模板引擎配置 =====
 

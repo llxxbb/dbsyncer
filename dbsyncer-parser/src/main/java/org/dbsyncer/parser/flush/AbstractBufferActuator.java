@@ -26,6 +26,7 @@ import java.util.Queue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -55,6 +56,17 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
      * 延迟初始化标志：队列和调度器是否已初始化
      */
     private volatile boolean initialized = false;
+
+    /**
+     * ADR-0031：排空标志。true 表示队列只出不进，offer() 阻塞等待。
+     */
+    private volatile boolean draining = false;
+
+    /**
+     * ADR-0031：排空完成条件。reload() 完成后排空后 signalAll 唤醒等待的 offer() 线程。
+     */
+    private final ReentrantLock drainingLock = new ReentrantLock();
+    private final Condition drainingDone = drainingLock.newCondition();
 
     @Resource
     private ScheduledTaskService scheduledTaskService;
@@ -207,6 +219,20 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
     @Override
     public void offer(BufferRequest request) {
         ensureInitialized();
+        // ADR-0031：排空中阻塞等待，不丢数据
+        if (draining) {
+            drainingLock.lock();
+            try {
+                while (draining) {
+                    drainingDone.await();
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            } finally {
+                drainingLock.unlock();
+            }
+        }
         if (queue.offer((Request) request)) {
             return;
         }
@@ -350,6 +376,66 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
         if (taskKey != null && scheduledTaskService != null) {
             scheduledTaskService.stop(taskKey);
         }
+    }
+
+    /**
+     * ADR-0031：热重载（排空-切换）。
+     * <p>
+     * ① 标记 draining=true → offer() 阻塞<br>
+     * ② 主动触发一次消费（不等调度周期）<br>
+     * ③ 等待队列排空（直到完成）<br>
+     * ④ 替换队列<br>
+     * ⑤ 清除 draining 标志 → 唤醒 offer() 恢复<br>
+     * ⑥ 重注册定时调度（周期可能也变了）
+     */
+    public void reload() {
+        // ① 标记只出不进
+        draining = true;
+
+        try {
+            // ② 主动触发一次消费，不等调度周期
+            run();
+
+            // ③ 等待队列排空（直到完成）
+            while (!queue.isEmpty()) {
+                try { Thread.sleep(50); } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    // 不 break，继续等待直到排空
+                }
+            }
+
+            // ④ 队列已空，替换
+            int newCapacity = getBufferQueueCapacity();
+            this.queue = new LinkedBlockingQueue<>(newCapacity);
+            logger.info("[{}] 队列已替换: capacity={}", getClass().getSimpleName(), newCapacity);
+        } finally {
+            // ⑤ 恢复，唤醒等待的 offer() 线程
+            draining = false;
+            drainingLock.lock();
+            try {
+                drainingDone.signalAll();
+            } finally {
+                drainingLock.unlock();
+            }
+        }
+
+        // ⑥ 重注册调度（周期可能也变了）
+        reschedule();
+    }
+
+    /**
+     * ADR-0031：重新注册定时调度（用新周期），队列不动。
+     */
+    public void reschedule() {
+        if (taskKey != null) {
+            scheduledTaskService.stop(taskKey);
+        }
+        if (taskKey == null) {
+            taskKey = UUIDUtil.getUUID();
+        }
+        scheduledTaskService.start(taskKey, getBufferPeriodMillisecond(), this);
+        logger.info("[{}] 调度已重新注册: period={}ms",
+                getClass().getSimpleName(), getBufferPeriodMillisecond());
     }
 
     /**

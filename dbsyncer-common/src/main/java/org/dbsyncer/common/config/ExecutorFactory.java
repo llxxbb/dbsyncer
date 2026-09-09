@@ -114,6 +114,24 @@ public class ExecutorFactory implements DisposableBean {
         return Runtime.getRuntime().availableProcessors();
     }
 
+    /**
+     * ADR-0031：热重载。
+     * <p>
+     * 关闭旧线程池并置 null，下次 get*Executor() 时 DCL 从 ConfigRegistry 读新值重建。
+     * 线程池已配置 waitForTasksToCompleteOnShutdown=true, awaitTerminationSeconds=30，
+     * shutdown() 会等待当前任务完成，不会丢数据。
+     */
+    public synchronized void reload() {
+        logger.info("[ExecutorFactory] 开始热重载...");
+        shutdown(generalExecutor, "generalExecutor");
+        shutdown(storageExecutor, "storageExecutor");
+        shutdown(dispatchExecutor, "dispatchExecutor");
+        generalExecutor = null;
+        storageExecutor = null;
+        dispatchExecutor = null;
+        logger.info("[ExecutorFactory] 热重载完成，线程池将在下次使用时重建");
+    }
+
     @Override
     public void destroy() {
         shutdown(generalExecutor, "generalExecutor");

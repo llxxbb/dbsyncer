@@ -38,4 +38,16 @@ public interface BufferActuator {
      */
     Executor getExecutor();
 
+    /**
+     * ADR-0031：热重载（排空-切换）。
+     * <p>
+     * 标记队列只出不进，等待消费者排空后替换队列，并重新注册定时调度。
+     */
+    void reload();
+
+    /**
+     * ADR-0031：重新注册定时调度（用新周期），队列不动。
+     */
+    void reschedule();
+
 }

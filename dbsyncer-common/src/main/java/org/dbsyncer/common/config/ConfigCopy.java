@@ -2,6 +2,7 @@ package org.dbsyncer.common.config;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 /**
  * 配置对象深拷贝。ADR-0029 实施修订 R1（D5）。
@@ -20,7 +21,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public final class ConfigCopy {
 
     private static final ObjectMapper MAPPER = new ObjectMapper()
-            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+            .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
 
     private ConfigCopy() {
     }

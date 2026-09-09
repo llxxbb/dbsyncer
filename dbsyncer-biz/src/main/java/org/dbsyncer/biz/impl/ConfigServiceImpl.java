@@ -169,7 +169,7 @@ public class ConfigServiceImpl implements ConfigService {
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("success", false);
             result.put("errors", errors);
-            result.put("restartRequired", false);
+            result.put("reloadRequired", false);
             return result;
         }
 
@@ -202,11 +202,10 @@ public class ConfigServiceImpl implements ConfigService {
         // ④ 通知所有监听器更新 Bean 状态
         notifyListeners();
 
-        // ⑤ B 类自重启
-        boolean restartRequired = tabEnum.isRestartRequired();
+        // ⑤ B 类热重载（ADR-0031）
+        boolean reloadRequired = tabEnum.isRestartRequired();
 
-        // B 类：自重启（如果有进程守护）
-        if (restartRequired && selfRestartService.isSelfRestartPossible()) {
+        if (reloadRequired) {
             java.util.List<String> changedKeys = new ArrayList<>();
             changedKeys.add(tabEnum.getKey());
             selfRestartService.scheduleRestart(changedKeys, "admin");
@@ -214,12 +213,9 @@ public class ConfigServiceImpl implements ConfigService {
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("success", true);
-        result.put("restartRequired", restartRequired);
-        result.put("selfRestart", restartRequired && selfRestartService.isSelfRestartPossible());
-        result.put("result", restartRequired
-                ? (selfRestartService.isSelfRestartPossible()
-                        ? "配置已保存，应用即将自动重启。"
-                        : "配置已保存。修改后需重启应用才能生效。")
+        result.put("reloadRequired", reloadRequired);
+        result.put("result", reloadRequired
+                ? "配置已保存，正在热重载..."
                 : "配置已保存并立即生效。");
         return result;
     }

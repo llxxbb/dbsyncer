@@ -55,7 +55,7 @@ public enum SystemTabEnum {
     BASIC(ConfigCategory.C, "基础配置",
             SystemConfig::getBasic, (c, p) -> c.setBasic((BasicProps) p), BasicProps.class),
 
-    // ===== B 类：需重启 =====
+    // ===== B 类：热重载 =====
 
     EXECUTORS(ConfigCategory.B, "B类：执行器配置",
             SystemConfig::getExecutors, (c, p) -> c.setExecutors((ExecutorProps) p), ExecutorProps.class),

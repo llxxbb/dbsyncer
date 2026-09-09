@@ -37,8 +37,7 @@ function fillBasicTab(basic) {
 }
 
 function fillRuntimeTab(runtime) {
-    if (!runtime) return;
-    $('#runtime_selfRestartEnabled').prop('checked', runtime.selfRestartEnabled === true);
+    // ADR-0031：selfRestartEnabled 已删除，保留空函数以兼容
 }
 
 function fillTemplateTab(template) {
@@ -158,8 +157,8 @@ function saveTab(tab) {
     doPoster('/system/editTab', body, function (data) {
         if (data.success) {
             var result = data.resultValue || data.result;
-            if (result && result.restartRequired) {
-                bootGrowl("配置已保存，需重启应用生效。", "warning");
+            if (result && result.reloadRequired) {
+                bootGrowl("配置已保存，正在热重载...", "success");
             } else if (result && result.errors) {
                 bootGrowl("校验失败: " + result.errors.join(', '), "danger");
             } else {
@@ -263,9 +262,7 @@ function buildPayload(tab) {
                 alertCron: $('#monitor_alertCron').val()
             };
         case 'runtime':
-            return {
-                selfRestartEnabled: $('#runtime_selfRestartEnabled').is(':checked')
-            };
+            return {};
         case 'template':
             return {
                 maxDepth: parseInt($('#template_maxDepth').val())

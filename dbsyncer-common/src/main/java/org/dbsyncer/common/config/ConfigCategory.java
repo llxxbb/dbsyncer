@@ -6,14 +6,14 @@ package org.dbsyncer.common.config;
  * 定义三类配置的语义：
  * <ul>
  *   <li>A — 环境只读：从 Spring Environment 读取，不落库，不可通过 UI 修改</li>
- *   <li>B — 需重启：修改后需重启应用才能生效</li>
+ *   <li>B — 热重载：修改后自动热重载（ADR-0031，替代原进程级重启）</li>
  *   <li>C — 立即生效：修改后立即生效，通过 ConfigChangeListener 通知</li>
  * </ul>
  */
 public enum ConfigCategory {
 
     A("A类", "环境只读配置（只读，不落库）"),
-    B("B类", "需重启配置"),
+    B("B类", "热重载配置"),
     C("C类", "立即生效配置");
 
     private final String prefix;
