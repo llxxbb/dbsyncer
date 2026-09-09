@@ -11,7 +11,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import java.util.function.Supplier;
 
 /**
- * ADR-0031：延迟线程池工厂。
+ * ADR-0030：延迟线程池工厂。
  * <p>
  * 替代原 GeneralBufferConfig / StorageConfig / DispatchTaskConfig 的 @Bean 线程池创建。
  * 线程池在首次使用时才创建，确保此时 ConfigRegistry 已从 DB 加载配置。

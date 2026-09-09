@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Configuration;
 import javax.annotation.Resource;
 
 /**
- * ADR-0031：注册 ExecutorFactory，替代原 GeneralBufferConfig / StorageConfig / DispatchTaskConfig。
+ * ADR-0030：注册 ExecutorFactory，替代原 GeneralBufferConfig / StorageConfig / DispatchTaskConfig。
  */
 @Configuration
 public class ExecutorFactoryConfig {

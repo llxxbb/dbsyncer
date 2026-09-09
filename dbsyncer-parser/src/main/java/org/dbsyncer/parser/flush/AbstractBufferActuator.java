@@ -34,7 +34,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * <p>1. 任务优先进入缓存队列
  * <p>2. 将任务分区合并，批量执行
  * <p>
- * ADR-0031：不再依赖 BufferActuatorConfig，改为从 ConfigRegistry 动态读取缓冲区参数。
+ * ADR-0030：不再依赖 BufferActuatorConfig，改为从 ConfigRegistry 动态读取缓冲区参数。
  * 队列和调度器延迟到首次 offer() 时初始化，确保 ConfigRegistry 已从 DB 加载配置。
  *
  * @author AE86

@@ -129,7 +129,7 @@ public class MetricReporter implements ScheduledTaskJob, StartupTaskRegistrar {
         // 堆积任务(所有 meta 的执行器)
         report.setQueueUp(bufferActuatorRouter.getQueueSize().get());
         report.setQueueCapacity(bufferActuatorRouter.getQueueCapacity().get());
-        // 持久化任务（队列可能为null：ADR-0031延迟初始化，首次offer()前queue未创建）
+        // 持久化任务（队列可能为null：ADR-0030延迟初始化，首次offer()前queue未创建）
         Queue storageQueue = storageBufferActuator.getQueue();
         report.setStorageQueueUp(storageQueue != null ? storageQueue.size() : 0);
         report.setStorageQueueCapacity(storageBufferActuator.getQueueCapacity());
