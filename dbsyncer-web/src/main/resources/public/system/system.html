@@ -102,7 +102,7 @@
 
         <!-- Tab 2: 执行器 -->
         <div role="tabpanel" class="tab-pane" id="tab-executors">
-            <div class="alert alert-warning"><strong>⚠️</strong> 以下配置修改后需<strong>重启应用</strong>才能生效。线程池在应用启动时创建，运行中不做在线重建。</div>
+            <div class="alert alert-warning">以下配置修改后将<strong>热重载</strong>。关闭旧线程池并启用新线程池。</div>
             <form id="executorsForm" class="form-horizontal" role="form">
                 <div class="form-group">
                     <div class="text-right col-sm-12">
@@ -173,7 +173,7 @@
 
         <!-- Tab 3: 缓冲区 -->
         <div role="tabpanel" class="tab-pane" id="tab-buffers">
-            <div class="alert alert-warning"><strong>⚠️</strong> 以下配置修改后需<strong>重启应用</strong>才能生效。缓冲区队列在启动时一次性创建。</div>
+            <div class="alert alert-warning">以下配置修改后将<strong>热重载</strong>。旧缓冲区排空后将按新配置启用新缓冲区。</div>
             <form id="buffersForm" class="form-horizontal" role="form">
                 <div class="form-group">
                     <div class="text-right col-sm-12">
