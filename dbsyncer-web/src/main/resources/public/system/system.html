@@ -38,43 +38,43 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">同步数据过期时间(天)<i class="fa fa-question-circle fa_gray" title="同步数据过期时间（天）。超过此天数的历史同步记录将被自动清理。"></i></label>
+                    <label class="col-sm-2 control-label">任务数据过期时间(天)<i class="fa fa-question-circle fa_gray" title="历史同步记录（含任务执行日志和统计快照, dbsyncer_data 数据表）的保留天数。超过此天数的数据将由定时清理任务自动删除，以释放存储空间。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1" max="180" name="expireDataDays" id="basic_expireDataDays"/>
                     </div>
-                    <label class="col-sm-2 control-label">系统日志过期时间(天)<i class="fa fa-question-circle fa_gray" title="系统日志过期时间（天）。超过此天数的操作日志将被自动清理。"></i></label>
+                    <label class="col-sm-2 control-label">系统日志过期时间(天)<i class="fa fa-question-circle fa_gray" title="系统操作日志（如配置变更、用户登录等， dbsyncer_log 数据表）的保留天数。超过此天数的日志将被自动清理。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1" max="365" name="expireLogDays" id="basic_expireLogDays"/>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">刷新监控频率(秒)<i class="fa fa-question-circle fa_gray" title="监控页面自动刷新的间隔（秒）。"></i></label>
+                    <label class="col-sm-2 control-label">刷新监控频率(秒)<i class="fa fa-question-circle fa_gray" title="监控大盘页面自动轮询后端接口获取最新指标的间隔（秒）。值越小数据越实时，但服务端压力越大。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1" max="60" name="refreshIntervalSeconds" id="basic_refreshIntervalSeconds"/>
                     </div>
-                    <label class="col-sm-2 control-label">记录同步失败数据<i class="fa fa-question-circle fa_gray" title="是否记录同步失败的数据详情。"></i></label>
+                    <label class="col-sm-2 control-label">记录同步失败数据<i class="fa fa-question-circle fa_gray" title="开启后，同步过程中写入目标端失败的原始数据将被持久化存储，便于排查数据丢失或字段映射问题。关闭后可减少存储开销。"></i></label>
                     <div class="col-sm-4">
                         <input type="checkbox" name="enableStorageWriteFail" id="basic_enableStorageWriteFail"/>
                     </div>
                 </div>
                 <div class="form-group" id="maxStorageErrorLength_group">
-                    <label class="col-sm-2 control-label">失败日志最大长度<i class="fa fa-question-circle fa_gray" title="每条失败日志的最大长度（字符数）。"></i></label>
+                    <label class="col-sm-2 control-label">系统日志最大长度<i class="fa fa-question-circle fa_gray" title="每条失败记录中保存的错误详情最大字符数。超出部分将被截断。值越大排查信息越完整，但占用存储越多。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="100" max="8192" name="maxStorageErrorLength" id="basic_maxStorageErrorLength"/>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">CDN加速<i class="fa fa-question-circle fa_gray" title="是否使用 CDN 加速静态资源加载。"></i></label>
+                    <label class="col-sm-2 control-label">CDN加速<i class="fa fa-question-circle fa_gray" title="开启后，前端静态资源（JS/CSS/字体等）将通过公共 CDN 加载，加快页面加载速度。适用于外网访问场景；内网或离线环境建议关闭。"></i></label>
                     <div class="col-sm-4">
                         <input type="checkbox" name="enableCDN" id="basic_enableCDN"/>
                     </div>
-                    <label class="col-sm-2 control-label">标准数据解析器<i class="fa fa-question-circle fa_gray" title="是否启用标准数据解析器。开启后可支持更多异构字段类型转换。"></i></label>
+                    <label class="col-sm-2 control-label">标准数据解析器<i class="fa fa-question-circle fa_gray" title="开启后，系统将使用标准化的字段类型解析策略，支持更多异构数据源之间的字段类型自动转换（如 MySQL DATETIME → Oracle TIMESTAMP）。"></i><i class="fa fa-exclamation-triangle text-danger" title="⚠ 危险操作：关闭后系统将不再自动转换异构字段类型，源端与目标端字段类型必须完全一致，否则可能导致数据丢失、写入失败或类型截断等正确性问题。"></i></label>
                     <div class="col-sm-4">
                         <input type="checkbox" name="enableSchemaResolver" id="basic_enableSchemaResolver"/>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">水印<i class="fa fa-question-circle fa_gray" title="是否在页面上显示水印。"></i></label>
+                    <label class="col-sm-2 control-label">水印<i class="fa fa-question-circle fa_gray" title="开启后，页面背景将显示水印文字，可用于信息安全溯源。"></i></label>
                     <div class="col-sm-4">
                         <input type="checkbox" name="enableWatermark" id="basic_enableWatermark"/>
                     </div>
@@ -86,13 +86,13 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">打印trace信息<i class="fa fa-question-circle fa_gray" title="是否打印 trace 级别的调试信息。仅用于排查问题。"></i></label>
+                    <label class="col-sm-2 control-label">打印trace信息<i class="fa fa-question-circle fa_gray" title="开启后，系统将在日志中输出详细的任务调度、数据读取/写入等 trace 级别调试信息。仅用于问题排查，生产环境建议关闭以避免日志量激增。"></i></label>
                     <div class="col-sm-4">
                         <input type="checkbox" name="enablePrintTraceInfo" id="basic_enablePrintTraceInfo"/>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">重置管理员密码<i class="fa fa-question-circle fa_gray" title="开启后，下次登录时将管理员密码重置为默认密码 admin。仅生效一次。"></i></label>
+                    <label class="col-sm-2 control-label">重置管理员密码<i class="fa fa-question-circle fa_gray" title="开启并保存后，管理员（admin）密码将被重置为默认密码 admin。此操作仅生效一次，生效后自动关闭。请谨慎使用。"></i></label>
                     <div class="col-sm-4">
                         <input type="checkbox" name="resetPwd" id="basic_resetPwd"/>
                     </div>
@@ -114,55 +114,73 @@
                         </button>
                     </div>
                 </div>
-                <h4>通用执行器 <small class="text-muted">用于通用异步任务</small></h4>
+                <h4>同步任务线程池 <small class="text-muted">数据同步的核心执行器，负责将缓冲队列中的变更事件批量写入目标端</small></h4>
+                <div class="alert alert-info" style="padding: 8px 12px; margin-bottom: 15px; font-size: 12px;">
+                    <i class="fa fa-info-circle"></i>
+                    所有同步任务（Meta）<strong>共享</strong>此线程池，每个任务<strong>独享</strong>一个缓冲队列。<br/>
+                    消费线程从队列中取出变更事件，按表名分区合并后批量执行 DML/DDL 写入。<br/>
+                    线程数决定同时处理的同步任务并发能力；队列满时源端写入将阻塞。
+                </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">核心线程数<i class="fa fa-question-circle fa_gray" title="线程池维持的最小工作线程数。重启后生效。"></i></label>
+                    <label class="col-sm-2 control-label">核心线程数<i class="fa fa-question-circle fa_gray" title="数据同步线程池始终保持的最小工作线程数，即使空闲也不会回收。决定系统同时处理多个同步任务的基础并发能力。重启后生效。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1" name="general.threadCoreSize" id="exec_general_threadCoreSize"/>
                     </div>
-                    <label class="col-sm-2 control-label">最大线程数<i class="fa fa-question-circle fa_gray" title="队列满且线程数未达此上限时会新建线程。重启后生效。"></i></label>
+                    <label class="col-sm-2 control-label">最大线程数<i class="fa fa-question-circle fa_gray" title="数据同步线程池允许扩展到的最大线程数。当核心线程全忙且等待队列已满时，将创建新线程直到达到此上限。重启后生效。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1" name="general.maxThreadSize" id="exec_general_maxThreadSize"/>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">任务队列容量<i class="fa fa-question-circle fa_gray" title="核心线程全忙时新任务的等待队列。重启后生效。"></i></label>
+                    <label class="col-sm-2 control-label">任务队列容量<i class="fa fa-question-circle fa_gray" title="数据同步任务的等待队列长度。当所有同步线程全忙时，新的同步任务将排入此队列等待执行。队列满后将触发创建新线程直至最大线程数。重启后生效。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1" name="general.threadQueueCapacity" id="exec_general_threadQueueCapacity"/>
                     </div>
                 </div>
 
-                <h4>存储执行器 <small class="text-muted">控制数据持久化并发</small></h4>
+                <h4>日志线程池 <small class="text-muted">异步写入系统操作日志，避免阻塞业务主流程</small></h4>
+                <div class="alert alert-info" style="padding: 8px 12px; margin-bottom: 15px; font-size: 12px;">
+                    <i class="fa fa-info-circle"></i>
+                    负责将操作日志、错误日志等异步持久化到存储。<br/>
+                    所有日志写入任务<strong>共享</strong>此线程池，写入操作从业务线程剥离，不阻塞同步主流程。<br/>
+                    线程数决定日志并发写入能力；队列满时新日志将被拒绝。
+                </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">核心线程数<i class="fa fa-question-circle fa_gray" title="数据持久化的基础并发能力。重启后生效。"></i></label>
+                    <label class="col-sm-2 control-label">核心线程数<i class="fa fa-question-circle fa_gray" title="日志写入线程池始终保持的最小工作线程数。决定系统异步写入操作日志的基础并发能力。重启后生效。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1" name="storage.threadCoreSize" id="exec_storage_threadCoreSize"/>
                     </div>
-                    <label class="col-sm-2 control-label">最大线程数<i class="fa fa-question-circle fa_gray" title="存储操作峰值并发上限。重启后生效。"></i></label>
+                    <label class="col-sm-2 control-label">最大线程数<i class="fa fa-question-circle fa_gray" title="日志写入线程池允许扩展到的最大线程数。当核心线程全忙且队列已满时，将创建新线程直到达到此上限。重启后生效。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1" name="storage.maxThreadSize" id="exec_storage_maxThreadSize"/>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">任务队列容量<i class="fa fa-question-circle fa_gray" title="存储任务的等待队列。重启后生效。"></i></label>
+                    <label class="col-sm-2 control-label">任务队列容量<i class="fa fa-question-circle fa_gray" title="日志写入任务的等待队列长度。当日志写入线程全忙时，新的日志写入请求将排入此队列。队列满时新日志将被拒绝。重启后生效。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1" name="storage.threadQueueCapacity" id="exec_storage_threadQueueCapacity"/>
                     </div>
                 </div>
 
-                <h4>调度任务执行器 <small class="text-muted">用于任务分发与状态检查</small></h4>
+                <h4>统计线程池 <small class="text-muted">任务启动前的数据量统计，为全量同步提供进度基准</small></h4>
+                <div class="alert alert-info" style="padding: 8px 12px; margin-bottom: 15px; font-size: 12px;">
+                    <i class="fa fa-info-circle"></i>
+                    负责在全量同步启动前，统计各驱动（Mapping）下源表的总行数，为同步进度提供基准数据。<br/>
+                    按任务唯一 ID 去重：同一任务重复提交时，旧任务将被终止并由新任务接管。<br/>
+                    线程数决定同时统计多个驱动数据量的并发能力。
+                </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">核心线程数<i class="fa fa-question-circle fa_gray" title="任务分发的基础并发能力。重启后生效。"></i></label>
+                    <label class="col-sm-2 control-label">核心线程数<i class="fa fa-question-circle fa_gray" title="调度统计线程池始终保持的最小工作线程数。决定系统同时统计多个驱动数据量的基础并发能力。重启后生效。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1" name="dispatch.threadCoreSize" id="exec_dispatch_threadCoreSize"/>
                     </div>
-                    <label class="col-sm-2 control-label">最大线程数<i class="fa fa-question-circle fa_gray" title="任务分发的峰值并发上限。重启后生效。"></i></label>
+                    <label class="col-sm-2 control-label">最大线程数<i class="fa fa-question-circle fa_gray" title="调度统计线程池允许扩展到的最大线程数。当核心线程全忙且队列已满时，将创建新线程直到达到此上限。重启后生效。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1" name="dispatch.maxThreadSize" id="exec_dispatch_maxThreadSize"/>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">任务队列容量<i class="fa fa-question-circle fa_gray" title="分发任务的等待队列。重启后生效。"></i></label>
+                    <label class="col-sm-2 control-label">任务队列容量<i class="fa fa-question-circle fa_gray" title="调度统计任务的等待队列长度。当调度线程全忙时，新的统计任务将排入此队列。重启后生效。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1" name="dispatch.threadQueueCapacity" id="exec_dispatch_threadQueueCapacity"/>
                     </div>
@@ -185,23 +203,29 @@
                         </button>
                     </div>
                 </div>
-                <h4>通用执行器缓冲</h4>
+                <h4>任务数据缓冲队列</h4>
+                <div class="alert alert-info" style="padding: 8px 12px; margin-bottom: 15px; font-size: 12px;">
+                    <i class="fa fa-info-circle"></i>
+                    用于缓存任务从源端获取到的数据。<br/>
+                    每个任务拥有一个独立的缓冲区。<br/>
+                    所有缓冲区共享此配置。
+                </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">任务中断上报失败数<i class="fa fa-question-circle fa_gray" title="原名 writer count，实测只用于告警文案中的失败计数。重启后生效。"></i></label>
+                    <label class="col-sm-2 control-label">任务中断上报失败数<i class="fa fa-question-circle fa_gray" title="任务中断时，上报到错误队列的失败记录条数上限。用于控制中断告警中展示的失败数据量。重启后生效。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1" name="bufferWriterCount" id="buf_general_bufferWriterCount"/>
                     </div>
-                    <label class="col-sm-2 control-label">每次消费任务数<i class="fa fa-question-circle fa_gray" title="每次定时消费从缓冲队列取出的任务条数。重启后生效。"></i></label>
+                    <label class="col-sm-2 control-label">每次消费任务数<i class="fa fa-question-circle fa_gray" title="每次定时调度从缓冲队列中取出的数据条数，达到此数量后批量写入目标端。值越大单次写入批量越大，但占用内存越多。重启后生效。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1" name="bufferPullCount" id="buf_general_bufferPullCount"/>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">缓冲队列容量<i class="fa fa-question-circle fa_gray" title="内存缓冲的最大任务条数。重启后生效。"></i></label>
+                    <label class="col-sm-2 control-label">缓冲队列容量<i class="fa fa-question-circle fa_gray" title="每个任务缓冲队列在内存中可缓存的最大数据条数。队列满时源端读取将阻塞，直到消费线程腾出空间。值越大吞吐量越高，但内存占用越多。重启后生效。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1" name="bufferQueueCapacity" id="buf_general_bufferQueueCapacity"/>
                     </div>
-                    <label class="col-sm-2 control-label">消费间隔(ms)<i class="fa fa-question-circle fa_gray" title="定时消费缓冲队列的频率。重启后生效。"></i></label>
+                    <label class="col-sm-2 control-label">消费间隔(ms)<i class="fa fa-question-circle fa_gray" title="定时消费线程两次调度之间的等待时间（毫秒）。值越小数据写入目标端越及时，但 CPU 开销越高。重启后生效。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1" name="bufferPeriodMillisecond" id="buf_general_bufferPeriodMillisecond"/>
                     </div>
@@ -224,37 +248,37 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">禁用重试<i class="fa fa-question-circle fa_gray" title="是否禁用全局重试机制。立即生效。"></i></label>
+                    <label class="col-sm-2 control-label">禁用重试<i class="fa fa-question-circle fa_gray" title="开启后，所有任务在同步失败时将不再自动重试，直接标记为失败。适用于对数据一致性要求极高、不希望重复写入的场景。立即生效。"></i></label>
                     <div class="col-sm-4">
                         <input type="checkbox" name="disable" id="retry_disable"/>
                     </div>
-                    <label class="col-sm-2 control-label">最大重试次数<i class="fa fa-question-circle fa_gray" title="最大执行次数（含首次）。立即生效。"></i></label>
+                    <label class="col-sm-2 control-label">最大重试次数<i class="fa fa-question-circle fa_gray" title="任务失败后的最大执行次数（含首次执行）。例如设为 3 表示最多执行 1 次 + 重试 2 次。立即生效。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1" name="maxAttempts" id="retry_maxAttempts"/>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">初始间隔(ms)<i class="fa fa-question-circle fa_gray" title="首次重试前的等待（毫秒）。立即生效。"></i></label>
+                    <label class="col-sm-2 control-label">初始间隔(ms)<i class="fa fa-question-circle fa_gray" title="任务首次失败后到第一次重试之间的等待时间（毫秒）。立即生效。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="0" name="initialIntervalMs" id="retry_initialIntervalMs"/>
                     </div>
-                    <label class="col-sm-2 control-label">最大间隔(ms)<i class="fa fa-question-circle fa_gray" title="指数退避的等待上限（毫秒）。立即生效。"></i></label>
+                    <label class="col-sm-2 control-label">最大间隔(ms)<i class="fa fa-question-circle fa_gray" title="指数退避策略下，相邻两次重试之间的最大等待时间上限（毫秒）。随着重试次数增加，等待时间按倍数增长但不超过此值。立即生效。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="0" name="maxIntervalMs" id="retry_maxIntervalMs"/>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">退避倍数<i class="fa fa-question-circle fa_gray" title="每次重试后等待时间的倍数。立即生效。"></i></label>
+                    <label class="col-sm-2 control-label">退避倍数<i class="fa fa-question-circle fa_gray" title="每次重试后等待时间的增长倍数。例如设为 2.0 表示每次重试等待时间翻倍（1s → 2s → 4s …）。立即生效。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1" step="0.1" name="multiplier" id="retry_multiplier"/>
                     </div>
-                    <label class="col-sm-2 control-label">总时长上限(ms)<i class="fa fa-question-circle fa_gray" title="从首次失败起的重试总时长上限。0=不限制。立即生效。"></i></label>
+                    <label class="col-sm-2 control-label">总时长上限(ms)<i class="fa fa-question-circle fa_gray" title="从首次失败开始计算，所有重试累计允许的最大耗时（毫秒）。超过此限制后将停止重试并标记为最终失败。设为 0 表示不限制。立即生效。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="0" name="maxDurationMs" id="retry_maxDurationMs"/>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">终止模式<i class="fa fa-question-circle fa_gray" title="重试终止判定模式。立即生效。"></i></label>
+                    <label class="col-sm-2 control-label">终止模式<i class="fa fa-question-circle fa_gray" title="决定何时停止重试的判定策略。按次数：达到最大重试次数后停止；按耗时：达到总时长上限后停止；先到为准：任一条件先满足即停止。立即生效。"></i></label>
                     <div class="col-sm-4">
                         <select class="form-control" name="terminationMode" id="retry_terminationMode">
                             <option value="MAX_ATTEMPTS">按次数</option>
@@ -264,11 +288,11 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">启用关键字匹配<i class="fa fa-question-circle fa_gray" title="是否仅重试匹配关键字的异常。立即生效。"></i></label>
+                    <label class="col-sm-2 control-label">启用关键字匹配<i class="fa fa-question-circle fa_gray" title="开启后，仅当异常信息匹配下方关键字列表时才进行重试，其余异常直接失败。适用于只想重试特定可恢复异常（如网络超时）的场景。立即生效。"></i></label>
                     <div class="col-sm-4">
                         <input type="checkbox" name="useKeyword" id="retry_useKeyword"/>
                     </div>
-                    <label class="col-sm-2 control-label">匹配模式<i class="fa fa-question-circle fa_gray" title="关键字匹配模式。立即生效。"></i></label>
+                    <label class="col-sm-2 control-label">匹配模式<i class="fa fa-question-circle fa_gray" title="关键字与异常信息的匹配方式。完全相等：异常信息须与关键字完全一致；包含：异常信息中包含关键字即可；忽略大小写 variants 同理。立即生效。"></i></label>
                     <div class="col-sm-4">
                         <select class="form-control" name="matchMode" id="retry_matchMode">
                             <option value="EXACT">完全相等</option>
@@ -279,13 +303,13 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">重试关键字<i class="fa fa-question-circle fa_gray" title="每行一个。仅当关键字匹配开启时生效。"></i></label>
+                    <label class="col-sm-2 control-label">重试关键字<i class="fa fa-question-circle fa_gray" title="每行一个关键字或短语。仅当「启用关键字匹配」开启时生效，异常信息匹配其中任一关键字才会触发重试。建议填写可恢复的异常标识，如 ConnectTimeoutException。"></i></label>
                     <div class="col-sm-10">
                         <textarea class="form-control" rows="3" id="retry_keywords" placeholder="每行一个关键字"></textarea>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">排除关键字<i class="fa fa-question-circle fa_gray" title="每行一个。命中排除关键字的异常不重试。"></i></label>
+                    <label class="col-sm-2 control-label">排除关键字<i class="fa fa-question-circle fa_gray" title="每行一个关键字或短语。异常信息命中任一排除关键字时，即使匹配重试关键字也不会重试，直接标记为最终失败。用于排除不可恢复的异常，如 DataTruncation。"></i></label>
                     <div class="col-sm-10">
                         <textarea class="form-control" rows="3" id="retry_excludeKeywords" placeholder="每行一个关键字"></textarea>
                     </div>
@@ -308,7 +332,7 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">启用通道<i class="fa fa-question-circle fa_gray" title="启用的通知通道。未勾选的通道不会发送任何通知。"></i></label>
+                    <label class="col-sm-2 control-label">启用通道<i class="fa fa-question-circle fa_gray" title="选择要启用的通知通道。未勾选的通道不会发送任何告警或通知消息。任务异常终止、熔断等事件将通知到已启用的通道。"></i></label>
                     <div class="col-sm-10">
                         <label class="checkbox-inline"><input type="checkbox" name="channels" value="mail"/> 邮件</label>
                         <label class="checkbox-inline"><input type="checkbox" name="channels" value="dingtalk"/> 钉钉</label>
@@ -316,17 +340,17 @@
                 </div>
                 <h4>邮件配置</h4>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">发件邮箱<i class="fa fa-question-circle fa_gray" title="发送通知邮件的账号。"></i></label>
+                    <label class="col-sm-2 control-label">发件邮箱<i class="fa fa-question-circle fa_gray" title="用于发送告警通知邮件的发件人邮箱地址。需确保该邮箱已开启 SMTP 服务。"></i></label>
                     <div class="col-sm-4">
                         <input type="text" class="form-control" name="mail.username" id="notify_mail_username"/>
                     </div>
-                    <label class="col-sm-2 control-label">授权码<i class="fa fa-question-circle fa_gray" title="邮件账号的授权码（不是登录密码）。"></i></label>
+                    <label class="col-sm-2 control-label">授权码<i class="fa fa-question-circle fa_gray" title="发件邮箱的 SMTP 授权码（非邮箱登录密码）。通常需在邮箱设置中开启 SMTP 服务后获取。"></i></label>
                     <div class="col-sm-4">
                         <input type="password" class="form-control" name="mail.password" id="notify_mail_password" placeholder="已配置，留空则保留原值"/>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">通知类型<i class="fa fa-question-circle fa_gray" title="不勾选=通知全部类型。"></i></label>
+                    <label class="col-sm-2 control-label">通知类型<i class="fa fa-question-circle fa_gray" title="选择要接收的告警通知类型。不勾选任何项则默认接收全部类型的通知。"></i></label>
                     <div class="col-sm-10" id="notify_mail_types">
                         <!-- 动态生成 -->
                     </div>
@@ -334,17 +358,17 @@
 
                 <h4>钉钉配置</h4>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">Webhook URL<i class="fa fa-question-circle fa_gray" title="钉钉群机器人的 Webhook 地址。"></i></label>
+                    <label class="col-sm-2 control-label">Webhook URL<i class="fa fa-question-circle fa_gray" title="钉钉群机器人的 Webhook 推送地址。在钉钉群 → 设置 → 智能群助手 → 添加机器人 后获取。"></i></label>
                     <div class="col-sm-10">
                         <input type="text" class="form-control" name="dingtalk.webhookUrl" id="notify_dingtalk_webhookUrl"/>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">签名密钥<i class="fa fa-question-circle fa_gray" title="当前未启用签名校验，配置后重启生效。"></i></label>
+                    <label class="col-sm-2 control-label">签名密钥<i class="fa fa-question-circle fa_gray" title="钉钉机器人的签名校验密钥（加签方式）。配置后需重启应用生效。如机器人安全设置中未启用加签可留空。"></i></label>
                     <div class="col-sm-4">
                         <input type="password" class="form-control" name="dingtalk.secret" id="notify_dingtalk_secret" placeholder="已配置，留空则保留原值"/>
                     </div>
-                    <label class="col-sm-2 control-label">通知类型<i class="fa fa-question-circle fa_gray" title="不勾选=通知全部类型。"></i></label>
+                    <label class="col-sm-2 control-label">通知类型<i class="fa fa-question-circle fa_gray" title="选择要通过钉钉接收的告警通知类型。不勾选任何项则默认接收全部类型。"></i></label>
                     <div class="col-sm-4" id="notify_dingtalk_types">
                         <!-- 动态生成 -->
                     </div>
@@ -367,11 +391,11 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">熔断阈值<i class="fa fa-question-circle fa_gray" title="错误队列熔断阈值。0=不启用熔断。立即生效。"></i></label>
+                    <label class="col-sm-2 control-label">熔断阈值<i class="fa fa-question-circle fa_gray" title="错误队列中累计的错误数量达到此阈值时，系统将自动熔断（暂停）对应任务，防止错误持续堆积。设为 0 表示不启用熔断机制。立即生效。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="0" name="threshold" id="error_threshold"/>
                     </div>
-                    <label class="col-sm-2 control-label">匹配模式<i class="fa fa-question-circle fa_gray" title="致命关键字的匹配模式。立即生效。"></i></label>
+                    <label class="col-sm-2 control-label">匹配模式<i class="fa fa-question-circle fa_gray" title="致命关键字与异常信息的匹配方式。命中致命关键字的异常将直接终止任务，不进入重试流程。立即生效。"></i></label>
                     <div class="col-sm-4">
                         <select class="form-control" name="fatalMatchMode" id="error_fatalMatchMode">
                             <option value="EXACT">完全相等</option>
@@ -382,7 +406,7 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">致命关键字<i class="fa fa-question-circle fa_gray" title="每行一个。命中时任务直接终止。"></i></label>
+                    <label class="col-sm-2 control-label">致命关键字<i class="fa fa-question-circle fa_gray" title="每行一个关键字或短语。异常信息命中任一关键字时，任务将立即终止且不再重试。用于标识不可恢复的严重错误，如表结构不存在、权限不足等。"></i></label>
                     <div class="col-sm-10">
                         <textarea class="form-control" rows="3" id="error_fatalKeywords" placeholder="每行一个关键字"></textarea>
                     </div>
@@ -402,35 +426,35 @@
                 </div>
                 <h4>调度线程池</h4>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">调度线程数<i class="fa fa-question-circle fa_gray" title="taskScheduler 的线程数，决定同时运行的定时任务数量。"></i></label>
+                    <label class="col-sm-2 control-label">调度线程数<i class="fa fa-question-circle fa_gray" title="监控定时任务的调度线程池线程数。决定可同时运行的定时任务（如健康检查、数据采集、过期清理等）数量。建议大于等于定时任务总数。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1" name="schedulerPoolSize" id="monitor_schedulerPoolSize"/>
                     </div>
                 </div>
                 <h4>采集间隔（毫秒）</h4>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">CPU/内存采集<i class="fa fa-question-circle fa_gray" title="CPU 和内存指标采集间隔，默认 5000 毫秒。"></i></label>
+                    <label class="col-sm-2 control-label">CPU/内存采集<i class="fa fa-question-circle fa_gray" title="系统 CPU 使用率和 JVM 内存指标的采集间隔（毫秒）。值越小监控数据越精细，但增加系统开销。默认 5000 毫秒。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1000" name="cpuMemoryIntervalMs" id="monitor_cpuMemoryIntervalMs"/>
                     </div>
-                    <label class="col-sm-2 control-label">健康检查<i class="fa fa-question-circle fa_gray" title="连接器健康检查间隔，默认 10000 毫秒。"></i></label>
+                    <label class="col-sm-2 control-label">健康检查<i class="fa fa-question-circle fa_gray" title="各数据源连接器（MySQL、Oracle 等）的健康检查间隔（毫秒）。定期探测源端和目标端的连通性，异常时在监控页面展示告警。默认 10000 毫秒。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1000" name="healthCheckIntervalMs" id="monitor_healthCheckIntervalMs"/>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">过期数据清理<i class="fa fa-question-circle fa_gray" title="过期同步数据和日志的清理间隔，默认 30000 毫秒。"></i></label>
+                    <label class="col-sm-2 control-label">过期数据清理<i class="fa fa-question-circle fa_gray" title="定时扫描并删除超过过期天数的历史同步数据和系统日志的间隔（毫秒）。默认 30000 毫秒。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1000" name="cleanupIntervalMs" id="monitor_cleanupIntervalMs"/>
                     </div>
-                    <label class="col-sm-2 control-label">指标上报<i class="fa fa-question-circle fa_gray" title="应用指标上报间隔，默认 5000 毫秒。"></i></label>
+                    <label class="col-sm-2 control-label">指标上报<i class="fa fa-question-circle fa_gray" title="系统运行指标（任务吞吐量、队列深度、错误率等）上报到监控注册表的间隔（毫秒）。默认 5000 毫秒。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1000" name="metricReportIntervalMs" id="monitor_metricReportIntervalMs"/>
                     </div>
                 </div>
                 <h4>预警</h4>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">预警 Cron<i class="fa fa-question-circle fa_gray" title="预警任务的 Cron 表达式，默认每 10 分钟执行。"></i></label>
+                    <label class="col-sm-2 control-label">预警 Cron<i class="fa fa-question-circle fa_gray" title="预警任务的调度 Cron 表达式。预警任务将定期检查系统状态（如任务异常、连接器离线等）并通过已启用的通知通道发送告警。默认每 10 分钟执行一次。"></i></label>
                     <div class="col-sm-6">
                         <input type="text" class="form-control" name="alertCron" id="monitor_alertCron"/>
                     </div>
@@ -449,7 +473,7 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">最大依赖深度<i class="fa fa-question-circle fa_gray" title="模板解析的最大依赖深度（>=1）。立即生效。"></i></label>
+                    <label class="col-sm-2 control-label">最大依赖深度<i class="fa fa-question-circle fa_gray" title="模板引擎解析字段映射时允许的最大依赖链深度（>=1）。深度越大支持的映射链越长，但过深可能导致循环依赖。立即生效。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1" name="maxDepth" id="template_maxDepth"/>
                     </div>
