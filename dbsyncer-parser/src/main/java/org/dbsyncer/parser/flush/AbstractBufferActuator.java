@@ -389,6 +389,12 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
      * ⑥ 重注册定时调度（周期可能也变了）
      */
     public void reload() {
+        // 未初始化过则无需 reload，下次 offer() 会用新配置初始化
+        if (!initialized) {
+            logger.info("[{}] 尚未初始化，跳过热重载", getClass().getSimpleName());
+            return;
+        }
+
         // ① 标记只出不进
         draining = true;
 
