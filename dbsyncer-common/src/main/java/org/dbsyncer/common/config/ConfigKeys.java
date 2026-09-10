@@ -18,7 +18,6 @@ package org.dbsyncer.common.config;
  *   <li>RETRY_* — 重试策略配置（C 类，立即生效）</li>
  *   <li>NOTIFY_* — 通知通道配置（C 类，立即生效）</li>
  *   <li>ERROR_* — 错误处理配置（C 类，立即生效）</li>
- *   <li>RUNTIME_* — 运行时控制配置</li>
  *   <li>TEMPLATE_* — 模板引擎配置</li>
  * </ul>
  */

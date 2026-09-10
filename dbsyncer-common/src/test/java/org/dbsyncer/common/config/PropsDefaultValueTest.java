@@ -7,7 +7,6 @@ import org.dbsyncer.common.config.props.ErrorProps;
 import org.dbsyncer.common.config.props.ExecutorProps;
 import org.dbsyncer.common.config.props.MonitorProps;
 import org.dbsyncer.common.config.props.RetryProps;
-import org.dbsyncer.common.config.props.RuntimeProps;
 import org.dbsyncer.common.config.props.ServerProps;
 import org.dbsyncer.common.config.props.TemplateProps;
 import org.dbsyncer.common.config.props.WorkerProps;
@@ -60,11 +59,6 @@ public class PropsDefaultValueTest {
     @Test
     public void errorKeepsDefaults() {
         assertLoadKeepsDefaults(new ErrorProps());
-    }
-
-    @Test
-    public void runtimeKeepsDefaults() {
-        assertLoadKeepsDefaults(new RuntimeProps());
     }
 
     @Test

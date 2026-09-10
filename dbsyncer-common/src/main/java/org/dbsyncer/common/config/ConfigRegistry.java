@@ -175,7 +175,6 @@ public class ConfigRegistry {
         config.setRetry(load(RetryProps::new));
         config.setNotify(load(NotifyProps::new));
         config.setError(load(ErrorProps::new));
-        config.setRuntime(load(RuntimeProps::new));
         config.setTemplate(load(TemplateProps::new));
 
         return config;

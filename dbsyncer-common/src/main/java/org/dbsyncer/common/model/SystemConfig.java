@@ -56,10 +56,6 @@ public class SystemConfig extends ConfigModel {
     @JsonIgnore
     private EncryptKeyProps encryptKey;
 
-    // ===== 运行时控制（C 类：立即生效） =====
-
-    private RuntimeProps runtime;
-
     // ===== 模板引擎（C 类：立即生效） =====
 
     private TemplateProps template;
@@ -219,16 +215,6 @@ public class SystemConfig extends ConfigModel {
 
     public void setBasic(BasicProps basic) {
         this.basic = basic;
-    }
-
-    // ===== RuntimeProps =====
-
-    public RuntimeProps getRuntime() {
-        return runtime;
-    }
-
-    public void setRuntime(RuntimeProps runtime) {
-        this.runtime = runtime;
     }
 
     // ===== TemplateProps =====

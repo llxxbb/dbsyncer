@@ -77,9 +77,6 @@ public enum SystemTabEnum {
     ERROR(ConfigCategory.C, "C类：错误处理配置",
             SystemConfig::getError, (c, p) -> c.setError((ErrorProps) p), ErrorProps.class),
 
-    RUNTIME(ConfigCategory.C, "C类：运行时控制配置",
-            SystemConfig::getRuntime, (c, p) -> c.setRuntime((RuntimeProps) p), RuntimeProps.class),
-
     TEMPLATE(ConfigCategory.C, "C类：模板引擎配置",
             SystemConfig::getTemplate, (c, p) -> c.setTemplate((TemplateProps) p), TemplateProps.class);
 

@@ -13,7 +13,6 @@ function loadTabs() {
             fillNotifyTab(tabsData.notify);
             fillErrorTab(tabsData.error);
             fillMonitorTab(tabsData.monitor);
-            fillRuntimeTab(tabsData.runtime);
             fillTemplateTab(tabsData.template);
         }
     });
@@ -34,10 +33,6 @@ function fillBasicTab(basic) {
     $('#basic_resetPwd').prop('checked', basic.resetPwd === true);
     toggleWatermark();
     toggleStorageErrorLength();
-}
-
-function fillRuntimeTab(runtime) {
-    // ADR-0031：selfRestartEnabled 已删除，保留空函数以兼容
 }
 
 function fillTemplateTab(template) {
@@ -261,8 +256,6 @@ function buildPayload(tab) {
                 metricReportIntervalMs: parseInt($('#monitor_metricReportIntervalMs').val()),
                 alertCron: $('#monitor_alertCron').val()
             };
-        case 'runtime':
-            return {};
         case 'template':
             return {
                 maxDepth: parseInt($('#template_maxDepth').val())
