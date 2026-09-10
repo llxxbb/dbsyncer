@@ -75,6 +75,16 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         return buffers != null && buffers.getGeneral() != null ? buffers.getGeneral() : new BufferActuatorProps();
     }
 
+    /**
+     * 消费者是否仍在运行（meta 状态为 Running）。
+     * reload() 等待排空时据此判断：任务已停止则跳出等待，避免死等。
+     */
+    @Override
+    protected boolean isRunning() {
+        Meta meta = profileComponent != null ? profileComponent.getMeta(metaId) : null;
+        return meta != null && MetaEnum.isRunning(meta.getState());
+    }
+
     @Override
     protected String getPartitionKey(WriterRequest request) {
         return request.getTableName();
@@ -198,7 +208,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             WriterRequest writerRequest = (WriterRequest) request;
             if (ChangedEventTypeEnum.isDDL(writerRequest.getTypeEnum())) {
                 // DDL事件，阻塞等待队列消费完成
-                while (isRunning(request)) {
+                while (isRunning()) {
                     if (getQueue().isEmpty()) {
                         // 事件进入队列时，设置 pending 状态
                         setPendingTask();

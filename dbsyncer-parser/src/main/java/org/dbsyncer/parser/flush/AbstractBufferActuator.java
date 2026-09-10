@@ -11,8 +11,6 @@ import org.dbsyncer.common.util.UUIDUtil;
 import org.dbsyncer.common.ParserException;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.common.config.ConfigRegistry;
-import org.dbsyncer.sdk.enums.MetaEnum;
-import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.parser.model.WriterResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -141,14 +139,13 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
     protected abstract void partition(Request request, Response response);
 
     /**
-     * 驱动是否运行中
-     *
-     * @param request
-     * @return
+     * 消费者是否仍在运行。
+     * - offer() 队列满时据此判断是否抛异常
+     * - reload() 等待排空时据此判断是否继续等待
+     * 默认返回 true。子类可重写（如 MetaBufferActuator 检查 meta 状态）。
      */
-    public boolean isRunning(BufferRequest request) {
-        Meta meta = profileComponent.getMeta(request.getMetaId());
-        return meta != null && MetaEnum.isRunning(meta.getState());
+    protected boolean isRunning() {
+        return true;
     }
 
     /**
@@ -236,7 +233,7 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
         if (queue.offer((Request) request)) {
             return;
         }
-        if (isRunning(request)) {
+        if (isRunning()) {
             offerFailed(queue, (Request) request);
         }
     }
@@ -402,8 +399,13 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
             // ② 主动触发一次消费，不等调度周期
             run();
 
-            // ③ 等待队列排空（直到完成）
+            // ③ 等待队列排空
             while (!queue.isEmpty()) {
+                // 消费者已停止（如 unbind 并发执行），无人消费队列，跳出避免死等
+                if (!isRunning()) {
+                    logger.info("[{}] 任务已停止，跳过热重载，任务启动时会使用新配置创建队列", getClass().getSimpleName());
+                    return;  // finally 会清理 draining，reschedule 不会执行
+                }
                 try { Thread.sleep(50); } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     // 不 break，继续等待直到排空
