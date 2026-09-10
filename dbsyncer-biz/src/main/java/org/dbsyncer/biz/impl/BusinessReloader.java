@@ -2,6 +2,7 @@ package org.dbsyncer.biz.impl;
 
 import org.dbsyncer.common.config.ExecutorFactory;
 import org.dbsyncer.parser.flush.BufferActuator;
+import org.dbsyncer.parser.flush.impl.BufferActuatorRouter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -25,6 +26,9 @@ public class BusinessReloader {
     @Resource
     private List<BufferActuator> bufferActuators;
 
+    @Resource
+    private BufferActuatorRouter bufferActuatorRouter;
+
     /**
      * 执行热重载。
      *
@@ -42,6 +46,7 @@ public class BusinessReloader {
         }
 
         if (changedKeys.contains("buffers")) {
+            // Spring 管理的 BufferActuator（如 StorageBufferActuator）
             for (BufferActuator actuator : bufferActuators) {
                 try {
                     actuator.reload();
@@ -49,6 +54,14 @@ public class BusinessReloader {
                     logger.error("[{}] 热重载失败", actuator.getClass().getSimpleName(), e);
                 }
             }
+            // 动态创建的 MetaBufferActuator（每个 meta 独享一个）
+            bufferActuatorRouter.getMetaActuatorMap().forEach((metaId, actuator) -> {
+                try {
+                    actuator.reload();
+                } catch (Exception e) {
+                    logger.error("[MetaBufferActuator:{}] 热重载失败", metaId, e);
+                }
+            });
         }
 
         logger.info("===== 业务热重载完成 =====");
