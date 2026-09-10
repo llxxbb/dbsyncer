@@ -3,6 +3,7 @@
  */
 package org.dbsyncer.parser.flush.impl;
 
+import org.dbsyncer.common.config.ExecutorFactory;
 import org.dbsyncer.common.metric.TimeRegistry;
 import org.dbsyncer.common.model.Result;
 import org.dbsyncer.common.util.CollectionUtils;
@@ -54,7 +55,7 @@ import java.util.stream.Collectors;
 public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, WriterResponse> {
 
     private String metaId;
-    private Executor generalExecutor;
+    private ExecutorFactory executorFactory;
     private ConnectorFactory connectorFactory;
     private CounterService counterService;
     private DDLParser ddlParser;
@@ -186,7 +187,8 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
 
     @Override
     public Executor getExecutor() {
-        return generalExecutor;
+        // ADR-0031 fix：动态获取，避免 ExecutorFactory.reload() 后持有已关闭的旧线程池
+        return executorFactory.getGeneralExecutor();
     }
 
     @Override
@@ -525,8 +527,8 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         this.metaId = metaId;
     }
 
-    public void setGeneralExecutor(Executor generalExecutor) {
-        this.generalExecutor = generalExecutor;
+    public void setExecutorFactory(ExecutorFactory executorFactory) {
+        this.executorFactory = executorFactory;
     }
 
     public void setConnectorFactory(ConnectorFactory connectorFactory) {

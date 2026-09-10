@@ -227,8 +227,8 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
                     drainingDone.await();
                 }
             } catch (InterruptedException e) {
+                // ADR-0031 fix：不 return，等 draining 结束后继续走正常 offer 路径，避免请求丢失
                 Thread.currentThread().interrupt();
-                return;
             } finally {
                 drainingLock.unlock();
             }

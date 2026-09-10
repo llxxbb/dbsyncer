@@ -79,6 +79,9 @@ public class SelfRestartService {
                 logger.info("===== 业务热重载完成 =====");
             } catch (Exception e) {
                 logger.error("业务热重载执行失败", e);
+            } finally {
+                // 任务完成后释放线程，避免每次热重载泄漏一个 ScheduledExecutorService
+                scheduler.shutdown();
             }
         }, RESTART_DELAY_SECONDS, TimeUnit.SECONDS);
     }
