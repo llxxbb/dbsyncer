@@ -15,8 +15,6 @@ import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.spi.MessageService;
 import org.dbsyncer.parser.ProfileComponent;
-import org.dbsyncer.parser.flush.BufferActuator;
-import org.dbsyncer.parser.model.StorageRequest;
 import org.dbsyncer.sdk.connector.CounterService;
 import org.dbsyncer.common.constant.ConfigConstant;
 import org.dbsyncer.sdk.constant.ConnectorConstant;
@@ -59,9 +57,6 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector, ConfigChang
 
     @Resource
     private MessageService messageService;
-
-    @Resource
-    private BufferActuator storageBufferActuator;
 
     @Resource
     private SnowflakeIdWorker snowflakeIdWorker;
@@ -206,10 +201,10 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector, ConfigChang
     }
 
     private void persistErrorRow(String metaId, String tableGroupId, String targetTableName,
-            String event, Map<String, Object> data, String errorMsg) {
+            String event, Map<String, Object> data, String errorMsg) throws Exception {
         Map<String, Object> row = buildErrorRow(metaId, tableGroupId, targetTableName, event, errorMsg);
         row.put(ConfigConstant.BINLOG_DATA, data.get(ConfigConstant.BINLOG_DATA));
-        storageBufferActuator.offer(new StorageRequest(metaId, row));
+        storageService.addBatch(StorageEnum.DATA, metaId, java.util.Collections.singletonList(row));
     }
 
     private Map<String, Object> buildErrorRow(String metaId, String tableGroupId, String targetTableName,

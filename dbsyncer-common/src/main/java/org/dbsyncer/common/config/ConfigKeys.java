@@ -123,12 +123,6 @@ public final class ConfigKeys {
     public static final String BUFFER_GENERAL_QUEUE_CAPACITY = "dbsyncer.parser.general.buffer-queue-capacity";
     public static final String BUFFER_GENERAL_PERIOD_MILLISECOND = "dbsyncer.parser.general.buffer-period-millisecond";
 
-    // 存储缓冲区
-    public static final String BUFFER_STORAGE_WRITER_COUNT = "dbsyncer.storage.buffer-writer-count";
-    public static final String BUFFER_STORAGE_PULL_COUNT = "dbsyncer.storage.buffer-pull-count";
-    public static final String BUFFER_STORAGE_QUEUE_CAPACITY = "dbsyncer.storage.buffer-queue-capacity";
-    public static final String BUFFER_STORAGE_PERIOD_MILLISECOND = "dbsyncer.storage.buffer-period-millisecond";
-
     // ===== C 类：重试策略配置（立即生效） =====
 
     public static final String RETRY_DISABLE = "dbsyncer.retry.global.disable";

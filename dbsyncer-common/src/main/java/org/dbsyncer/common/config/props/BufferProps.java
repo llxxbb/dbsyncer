@@ -19,11 +19,8 @@ public class BufferProps implements Serializable, EnvironmentLoadable {
 
     private static final long serialVersionUID = 1L;
 
-    /** 通用执行器缓冲 → ExecutorFactory */
+    /** 通用执行器缓冲 → MetaBufferActuator */
     private BufferActuatorProps general;
-
-    /** 存储执行器缓冲 → ExecutorFactory */
-    private BufferActuatorProps storage;
 
     public BufferActuatorProps getGeneral() {
         return general;
@@ -33,14 +30,6 @@ public class BufferProps implements Serializable, EnvironmentLoadable {
         this.general = general;
     }
 
-    public BufferActuatorProps getStorage() {
-        return storage;
-    }
-
-    public void setStorage(BufferActuatorProps storage) {
-        this.storage = storage;
-    }
-
     @Override
     public void loadFromEnvironment(Environment env) {
         this.general = readBuffer(env,
@@ -48,12 +37,6 @@ public class BufferProps implements Serializable, EnvironmentLoadable {
                 ConfigKeys.BUFFER_GENERAL_PULL_COUNT,
                 ConfigKeys.BUFFER_GENERAL_QUEUE_CAPACITY,
                 ConfigKeys.BUFFER_GENERAL_PERIOD_MILLISECOND);
-
-        this.storage = readBuffer(env,
-                ConfigKeys.BUFFER_STORAGE_WRITER_COUNT,
-                ConfigKeys.BUFFER_STORAGE_PULL_COUNT,
-                ConfigKeys.BUFFER_STORAGE_QUEUE_CAPACITY,
-                ConfigKeys.BUFFER_STORAGE_PERIOD_MILLISECOND);
     }
 
     private BufferActuatorProps readBuffer(Environment env,
@@ -82,9 +65,6 @@ public class BufferProps implements Serializable, EnvironmentLoadable {
         if (general != null) {
             errors.addAll(general.validate("通用缓冲区"));
         }
-        if (storage != null) {
-            errors.addAll(storage.validate("存储缓冲区"));
-        }
         return errors;
     }
 
@@ -96,11 +76,6 @@ public class BufferProps implements Serializable, EnvironmentLoadable {
                 ConfigKeys.BUFFER_GENERAL_PULL_COUNT,
                 ConfigKeys.BUFFER_GENERAL_QUEUE_CAPACITY,
                 ConfigKeys.BUFFER_GENERAL_PERIOD_MILLISECOND);
-        addBufferEntries(entries, storage,
-                ConfigKeys.BUFFER_STORAGE_WRITER_COUNT,
-                ConfigKeys.BUFFER_STORAGE_PULL_COUNT,
-                ConfigKeys.BUFFER_STORAGE_QUEUE_CAPACITY,
-                ConfigKeys.BUFFER_STORAGE_PERIOD_MILLISECOND);
         return entries;
     }
 

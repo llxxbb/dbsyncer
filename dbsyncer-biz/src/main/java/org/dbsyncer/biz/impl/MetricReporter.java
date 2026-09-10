@@ -20,7 +20,6 @@ import org.dbsyncer.common.util.DateFormatUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.common.config.ConfigRegistry;
-import org.dbsyncer.parser.flush.BufferActuator;
 import org.dbsyncer.parser.flush.impl.BufferActuatorRouter;
 import org.dbsyncer.parser.flush.impl.MetaBufferActuator;
 import org.dbsyncer.sdk.model.Mapping;
@@ -62,9 +61,6 @@ public class MetricReporter implements ScheduledTaskJob, StartupTaskRegistrar {
     private ProfileComponent profileComponent;
 
     @Resource
-    private BufferActuator storageBufferActuator;
-
-    @Resource
     private BufferActuatorRouter bufferActuatorRouter;
 
     @Resource
@@ -95,8 +91,6 @@ public class MetricReporter implements ScheduledTaskJob, StartupTaskRegistrar {
 
     public List<MetricResponse> getMetricInfo() {
         List<MetricResponseInfo> list = new ArrayList<>();
-        BufferActuatorMetricEnum storage = BufferActuatorMetricEnum.STORAGE;
-        list.add(collect(storageBufferActuator, storage.getCode(), storage.getGroup(), storage.getMetricName()));
         Map<String, MetaBufferActuator> metaActuatorMap = bufferActuatorRouter.getMetaActuatorMap();
         if (!CollectionUtils.isEmpty(metaActuatorMap)) {
             List<MetricResponseInfo> metaList = new ArrayList<>();
@@ -129,10 +123,6 @@ public class MetricReporter implements ScheduledTaskJob, StartupTaskRegistrar {
         // 堆积任务(所有 meta 的执行器)
         report.setQueueUp(bufferActuatorRouter.getQueueSize().get());
         report.setQueueCapacity(bufferActuatorRouter.getQueueCapacity().get());
-        // 持久化任务（队列可能为null：ADR-0030延迟初始化，首次offer()前queue未创建）
-        Queue storageQueue = storageBufferActuator.getQueue();
-        report.setStorageQueueUp(storageQueue != null ? storageQueue.size() : 0);
-        report.setStorageQueueCapacity(storageBufferActuator.getQueueCapacity());
         // 执行器TPS
         report.setTps(getOneMinBufferActuatorRate());
         return report;

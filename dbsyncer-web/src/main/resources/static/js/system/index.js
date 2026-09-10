@@ -67,11 +67,6 @@ function fillBuffersTab(buf) {
         $('#buf_general_bufferQueueCapacity').val(buf.general.bufferQueueCapacity);
         $('#buf_general_bufferPeriodMillisecond').val(buf.general.bufferPeriodMillisecond);
     }
-    if (buf.storage) {
-        $('#buf_storage_bufferPullCount').val(buf.storage.bufferPullCount);
-        $('#buf_storage_bufferQueueCapacity').val(buf.storage.bufferQueueCapacity);
-        $('#buf_storage_bufferPeriodMillisecond').val(buf.storage.bufferPeriodMillisecond);
-    }
 }
 
 function fillRetryTab(retry) {
@@ -206,11 +201,6 @@ function buildPayload(tab) {
                     bufferPullCount: parseInt($('#buf_general_bufferPullCount').val()),
                     bufferQueueCapacity: parseInt($('#buf_general_bufferQueueCapacity').val()),
                     bufferPeriodMillisecond: parseInt($('#buf_general_bufferPeriodMillisecond').val())
-                },
-                storage: {
-                    bufferPullCount: parseInt($('#buf_storage_bufferPullCount').val()),
-                    bufferQueueCapacity: parseInt($('#buf_storage_bufferQueueCapacity').val()),
-                    bufferPeriodMillisecond: parseInt($('#buf_storage_bufferPeriodMillisecond').val())
                 }
             };
         case 'retry':
