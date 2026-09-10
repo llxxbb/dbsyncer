@@ -1,7 +1,6 @@
 package org.dbsyncer.common.config;
 
 import org.dbsyncer.common.config.props.BasicProps;
-import org.dbsyncer.common.config.props.BufferActuatorProps;
 import org.dbsyncer.common.config.props.BufferProps;
 import org.dbsyncer.common.config.props.ErrorProps;
 import org.dbsyncer.common.config.props.ExecutorProps;
@@ -85,9 +84,9 @@ public class PropsDefaultValueTest {
 
         BufferProps buffer = new BufferProps();
         buffer.loadFromEnvironment(EMPTY);
-        assertEquals(100, buffer.getGeneral().getBufferWriterCount());
-        assertEquals(1000, buffer.getGeneral().getBufferPullCount());
-        assertEquals(30000, buffer.getGeneral().getBufferQueueCapacity());
-        assertEquals(300, buffer.getGeneral().getBufferPeriodMillisecond());
+        assertEquals(100, buffer.getBufferWriterCount());
+        assertEquals(1000, buffer.getBufferPullCount());
+        assertEquals(30000, buffer.getBufferQueueCapacity());
+        assertEquals(300, buffer.getBufferPeriodMillisecond());
     }
 }

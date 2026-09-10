@@ -189,21 +189,21 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label">任务中断上报失败数<i class="fa fa-question-circle fa_gray" title="原名 writer count，实测只用于告警文案中的失败计数。重启后生效。"></i></label>
                     <div class="col-sm-4">
-                        <input type="number" class="form-control" min="1" name="general.bufferWriterCount" id="buf_general_bufferWriterCount"/>
+                        <input type="number" class="form-control" min="1" name="bufferWriterCount" id="buf_general_bufferWriterCount"/>
                     </div>
                     <label class="col-sm-2 control-label">每次消费任务数<i class="fa fa-question-circle fa_gray" title="每次定时消费从缓冲队列取出的任务条数。重启后生效。"></i></label>
                     <div class="col-sm-4">
-                        <input type="number" class="form-control" min="1" name="general.bufferPullCount" id="buf_general_bufferPullCount"/>
+                        <input type="number" class="form-control" min="1" name="bufferPullCount" id="buf_general_bufferPullCount"/>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label">缓冲队列容量<i class="fa fa-question-circle fa_gray" title="内存缓冲的最大任务条数。重启后生效。"></i></label>
                     <div class="col-sm-4">
-                        <input type="number" class="form-control" min="1" name="general.bufferQueueCapacity" id="buf_general_bufferQueueCapacity"/>
+                        <input type="number" class="form-control" min="1" name="bufferQueueCapacity" id="buf_general_bufferQueueCapacity"/>
                     </div>
                     <label class="col-sm-2 control-label">消费间隔(ms)<i class="fa fa-question-circle fa_gray" title="定时消费缓冲队列的频率。重启后生效。"></i></label>
                     <div class="col-sm-4">
-                        <input type="number" class="form-control" min="1" name="general.bufferPeriodMillisecond" id="buf_general_bufferPeriodMillisecond"/>
+                        <input type="number" class="form-control" min="1" name="bufferPeriodMillisecond" id="buf_general_bufferPeriodMillisecond"/>
                     </div>
                 </div>
             </form>

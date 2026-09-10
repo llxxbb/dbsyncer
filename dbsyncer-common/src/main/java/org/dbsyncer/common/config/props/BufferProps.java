@@ -11,59 +11,79 @@ import java.util.List;
 /**
  * Tab 3 缓冲区配置。
  * <p>
- * 负责子 {@link BufferActuatorProps} 的创建、环境加载和配置条目生成。
- * 配置键名集中管理于此，子对象作为纯数据容器，
+ * 负责缓冲区参数的环境加载和配置条目生成。
+ * 配置键名集中管理于此，字段作为纯数据容器，
  * 避免 key 作为实例字段导致反序列化后丢失的问题。
  */
 public class BufferProps implements Serializable, EnvironmentLoadable {
 
     private static final long serialVersionUID = 1L;
 
-    /** 通用执行器缓冲 → MetaBufferActuator */
-    private BufferActuatorProps general;
+    private int bufferWriterCount = 100;
+    private int bufferPullCount = 1000;
+    private int bufferQueueCapacity = 30000;
+    private int bufferPeriodMillisecond = 300;
 
-    public BufferActuatorProps getGeneral() {
-        return general;
+    public int getBufferWriterCount() {
+        return bufferWriterCount;
     }
 
-    public void setGeneral(BufferActuatorProps general) {
-        this.general = general;
+    public void setBufferWriterCount(int bufferWriterCount) {
+        this.bufferWriterCount = bufferWriterCount;
+    }
+
+    public int getBufferPullCount() {
+        return bufferPullCount;
+    }
+
+    public void setBufferPullCount(int bufferPullCount) {
+        this.bufferPullCount = bufferPullCount;
+    }
+
+    public int getBufferQueueCapacity() {
+        return bufferQueueCapacity;
+    }
+
+    public void setBufferQueueCapacity(int bufferQueueCapacity) {
+        this.bufferQueueCapacity = bufferQueueCapacity;
+    }
+
+    public int getBufferPeriodMillisecond() {
+        return bufferPeriodMillisecond;
+    }
+
+    public void setBufferPeriodMillisecond(int bufferPeriodMillisecond) {
+        this.bufferPeriodMillisecond = bufferPeriodMillisecond;
     }
 
     @Override
     public void loadFromEnvironment(Environment env) {
-        this.general = readBuffer(env,
-                ConfigKeys.BUFFER_GENERAL_WRITER_COUNT,
-                ConfigKeys.BUFFER_GENERAL_PULL_COUNT,
-                ConfigKeys.BUFFER_GENERAL_QUEUE_CAPACITY,
-                ConfigKeys.BUFFER_GENERAL_PERIOD_MILLISECOND);
-    }
-
-    private BufferActuatorProps readBuffer(Environment env,
-                                           String writerKey, String pullKey,
-                                           String queueKey, String periodKey) {
-        BufferActuatorProps props = new BufferActuatorProps();
-        Integer wc = env.getProperty(writerKey, Integer.class);
-        if (wc != null) props.setBufferWriterCount(wc);
-        Integer pc = env.getProperty(pullKey, Integer.class);
-        if (pc != null) props.setBufferPullCount(pc);
-        Integer qc = env.getProperty(queueKey, Integer.class);
-        if (qc != null) props.setBufferQueueCapacity(qc);
-        Integer pm = env.getProperty(periodKey, Integer.class);
-        if (pm != null) props.setBufferPeriodMillisecond(pm);
-        return props;
+        Integer wc = env.getProperty(ConfigKeys.BUFFER_GENERAL_WRITER_COUNT, Integer.class);
+        if (wc != null) this.bufferWriterCount = wc;
+        Integer pc = env.getProperty(ConfigKeys.BUFFER_GENERAL_PULL_COUNT, Integer.class);
+        if (pc != null) this.bufferPullCount = pc;
+        Integer qc = env.getProperty(ConfigKeys.BUFFER_GENERAL_QUEUE_CAPACITY, Integer.class);
+        if (qc != null) this.bufferQueueCapacity = qc;
+        Integer pm = env.getProperty(ConfigKeys.BUFFER_GENERAL_PERIOD_MILLISECOND, Integer.class);
+        if (pm != null) this.bufferPeriodMillisecond = pm;
     }
 
     /**
-     * 校验缓冲区配置，返回错误信息列表。
+     * 校验缓冲区参数，返回错误信息列表。
      *
      * @return 错误信息列表，为空表示校验通过
      */
     @Override
     public List<String> validate() {
         List<String> errors = new ArrayList<>();
-        if (general != null) {
-            errors.addAll(general.validate("通用缓冲区"));
+        if (bufferQueueCapacity < 1) {
+            errors.add("缓冲区队列容量必须 > 0");
+        }
+        if (bufferPeriodMillisecond < 1) {
+            errors.add("缓冲区消费间隔必须 > 0 毫秒");
+        }
+        if (bufferPullCount < 1) {
+            errors.add("缓冲区每次消费任务数必须 > 0");
         }
         return errors;
     }
@@ -71,21 +91,10 @@ public class BufferProps implements Serializable, EnvironmentLoadable {
     @Override
     public List<ConfigEntry> toConfigEntries() {
         List<ConfigEntry> entries = new ArrayList<>();
-        addBufferEntries(entries, general,
-                ConfigKeys.BUFFER_GENERAL_WRITER_COUNT,
-                ConfigKeys.BUFFER_GENERAL_PULL_COUNT,
-                ConfigKeys.BUFFER_GENERAL_QUEUE_CAPACITY,
-                ConfigKeys.BUFFER_GENERAL_PERIOD_MILLISECOND);
+        entries.add(new ConfigEntry(ConfigKeys.BUFFER_GENERAL_WRITER_COUNT, bufferWriterCount));
+        entries.add(new ConfigEntry(ConfigKeys.BUFFER_GENERAL_PULL_COUNT, bufferPullCount));
+        entries.add(new ConfigEntry(ConfigKeys.BUFFER_GENERAL_QUEUE_CAPACITY, bufferQueueCapacity));
+        entries.add(new ConfigEntry(ConfigKeys.BUFFER_GENERAL_PERIOD_MILLISECOND, bufferPeriodMillisecond));
         return entries;
-    }
-
-    private void addBufferEntries(List<ConfigEntry> entries, BufferActuatorProps props,
-                                  String writerKey, String pullKey,
-                                  String queueKey, String periodKey) {
-        if (props == null) return;
-        entries.add(new ConfigEntry(writerKey, props.getBufferWriterCount()));
-        entries.add(new ConfigEntry(pullKey, props.getBufferPullCount()));
-        entries.add(new ConfigEntry(queueKey, props.getBufferQueueCapacity()));
-        entries.add(new ConfigEntry(periodKey, props.getBufferPeriodMillisecond()));
     }
 }

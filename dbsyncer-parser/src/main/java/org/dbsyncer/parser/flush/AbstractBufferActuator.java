@@ -3,7 +3,7 @@
  */
 package org.dbsyncer.parser.flush;
 
-import org.dbsyncer.common.config.props.BufferActuatorProps;
+import org.dbsyncer.common.config.props.BufferProps;
 import org.dbsyncer.common.metric.TimeRegistry;
 import org.dbsyncer.common.scheduled.ScheduledTaskJob;
 import org.dbsyncer.common.scheduled.ScheduledTaskService;
@@ -334,7 +334,7 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
      * 获取当前生效的缓冲区参数。
      * 子类实现此方法，指定读取 general 还是 storage 缓冲区配置。
      */
-    protected abstract BufferActuatorProps getBufferProps();
+    protected abstract BufferProps getBufferProps();
 
     protected int getBufferWriterCount() {
         return getBufferProps().getBufferWriterCount();
