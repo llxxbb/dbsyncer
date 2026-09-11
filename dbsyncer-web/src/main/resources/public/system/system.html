@@ -305,7 +305,7 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">排除关键字<i class="fa fa-question-circle fa_gray" title="每行一个关键字或短语。异常信息命中任一排除关键字时，即使匹配重试关键字也不会重试，直接标记为最终失败。用于排除不可恢复的异常，如 DataTruncation。"></i></label>
+                    <label class="col-sm-2 control-label">终止重试关键字<i class="fa fa-question-circle fa_gray" title="每行一个关键字或短语。异常信息命中任一关键字时，即刻进入错误队列。注意：不受“启用关键字匹配”开关控制。用于排除不可恢复的异常，如 DataTruncation。"></i></label>
                     <div class="col-sm-10">
                         <textarea class="form-control" rows="3" id="retry_excludeKeywords" placeholder="每行一个关键字"></textarea>
                     </div>
