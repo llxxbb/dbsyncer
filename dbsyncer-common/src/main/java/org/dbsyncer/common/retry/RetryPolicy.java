@@ -22,7 +22,7 @@ public class RetryPolicy {
     /** 退避倍增系数 */
     private double multiplier = 2.0;
 
-    /** 最大等待间隔（毫秒） */
+    /** 最大等待间隔（毫秒），0 或负数表示不限制 */
     private long maxIntervalMs = 600000L;
 
     /** 重试总耗时上限（毫秒），0 表示不限制 */
@@ -149,6 +149,9 @@ public class RetryPolicy {
      */
     long calculateInterval(int attempt) {
         long interval = (long) (initialIntervalMs * Math.pow(multiplier, attempt));
+        if (maxIntervalMs <= 0) {
+            return interval;  // 不限制上限
+        }
         return Math.min(interval, maxIntervalMs);
     }
 

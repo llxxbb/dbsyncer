@@ -258,7 +258,7 @@
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="0" name="initialIntervalMs" id="retry_initialIntervalMs"/>
                     </div>
-                    <label class="col-sm-2 control-label">最大间隔(ms)<i class="fa fa-question-circle fa_gray" title="指数退避策略下，相邻两次重试之间的最大等待时间上限（毫秒）。随着重试次数增加，等待时间按倍数增长但不超过此值。"></i></label>
+                    <label class="col-sm-2 control-label">最大间隔(ms)<i class="fa fa-question-circle fa_gray" title="指数退避策略下，相邻两次重试之间的最大等待时间上限（毫秒）。随着重试次数增加，等待时间按倍数增长但不超过此值。0 或负数表示不限制上限。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="0" name="maxIntervalMs" id="retry_maxIntervalMs"/>
                     </div>

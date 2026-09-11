@@ -176,14 +176,8 @@ public class RetryProps implements Serializable, EnvironmentLoadable {
         if (initialIntervalMs < 0) {
             errors.add("初始重试间隔不能 < 0");
         }
-        if (maxIntervalMs < 0) {
-            errors.add("最大重试间隔不能 < 0");
-        }
         if (multiplier < 1.0) {
             errors.add("退避倍数必须 >= 1.0");
-        }
-        if (maxDurationMs < 0) {
-            errors.add("重试总时长不能 < 0（0 表示不限制）");
         }
         return errors;
     }
