@@ -231,7 +231,7 @@
 
         <!-- Tab 4: 重试策略 -->
         <div role="tabpanel" class="tab-pane" id="tab-retry">
-            <div class="alert alert-info">以下配置修改后<strong>立即生效</strong>。注意：已配置任务级重试策略的任务不受此值影响。</div>
+            <div class="alert alert-info">以下配置修改后<strong>立即生效</strong>。</div>
             <form id="retryForm" class="form-horizontal" role="form">
                 <div class="form-group">
                     <div class="text-right col-sm-12">
@@ -244,37 +244,37 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">禁用重试<i class="fa fa-question-circle fa_gray" title="开启后，所有任务在同步失败时将不再自动重试，直接标记为失败。适用于对数据一致性要求极高、不希望重复写入的场景。立即生效。"></i></label>
+                    <label class="col-sm-2 control-label">禁用重试<i class="fa fa-question-circle fa_gray" title="开启后，所有任务在同步失败时将不再自动重试，直接标记为失败。"></i></label>
                     <div class="col-sm-4">
                         <input type="checkbox" name="disable" id="retry_disable"/>
                     </div>
-                    <label class="col-sm-2 control-label">最大重试次数<i class="fa fa-question-circle fa_gray" title="任务失败后的最大执行次数（含首次执行）。例如设为 3 表示最多执行 1 次 + 重试 2 次。立即生效。"></i></label>
+                    <label class="col-sm-2 control-label">最大重试次数<i class="fa fa-question-circle fa_gray" title="任务失败后的最大执行次数（含首次执行）。例如设为 3 表示最多执行 1 次 + 重试 2 次。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1" name="maxAttempts" id="retry_maxAttempts"/>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">初始间隔(ms)<i class="fa fa-question-circle fa_gray" title="任务首次失败后到第一次重试之间的等待时间（毫秒）。立即生效。"></i></label>
+                    <label class="col-sm-2 control-label">初始间隔(ms)<i class="fa fa-question-circle fa_gray" title="任务首次失败后到第一次重试之间的等待时间（毫秒）。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="0" name="initialIntervalMs" id="retry_initialIntervalMs"/>
                     </div>
-                    <label class="col-sm-2 control-label">最大间隔(ms)<i class="fa fa-question-circle fa_gray" title="指数退避策略下，相邻两次重试之间的最大等待时间上限（毫秒）。随着重试次数增加，等待时间按倍数增长但不超过此值。立即生效。"></i></label>
+                    <label class="col-sm-2 control-label">最大间隔(ms)<i class="fa fa-question-circle fa_gray" title="指数退避策略下，相邻两次重试之间的最大等待时间上限（毫秒）。随着重试次数增加，等待时间按倍数增长但不超过此值。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="0" name="maxIntervalMs" id="retry_maxIntervalMs"/>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">退避倍数<i class="fa fa-question-circle fa_gray" title="每次重试后等待时间的增长倍数。例如设为 2.0 表示每次重试等待时间翻倍（1s → 2s → 4s …）。立即生效。"></i></label>
+                    <label class="col-sm-2 control-label">退避倍数<i class="fa fa-question-circle fa_gray" title="每次重试后等待时间的增长倍数。例如设为 2.0 表示每次重试等待时间翻倍（1s → 2s → 4s …）。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1" step="0.1" name="multiplier" id="retry_multiplier"/>
                     </div>
-                    <label class="col-sm-2 control-label">总时长上限(ms)<i class="fa fa-question-circle fa_gray" title="从首次失败开始计算，所有重试累计允许的最大耗时（毫秒）。超过此限制后将停止重试并标记为最终失败。设为 0 表示不限制。立即生效。"></i></label>
+                    <label class="col-sm-2 control-label">总时长上限(ms)<i class="fa fa-question-circle fa_gray" title="从首次失败开始计算，所有重试累计允许的最大耗时（毫秒）。超过此限制后将停止重试并标记为最终失败。设为 0 表示不限制。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="0" name="maxDurationMs" id="retry_maxDurationMs"/>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">终止模式<i class="fa fa-question-circle fa_gray" title="决定何时停止重试的判定策略。按次数：达到最大重试次数后停止；按耗时：达到总时长上限后停止；先到为准：任一条件先满足即停止。立即生效。"></i></label>
+                    <label class="col-sm-2 control-label">终止模式<i class="fa fa-question-circle fa_gray" title="决定何时停止重试的判定策略。按次数：达到最大重试次数后停止；按耗时：达到总时长上限后停止；先到为准：任一条件先满足即停止。"></i></label>
                     <div class="col-sm-4">
                         <select class="form-control" name="terminationMode" id="retry_terminationMode">
                             <option value="MAX_ATTEMPTS">按次数</option>
@@ -284,11 +284,11 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">启用关键字匹配<i class="fa fa-question-circle fa_gray" title="开启后，仅当异常信息匹配下方关键字列表时才进行重试，其余异常直接失败。适用于只想重试特定可恢复异常（如网络超时）的场景。立即生效。"></i></label>
+                    <label class="col-sm-2 control-label">启用关键字匹配<i class="fa fa-question-circle fa_gray" title="开启后，仅当异常信息匹配下方关键字列表时才进行重试，其余异常直接失败。适用于只想重试特定可恢复异常（如网络超时）的场景。"></i></label>
                     <div class="col-sm-4">
                         <input type="checkbox" name="useKeyword" id="retry_useKeyword"/>
                     </div>
-                    <label class="col-sm-2 control-label">匹配模式<i class="fa fa-question-circle fa_gray" title="关键字与异常信息的匹配方式。完全相等：异常信息须与关键字完全一致；包含：异常信息中包含关键字即可；忽略大小写 variants 同理。立即生效。"></i></label>
+                    <label class="col-sm-2 control-label">匹配模式<i class="fa fa-question-circle fa_gray" title="关键字与异常信息的匹配方式。完全相等：异常信息须与关键字完全一致；包含：异常信息中包含关键字即可；忽略大小写 variants 同理。"></i></label>
                     <div class="col-sm-4">
                         <select class="form-control" name="matchMode" id="retry_matchMode">
                             <option value="EXACT">完全相等</option>
