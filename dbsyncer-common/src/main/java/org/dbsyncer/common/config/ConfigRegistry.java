@@ -88,6 +88,7 @@ public class ConfigRegistry {
         this.dbConfig = dbConfig;
         this.mergedConfig = merge(propsConfig, dbConfig);
         this.ready = true;
+        syncTemplatePropsToSystem();
         logger.info("ConfigRegistry 设置 dbConfig 完成");
     }
 
@@ -100,7 +101,21 @@ public class ConfigRegistry {
     public synchronized void onDbConfigChanged(SystemConfig newDbConfig) {
         this.dbConfig = newDbConfig;
         this.mergedConfig = merge(propsConfig, dbConfig);
+        syncTemplatePropsToSystem();
         logger.info("ConfigRegistry 重新合并完成");
+    }
+
+    /**
+     * 将 TemplateProps 中需要 System.getProperty 消费的配置同步到系统属性。
+     * <p>
+     * 背景：{@code TemplateParser} 通过 {@code System.getProperty} 读取 maxDepth，
+     * 而非直接访问 ConfigRegistry，因此需要在配置合并后桥接一次。
+     */
+    private void syncTemplatePropsToSystem() {
+        Integer maxDepth = mergedConfig.getTemplate().getMaxDepth();
+        if (maxDepth != null) {
+            System.setProperty(ConfigKeys.TEMPLATE_MAX_DEPTH, String.valueOf(maxDepth));
+        }
     }
 
     /**

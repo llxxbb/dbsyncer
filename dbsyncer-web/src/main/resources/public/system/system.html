@@ -450,7 +450,7 @@
                 </div>
                 <h4>预警</h4>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">预警 Cron<i class="fa fa-question-circle fa_gray" title="预警任务的调度 Cron 表达式。预警任务将定期检查系统状态（如任务异常、连接器离线等）并通过已启用的通知通道发送告警。默认每 10 分钟执行一次。"></i></label>
+                    <label class="col-sm-2 control-label">预警 Cron<i class="fa fa-question-circle fa_gray" title="预警任务的调度 Cron 表达式。预警任务将定期检查系统状态（如任务异常、连接器离线等）并通过已启用的通知通道发送告警。默认每 10 分钟执行一次。注意：此功能未实现"></i></label>
                     <div class="col-sm-6">
                         <input type="text" class="form-control" name="alertCron" id="monitor_alertCron"/>
                     </div>
@@ -460,7 +460,7 @@
 
         <!-- Tab: 模板引擎 -->
         <div role="tabpanel" class="tab-pane" id="tab-template">
-            <div class="alert alert-info">以下配置修改后<strong>立即生效</strong>。</div>
+            <div class="alert alert-info">以下配置修改后<strong>立即生效</strong>。用于转换器中定义的模板解析</div>
             <form id="templateForm" class="form-horizontal" role="form">
                 <div class="form-group">
                     <div class="text-right col-sm-12">

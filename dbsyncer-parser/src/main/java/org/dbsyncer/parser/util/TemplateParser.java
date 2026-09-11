@@ -16,16 +16,10 @@ public class TemplateParser {
 
     private static final int DEFAULT_MAX_DEPENDENCY_DEPTH = 10;
 
-    /**
-     * 最大依赖深度（可通过系统属性配置：{@link ConfigKeys#TEMPLATE_MAX_DEPTH}）
-     */
-    private final int maxDependencyDepth;
-
     public TemplateParser() {
-        this.maxDependencyDepth = getMaxDepthFromConfig();
     }
 
-    private int getMaxDepthFromConfig() {
+    private int resolveMaxDepth() {
         String config = System.getProperty(ConfigKeys.TEMPLATE_MAX_DEPTH);
         if (StringUtil.isNotBlank(config)) {
             try {
@@ -43,16 +37,18 @@ public class TemplateParser {
             return new ParseResult();
         }
 
+        int maxDepth = resolveMaxDepth();
+
         Set<String> templateRefs = extractReferences(template);
 
-        List<String> executionOrder = buildExecutionOrder(templateRefs, root, converts);
+        List<String> executionOrder = buildExecutionOrder(templateRefs, root, converts, maxDepth);
 
         Map<String, Convert> refMap = buildReferenceMap(executionOrder, converts);
 
         return new ParseResult(executionOrder, refMap, template);
     }
 
-    private List<String> buildExecutionOrder(Set<String> templateRefs, Convert root, List<Convert> converts) {
+    private List<String> buildExecutionOrder(Set<String> templateRefs, Convert root, List<Convert> converts, int maxDepth) {
         List<String> order = new ArrayList<>();
 
         if (templateRefs.isEmpty()) {
@@ -68,16 +64,16 @@ public class TemplateParser {
         Set<String> visited = new HashSet<>();
         Set<String> tempMark = new HashSet<>();
 
-        visit(rootRefId, converts, order, visited, tempMark, 0);
+        visit(rootRefId, converts, order, visited, tempMark, 0, maxDepth);
 
         return order;
     }
 
     private void visit(String refId, List<Convert> converts,
                        List<String> order, Set<String> visited, Set<String> tempMark,
-                       int depth) {
-        if (depth > maxDependencyDepth) {
-            throw new ParserException("Maximum dependency depth exceeded: " + maxDependencyDepth + 
+                       int depth, int maxDepth) {
+        if (depth > maxDepth) {
+            throw new ParserException("Maximum dependency depth exceeded: " + maxDepth + 
                     " (configurable via -D" + ConfigKeys.TEMPLATE_MAX_DEPTH + "=N)");
         }
 
@@ -95,7 +91,7 @@ public class TemplateParser {
         if (convert != null && StringUtil.isNotBlank(convert.getArgs())) {
             Set<String> deps = extractReferences(convert.getArgs());
             for (String dep : deps) {
-                visit(dep, converts, order, visited, tempMark, depth + 1);
+                visit(dep, converts, order, visited, tempMark, depth + 1, maxDepth);
             }
         }
 

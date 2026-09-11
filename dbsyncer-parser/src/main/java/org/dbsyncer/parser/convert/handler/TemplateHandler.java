@@ -39,7 +39,7 @@ public class TemplateHandler implements Handler {
         // 2. 获取或创建解析结果
         ParseResult parseResult = root.getParseResultCache();
         assert parseResult != null;
-        // 缓存未命中，即时解析
+        // 缓存未命中，即时解析（args 是经过替换后的值，必须重新解析）
         parseResult = parser.parseTemplate(args, root, converts);
 
         // 3. 执行模板
