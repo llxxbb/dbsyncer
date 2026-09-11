@@ -17,7 +17,7 @@ public class MonitorProps implements Serializable, EnvironmentLoadable {
 
     private static final long serialVersionUID = 1L;
 
-    /** 调度线程池大小（B 类语义，但在此统一管理） */
+    /** 调度线程池大小（ADR-0033：支持热重载，变更时自动重建调度器并重注册定时任务） */
     private int schedulerPoolSize = 8;
 
     /** CPU/内存指标采集间隔（毫秒），默认 5000 */

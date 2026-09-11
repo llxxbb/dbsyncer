@@ -16,7 +16,7 @@
         <li role="presentation"><a href="#tab-buffers" data-toggle="tab">缓冲区 <span class="text-info" title="修改后自动热重载">⟳</span></a></li>
         <li role="presentation"><a href="#tab-retry" data-toggle="tab">重试策略</a></li>
         <li role="presentation"><a href="#tab-notify" data-toggle="tab">通知通道</a></li>
-        <li role="presentation"><a href="#tab-error" data-toggle="tab">错误处理</a></li>
+        <li role="presentation"><a href="#tab-error" data-toggle="tab">错误队列</a></li>
         <li role="presentation"><a href="#tab-monitor" data-toggle="tab">监控定时任务</a></li>
         <li role="presentation"><a href="#tab-template" data-toggle="tab">模板引擎</a></li>
     </ul>
@@ -315,7 +315,7 @@
 
         <!-- Tab 5: 通知通道 -->
         <div role="tabpanel" class="tab-pane" id="tab-notify">
-            <div class="alert alert-info">以下配置修改后<strong>立即生效</strong>。注意：邮件用户名/密码修改后需重启应用。</div>
+            <div class="alert alert-info">以下配置修改后<strong>立即生效</strong>。</div>
             <form id="notifyForm" class="form-horizontal" role="form">
                 <div class="form-group">
                     <div class="text-right col-sm-12">
@@ -328,7 +328,7 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">启用通道<i class="fa fa-question-circle fa_gray" title="选择要启用的通知通道。未勾选的通道不会发送任何告警或通知消息。任务异常终止、熔断等事件将通知到已启用的通道。"></i></label>
+                    <label class="col-sm-2 control-label">启用通道<i class="fa fa-question-circle fa_gray" title="选择要启用的通知通道。未勾选的通道不会发送任何通知消息。"></i></label>
                     <div class="col-sm-10">
                         <label class="checkbox-inline"><input type="checkbox" name="channels" value="mail"/> 邮件</label>
                         <label class="checkbox-inline"><input type="checkbox" name="channels" value="dingtalk"/> 钉钉</label>
@@ -374,7 +374,7 @@
 
         <!-- Tab 6: 错误处理 -->
         <div role="tabpanel" class="tab-pane" id="tab-error">
-            <div class="alert alert-info">以下配置修改后<strong>立即生效</strong>。</div>
+            <div class="alert alert-info">以下配置修改后<strong>立即生效</strong>。这是异常同步数据进入错误队列前的预处理机制</div>
             <form id="errorForm" class="form-horizontal" role="form">
                 <div class="form-group">
                     <div class="text-right col-sm-12">
@@ -387,11 +387,11 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">熔断阈值<i class="fa fa-question-circle fa_gray" title="错误队列中累计的错误数量达到此阈值时，系统将自动熔断（暂停）对应任务，防止错误持续堆积。设为 0 表示不启用熔断机制。立即生效。"></i></label>
+                    <label class="col-sm-2 control-label">熔断阈值<i class="fa fa-question-circle fa_gray" title="错误队列中累计的错误数量达到此阈值时，系统将暂停任务，防止错误持续堆积。设为 0 表示不启用熔断机制。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="0" name="threshold" id="error_threshold"/>
                     </div>
-                    <label class="col-sm-2 control-label">匹配模式<i class="fa fa-question-circle fa_gray" title="致命关键字与异常信息的匹配方式。命中致命关键字的异常将直接终止任务，不进入重试流程。立即生效。"></i></label>
+                    <label class="col-sm-2 control-label">匹配模式<i class="fa fa-question-circle fa_gray" title="致命关键字与异常信息的匹配方式。命中致命关键字的异常将直接终止任务，不进入重试流程。"></i></label>
                     <div class="col-sm-4">
                         <select class="form-control" name="fatalMatchMode" id="error_fatalMatchMode">
                             <option value="EXACT">完全相等</option>
@@ -412,7 +412,7 @@
 
         <!-- Tab: 监控定时任务 -->
         <div role="tabpanel" class="tab-pane" id="tab-monitor">
-            <div class="alert alert-info">以下配置修改后<strong>立即生效</strong>。控制所有监控相关定时任务的执行间隔。</div>
+            <div class="alert alert-info">以下配置修改后<strong>热重载</strong>。控制所有监控相关定时任务的执行间隔。</div>
             <form id="monitorForm" class="form-horizontal" role="form">
                 <div class="form-group">
                     <div class="text-right col-sm-12">
