@@ -16,10 +16,8 @@ import java.util.Map;
  * <p>
  * 处理流程：
  * 1. 从 context 中获取根转换器（由 ConvertUtil 放入）
- * 2. 使用预解析的缓存结果执行模板（如有缓存）
- * 3. 无缓存时即时解析并执行
- * <p>
- * 注意：预解析在 validateFieldConverterRule 中完成，可提升性能
+ * 2. 解析模板表达式（入口调用可复用缓存，递归调用需重新解析）
+ * 3. 执行模板
  */
 public class TemplateHandler implements Handler {
 
@@ -36,11 +34,16 @@ public class TemplateHandler implements Handler {
         Convert root = ConvertUtil.getRootConvert(context);
         assert root != null;
 
-        // 2. 获取或创建解析结果
+        // 2. 解析模板表达式
+        //    缓存命中条件：originalExpression 等于当前 args
+        //    缓存更新：只在入口调用时（args == root.getArgs()）
         ParseResult parseResult = root.getParseResultCache();
-        assert parseResult != null;
-        // 缓存未命中，即时解析（args 是经过替换后的值，必须重新解析）
-        parseResult = parser.parseTemplate(args, root, converts);
+        if (parseResult == null || !args.equals(parseResult.getOriginalExpression())) {
+            parseResult = parser.parseTemplate(args, root, converts);
+            if (args.equals(root.getArgs())) {
+                root.setParseResultCache(parseResult);
+            }
+        }
 
         // 3. 执行模板
         return TemplateExecutor.run(parseResult, sourceRow, context);
