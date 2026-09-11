@@ -18,6 +18,7 @@ import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 
@@ -114,15 +115,26 @@ public class ScheduledTaskServiceImpl implements ScheduledTaskService, Disposabl
         if (newPoolSize == lastPoolSize) {
             return;
         }
-        logger.info("[ADR-0033] 检测到 schedulerPoolSize 变更: {} → {}，开始重建调度器并重注册任务",
+        logger.info("[ADR-0033] 检测到 schedulerPoolSize 变更: {} → {}，开始异步重建调度器",
                 lastPoolSize, newPoolSize);
 
-        // 主动触发 SchedulerFactory 热重载（不依赖 listener 调用顺序）
-        schedulerFactory.reload();
+        // 立即更新标志，防止重复触发；失败时回滚
+        int oldPoolSize = lastPoolSize;
+        lastPoolSize = newPoolSize;
 
-        // 取消旧 future 并在新调度器上重新注册
-        reRegisterAll();
-        lastPoolSize = schedulerFactory.getCurrentPoolSize();
+        // 异步执行 reload + reRegister，不阻塞 HTTP 线程
+        CompletableFuture.runAsync(() -> {
+            try {
+                schedulerFactory.reload();
+                synchronized (this) {
+                    reRegisterAll();
+                }
+                logger.info("[ADR-0033] 调度器重建完成");
+            } catch (Exception e) {
+                logger.error("[ADR-0033] 调度器重建失败", e);
+                lastPoolSize = oldPoolSize;
+            }
+        });
     }
 
     /**
