@@ -84,7 +84,6 @@ public class PropsDefaultValueTest {
 
         BufferProps buffer = new BufferProps();
         buffer.loadFromEnvironment(EMPTY);
-        assertEquals(100, buffer.getBufferWriterCount());
         assertEquals(1000, buffer.getBufferPullCount());
         assertEquals(30000, buffer.getBufferQueueCapacity());
         assertEquals(300, buffer.getBufferPeriodMillisecond());

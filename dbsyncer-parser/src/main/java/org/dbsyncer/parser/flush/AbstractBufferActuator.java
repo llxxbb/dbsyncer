@@ -336,10 +336,6 @@ public abstract class AbstractBufferActuator<Request extends BufferRequest, Resp
      */
     protected abstract BufferProps getBufferProps();
 
-    protected int getBufferWriterCount() {
-        return getBufferProps().getBufferWriterCount();
-    }
-
     protected int getBufferPullCount() {
         return getBufferProps().getBufferPullCount();
     }

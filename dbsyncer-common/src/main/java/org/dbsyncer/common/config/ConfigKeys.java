@@ -118,7 +118,6 @@ public final class ConfigKeys {
     // ===== B 类：缓冲区配置（热重载） =====
 
     // 通用缓冲区
-    public static final String BUFFER_GENERAL_WRITER_COUNT = "dbsyncer.parser.general.buffer-writer-count";
     public static final String BUFFER_GENERAL_PULL_COUNT = "dbsyncer.parser.general.buffer-pull-count";
     public static final String BUFFER_GENERAL_QUEUE_CAPACITY = "dbsyncer.parser.general.buffer-queue-capacity";
     public static final String BUFFER_GENERAL_PERIOD_MILLISECOND = "dbsyncer.parser.general.buffer-period-millisecond";

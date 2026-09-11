@@ -211,10 +211,6 @@
                     所有缓冲区共享此配置。
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">任务中断上报失败数<i class="fa fa-question-circle fa_gray" title="任务中断时，上报到错误队列的失败记录条数上限。用于控制中断告警中展示的失败数据量。重启后生效。"></i></label>
-                    <div class="col-sm-4">
-                        <input type="number" class="form-control" min="1" name="bufferWriterCount" id="buf_general_bufferWriterCount"/>
-                    </div>
                     <label class="col-sm-2 control-label">每次消费任务数<i class="fa fa-question-circle fa_gray" title="每次定时调度从缓冲队列中取出的数据条数，达到此数量后批量写入目标端。值越大单次写入批量越大，但占用内存越多。重启后生效。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1" name="bufferPullCount" id="buf_general_bufferPullCount"/>

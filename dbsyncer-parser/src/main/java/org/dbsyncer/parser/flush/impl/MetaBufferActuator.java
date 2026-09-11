@@ -132,7 +132,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             pullNoCatch(response, meta, mapping);
             logger.info("mappingId {}, {}目标表，{}, {}条, {}ms", meta.getMappingId(), response.getTableName(), response.getSuffixName(), response.getTaskSize(), (Instant.now().toEpochMilli() - now));
         } catch (Exception e) {
-            errorQueueCollector.closeTask(meta, response.getTableName(), e, getBufferWriterCount(),
+            errorQueueCollector.closeTask(meta, response.getTableName(), e, response.getTaskSize(),
                     NotifyType.TASK_INTERRUPTED);
             throw e;
         }

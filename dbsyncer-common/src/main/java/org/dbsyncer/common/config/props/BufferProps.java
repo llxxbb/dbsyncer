@@ -19,18 +19,9 @@ public class BufferProps implements Serializable, EnvironmentLoadable {
 
     private static final long serialVersionUID = 1L;
 
-    private int bufferWriterCount = 100;
     private int bufferPullCount = 1000;
     private int bufferQueueCapacity = 30000;
     private int bufferPeriodMillisecond = 300;
-
-    public int getBufferWriterCount() {
-        return bufferWriterCount;
-    }
-
-    public void setBufferWriterCount(int bufferWriterCount) {
-        this.bufferWriterCount = bufferWriterCount;
-    }
 
     public int getBufferPullCount() {
         return bufferPullCount;
@@ -58,8 +49,6 @@ public class BufferProps implements Serializable, EnvironmentLoadable {
 
     @Override
     public void loadFromEnvironment(Environment env) {
-        Integer wc = env.getProperty(ConfigKeys.BUFFER_GENERAL_WRITER_COUNT, Integer.class);
-        if (wc != null) this.bufferWriterCount = wc;
         Integer pc = env.getProperty(ConfigKeys.BUFFER_GENERAL_PULL_COUNT, Integer.class);
         if (pc != null) this.bufferPullCount = pc;
         Integer qc = env.getProperty(ConfigKeys.BUFFER_GENERAL_QUEUE_CAPACITY, Integer.class);
@@ -91,7 +80,6 @@ public class BufferProps implements Serializable, EnvironmentLoadable {
     @Override
     public List<ConfigEntry> toConfigEntries() {
         List<ConfigEntry> entries = new ArrayList<>();
-        entries.add(new ConfigEntry(ConfigKeys.BUFFER_GENERAL_WRITER_COUNT, bufferWriterCount));
         entries.add(new ConfigEntry(ConfigKeys.BUFFER_GENERAL_PULL_COUNT, bufferPullCount));
         entries.add(new ConfigEntry(ConfigKeys.BUFFER_GENERAL_QUEUE_CAPACITY, bufferQueueCapacity));
         entries.add(new ConfigEntry(ConfigKeys.BUFFER_GENERAL_PERIOD_MILLISECOND, bufferPeriodMillisecond));

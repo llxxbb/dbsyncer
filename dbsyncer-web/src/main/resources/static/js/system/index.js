@@ -62,7 +62,6 @@ function fillExecutorsTab(exec) {
 function fillBuffersTab(buf) {
     if (!buf) return;
     if (buf) {
-        $('#buf_general_bufferWriterCount').val(buf.bufferWriterCount);
         $('#buf_general_bufferPullCount').val(buf.bufferPullCount);
         $('#buf_general_bufferQueueCapacity').val(buf.bufferQueueCapacity);
         $('#buf_general_bufferPeriodMillisecond').val(buf.bufferPeriodMillisecond);
@@ -196,7 +195,6 @@ function buildPayload(tab) {
             };
         case 'buffers':
             return {
-                bufferWriterCount: parseInt($('#buf_general_bufferWriterCount').val()),
                 bufferPullCount: parseInt($('#buf_general_bufferPullCount').val()),
                 bufferQueueCapacity: parseInt($('#buf_general_bufferQueueCapacity').val()),
                 bufferPeriodMillisecond: parseInt($('#buf_general_bufferPeriodMillisecond').val())
