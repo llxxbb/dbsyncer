@@ -145,14 +145,7 @@ function saveTab(tab) {
 
     doPoster('/system/editTab', body, function (data) {
         if (data.success) {
-            var result = data.resultValue || data.result;
-            if (result && result.reloadRequired) {
-                bootGrowl("配置已保存，正在热重载...", "success");
-            } else if (result && result.errors) {
-                bootGrowl("校验失败: " + result.errors.join(', '), "danger");
-            } else {
-                bootGrowl("配置已保存并立即生效。", "success");
-            }
+            bootGrowl(data.resultValue || "配置已保存", "success");
         } else {
             bootGrowl(data.resultValue || "保存失败", "danger");
         }

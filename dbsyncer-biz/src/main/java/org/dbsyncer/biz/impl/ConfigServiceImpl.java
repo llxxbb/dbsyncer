@@ -145,9 +145,12 @@ public class ConfigServiceImpl implements ConfigService {
 
     /**
      * M1 修订：editTab 加 synchronized 锁，防止并发保存丢失更新。
+     * <p>
+     * 返回成功消息字符串，校验失败抛 IllegalArgumentException。
+     * Controller 负责包装为 RestResult。
      */
     @Override
-    public synchronized Map<String, Object> editTab(String tab, String payload) throws Exception {
+    public synchronized String editTab(String tab, String payload) throws Exception {
         SystemTabEnum tabEnum = SystemTabEnum.of(tab);
         Assert.notNull(tabEnum, "未知的 Tab: " + tab);
 
@@ -166,11 +169,7 @@ public class ConfigServiceImpl implements ConfigService {
             }
         }
         if (!errors.isEmpty()) {
-            Map<String, Object> result = new LinkedHashMap<>();
-            result.put("success", false);
-            result.put("errors", errors);
-            result.put("reloadRequired", false);
-            return result;
+            throw new IllegalArgumentException("校验失败: " + String.join(", ", errors));
         }
 
         // 深拷贝 mergedConfig，避免直接修改 live 引用（C1 修复）
@@ -211,13 +210,7 @@ public class ConfigServiceImpl implements ConfigService {
             selfRestartService.scheduleRestart(changedKeys, "admin");
         }
 
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("success", true);
-        result.put("reloadRequired", reloadRequired);
-        result.put("result", reloadRequired
-                ? "配置已保存，正在热重载..."
-                : "配置已保存并立即生效。");
-        return result;
+        return reloadRequired ? "配置已保存，正在热重载..." : "配置已保存并立即生效。";
     }
 
     @Override

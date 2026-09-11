@@ -58,7 +58,7 @@ public class SchedulerFactory implements DisposableBean {
         scheduler.setPoolSize(Math.max(poolSize, 1));
         scheduler.setThreadNamePrefix("taskScheduler-");
         scheduler.setWaitForTasksToCompleteOnShutdown(true);
-        scheduler.setAwaitTerminationSeconds(30);
+        scheduler.setAwaitTerminationSeconds(5);
         scheduler.setRejectedExecutionHandler((r, executor) -> {
             try {
                 executor.getQueue().put(r);
@@ -74,8 +74,8 @@ public class SchedulerFactory implements DisposableBean {
      * ADR-0033：热重载。
      * <p>
      * 关闭旧调度器并置 null，下次 getTaskScheduler() 时 DCL 从 Supplier 读新值重建。
-     * 调度器已配置 waitForTasksToCompleteOnShutdown=true, awaitTerminationSeconds=30，
-     * shutdown() 会等待当前正在执行的任务完成。
+     * 调度器已配置 waitForTasksToCompleteOnShutdown=true, awaitTerminationSeconds=5，
+     * shutdown() 会等待当前正在执行的任务完成（最多 5 秒）。
      * <p>
      * <b>注意</b>：reload 后已注册的定时任务（ScheduledFuture）会丢失，
      * 需要调用方重新注册。由 ScheduledTaskServiceImpl 负责。

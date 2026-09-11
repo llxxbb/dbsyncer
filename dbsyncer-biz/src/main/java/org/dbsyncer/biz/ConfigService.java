@@ -78,9 +78,9 @@ public interface ConfigService {
      *
      * @param tab     Tab 标识
      * @param payload JSON 字符串
-     * @return 结果描述
+     * @return 成功消息（校验失败抛异常）
      */
-    Map<String, Object> editTab(String tab, String payload) throws Exception;
+    String editTab(String tab, String payload) throws Exception;
 
     /**
      * 获取各 Tab 当前生效值

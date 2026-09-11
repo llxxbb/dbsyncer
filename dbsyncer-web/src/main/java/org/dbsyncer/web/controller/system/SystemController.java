@@ -43,13 +43,8 @@ public class SystemController extends BaseController {
         try {
             String tab = body.get("tab");
             String payload = body.get("payload");
-            Map<String, Object> result = systemConfigService.editTab(tab, payload);
-            boolean success = Boolean.TRUE.equals(result.get("success"));
-            if (success) {
-                return RestResult.restSuccess(result);
-            } else {
-                return RestResult.restFail(result);
-            }
+            String result = systemConfigService.editTab(tab, payload);
+            return RestResult.restSuccess(result);
         } catch (Exception e) {
             logger.error("editTab 失败: {}", e.getMessage(), e);
             return RestResult.restFail(e.getMessage());
