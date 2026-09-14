@@ -335,16 +335,19 @@ function renderRelatedDrivers(drivers) {
     // 根据运行状态禁用/启用编辑按钮
     updateEditButtonState(hasRunningTask);
     
-    // 创建批量操作按钮和表格结构
+    // 创建批量操作工具栏和表格结构
     var tableHtml = '';
-    tableHtml += '<div class="batch-actions" style="margin-bottom: 10px;">';
-    tableHtml += '    <button class="btn btn-primary btn-start-all" style="margin-right: 5px;"><i class="fa fa-play"></i> 全部启动</button>';
-    tableHtml += '    <button class="btn btn-warning btn-stop-all"><i class="fa fa-stop"></i> 全部停止</button>';
+    tableHtml += '<div class="batch-toolbar" style="margin-bottom: 10px; display: flex; align-items: center; gap: 12px; padding: 8px 0;">';
+    tableHtml += '    <button class="btn btn-primary btn-sm btn-batch-start" disabled><span class="fa fa-play"></span> 批量启动</button>';
+    tableHtml += '    <button class="btn btn-warning btn-sm btn-batch-stop" disabled><span class="fa fa-stop"></span> 批量停止</button>';
+    tableHtml += '    <span class="batch-selected-count" style="color: #888; font-size: 12px;"></span>';
+    tableHtml += '    <button class="btn btn-default btn-sm btn-batch-select-all" style="margin-left: auto;"><span class="fa fa-check-square-o"></span> 全选</button>';
     tableHtml += '</div>';
     tableHtml += '<div class="table-responsive">';
     tableHtml += '    <table class="table table-hover table-striped">';
     tableHtml += '        <thead>';
     tableHtml += '            <tr>';
+    tableHtml += '                <th style="width: 36px;"><input type="checkbox" class="select-all-checkbox" title="全选/取消全选" /></th>';
     tableHtml += '                <th>名称</th>';
     tableHtml += '                <th>运行状态</th>';
     tableHtml += '                <th>起始源</th>';
@@ -449,6 +452,7 @@ function renderRelatedDrivers(drivers) {
         
         // 添加表格行
         tableHtml += '<tr id="' + driver.id + '">';
+        tableHtml += '<td><input type="checkbox" class="mapping-checkbox" value="' + driver.id + '" /></td>';
         tableHtml += '<td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="' + escapeHtml(driver.name) + '">' + escapeHtml(driver.name) + '</td>';
         tableHtml += '<td>' + stateHtml + '</td>';
         tableHtml += '<td>' + sourceHtml + '</td>';
@@ -470,6 +474,9 @@ function renderRelatedDrivers(drivers) {
     
     // 绑定批量操作按钮事件
     bindBatchOperationButtons();
+    
+    // 绑定复选框事件
+    bindMappingCheckboxes();
 }
 
 /**
@@ -793,23 +800,126 @@ function bindMappingOperationButtons() {
 }
 
 /**
+ * 绑定复选框事件
+ */
+function bindMappingCheckboxes() {
+    // 行内复选框
+    $('.mapping-checkbox').off('click').on('click', function(e) {
+        e.stopPropagation();
+        updateSelectAllCheckbox();
+        updateBatchButtonsState();
+    });
+
+    // 表头全选复选框
+    $('.select-all-checkbox').off('click').on('click', function(e) {
+        e.stopPropagation();
+        var checked = $(this).prop('checked');
+        $('.mapping-checkbox').prop('checked', checked);
+        updateBatchButtonsState();
+    });
+
+    // 全选按钮
+    $('.btn-batch-select-all').off('click').on('click', function() {
+        var total = $('.mapping-checkbox').length;
+        var checked = $('.mapping-checkbox:checked').length;
+        var newState = !(total > 0 && total === checked);
+        $('.mapping-checkbox').prop('checked', newState);
+        $('.select-all-checkbox').prop('checked', newState);
+        updateBatchButtonsState();
+    });
+}
+
+/**
+ * 更新表头全选复选框状态
+ */
+function updateSelectAllCheckbox() {
+    var total = $('.mapping-checkbox').length;
+    var checked = $('.mapping-checkbox:checked').length;
+    $('.select-all-checkbox').prop('checked', total > 0 && total === checked);
+}
+
+/**
+ * 更新批量操作按钮状态
+ */
+function updateBatchButtonsState() {
+    var checkedCount = $('.mapping-checkbox:checked').length;
+    $('.btn-batch-start, .btn-batch-stop').prop('disabled', checkedCount === 0);
+    if (checkedCount > 0) {
+        $('.batch-selected-count').text('已选 ' + checkedCount + ' 个任务');
+    } else {
+        $('.batch-selected-count').text('');
+    }
+}
+
+/**
+ * 获取选中的任务 ID 列表
+ */
+function getSelectedMappingIds() {
+    var ids = [];
+    $('.mapping-checkbox:checked').each(function() {
+        ids.push($(this).val());
+    });
+    return ids;
+}
+
+/**
  * 绑定批量操作按钮事件
  */
 function bindBatchOperationButtons() {
-    // 全部启动按钮
-    $('.btn-start-all').click(function() {
-        var connectorId = $('#connector-id').val();
-        if (connectorId) {
-            doPost('/mapping/startAll?connectorId=' + connectorId);
+    // 批量启动按钮
+    $('.btn-batch-start').off('click').on('click', function() {
+        var ids = getSelectedMappingIds();
+        if (ids.length === 0) {
+            showError('请先选择要启动的任务');
+            return;
         }
+        BootstrapDialog.show({
+            title: '确认',
+            type: BootstrapDialog.TYPE_PRIMARY,
+            message: '确认批量启动选中的 ' + ids.length + ' 个任务？',
+            size: BootstrapDialog.SIZE_NORMAL,
+            buttons: [{
+                label: '确定',
+                action: function(dialog) {
+                    $(this).prop('disabled', true);
+                    doPost('/mapping/batchStart', { ids: ids.join(',') });
+                    dialog.close();
+                }
+            }, {
+                label: '取消',
+                action: function(dialog) {
+                    dialog.close();
+                }
+            }]
+        });
     });
 
-    // 全部停止按钮
-    $('.btn-stop-all').click(function() {
-        var connectorId = $('#connector-id').val();
-        if (connectorId) {
-            doPost('/mapping/stopAll?connectorId=' + connectorId);
+    // 批量停止按钮
+    $('.btn-batch-stop').off('click').on('click', function() {
+        var ids = getSelectedMappingIds();
+        if (ids.length === 0) {
+            showError('请先选择要停止的任务');
+            return;
         }
+        BootstrapDialog.show({
+            title: '确认',
+            type: BootstrapDialog.TYPE_WARNING,
+            message: '确认批量停止选中的 ' + ids.length + ' 个任务？',
+            size: BootstrapDialog.SIZE_NORMAL,
+            buttons: [{
+                label: '确定',
+                action: function(dialog) {
+                    $(this).prop('disabled', true);
+                    doPost('/mapping/batchStop', { ids: ids.join(',') });
+                    dialog.close();
+                }
+            }, {
+                label: '取消',
+                action: function(dialog) {
+                    dialog.close();
+                }
+            }]
+        });
     });
 }
 
@@ -844,11 +954,13 @@ function updateEditButtonState(hasRunningTask) {
 /**
  * 执行POST请求
  * @param url 请求URL
+ * @param data 请求参数（可选）
  */
-function doPost(url) {
+function doPost(url, data) {
     $.ajax({
         url: url,
         type: 'POST',
+        data: data || {},
         success: function(data) {
             if (data.success === true) {
                 // 显示成功消息

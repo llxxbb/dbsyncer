@@ -5,15 +5,15 @@
     <title>数据源管理</title>
 
     <!-- 图标库 -->
-<link type="text/css" rel="stylesheet" th:if="${enableCDN}" href="https://cdn.staticfile.org/font-awesome/4.7.0/css/font-awesome.css"/>
+<link type="text/css" rel="stylesheet" href="https://cdn.staticfile.org/font-awesome/4.7.0/css/font-awesome.css"/>
 
 <!-- Bootstrap核心样式 -->
-<link type="text/css" rel="stylesheet" th:if="${enableCDN}" href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/3.3.4/css/bootstrap.min.css"/>
+<link type="text/css" rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/3.3.4/css/bootstrap.min.css"/>
 
 <!-- Bootstrap组件样式 -->
-<link type="text/css" rel="stylesheet" th:if="${enableCDN}" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.13.17/css/bootstrap-select.min.css"/>
-<link type="text/css" rel="stylesheet" th:if="${enableCDN}" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap3-dialog/1.34.5/css/bootstrap-dialog.min.css"/>
-<link type="text/css" rel="stylesheet" th:if="${enableCDN}" href="https://cdn.bootcdn.net/ajax/libs/bootstrap-switch/3.3.4/css/bootstrap3/bootstrap-switch.min.css"/>
+<link type="text/css" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.13.17/css/bootstrap-select.min.css"/>
+<link type="text/css" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap3-dialog/1.34.5/css/bootstrap-dialog.min.css"/>
+<link type="text/css" rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/bootstrap-switch/3.3.4/css/bootstrap3/bootstrap-switch.min.css"/>
 <link rel="stylesheet" type="text/css" th:href="@{/css/common.css}">
 <link rel="stylesheet" type="text/css" th:href="@{/css/index/index.css}">
 <link rel="stylesheet" type="text/css" th:href="@{/css/datasource/datasource.css}">
@@ -77,19 +77,20 @@
 </div>
 
 <!-- 1. 浏览器兼容性支持 -->
-<script th:if="${enableCDN}" src="https://cdn.bootcdn.net/ajax/libs/respond.js/1.4.2/respond.min.js"></script>
+<script src="https://cdn.bootcdn.net/ajax/libs/respond.js/1.4.2/respond.min.js"></script>
 
 <!-- 2. jQuery核心库 -->
-<script th:if="${enableCDN}" src="http://code.jquery.com/jquery-1.11.3.min.js"></script>
+<script src="http://code.jquery.com/jquery-1.11.3.min.js"></script>
 
 <!-- 3. Bootstrap核心库 -->
-<script th:if="${enableCDN}" src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/3.3.4/js/bootstrap.min.js"></script>
+<script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/3.3.4/js/bootstrap.min.js"></script>
 
 <!-- 4. Bootstrap组件库（包括selectpicker） -->
-<script th:if="${enableCDN}" src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.13.17/js/bootstrap-select.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.13.17/js/bootstrap-select.min.js"></script>
 
 <!-- 5. 项目工具库 -->
 <script th:src="@{/plugins/js/loading-plus/loading-plus.js}"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap3-dialog/1.34.5/js/bootstrap-dialog.min.js"></script>
 
 <!-- 6. 项目自定义脚本 -->
 <script type="text/javascript" th:src="@{/js/common.js}"></script>

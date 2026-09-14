@@ -225,28 +225,54 @@ public class MappingController extends BaseController {
         }
     }
 
-    @PostMapping("/startAll")
+    @PostMapping("/batchStart")
     @ResponseBody
     @PreAuthorize("hasRole('admin')")
-    public RestResult startAll(@RequestParam(value = "connectorId") String connectorId) {
+    public RestResult batchStart(@RequestParam(value = "ids") String ids) {
+        return doBatchAction(ids, "启动", id -> mappingService.start(id));
+    }
+
+    @PostMapping("/batchStop")
+    @ResponseBody
+    @PreAuthorize("hasRole('admin')")
+    public RestResult batchStop(@RequestParam(value = "ids") String ids) {
+        return doBatchAction(ids, "停止", id -> mappingService.stop(id));
+    }
+
+    private RestResult doBatchAction(String ids, String actionName, BatchAction action) {
         try {
-            return RestResult.restSuccess(mappingService.startAll(connectorId));
+            if (ids == null || ids.trim().isEmpty()) {
+                return RestResult.restFail("请选择要" + actionName + "的任务");
+            }
+            String[] idArr = ids.split(",");
+            int successCount = 0;
+            int failCount = 0;
+            for (String id : idArr) {
+                String trimmedId = id.trim();
+                if (trimmedId.isEmpty()) {
+                    continue;
+                }
+                try {
+                    action.execute(trimmedId);
+                    successCount++;
+                } catch (Exception e) {
+                    failCount++;
+                }
+            }
+            String msg = "成功" + actionName + " " + successCount + " 个任务";
+            if (failCount > 0) {
+                msg += "，失败 " + failCount + " 个";
+            }
+            return RestResult.restSuccess(msg);
         } catch (Exception e) {
-            logger.error(e.getLocalizedMessage(), e);
-            return RestResult.restFail(e.getMessage());
+            logger.error("批量" + actionName + "任务失败", e);
+            return RestResult.restFail("批量" + actionName + "失败：" + e.getMessage());
         }
     }
 
-    @PostMapping("/stopAll")
-    @ResponseBody
-    @PreAuthorize("hasRole('admin')")
-    public RestResult stopAll(@RequestParam(value = "connectorId") String connectorId) {
-        try {
-            return RestResult.restSuccess(mappingService.stopAll(connectorId));
-        } catch (Exception e) {
-            logger.error(e.getLocalizedMessage(), e);
-            return RestResult.restFail(e.getMessage());
-        }
+    @FunctionalInterface
+    private interface BatchAction {
+        String execute(String id) throws Exception;
     }
 
     @PostMapping("/reset")
