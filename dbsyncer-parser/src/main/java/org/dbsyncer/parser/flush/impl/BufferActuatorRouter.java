@@ -159,7 +159,7 @@ public final class BufferActuatorRouter implements DisposableBean {
     private MetaBufferActuator createMetaActuator(String metaId) {
         MetaBufferActuator actuator = new MetaBufferActuator();
         actuator.setMetaId(metaId);
-        // 手动注入所有依赖
+        // 手动注入业务依赖
         actuator.setExecutorFactory(executorFactory);
         actuator.setConnectorFactory(connectorFactory);
         actuator.setProfileComponent(profileComponent);
@@ -169,10 +169,8 @@ public final class BufferActuatorRouter implements DisposableBean {
         actuator.setTableGroupModelService(tableGroupModelService);
         actuator.setErrorQueueCollector(errorQueueCollector);
         actuator.messageService = messageService;
-        actuator.setConfigRegistry(configRegistry);
-        // 注入依赖
-        actuator.setScheduledTaskService(scheduledTaskService);
-        actuator.setTimeRegistry(timeRegistry);
+        // 初始化队列/调度所需依赖（内部保证顺序）
+        actuator.initialize(configRegistry, scheduledTaskService, timeRegistry);
         return actuator;
     }
 

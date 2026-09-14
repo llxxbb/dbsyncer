@@ -76,11 +76,6 @@ public class MetaBufferActuator implements BufferActuator, ScheduledTaskJob {
     private String taskKey;
 
     /**
-     * 延迟初始化标志：队列和调度器是否已初始化
-     */
-    private volatile boolean initialized = false;
-
-    /**
      * ADR-0031：排空标志。true 表示队列只出不进，offer() 阻塞等待。
      */
     private volatile boolean draining = false;
@@ -251,7 +246,6 @@ public class MetaBufferActuator implements BufferActuator, ScheduledTaskJob {
 
     @Override
     public void offer(BufferRequest request) {
-        ensureInitialized();
         // ADR-0031：排空中阻塞等待，不丢数据
         if (draining) {
             drainingLock.lock();
@@ -606,25 +600,22 @@ public class MetaBufferActuator implements BufferActuator, ScheduledTaskJob {
     // ========================================================================
 
     /**
-     * 延迟初始化：创建队列 + 启动调度器。
-     * 首次 offer() 时调用，确保此时 ConfigRegistry 已就绪。
+     * 初始化：注入队列/调度所需依赖，创建队列，启动调度器。
+     * 内部保证依赖注入顺序，调用方无需关心。
      */
-    private void ensureInitialized() {
-        if (!initialized) {
-            synchronized (this) {
-                if (!initialized) {
-                    Assert.notNull(configRegistry, "请先设置 configRegistry");
-                    this.queue = new LinkedBlockingQueue<>(getBufferQueueCapacity());
-                    if (taskKey == null) {
-                        taskKey = UUIDUtil.getUUID();
-                    }
-                    scheduledTaskService.start(taskKey, getBufferPeriodMillisecond(), this);
-                    initialized = true;
-                    logger.info("[{}] 延迟初始化完成: queueCapacity={}, period={}ms",
-                            getClass().getSimpleName(), getBufferQueueCapacity(), getBufferPeriodMillisecond());
-                }
-            }
+    public void initialize(ConfigRegistry configRegistry, ScheduledTaskService scheduledTaskService, TimeRegistry timeRegistry) {
+        this.configRegistry = configRegistry;
+        this.scheduledTaskService = scheduledTaskService;
+        this.timeRegistry = timeRegistry;
+
+        Assert.notNull(configRegistry, "configRegistry 不能为 null");
+        this.queue = new LinkedBlockingQueue<>(getBufferQueueCapacity());
+        if (taskKey == null) {
+            taskKey = UUIDUtil.getUUID();
         }
+        scheduledTaskService.start(taskKey, getBufferPeriodMillisecond(), this);
+        logger.info("[{}] 初始化完成: queueCapacity={}, period={}ms",
+                getClass().getSimpleName(), getBufferQueueCapacity(), getBufferPeriodMillisecond());
     }
 
     @Override
@@ -763,12 +754,6 @@ public class MetaBufferActuator implements BufferActuator, ScheduledTaskJob {
      */
     @Override
     public void reload() {
-        // 未初始化过则无需 reload，下次 offer() 会用新配置初始化
-        if (!initialized) {
-            logger.info("[{}] 尚未初始化，跳过热重载", getClass().getSimpleName());
-            return;
-        }
-
         // ① 标记只出不进
         draining = true;
 
@@ -862,6 +847,7 @@ public class MetaBufferActuator implements BufferActuator, ScheduledTaskJob {
     }
 
     public void setScheduledTaskService(ScheduledTaskService scheduledTaskService) {
+        // 由 initialize() 统一设置，保留此方法仅用于测试场景
         this.scheduledTaskService = scheduledTaskService;
     }
 
@@ -870,10 +856,12 @@ public class MetaBufferActuator implements BufferActuator, ScheduledTaskJob {
     }
 
     public void setTimeRegistry(TimeRegistry timeRegistry) {
+        // 由 initialize() 统一设置，保留此方法仅用于测试场景
         this.timeRegistry = timeRegistry;
     }
 
     public void setConfigRegistry(ConfigRegistry configRegistry) {
+        // 由 initialize() 统一设置，保留此方法仅用于测试场景
         this.configRegistry = configRegistry;
     }
 
