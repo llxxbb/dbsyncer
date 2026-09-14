@@ -1,633 +1,406 @@
-// 添加分组
-function bindAddProjectGroup() {
-    $("#addProjectGroupBtn").click(function () {
-        updateHash("/projectGroup/page/add");
-    });
-}
+/**
+ * 任务列表页面（主页）
+ * 使用统一 TaskList 模块渲染任务列表
+ */
+(function ($) {
+    'use strict';
 
-// 修改分组
-function doEditProjectGroup(projectGroupId) {
+    var taskList = null;
+    var refreshTimer = null;
+    var currentProjectGroupId = '';
 
-    var id = projectGroupId;
-    if (!isBlank(id)) {
-        updateHash('/projectGroup/page/edit?id=' + id);
-        return;
-    }
-    bootGrowl("请选择分组", "danger");
-}
+    function init() {
+        bindAddProjectGroup();
+        bindAddConnector();
+        bindEditConnector();
+        bindAddMapping();
+        bindEditMapping();
+        bindQueryData();
+        bindConnectorDropdownMenu();
+        bindMappingSearch();
+        bindViewToggle();
+        bindGroupList();
 
-// 删除分组
-function doRemoveProjectGroup(projectGroupId) {
+        // 初始化 TaskList
+        taskList = new TaskList();
+        taskList.init('#taskListContainer', {
+            enableCheckbox: false,
+            enableBatchStart: false,
+            enableBatchStop: false,
+            rowClickAction: null,
+            emptyMessage: '暂无任务',
+            onStart: function(id) { doSingleAction(id, '/mapping/start?id=', '启动'); },
+            onStop: function(id) { doSingleAction(id, '/mapping/stop?id=', '停止'); }
+        });
 
-    var id = projectGroupId;
-    if (isBlank(id)) {
-        bootGrowl("请选择分组", "danger");
-        return;
-    }
-    BootstrapDialog.show({
-        title: "提示",
-        type: BootstrapDialog.TYPE_INFO,
-        message: "确认删除分组？",
-        size: BootstrapDialog.SIZE_NORMAL,
-        buttons: [{
-            label: "确定",
-            action: function (dialog) {
-                doPoster('/projectGroup/remove', { id: id }, function (data) {
-                    if (data.success == true) {
-                        // 显示主页
-                        backIndexPage();
-                        bootGrowl(data.resultValue, "success");
-                    } else {
-                        bootGrowl(data.resultValue, "danger");
-                    }
-                });
-                dialog.close();
-            }
-        }, {
-            label: "取消",
-            action: function (dialog) {
-                dialog.close();
-            }
-        }]
-    });
-}
-
-// 给分组下拉绑定事件
-function bindProjectGroupSelect($projectGroupSelect) {
-    $projectGroupSelect.off('change changed.bs.select');
-
-    $projectGroupSelect.on('change', function () {
-        $.loadingT(true);
-        updateHash("/index?projectGroupId=" + $(this).val(), 1);
-    });
-
-}
-
-// 添加连接
-function bindAddConnector() {
-    // 绑定添加连接按钮点击事件
-    $("#indexAddConnectorBtn").click(function () {
-        updateHash('/connector/page/add');
-    });
-}
-
-// 编辑连接
-function bindEditConnector() {
-    $(".connectorList .dbsyncer_block").click(function () {
-        var $id = $(this).attr("id");
-        updateHash('/connector/page/edit?id=' + $id);
-    });
-}
-
-// 添加任务
-function bindAddMapping() {
-    $("#indexAddMappingBtn").click(function () {
-        var projectGroupId = $("#projectGroup").val() || '';
-        updateHash('/mapping/pageAdd?projectGroupId=' + projectGroupId);
-    });
-}
-
-// 编辑任务
-function bindEditMapping() {
-    $(".mapping-card").click(function (e) {
-        // 获取任务 ID
-        var $id = $(this).attr("data-id") || $(this).attr("id");
-        if ($id) {
-            window.open('/#/mapping/page/edit?classOn=0&id=' + $id, '_blank');
-
-             // 清除定时器，停止定时刷新任务列表
-            if (window.timer2) {
-                clearInterval(window.timer2);
-                window.timer2 = null;
-            }
+        // 从 URL 获取 projectGroupId
+        currentProjectGroupId = getUrlParam('projectGroupId');
+        if (currentProjectGroupId) {
+            $('#projectGroup').val(currentProjectGroupId);
         }
-    });
-}
 
-// 查看任务日志
-function bindQueryData() {
-    $(".mappingList .queryData").click(function (event) {
-        // 阻止触发click传递事件
-        event.cancelBubble = true;
-        var $menu = $('#menu > li');
-        $menu.removeClass('active');
-        $menu.find("a[url='/monitor']").parent().addClass('active');
+        loadTaskList();
+        startAutoRefresh();
+    }
 
-        var $id = $(this).attr("id");
-        updateHash('/monitor?dataStatus=0&id=' + $id, 2);
-    });
-}
+    function loadTaskList() {
+        $.loadingT(true);
+        $.ajax({
+            url: '/index/mappingdata',
+            type: 'GET',
+            data: { projectGroupId: currentProjectGroupId },
+            success: function(resp) {
+                $.loadingT(false);
+                if (resp && resp.success) {
+                    taskList.setData(resp.resultValue || []);
+                } else {
+                    taskList.setData([]);
+                }
+            },
+            error: function() {
+                $.loadingT(false);
+                taskList.setData([]);
+            }
+        });
+    }
 
-// 给连接下拉菜单绑定事件
-function bindConnectorDropdownMenu() {
-    // 绑定删除连接事件
-    $(".connectorList .dropdown-menu li.remove").click(function () {
-        var $url = $(this).attr("url");
-        // 如果当前为恢复状态
+    function startAutoRefresh() {
+        if (refreshTimer) clearInterval(refreshTimer);
+        $.get('/monitor/getRefreshIntervalSeconds', function(resp) {
+            if (resp && resp.success) {
+                var interval = resp.resultValue;
+                refreshTimer = setInterval(loadTaskList, interval * 1000);
+            }
+        });
+    }
+
+    function doSingleAction(id, urlPrefix, actionName) {
         BootstrapDialog.show({
-            title: "警告",
-            type: BootstrapDialog.TYPE_DANGER,
-            message: "确认删除连接？",
+            title: '确认',
+            type: BootstrapDialog.TYPE_PRIMARY,
+            message: '确认' + actionName + '该任务？',
             size: BootstrapDialog.SIZE_NORMAL,
             buttons: [{
-                label: "确定",
-                action: function (dialog) {
-                    doPost($url);
+                label: '确定',
+                action: function(dialog) {
+                    $.loadingT(true);
+                    $.post(urlPrefix + id, function(data) {
+                        $.loadingT(false);
+                        if (data && data.success) {
+                            bootGrowl(data.resultValue || actionName + '成功', 'success');
+                            loadTaskList();
+                        } else {
+                            bootGrowl((data && data.resultValue) || actionName + '失败', 'danger');
+                        }
+                    }).error(function() {
+                        $.loadingT(false);
+                        bootGrowl(actionName + '失败', 'danger');
+                    });
                     dialog.close();
                 }
             }, {
-                label: "取消",
-                action: function (dialog) {
-                    dialog.close();
-                }
+                label: '取消',
+                action: function(dialog) { dialog.close(); }
             }]
         });
-    });
-    // 绑定复制连接事件
-    $(".connectorList .dropdown-menu li.copy").click(function () {
-        var $url = $(this).attr("url");
-        doPost($url);
-    });
-}
+    }
 
-// 给任务操作按钮绑定事件
-function bindMappingOperationButtons() {
-    // 绑定所有操作按钮的点击事件
-    $('.operation-buttons a').click(function (e) {
-        e.preventDefault();
-        e.stopPropagation();
+    // ==================== 分组管理 ====================
 
-        // 优先从data-url获取URL
-        var $url = $(this).data('url') || $(this).attr("th\:url") || $(this).attr("href");
-        // 移除javascript:;前缀
-        $url = $url ? $url.replace('javascript:;', '') : '';
-        var $confirm = $(this).attr("confirm");
-        var $confirmMessage = $(this).attr("confirmMessage");
+    function bindAddProjectGroup() {
+        $('#addProjectGroupBtn').click(function() {
+            updateHash('/projectGroup/page/add');
+        });
+    }
 
-        if ("true" == $confirm) {
-            // 如果需要确认操作
+    function doEditProjectGroup(projectGroupId) {
+        if (projectGroupId) {
+            updateHash('/projectGroup/page/edit?id=' + projectGroupId);
+        } else {
+            bootGrowl('请选择分组', 'danger');
+        }
+    }
+
+    function doRemoveProjectGroup(projectGroupId) {
+        if (!projectGroupId) {
+            bootGrowl('请选择分组', 'danger');
+            return;
+        }
+        BootstrapDialog.show({
+            title: '提示',
+            type: BootstrapDialog.TYPE_INFO,
+            message: '确认删除分组？',
+            size: BootstrapDialog.SIZE_NORMAL,
+            buttons: [{
+                label: '确定',
+                action: function(dialog) {
+                    doPoster('/projectGroup/remove', { id: projectGroupId }, function(data) {
+                        if (data.success) {
+                            backIndexPage();
+                            bootGrowl(data.resultValue, 'success');
+                        } else {
+                            bootGrowl(data.resultValue, 'danger');
+                        }
+                    });
+                    dialog.close();
+                }
+            }, {
+                label: '取消',
+                action: function(dialog) { dialog.close(); }
+            }]
+        });
+    }
+
+    function bindGroupList() {
+        $('.group-list-item').on('click.groupList', function(e) {
+            if ($(e.target).closest('.dropdown').length > 0) return;
+            var groupId = $(this).data('group-id') || '';
+            groupShow(groupId);
+        });
+    }
+
+    function groupShow(id) {
+        currentProjectGroupId = id || '';
+        $('#projectGroup').val(currentProjectGroupId);
+        updateHash('/index?projectGroupId=' + currentProjectGroupId, 1);
+        loadTaskList();
+    }
+
+    // ==================== 连接管理 ====================
+
+    function bindAddConnector() {
+        $('#indexAddConnectorBtn').click(function() {
+            updateHash('/connector/page/add');
+        });
+    }
+
+    function bindEditConnector() {
+        $('.connectorList .dbsyncer_block').click(function() {
+            var id = $(this).attr('id');
+            updateHash('/connector/page/edit?id=' + id);
+        });
+    }
+
+    function bindConnectorDropdownMenu() {
+        $('.connectorList .dropdown-menu li.remove').click(function() {
+            var url = $(this).attr('url');
             BootstrapDialog.show({
-                title: "警告",
+                title: '警告',
                 type: BootstrapDialog.TYPE_DANGER,
-                message: $confirmMessage,
+                message: '确认删除连接？',
                 size: BootstrapDialog.SIZE_NORMAL,
                 buttons: [{
-                    label: "确定",
-                    action: function (dialog) {
-                        doPost($url);
+                    label: '确定',
+                    action: function(dialog) {
+                        doPost(url);
                         dialog.close();
                     }
                 }, {
-                    label: "取消",
-                    action: function (dialog) {
-                        dialog.close();
-                    }
+                    label: '取消',
+                    action: function(dialog) { dialog.close(); }
                 }]
             });
-            return;
-        }
+        });
 
-        // 对于编辑/详情按钮，在新标签页打开
-        if ($(this).hasClass('fa-pencil') || $(this).find('.fa-pencil').length > 0 || $(this).hasClass('fa-eye') || $(this).find('.fa-eye').length > 0) {
-            window.open('/#' + $url, '_blank');
-        } else if ($(this).hasClass('queryData') || $(this).hasClass('fa-file-text-o') || $(this).find('.fa-file-text-o').length > 0) {
-            // 日志按钮特殊处理
-            var $id = $(this).attr("id");
+        $('.connectorList .dropdown-menu li.copy').click(function() {
+            var url = $(this).attr('url');
+            doPost(url);
+        });
+    }
+
+    function doPost(url) {
+        doPoster(url, null, function(data) {
+            if (data.success) {
+                backIndexPage(currentProjectGroupId, true);
+                bootGrowl(data.resultValue, 'success');
+            } else {
+                bootGrowl(data.resultValue, 'danger');
+            }
+        });
+    }
+
+    // ==================== 任务管理 ====================
+
+    function bindAddMapping() {
+        $('#indexAddMappingBtn').click(function() {
+            var projectGroupId = $('#projectGroup').val() || '';
+            updateHash('/mapping/pageAdd?projectGroupId=' + projectGroupId);
+        });
+    }
+
+    function bindEditMapping() {
+        $('.mapping-card').click(function(e) {
+            var id = $(this).attr('data-id') || $(this).attr('id');
+            if (id) {
+                window.open('/#/mapping/page/edit?classOn=0&id=' + id, '_blank');
+                if (refreshTimer) {
+                    clearInterval(refreshTimer);
+                    refreshTimer = null;
+                }
+            }
+        });
+    }
+
+    function bindQueryData() {
+        $('.mappingList .queryData').click(function(event) {
+            event.cancelBubble = true;
             var $menu = $('#menu > li');
             $menu.removeClass('active');
             $menu.find("a[url='/monitor']").parent().addClass('active');
-            updateHash('/monitor?dataStatus=0&id=' + $id, 2);
-        } else {
-            doPost($url);
-        }
-    });
-}
 
-function doPost(url) {
-    doPoster(url, null, function (data) {
-        if (data.success == true) {
-            // 显示主页
-            var projectGroup = $("#projectGroup").val() || '';
-            backIndexPage(projectGroup, true); // 传递true作为第二个参数，强制返回主页
-            bootGrowl(data.resultValue, "success");
-        } else {
-            // 检查是否是停止任务操作并且错误信息是"驱动已停止"
-            if (url.indexOf('/mapping/stop?id=') !== -1 && data.resultValue === '驱动已停止.') {
-                // 即使失败，也需要更新UI状态，因为任务确实已经停止
-                var projectGroup = $("#projectGroup").val() || '';
-                backIndexPage(projectGroup, true); // 传递true作为第二个参数，强制返回主页
-                bootGrowl("任务已停止", "info");
-            } else {
-                bootGrowl(data.resultValue, "danger");
+            var id = $(this).attr('id');
+            updateHash('/monitor?dataStatus=0&id=' + id, 2);
+        });
+    }
+
+    // ==================== 搜索 ====================
+
+    function bindMappingSearch() {
+        $('#mappingSearchBtn').click(function() { performMappingSearch(); });
+        $('#mappingSearchInput').keypress(function(e) {
+            if (e.which === 13) {
+                e.preventDefault();
+                performMappingSearch();
             }
-        }
-    });
-}
-
-// URL参数解析函数 - 更健壮的实现
-function getUrlParam(name) {
-    name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
-    var regex = new RegExp('[\\#&]' + name + '=([^&#]*)');
-    var results = regex.exec(window.location.href);
-    return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
-}
-
-// 从URL参数中同步projectGroupId到隐藏字段
-function syncProjectGroupIdFromUrl() {
-    var projectGroupId = getUrlParam('projectGroupId');
-    if (projectGroupId) {
-        $('#projectGroup').val(projectGroupId);
-    }
-}
-
-function refreshMappingList() {
-
-    // 检查当前是否在任务列表界面
-    if (!window.location.hash.startsWith('#/index?') && !window.location.hash.startsWith('#/index&')) {
-        // 如果不在任务列表界面，不创建定时器
-        return;
+        });
+        initFilterDropdowns();
     }
 
-    doGetWithoutLoading("/monitor/getRefreshIntervalSeconds", {}, function (data) {
-        if (data.success == true) {
-            // 确保timer2是全局变量
-            if (!window.timer2) {
-                window.timer2 = setInterval(function () {
-                    // 再次检查当前是否在任务列表界面
-                    if (window.location.hash.startsWith('#/index?') || window.location.hash.startsWith('#/index&')) {
-                        var projectGroupId = $("#projectGroup").val();
-                        // 确保projectGroupId是有效的
-                        if (!projectGroupId || projectGroupId === undefined) {
-                            projectGroupId = '';
-                        }
-                        
-                        // 加载页面
-                        $.ajax({
-                        url: '/index/mappingdata?projectGroupId=' + projectGroupId + "&refresh=" + new Date().getTime(), // 假设这是获取任务列表的接口
-                        type: 'GET',
-                        success: function (data) {
-                            if (data.success && data.status == 200) {
-                                var datalist = data.resultValue;
-                                if (Array.isArray(datalist)) {
-                                    // 遍历数组并拼接 div 字符串
-                                    $.each(datalist, function (index, m) {
-                                        // 安全访问对象属性
-                                        var mid = m && m.id ? m.id : '';
-                                        var model = m && m.model ? m.model : '';
-                                        var modelname = '';
-                                        if (model == 'full') {
-                                            modelname = '全量';
-                                        } else if (model == 'increment') {
-                                            modelname = '增量';
-                                        } else if (model == 'fullIncrement') {
-                                            modelname = '混合';
-                                        }
-                                        var meta = m && m.meta ? m.meta : {};
-                                        var total = meta.total || 0;
-                                        var success = meta.success || 0;
-                                        var fail = meta.fail || 0;
-                                        var beginTime = meta.beginTime || 0;
-                                        var updateTime = meta.updateTime || 0;
-                                        var syncPhase = meta.syncPhase || {};
-                                        var syncPhaseCode = syncPhase.code || 0;
-                                        var counting = meta.counting || false;
-                                        var errorMessage = meta.errorMessage || '';
-                                        var id = meta.id || '';
-                                        var stateVal = meta.state != null && meta.state !== '' ? parseInt(meta.state) : 0;
-                                        var stateHtmlContent = '';
-                                        
-                                        // 生成状态HTML
-                                        if (stateVal == 0) {
-                                            stateHtmlContent += '<span class="running-state label label-info">未运行</span>';
-                                        } else if (stateVal == 1) {
-                                            stateHtmlContent += '<span class="running-through-rate well-sign-green">✔</span>';
-                                            stateHtmlContent += '<span class="running-state label label-success">运行中</span>';
-                                        } else if (stateVal == 2) {
-                                            stateHtmlContent += '<span class="running-state label label-warning">停止中</span>';
-                                        } else if (stateVal == 3) {
-                                            stateHtmlContent += '<span class="running-state label label-danger">异常</span>';
-                                            stateHtmlContent += '<span title=" ' + errorMessage + ' " class="mapping-error-sign" data-toggle="tooltip" data-placement="top"><i class="fa fa-exclamation-triangle"></i></span>';
-                                        }
+    function initFilterDropdowns() {
+        $.ajax({
+            url: '/datasource/list',
+            type: 'POST',
+            success: function(data) {
+                if (data.success && data.status === 200) {
+                    var connectors = data.resultValue;
+                    var $sourceSelect = $('#filterSource');
+                    var $targetSelect = $('#filterTarget');
 
-                                        // 更新卡片视图 - 只更新状态标签
-                                        var $cardElement = $("#" + mid);
-                                        if ($cardElement.length > 0) {
-                                            // 只更新可见的卡片内容
-                                            if ($cardElement.is(':visible')) {
-                                                $("#" + mid).find("#stateId").html(stateHtmlContent);
-                                            }
-                                        }
-                                        
-                                        // 更新列表视图
-                                        var $listElement = $("#listView").find("tr[id='" + mid + "']");
-                                        if ($listElement.length > 0) {
-                                            // 更新状态列
-                                            var $statusColumn = $listElement.find('td:nth-child(2)');
-                                            $statusColumn.html(stateHtmlContent);
-                                            
-                                            // 更新创建时间列
-                                            var $createTimeColumn = $listElement.find('td:nth-child(7)');
-                                            var createTimeHtml = '-';
-                                            // 使用 createTime 而不是 updateTime 来显示创建时间
-                                            var createTime = meta.createTime || 0;
-                                            if (createTime > 0) {
-                                                var date = new Date(createTime);
-                                                createTimeHtml = date.getFullYear() + '-' +
-                                                    String(date.getMonth() + 1).padStart(2, '0') + '-' +
-                                                    String(date.getDate()).padStart(2, '0') + ' ' +
-                                                    String(date.getHours()).padStart(2, '0') + ':' +
-                                                    String(date.getMinutes()).padStart(2, '0') + ':' +
-                                                    String(date.getSeconds()).padStart(2, '0');
-                                            }
-                                            $createTimeColumn.html(createTimeHtml);
-                                        }
-                                    });
-                                }
-                            } else {
-                                bootGrowl(data.resultValue, "danger");
-                            }
-                        },
-                        error: function () {
-                                bootGrowl('刷新失败', "danger");
-                            }
+                    $sourceSelect.find('option:not(:first)').remove();
+                    $targetSelect.find('option:not(:first)').remove();
+
+                    var connectorTypes = {};
+                    if (Array.isArray(connectors)) {
+                        connectors.forEach(function(connector) {
+                            var type = connector.config && connector.config.connectorType ? connector.config.connectorType : 'default';
+                            if (!connectorTypes[type]) connectorTypes[type] = [];
+                            connectorTypes[type].push(connector);
                         });
                     }
-                }, data.resultValue * 1000);
-            }
 
-        } else {
-            bootGrowl(data.resultValue, "danger");
-        }
-    });
+                    for (var type in connectorTypes) {
+                        if (connectorTypes.hasOwnProperty(type)) {
+                            var option = '<option value="' + type + '">' + type + '</option>';
+                            $sourceSelect.append(option);
+                            $targetSelect.append(option);
+                        }
+                    }
+                }
+            },
+            error: function() { bootGrowl('加载数据源列表失败', 'danger'); }
+        });
 
-}
-
-function groupShow(id) {
-    var projectGroupId = (typeof id === 'string') ? id : '';
-    
-    // 使用updateHash更新URL哈希，而不是直接调用timerLoad
-    updateHash("/index?projectGroupId=" + projectGroupId + "&refresh=" + new Date().getTime(), 1);
-    $("#projectGroup").val(projectGroupId);
-    
-    // 清除并重新初始化定时刷新机制
-    if (window.timer2) {
-        clearInterval(window.timer2);
-        window.timer2 = null;
-    }
-    // 调用refreshMappingList而不是createTimer，确保只使用一种刷新机制
-    refreshMappingList();
-}
-
-function bindMappingSearch() {
-    // 搜索按钮点击事件
-    $("#mappingSearchBtn").click(function () {
-        performMappingSearch();
-    });
-
-    // 搜索框回车事件
-    $("#mappingSearchInput").keypress(function (e) {
-        if (e.which === 13) { // Enter键
-            e.preventDefault(); // 阻止浏览器默认行为，防止页面刷新
+        $('#filterState, #filterSource, #filterTarget').on('change', function() {
             performMappingSearch();
-        }
-    });
-
-    // 初始化筛选下拉框
-    initFilterDropdowns();
-}
-
-function initFilterDropdowns() {
-    // 加载数据源列表
-    $.ajax({
-        url: '/datasource/list',
-        type: 'POST',
-        success: function (data) {
-            if (data.success && data.status === 200) {
-                var connectors = data.resultValue;
-                var $sourceSelect = $('#filterSource');
-                var $targetSelect = $('#filterTarget');
-
-                // 清空现有选项（保留"全部"选项）
-                $sourceSelect.find('option:not(:first)').remove();
-                $targetSelect.find('option:not(:first)').remove();
-
-                // 按connectorType分组
-                var connectorTypes = {};
-                if (Array.isArray(connectors)) {
-                    connectors.forEach(function(connector) {
-                        var connectorType = connector.config && connector.config.connectorType ? connector.config.connectorType : 'default';
-                        if (!connectorTypes[connectorType]) {
-                            connectorTypes[connectorType] = [];
-                        }
-                        connectorTypes[connectorType].push(connector);
-                    });
-                }
-
-                // 添加按connectorType分组的选项
-                for (var type in connectorTypes) {
-                    if (connectorTypes.hasOwnProperty(type)) {
-                        var option = '<option value="' + type + '">' + type + '</option>';
-                        $sourceSelect.append(option);
-                        $targetSelect.append(option);
-                    }
-                }
-            }
-        },
-        error: function () {
-            bootGrowl('加载数据源列表失败', "danger");
-        }
-    });
-
-    // 绑定下拉框change事件
-    $('#filterState, #filterSource, #filterTarget').on('change', function() {
-        performMappingSearch();
-    });
-}
-
-function performMappingSearch() {
-    var keyword = $("#mappingSearchInput").val().trim();
-    var state = $("#filterState").val();
-    var sourceConnectorType = $("#filterSource").val();
-    var targetConnectorType = $("#filterTarget").val();
-    
-    // 如果所有筛选条件都为空，显示所有任务并返回
-    if (keyword === '' && state === '' && sourceConnectorType === '' && targetConnectorType === '') {
-        var isCardView = $('#cardView').is(':visible');
-        if (isCardView) {
-            // 卡片视图：显示所有卡片
-            $('#cardView .mapping-card').show();
-        } else {
-            // 列表视图：显示所有行
-            $(".table.table-hover tbody tr").show();
-        }
-        $("#noSearchResults").hide();
-        return;
+        });
     }
-    
-    var projectGroupId = $("#projectGroup").val() || '';
-    var isCardView = $('#cardView').is(':visible');
 
-    $.ajax({
-        url: '/index/searchMapping',
-        type: 'GET',
-        data: {
-            keyword: keyword,
-            projectGroupId: projectGroupId,
-            state: state,
-            sourceConnectorType: sourceConnectorType,
-            targetConnectorType: targetConnectorType
-        },
-        success: function (data) {
-            if (data.success && data.status === 200) {
-                var searchResults = data.resultValue;
-                $("#noSearchResults").hide();
+    function performMappingSearch() {
+        var keyword = $('#mappingSearchInput').val().trim();
+        var state = $('#filterState').val();
+        var sourceConnectorType = $('#filterSource').val();
+        var targetConnectorType = $('#filterTarget').val();
 
-                if (searchResults.length === 0) {
-                    if (isCardView) {
-                        // 卡片视图：隐藏所有卡片
-                        $('#cardView .mapping-card').hide();
-                    } else {
-                        // 列表视图：隐藏所有行
-                        $(".table.table-hover tbody tr").hide();
-                    }
-                    $("#noSearchResults").show();
-                } else {
-                    // 获取搜索结果的ID集合
-                    var resultIds = searchResults.map(function(result) { 
-                        return result && result.id ? result.id : null;
-                    }).filter(function(id) { 
-                        return id !== null;
-                    });
-                    
-                    if (isCardView) {
-                        // 卡片视图：先隐藏所有卡片，再显示匹配的卡片
-                        $('#cardView .mapping-card').hide();
-                        resultIds.forEach(function(id) {
-                            $('#cardView .mapping-card#' + id).show();
-                        });
-                    } else {
-                        // 列表视图：先隐藏所有行，再显示匹配的行
-                        $(".table.table-hover tbody tr").hide();
-                        resultIds.forEach(function(id) {
-                            $("tr[id='" + id + "']").show();
-                        });
-                    }
-                }
-            } else {
-                bootGrowl(data.resultValue || '搜索失败', "danger");
-            }
-        },
-        error: function (xhr, status, error) {
-            bootGrowl('搜索请求失败', "danger");
-        }
-    });
-}
-
-function nextToMapping(str) {
-
-    // 获取映射关系标签页及对应链接
-    const $baseConfigTab = $('#' + str);
-    const $baseConfigLink = $('a[href="#' + str + '"]');
-
-    if ($baseConfigTab.length && $baseConfigLink.length) {
-        // 移除所有tab-pane的active类，再为目标标签页添加active
-        $('.tab-pane').removeClass('active');
-        $('.nav-tabs li').removeClass('active');
-        $baseConfigTab.addClass('active');
-
-        // 激活对应的tab链接及其父元素（通常是li）
-        $baseConfigLink.addClass('active').parent().addClass('active');
-    }
-}
-
-// 分组列表点击事件绑定
-function bindGroupList() {
-    // 使用事件委托，只在点击非按钮区域时触发
-    $('.group-list-item').on('click.groupList', function(e) {
-        // 如果点击的是右侧按钮或按钮内的元素，则不处理
-        if ($(e.target).closest('.dropdown').length > 0) {
+        if (!keyword && !state && !sourceConnectorType && !targetConnectorType) {
+            loadTaskList();
+            $('#noSearchResults').hide();
             return;
         }
-        var groupId = $(this).attr('data-group-id') || '';
-        groupShow(groupId);
-    });
-}
 
-// 布局切换功能
-function bindViewToggle() {
-    // 列表视图按钮
-    $('#listViewBtn').click(function() {
-        if (!$(this).hasClass('active')) {
-            $(this).addClass('active');
-            $('#cardViewBtn').removeClass('active');
-            $('#listView').show();
-            $('#cardView').hide();
-            // 保存当前视图状态到本地存储
-            localStorage.setItem('dbsyncerViewMode', 'list');
-        }
-    });
-    
-    // 卡片视图按钮
-    $('#cardViewBtn').click(function() {
-        if (!$(this).hasClass('active')) {
-            $('#listViewBtn').removeClass('active');
-            $(this).addClass('active');
-            $('#listView').hide();
-            $('#cardView').show();
-            // 保存当前视图状态到本地存储
-            localStorage.setItem('dbsyncerViewMode', 'card');
-        }
-    });
-    
-    // 初始化视图状态
-    var savedViewMode = localStorage.getItem('dbsyncerViewMode');
-    if (savedViewMode === 'card') {
-        $('#cardViewBtn').click();
+        $.loadingT(true);
+        $.ajax({
+            url: '/index/searchMapping',
+            type: 'GET',
+            data: {
+                keyword: keyword,
+                projectGroupId: currentProjectGroupId,
+                state: state,
+                sourceConnectorType: sourceConnectorType,
+                targetConnectorType: targetConnectorType
+            },
+            success: function(data) {
+                $.loadingT(false);
+                if (data.success && data.status === 200) {
+                    var results = data.resultValue || [];
+                    if (results.length === 0) {
+                        taskList.setData([]);
+                        $('#noSearchResults').show();
+                    } else {
+                        taskList.setData(results);
+                        $('#noSearchResults').hide();
+                    }
+                } else {
+                    bootGrowl(data.resultValue || '搜索失败', 'danger');
+                }
+            },
+            error: function() {
+                $.loadingT(false);
+                bootGrowl('搜索请求失败', 'danger');
+            }
+        });
     }
-}
 
-$(function () {
-    // 初始化select插件
-    //initSelectIndex($(".select-control"));
-    bindAddProjectGroup();
+    // ==================== 视图切换 ====================
 
-    
-    // 从URL参数中获取projectGroupId并同步到隐藏字段
-    var projectGroupId = getUrlParam('projectGroupId');
-    if (projectGroupId) {
-        $('#projectGroup').val(projectGroupId);
+    function bindViewToggle() {
+        $('#listViewBtn').click(function() {
+            if (!$(this).hasClass('active')) {
+                $(this).addClass('active');
+                $('#cardViewBtn').removeClass('active');
+                $('#listView').show();
+                $('#cardView').hide();
+                localStorage.setItem('dbsyncerViewMode', 'list');
+            }
+        });
+
+        $('#cardViewBtn').click(function() {
+            if (!$(this).hasClass('active')) {
+                $('#listViewBtn').removeClass('active');
+                $(this).addClass('active');
+                $('#listView').hide();
+                $('#cardView').show();
+                localStorage.setItem('dbsyncerViewMode', 'card');
+            }
+        });
+
+        var savedViewMode = localStorage.getItem('dbsyncerViewMode');
+        if (savedViewMode === 'card') {
+            $('#cardViewBtn').click();
+        }
     }
-    
-    //异步刷新  同步进度 部分HTML
-    refreshMappingList();
 
-    bindAddConnector();
-    bindEditConnector();
+    // ==================== 工具函数 ====================
 
-    bindAddMapping();
-    bindEditMapping();
-    bindQueryData();
+    function getUrlParam(name) {
+        name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+        var regex = new RegExp('[\\#&]' + name + '=([^&#]*)');
+        var results = regex.exec(window.location.href);
+        return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+    }
 
-    bindConnectorDropdownMenu();
-    //bindMappingDropdownMenu();
-    // 替换下拉菜单事件为直接按钮事件
-    bindMappingOperationButtons();
+    // 暴露给 HTML 模板的 inline onclick 调用
+    window.groupShow = groupShow;
+    window.doEditProjectGroup = doEditProjectGroup;
+    window.doRemoveProjectGroup = doRemoveProjectGroup;
 
-    // 绑定任务搜索功能
-    bindMappingSearch();
-    
-    // 绑定布局切换功能
-    bindViewToggle();
-    bindGroupList();
-    
-    
-    // 清理定时器，防止内存泄漏
+    // 清理定时器
     $(window).on('beforeunload', function() {
-        if (window.timer2) {
-            clearInterval(window.timer2);
-            window.timer2 = null;
+        if (refreshTimer) {
+            clearInterval(refreshTimer);
+            refreshTimer = null;
         }
     });
-});
 
-//# sourceURL=/js/index/index.js
+    $(function() { init(); });
+
+})(jQuery);

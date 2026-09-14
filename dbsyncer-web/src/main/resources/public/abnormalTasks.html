@@ -1,43 +1,5 @@
-<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
-
-<div th:fragment="abnormalTasks" class="contentDiv">
-    <div class="container-fluid">
-        <!-- 操作工具栏 -->
-        <div id="abnormalToolbar" style="display:none; margin-bottom: 10px; padding: 8px 0; align-items: center; gap: 12px;">
-            <button type="button" class="btn btn-default btn-sm" id="selectAllBtn">
-                <span class="fa fa-check-square-o"></span> 全选
-            </button>
-            <button type="button" class="btn btn-primary btn-sm" id="batchStartBtn" disabled>
-                <span class="fa fa-play"></span> 批量启动
-            </button>
-            <span id="selectedCountLabel" style="color: #888; font-size: 12px;"></span>
-        </div>
-        <!-- 列表视图 -->
-        <div id="listView" style="display:none;">
-            <div class="panel panel-default">
-                <div class="panel-body">
-                    <table class="table table-hover table-striped" id="taskTable">
-                        <thead>
-                            <tr>
-                                <th style="width: 36px;"><input type="checkbox" id="selectAllCheckbox" title="全选/取消全选" /></th>
-                                <th>名称</th>
-                                <th>状态</th>
-                                <th>失败数</th>
-                                <th>源</th>
-                                <th>目标</th>
-                                <th>读取/写入</th>
-                                <th style="width: 100px;">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody id="listViewBody">
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
+<div id="abnormalTasksPage" th:fragment="page">
+    <div id="abnormalTasksContainer"></div>
 </div>
-
+<script th:src="@{/js/shared/task-list.js}"></script>
 <script th:src="@{/js/abnormalTasks.js}"></script>
-</html>

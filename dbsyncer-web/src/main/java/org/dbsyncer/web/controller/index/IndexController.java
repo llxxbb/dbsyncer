@@ -3,7 +3,6 @@
  */
 package org.dbsyncer.web.controller.index;
 
-import org.dbsyncer.biz.vo.MappingJsonVo;
 import org.dbsyncer.biz.vo.MappingVo;
 import org.dbsyncer.biz.PermissionService;
 import org.dbsyncer.biz.ProjectGroupService;
@@ -134,15 +133,7 @@ public class IndexController {
             List<MappingVo> mappings = projectGroup.getMappings();
             List<MappingVo> filteredMappings = filterMappingsByPermission(mappings, currentUsername);
 
-            List<MappingJsonVo> resultMapping = new ArrayList<>();
-            for (MappingVo mapping : filteredMappings){
-                MappingJsonVo mappingJsonVo =new MappingJsonVo();
-                mappingJsonVo.setId(mapping.getId());
-                mappingJsonVo.setMeta(mapping.getMeta());
-                mappingJsonVo.setModel(mapping.getModel());
-                resultMapping.add(mappingJsonVo);
-            }
-            return RestResult.restSuccess(resultMapping);
+            return RestResult.restSuccess(filteredMappings);
         } catch (Exception e) {
             logger.error(e.getMessage(), e);
             return RestResult.restFail(e.getMessage(),-10);
@@ -178,7 +169,7 @@ public class IndexController {
             }
             List<MappingVo> mappings = projectGroup.getMappings();
             List<MappingVo> filteredMappings = filterMappingsByPermission(mappings, currentUsername);
-            List<MappingJsonVo> resultMapping = new ArrayList<>();
+            List<MappingVo> resultMapping = new ArrayList<>();
 
             for (MappingVo mapping : filteredMappings) {
                 boolean matchKeyword = keyword == null || keyword.trim().isEmpty() ||
@@ -196,11 +187,7 @@ public class IndexController {
                          targetConnectorType.equals(mapping.getTargetConnector().getConfig().getConnectorType()));
 
                 if (matchKeyword && matchState && matchSource && matchTarget) {
-                    MappingJsonVo mappingJsonVo = new MappingJsonVo();
-                    mappingJsonVo.setId(mapping.getId());
-                    mappingJsonVo.setMeta(mapping.getMeta());
-                    mappingJsonVo.setModel(mapping.getModel());
-                    resultMapping.add(mappingJsonVo);
+                    resultMapping.add(mapping);
                 }
             }
 
