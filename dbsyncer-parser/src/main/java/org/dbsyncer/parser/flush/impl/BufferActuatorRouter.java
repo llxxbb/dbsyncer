@@ -170,7 +170,7 @@ public final class BufferActuatorRouter implements DisposableBean {
         actuator.setErrorQueueCollector(errorQueueCollector);
         actuator.messageService = messageService;
         actuator.setConfigRegistry(configRegistry);
-        // 注入 AbstractBufferActuator 需要的依赖
+        // 注入依赖
         actuator.setScheduledTaskService(scheduledTaskService);
         actuator.setTimeRegistry(timeRegistry);
         return actuator;

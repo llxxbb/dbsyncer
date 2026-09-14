@@ -3,55 +3,95 @@
  */
 package org.dbsyncer.parser.flush.impl;
 
+import org.dbsyncer.common.config.ConfigRegistry;
 import org.dbsyncer.common.config.ExecutorFactory;
+import org.dbsyncer.common.config.props.BufferProps;
 import org.dbsyncer.common.metric.TimeRegistry;
 import org.dbsyncer.common.model.Result;
+import org.dbsyncer.common.scheduled.ScheduledTaskJob;
+import org.dbsyncer.common.scheduled.ScheduledTaskService;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.StringUtil;
+import org.dbsyncer.common.util.UUIDUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
+import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.TableGroupContext;
 import org.dbsyncer.parser.ddl.DDLParser;
-import org.dbsyncer.parser.flush.AbstractBufferActuator;
+import org.dbsyncer.parser.flush.BufferActuator;
 import org.dbsyncer.parser.flush.BufferRequest;
 import org.dbsyncer.parser.model.*;
 import org.dbsyncer.parser.pipeline.SyncPipeline;
 import org.dbsyncer.parser.pipeline.SyncTask;
-import org.dbsyncer.sdk.model.*;
-import org.dbsyncer.sdk.notify.NotifyType;
 import org.dbsyncer.parser.service.TableGroupModelService;
-import org.dbsyncer.common.config.props.BufferProps;
-import org.dbsyncer.sdk.connector.CounterService;
-import org.dbsyncer.sdk.connector.ErrorQueueCollector;
-import org.dbsyncer.sdk.spi.MessageService;
-import org.dbsyncer.sdk.plugin.AbstractPluginContext;
 import org.dbsyncer.sdk.config.DDLConfig;
 import org.dbsyncer.sdk.config.ListenerConfig;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
+import org.dbsyncer.sdk.connector.CounterService;
+import org.dbsyncer.sdk.connector.ErrorQueueCollector;
 import org.dbsyncer.sdk.enums.ChangedEventTypeEnum;
 import org.dbsyncer.sdk.enums.DDLOperationEnum;
 import org.dbsyncer.sdk.enums.MetaEnum;
 import org.dbsyncer.sdk.listener.ChangedEvent;
 import org.dbsyncer.sdk.listener.Listener;
+import org.dbsyncer.sdk.model.*;
+import org.dbsyncer.sdk.notify.NotifyType;
+import org.dbsyncer.sdk.plugin.AbstractPluginContext;
 import org.dbsyncer.sdk.spi.ConnectorService;
+import org.dbsyncer.sdk.spi.MessageService;
 import org.dbsyncer.sdk.util.RowConverter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.util.Assert;
 
+import javax.annotation.Resource;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 /**
  * Meta 专用执行器（每个 meta 独享一个队列）
+ * <p>
+ * 合并了原 AbstractBufferActuator 的通用逻辑，消除不必要的继承层次。
+ * <p>
+ * ADR-0030：不再依赖 BufferActuatorConfig，改为从 ConfigRegistry 动态读取缓冲区参数。
+ * 队列和调度器延迟到首次 offer() 时初始化，确保 ConfigRegistry 已从 DB 加载配置。
  *
  * @Version 1.0.0
  * @Author AE86
  * @Date 2024-01-XX
  */
-public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, WriterResponse> {
+public class MetaBufferActuator implements BufferActuator, ScheduledTaskJob {
+
+    protected final Logger logger = LoggerFactory.getLogger(getClass());
+
+    // ===== 队列与调度基础设施（原 AbstractBufferActuator） =====
+
+    private final ReentrantLock taskLock = new ReentrantLock();
+    private volatile BlockingQueue<WriterRequest> queue;
+    private String taskKey;
+
+    /**
+     * 延迟初始化标志：队列和调度器是否已初始化
+     */
+    private volatile boolean initialized = false;
+
+    /**
+     * ADR-0031：排空标志。true 表示队列只出不进，offer() 阻塞等待。
+     */
+    private volatile boolean draining = false;
+
+    /**
+     * ADR-0031：排空完成条件。reload() 完成后排空后 signalAll 唤醒等待的 offer() 线程。
+     */
+    private final ReentrantLock drainingLock = new ReentrantLock();
+    private final Condition drainingDone = drainingLock.newCondition();
+
+    // ===== 业务字段（原 MetaBufferActuator） =====
 
     private String metaId;
     private ExecutorFactory executorFactory;
@@ -68,7 +108,23 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
      */
     private volatile boolean hasPendingTask = false;
 
-    @Override
+    // ===== 依赖注入 =====
+
+    @Resource
+    private ScheduledTaskService scheduledTaskService;
+
+    @Resource
+    protected ProfileComponent profileComponent;
+
+    @Resource
+    private TimeRegistry timeRegistry;
+
+    protected ConfigRegistry configRegistry;
+
+    // ========================================================================
+    // 以下为原 MetaBufferActuator 方法，保持原顺序
+    // ========================================================================
+
     protected BufferProps getBufferProps() {
         BufferProps buffers = configRegistry.getConfig().getBuffers();
         return buffers != null ? buffers : new BufferProps();
@@ -78,18 +134,15 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
      * 消费者是否仍在运行（meta 状态为 Running）。
      * reload() 等待排空时据此判断：任务已停止则跳出等待，避免死等。
      */
-    @Override
     protected boolean isRunning() {
         Meta meta = profileComponent != null ? profileComponent.getMeta(metaId) : null;
         return meta != null && MetaEnum.isRunning(meta.getState());
     }
 
-    @Override
     protected String getPartitionKey(WriterRequest request) {
         return request.getTableName();
     }
 
-    @Override
     protected void partition(WriterRequest request, WriterResponse response) {
         if (!CollectionUtils.isEmpty(request.getRow())) {
             response.addData(request.getRow());
@@ -115,7 +168,6 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         }
     }
 
-    @Override
     protected boolean skipPartition(WriterRequest nextRequest, WriterResponse response) {
         // 并发场景，同一条数据可能连续触发Insert > Delete > Insert，批处理任务中出现不同事件时，跳过分区处理
         // 跳过表结构修改事件（保证表结构修改原子性）
@@ -123,7 +175,6 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
                 || ChangedEventTypeEnum.isDDL(response.getTypeEnum());
     }
 
-    @Override
     public void pull(WriterResponse response) throws Exception {
         long now = Instant.now().toEpochMilli();
         Meta meta = profileComponent.getMeta(response.getChangedOffset().getMetaId());
@@ -183,13 +234,11 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         }
     }
 
-    @Override
     protected void offerFailed(BlockingQueue<WriterRequest> queue, WriterRequest request) {
         throw new org.dbsyncer.common.QueueOverflowException("缓存队列已满");
     }
 
-    @Override
-    protected void meter(TimeRegistry timeRegistry, long count) {
+    protected void meter(long count) {
         // 统计执行器同步效率TPS
         timeRegistry.meter(TimeRegistry.GENERAL_BUFFER_ACTUATOR_TPS).add(count);
     }
@@ -202,16 +251,32 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
 
     @Override
     public void offer(BufferRequest request) {
+        ensureInitialized();
+        // ADR-0031：排空中阻塞等待，不丢数据
+        if (draining) {
+            drainingLock.lock();
+            try {
+                while (draining) {
+                    drainingDone.await();
+                }
+            } catch (InterruptedException e) {
+                // ADR-0031 fix：不 return，等 draining 结束后继续走正常 offer 路径，避免请求丢失
+                Thread.currentThread().interrupt();
+            } finally {
+                drainingLock.unlock();
+            }
+        }
+
         // DDL 事件特殊处理：阻塞等待队列消费完成，保证表结构修改的原子性
         if (request instanceof WriterRequest) {
             WriterRequest writerRequest = (WriterRequest) request;
             if (ChangedEventTypeEnum.isDDL(writerRequest.getTypeEnum())) {
                 // DDL事件，阻塞等待队列消费完成
                 while (isRunning()) {
-                    if (getQueue().isEmpty()) {
+                    if (queue.isEmpty()) {
                         // 事件进入队列时，设置 pending 状态
                         setPendingTask();
-                        super.offer(request);
+                        doOffer(writerRequest);
                         return;
                     }
                     try {
@@ -227,15 +292,25 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
 
         // 普通事件：事件进入队列时，设置 pending 状态
         setPendingTask();
-        super.offer(request);
+        doOffer((WriterRequest) request);
+    }
+
+    private void doOffer(WriterRequest request) {
+        if (queue.offer(request)) {
+            return;
+        }
+        if (isRunning()) {
+            offerFailed(queue, request);
+        }
     }
 
     /**
      * 停止执行器
      */
-    @Override
     public void stop() {
-        super.stop();
+        if (taskKey != null && scheduledTaskService != null) {
+            scheduledTaskService.stop(taskKey);
+        }
         hasPendingTask = false; // 停止时清除 pending 状态
     }
 
@@ -263,7 +338,6 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
     /**
      * 处理完成后的钩子方法：刷新偏移量，并检查队列是否为空来清除 pending 状态
      */
-    @Override
     protected void afterProcess(WriterResponse lastResponse) {
         if (lastResponse != null && lastResponse.getChangedOffset() != null) {
             ChangedOffset offset = lastResponse.getChangedOffset();
@@ -287,7 +361,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
         }
 
         // 处理完所有批次后，检查队列是否为空，如果为空则清除 pending 状态
-        if (getQueue().isEmpty()) {
+        if (queue != null && queue.isEmpty()) {
             clearPendingTask();
         }
     }
@@ -402,7 +476,7 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
             context.setTraceId(response.getTraceId());
             targetDDLConfig.setSourceTableName(tableGroup.getSourceTable().getName());
 
-            // 5. 生成目标表执行SQL(支持异构数据库)
+            // 5. 生成目标表执行SQL(含异构数据库)
             ConnectorInstance tConnectorInstance = connectorFactory.connect(tConnConfig);
 
             Result result;
@@ -527,6 +601,229 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
                 response.getEvent(), failData, null, e, response.isErrQueueRetry());
     }
 
+    // ========================================================================
+    // 以下为原 AbstractBufferActuator 方法，插入到原 MetaBufferActuator 的合适位置
+    // ========================================================================
+
+    /**
+     * 延迟初始化：创建队列 + 启动调度器。
+     * 首次 offer() 时调用，确保此时 ConfigRegistry 已就绪。
+     */
+    private void ensureInitialized() {
+        if (!initialized) {
+            synchronized (this) {
+                if (!initialized) {
+                    Assert.notNull(configRegistry, "请先设置 configRegistry");
+                    this.queue = new LinkedBlockingQueue<>(getBufferQueueCapacity());
+                    if (taskKey == null) {
+                        taskKey = UUIDUtil.getUUID();
+                    }
+                    scheduledTaskService.start(taskKey, getBufferPeriodMillisecond(), this);
+                    initialized = true;
+                    logger.info("[{}] 延迟初始化完成: queueCapacity={}, period={}ms",
+                            getClass().getSimpleName(), getBufferQueueCapacity(), getBufferPeriodMillisecond());
+                }
+            }
+        }
+    }
+
+    @Override
+    public Queue getQueue() {
+        return queue;
+    }
+
+    @Override
+    public int getQueueCapacity() {
+        return getBufferQueueCapacity();
+    }
+
+    @Override
+    public void run() {
+        boolean locked = false;
+        try {
+            locked = taskLock.tryLock();
+            if (locked) {
+                submit();
+            }
+        } catch (Exception e) {
+            logger.error(e.getMessage(), e);
+        } finally {
+            if (locked) {
+                taskLock.unlock();
+            }
+        }
+    }
+
+    private void submit() throws Exception {
+        if (queue.isEmpty()) {
+            return;
+        }
+
+        AtomicLong batchCounter = new AtomicLong();
+        AtomicLong batchIndexCounter = new AtomicLong();  // 批次序号计数器，用于同一 position 保序
+        Map<String, WriterResponse> map = new HashMap<>();
+        WriterResponse maxOffsetResponse = null;
+        int bufferPullCount = getBufferPullCount();
+        while (!queue.isEmpty()) {
+            WriterRequest poll = queue.poll();
+            String key = getPartitionKey(poll);
+            WriterResponse response = map.compute(key, (k, v) -> {
+                if (v == null) {
+                    WriterResponse newResponse = new WriterResponse();
+                    // 为每个新创建的批次分配序号
+                    newResponse.setBatchIndex((int) batchIndexCounter.getAndIncrement());
+                    return newResponse;
+                }
+                return v;
+            });
+            partition(poll, response);
+            batchCounter.incrementAndGet();
+
+            // 记录最大 offset（queue 是 FIFO，最后一个 response 的 offset 最大）
+            maxOffsetResponse = response;
+
+            // 当达到批次大小时，处理当前批次
+            if (batchCounter.get() >= bufferPullCount) {
+                process(map, maxOffsetResponse);
+                map.clear();
+                meter(batchCounter.get());
+                batchCounter.set(0);
+                map = new HashMap<>();
+                maxOffsetResponse = null;
+            }
+
+            WriterRequest next = queue.peek();
+            if (null != next && skipPartition(next, response)) {
+                break;
+            }
+        }
+
+        // 处理剩余未达到批次大小的数据
+        if (!map.isEmpty()) {
+            process(map, maxOffsetResponse);
+            map.clear();
+            meter(batchCounter.get());
+        }
+
+        map = null;
+        batchCounter = null;
+    }
+
+    /**
+     * 批量处理分区数据
+     */
+    private void process(Map<String, WriterResponse> map, WriterResponse maxOffsetResponse) throws Exception {
+        // 直接处理所有响应，无需排序
+        // pull() 的执行顺序不影响正确性，因为每个表的 pull() 是独立的
+        for (Map.Entry<String, WriterResponse> entry : map.entrySet()) {
+            pull(entry.getValue());
+        }
+
+        // 处理完成后，调用钩子方法处理偏移量刷新、pending 状态等
+        afterProcess(maxOffsetResponse);
+    }
+
+    // ===== 缓冲区参数（从 ConfigRegistry 动态读取）=====
+
+    private int getBufferPullCount() {
+        return getBufferProps().getBufferPullCount();
+    }
+
+    private int getBufferQueueCapacity() {
+        return getBufferProps().getBufferQueueCapacity();
+    }
+
+    private int getBufferPeriodMillisecond() {
+        return getBufferProps().getBufferPeriodMillisecond();
+    }
+
+    /**
+     * 获取定时任务的 key
+     */
+    public String getTaskKey() {
+        return taskKey;
+    }
+
+    /**
+     * 设置定时任务的 key（用于手动管理定时任务）
+     */
+    public void setTaskKey(String taskKey) {
+        this.taskKey = taskKey;
+    }
+
+    /**
+     * ADR-0031：热重载（排空-切换）。
+     * <p>
+     * ① 标记 draining=true → offer() 阻塞<br>
+     * ② 主动触发一次消费（不等调度周期）<br>
+     * ③ 等待队列排空（直到完成）<br>
+     * ④ 替换队列<br>
+     * ⑤ 清除 draining 标志 → 唤醒 offer() 恢复<br>
+     * ⑥ 重注册定时调度（周期可能也变了）
+     */
+    @Override
+    public void reload() {
+        // 未初始化过则无需 reload，下次 offer() 会用新配置初始化
+        if (!initialized) {
+            logger.info("[{}] 尚未初始化，跳过热重载", getClass().getSimpleName());
+            return;
+        }
+
+        // ① 标记只出不进
+        draining = true;
+
+        try {
+            // ② 主动触发一次消费，不等调度周期
+            run();
+
+            // ③ 等待队列排空
+            while (!queue.isEmpty()) {
+                // 消费者已停止（如 unbind 并发执行），无人消费队列，跳出避免死等
+                if (!isRunning()) {
+                    logger.info("[{}] 任务已停止，跳过热重载，任务启动时会使用新配置创建队列", getClass().getSimpleName());
+                    return;  // finally 会清理 draining，reschedule 不会执行
+                }
+                try { Thread.sleep(50); } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    // 不 break，继续等待直到排空
+                }
+            }
+
+            // ④ 队列已空，替换
+            int newCapacity = getBufferQueueCapacity();
+            this.queue = new LinkedBlockingQueue<>(newCapacity);
+            logger.info("[{}] 队列已替换: capacity={}", getClass().getSimpleName(), newCapacity);
+        } finally {
+            // ⑤ 恢复，唤醒等待的 offer() 线程
+            draining = false;
+            drainingLock.lock();
+            try {
+                drainingDone.signalAll();
+            } finally {
+                drainingLock.unlock();
+            }
+        }
+
+        // ⑥ 重注册调度（周期可能也变了）
+        reschedule();
+    }
+
+    /**
+     * ADR-0031：重新注册定时调度（用新周期），队列不动。
+     */
+    @Override
+    public void reschedule() {
+        if (taskKey != null) {
+            scheduledTaskService.stop(taskKey);
+        }
+        if (taskKey == null) {
+            taskKey = UUIDUtil.getUUID();
+        }
+        scheduledTaskService.start(taskKey, getBufferPeriodMillisecond(), this);
+        logger.info("[{}] 调度已重新注册: period={}ms",
+                getClass().getSimpleName(), getBufferPeriodMillisecond());
+    }
+
     // Getters and Setters
     public String getMetaId() {
         return metaId;
@@ -562,6 +859,22 @@ public class MetaBufferActuator extends AbstractBufferActuator<WriterRequest, Wr
 
     public void setErrorQueueCollector(ErrorQueueCollector errorQueueCollector) {
         this.errorQueueCollector = errorQueueCollector;
+    }
+
+    public void setScheduledTaskService(ScheduledTaskService scheduledTaskService) {
+        this.scheduledTaskService = scheduledTaskService;
+    }
+
+    public void setProfileComponent(ProfileComponent profileComponent) {
+        this.profileComponent = profileComponent;
+    }
+
+    public void setTimeRegistry(TimeRegistry timeRegistry) {
+        this.timeRegistry = timeRegistry;
+    }
+
+    public void setConfigRegistry(ConfigRegistry configRegistry) {
+        this.configRegistry = configRegistry;
     }
 
 }

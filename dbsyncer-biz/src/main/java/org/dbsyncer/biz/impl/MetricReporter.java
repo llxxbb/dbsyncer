@@ -20,9 +20,8 @@ import org.dbsyncer.common.util.DateFormatUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.common.config.ConfigRegistry;
-import org.dbsyncer.parser.flush.AbstractBufferActuator;
-import org.dbsyncer.parser.flush.impl.BufferActuatorRouter;
 import org.dbsyncer.parser.flush.impl.MetaBufferActuator;
+import org.dbsyncer.parser.flush.impl.BufferActuatorRouter;
 import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.common.constant.ConfigConstant;
@@ -247,7 +246,7 @@ public class MetricReporter implements ScheduledTaskJob, StartupTaskRegistrar {
         return total.get();
     }
 
-    private MetricResponseInfo collect(AbstractBufferActuator bufferActuator, String code, String group, String metricName) {
+    private MetricResponseInfo collect(MetaBufferActuator bufferActuator, String code, String group, String metricName) {
         MetricResponseInfo info = new MetricResponseInfo();
         ThreadPoolTaskExecutor threadTask = (ThreadPoolTaskExecutor) bufferActuator.getExecutor();
         ThreadPoolExecutor pool = threadTask.getThreadPoolExecutor();
