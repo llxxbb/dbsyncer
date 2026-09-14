@@ -11,11 +11,11 @@ import java.util.concurrent.Executor;
 public interface BufferActuator {
 
     /**
-     * 提交任务
+     * 入队事件
      *
      * @param request
      */
-    void offer(BufferRequest request);
+    void enqueue(BufferRequest request);
 
     /**
      * 获取缓存队列

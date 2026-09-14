@@ -94,8 +94,8 @@ public final class BufferActuatorRouter implements DisposableBean {
         // 获取或创建该 meta 的执行器
         MetaBufferActuator actuator = getOrCreateActuator(metaId);
 
-        // 所有事件都进入该 meta 的队列（offer 方法会自动处理 DDL 阻塞逻辑和 pending 状态）
-        actuator.offer(new WriterRequest(event));
+        // 所有事件都进入该 meta 的队列（enqueue 方法会自动处理 DDL 阻塞逻辑和 pending 状态）
+        actuator.enqueue(new WriterRequest(event));
     }
 
     public void unbind(String metaId) {
@@ -169,7 +169,7 @@ public final class BufferActuatorRouter implements DisposableBean {
         actuator.setTableGroupModelService(tableGroupModelService);
         actuator.setErrorQueueCollector(errorQueueCollector);
         actuator.messageService = messageService;
-        // 初始化队列/调度所需依赖（内部保证顺序）
+        // 初始化队列/调度所需依赖（内部保证顺序，覆盖 configRegistry/scheduledTaskService/timeRegistry）
         actuator.initialize(configRegistry, scheduledTaskService, timeRegistry);
         return actuator;
     }

@@ -44,7 +44,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.Assert;
 
-import javax.annotation.Resource;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
@@ -54,14 +53,16 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 /**
- * Meta 专用执行器（每个 meta 独享一个队列）
+ * Meta 级别的事件同步执行器（每个 meta 独享一个队列）
  * <p>
- * 合并了原 AbstractBufferActuator 的通用逻辑，消除不必要的继承层次。
- * <p>
- * ADR-0030：不再依赖 BufferActuatorConfig，改为从 ConfigRegistry 动态读取缓冲区参数。
- * 队列和调度器延迟到首次 offer() 时初始化，确保 ConfigRegistry 已从 DB 加载配置。
+ * 数据同步流水线：
+ * <pre>
+ * enqueue → queue → dequeue → groupByTable → writeDDL()/writeDML() → commitOffset()
+ *    ↑                      ↑         ↑            ↑                    ↑
+ *  入队                   出队循环   按表分组      按类型写入           提交偏移
+ * </pre>
  *
- * @Version 1.0.0
+ * @Version 2.0.0
  * @Author AE86
  * @Date 2024-01-XX
  */
@@ -69,24 +70,24 @@ public class MetaBufferActuator implements BufferActuator, ScheduledTaskJob {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
 
-    // ===== 队列与调度基础设施（原 AbstractBufferActuator） =====
+    // ===== 队列与调度基础设施 =====
 
     private final ReentrantLock taskLock = new ReentrantLock();
     private volatile BlockingQueue<WriterRequest> queue;
     private String taskKey;
 
     /**
-     * ADR-0031：排空标志。true 表示队列只出不进，offer() 阻塞等待。
+     * ADR-0031：排空标志。true 表示队列只出不进，enqueue() 阻塞等待。
      */
     private volatile boolean draining = false;
 
     /**
-     * ADR-0031：排空完成条件。reload() 完成后排空后 signalAll 唤醒等待的 offer() 线程。
+     * ADR-0031：排空完成条件。reload() 完成后排空后 signalAll 唤醒等待的 enqueue() 线程。
      */
     private final ReentrantLock drainingLock = new ReentrantLock();
     private final Condition drainingDone = drainingLock.newCondition();
 
-    // ===== 业务字段（原 MetaBufferActuator） =====
+    // ===== 业务字段 =====
 
     private String metaId;
     private ExecutorFactory executorFactory;
@@ -103,42 +104,187 @@ public class MetaBufferActuator implements BufferActuator, ScheduledTaskJob {
      */
     private volatile boolean hasPendingTask = false;
 
-    // ===== 依赖注入 =====
+    // ===== 依赖注入（由 BufferActuatorRouter 手动注入，非 Spring Bean） =====
 
-    @Resource
     private ScheduledTaskService scheduledTaskService;
-
-    @Resource
     protected ProfileComponent profileComponent;
-
-    @Resource
     private TimeRegistry timeRegistry;
-
     protected ConfigRegistry configRegistry;
 
     // ========================================================================
-    // 以下为原 MetaBufferActuator 方法，保持原顺序
+    // 流水线步骤 1: 入队 (enqueue)
     // ========================================================================
 
-    protected BufferProps getBufferProps() {
-        BufferProps buffers = configRegistry.getConfig().getBuffers();
-        return buffers != null ? buffers : new BufferProps();
+    /**
+     * 入队事件。
+     * <p>
+     * DDL 事件会阻塞等待队列消费完成，保证表结构修改的原子性。
+     */
+    @Override
+    public void enqueue(BufferRequest request) {
+        // ADR-0031：排空中阻塞等待，不丢数据
+        if (draining) {
+            drainingLock.lock();
+            try {
+                while (draining) {
+                    drainingDone.await();
+                }
+            } catch (InterruptedException e) {
+                // ADR-0031 fix：不 return，等 draining 结束后继续走正常入队路径，避免请求丢失
+                Thread.currentThread().interrupt();
+            } finally {
+                drainingLock.unlock();
+            }
+        }
+
+        // DDL 事件特殊处理：阻塞等待队列消费完成，保证表结构修改的原子性
+        if (request instanceof WriterRequest) {
+            WriterRequest writerRequest = (WriterRequest) request;
+            if (ChangedEventTypeEnum.isDDL(writerRequest.getTypeEnum())) {
+                // DDL事件，阻塞等待队列消费完成
+                while (isRunning()) {
+                    if (queue.isEmpty()) {
+                        // 事件进入队列时，设置 pending 状态
+                        setPendingTask();
+                        doEnqueue(writerRequest);
+                        return;
+                    }
+                    try {
+                        TimeUnit.MILLISECONDS.sleep(10);
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                        logger.warn("DDL 事件等待队列排空时被中断，DDL 将被丢弃: metaId={}, sql={}", metaId, writerRequest.getSql());
+                        return;
+                    }
+                }
+                // 任务已停止，DDL 无法入队
+                logger.warn("[{}] 任务已停止，DDL 事件无法入队，将被丢弃: metaId={}, sql={}",
+                        getClass().getSimpleName(), metaId, writerRequest.getSql());
+                return;
+            }
+        }
+
+        // 普通事件：事件进入队列时，设置 pending 状态
+        setPendingTask();
+        doEnqueue((WriterRequest) request);
     }
 
     /**
-     * 消费者是否仍在运行（meta 状态为 Running）。
-     * reload() 等待排空时据此判断：任务已停止则跳出等待，避免死等。
+     * 将请求放入队列。队列满时阻塞等待（带超时重试），保证数据不丢失。
+     * <p>
+     * 只有当任务已停止（isRunning()=false）且队列仍满时才会放弃入队。
      */
-    protected boolean isRunning() {
-        Meta meta = profileComponent != null ? profileComponent.getMeta(metaId) : null;
-        return meta != null && MetaEnum.isRunning(meta.getState());
+    private void doEnqueue(WriterRequest request) {
+        // 快速路径：队列未满直接入队
+        if (queue.offer(request)) {
+            return;
+        }
+
+        // 慢速路径：队列已满，阻塞等待直到入队成功或任务停止
+        logger.warn("[{}] 缓存队列已满(metaId={})，阻塞等待消费者排空...", getClass().getSimpleName(), metaId);
+        while (isRunning()) {
+            try {
+                // 带超时重试，避免无限死等
+                if (queue.offer(request, 1, TimeUnit.SECONDS)) {
+                    return;
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                logger.warn("[{}] 队列满等待时被中断，事件将丢失: metaId={}, tableName={}",
+                        getClass().getSimpleName(), metaId, request.getTableName());
+                return;
+            }
+        }
+
+        // 任务已停止，无法入队
+        logger.warn("[{}] 任务已停止且队列已满，事件将被丢弃: metaId={}, tableName={}",
+                getClass().getSimpleName(), metaId, request.getTableName());
     }
 
-    protected String getPartitionKey(WriterRequest request) {
-        return request.getTableName();
+    // ========================================================================
+    // 流水线步骤 2: 出队循环 (dequeue)
+    // ========================================================================
+
+    /**
+     * 定时任务入口：从队列中取出事件，按批次处理。
+     */
+    @Override
+    public void run() {
+        boolean locked = false;
+        try {
+            locked = taskLock.tryLock();
+            if (locked) {
+                dequeue();
+            }
+        } catch (Exception e) {
+            logger.error(e.getMessage(), e);
+        } finally {
+            if (locked) {
+                taskLock.unlock();
+            }
+        }
     }
 
-    protected void partition(WriterRequest request, WriterResponse response) {
+    /**
+     * 出队循环：从队列中取出事件，按批次分组并执行同步。
+     */
+    private void dequeue() throws Exception {
+        if (queue.isEmpty()) {
+            return;
+        }
+
+        AtomicLong batchCounter = new AtomicLong();
+        AtomicLong batchIndexCounter = new AtomicLong();  // 批次序号计数器，用于同一 position 保序
+        Map<String, WriterResponse> tableGroups = new HashMap<>();
+        WriterResponse maxOffsetResponse = null;
+        int bufferPullCount = getBufferPullCount();
+
+        while (!queue.isEmpty()) {
+            WriterRequest poll = queue.poll();
+            String tableName = poll.getTableName();
+            WriterResponse response = tableGroups.compute(tableName, (k, v) -> {
+                if (v == null) {
+                    WriterResponse newResponse = new WriterResponse();
+                    // 为每个新创建的批次分配序号
+                    newResponse.setBatchIndex((int) batchIndexCounter.getAndIncrement());
+                    return newResponse;
+                }
+                return v;
+            });
+            mergeToGroup(poll, response);
+            batchCounter.incrementAndGet();
+
+            // 记录最大 offset（queue 是 FIFO，最后一个 response 的 offset 最大）
+            maxOffsetResponse = response;
+
+            // 当达到批次大小时，执行当前批次
+            if (batchCounter.get() >= bufferPullCount) {
+                executeBatch(tableGroups, maxOffsetResponse);
+                tableGroups.clear();
+                meter(batchCounter.get());
+                batchCounter.set(0);
+                tableGroups = new HashMap<>();
+                maxOffsetResponse = null;
+            }
+
+            WriterRequest next = queue.peek();
+            if (null != next && shouldBreakBatch(next, response)) {
+                break;
+            }
+        }
+
+        // 执行剩余未达到批次大小的数据
+        if (!tableGroups.isEmpty()) {
+            executeBatch(tableGroups, maxOffsetResponse);
+            tableGroups.clear();
+            meter(batchCounter.get());
+        }
+    }
+
+    /**
+     * 将请求合并到对应的表分组中。
+     */
+    private void mergeToGroup(WriterRequest request, WriterResponse response) {
         if (!CollectionUtils.isEmpty(request.getRow())) {
             response.addData(request.getRow());
             // 每追加一条新行数据，同步追加对应的 beforeRow（UPDATE 场景下为旧值，非 UPDATE 场景为 null），
@@ -163,19 +309,44 @@ public class MetaBufferActuator implements BufferActuator, ScheduledTaskJob {
         }
     }
 
-    protected boolean skipPartition(WriterRequest nextRequest, WriterResponse response) {
-        // 并发场景，同一条数据可能连续触发Insert > Delete > Insert，批处理任务中出现不同事件时，跳过分区处理
-        // 跳过表结构修改事件（保证表结构修改原子性）
-        return !StringUtil.equals(nextRequest.getEvent(), response.getEvent())
-                || ChangedEventTypeEnum.isDDL(response.getTypeEnum());
+    /**
+     * 判断是否应该中断当前批次。
+     * <p>
+     * 并发场景下，同一条数据可能连续触发 Insert > Delete > Insert，批处理任务中出现不同事件时，
+     * 或遇到 DDL 事件时，应该中断当前批次，保证数据一致性。
+     */
+    private boolean shouldBreakBatch(WriterRequest nextRequest, WriterResponse currentResponse) {
+        return !StringUtil.equals(nextRequest.getEvent(), currentResponse.getEvent())
+                || ChangedEventTypeEnum.isDDL(currentResponse.getTypeEnum());
     }
 
-    public void pull(WriterResponse response) throws Exception {
+    /**
+     * 执行一批同步任务。
+     */
+    private void executeBatch(Map<String, WriterResponse> tableGroups, WriterResponse maxOffsetResponse) throws Exception {
+        // 直接执行所有表的同步，无需排序
+        // 每个表的同步是独立的
+        for (Map.Entry<String, WriterResponse> entry : tableGroups.entrySet()) {
+            executeSync(entry.getValue());
+        }
+
+        // 执行完成后，提交偏移量
+        commitOffset(maxOffsetResponse);
+    }
+
+    // ========================================================================
+    // 流水线步骤 3: 执行同步 (writeDDL / writeDML)
+    // ========================================================================
+
+    /**
+     * 执行同步：根据事件类型分发到 DDL 或 DML 处理。
+     */
+    private void executeSync(WriterResponse response) throws Exception {
         long now = Instant.now().toEpochMilli();
         Meta meta = profileComponent.getMeta(response.getChangedOffset().getMetaId());
         final Mapping mapping = profileComponent.getMapping(meta.getMappingId());
         try {
-            pullNoCatch(response, meta, mapping);
+            doSync(response, meta, mapping);
             logger.info("mappingId {}, {}目标表，{}, {}条, {}ms", meta.getMappingId(), response.getTableName(), response.getSuffixName(), response.getTaskSize(), (Instant.now().toEpochMilli() - now));
         } catch (Exception e) {
             errorQueueCollector.closeTask(meta, response.getTableName(), e, response.getTaskSize(),
@@ -184,8 +355,10 @@ public class MetaBufferActuator implements BufferActuator, ScheduledTaskJob {
         }
     }
 
-    private void pullNoCatch(WriterResponse response, Meta meta, Mapping mapping) throws Exception {
-        // 所有任务事件处理完成后，由 process 方法统一刷新偏移量
+    /**
+     * 执行同步的核心逻辑：根据事件类型分发到 DDL 或 DML 处理。
+     */
+    private void doSync(WriterResponse response, Meta meta, Mapping mapping) throws Exception {
         if (!MetaEnum.isRunning(meta.getState())) {
             logger.warn("任务已停止，跳过批次处理: metaId={}, 分区={}", meta.getId(), response.getTableName());
             return;
@@ -208,7 +381,7 @@ public class MetaBufferActuator implements BufferActuator, ScheduledTaskJob {
                 // 1. 先处理 DDL，更新 TableGroup 的 fieldMapping
                 List<TableGroup> updatedTableGroups = pickers.stream().map(picker -> {
                     TableGroup tableGroup = picker.getTableGroup();
-                    parseDDl(response, meta, mapping, tableGroup);
+                    writeDDL(response, meta, mapping, tableGroup);
                     return tableGroup;
                 }).collect(Collectors.toList());
 
@@ -218,227 +391,29 @@ public class MetaBufferActuator implements BufferActuator, ScheduledTaskJob {
                 break;
             case SCAN:
                 for(TableGroupPicker picker : pickers) {
-                    distributeTableGroup(response, meta, mapping, picker, picker.getSourceFields(), false);
+                    writeDML(response, meta, mapping, picker, picker.getSourceFields(), false);
                 }
                 break;
             case ROW:
                 for(TableGroupPicker picker : pickers) {
-                    distributeTableGroup(response, meta, mapping, picker, picker.getSourceFields(), true);
+                    writeDML(response, meta, mapping, picker, picker.getSourceFields(), true);
                 }
                 break;
         }
     }
 
-    protected void offerFailed(BlockingQueue<WriterRequest> queue, WriterRequest request) {
-        throw new org.dbsyncer.common.QueueOverflowException("缓存队列已满");
-    }
-
-    protected void meter(long count) {
-        // 统计执行器同步效率TPS
-        timeRegistry.meter(TimeRegistry.GENERAL_BUFFER_ACTUATOR_TPS).add(count);
-    }
-
-    @Override
-    public Executor getExecutor() {
-        // ADR-0031 fix：动态获取，避免 ExecutorFactory.reload() 后持有已关闭的旧线程池
-        return executorFactory.getGeneralExecutor();
-    }
-
-    @Override
-    public void offer(BufferRequest request) {
-        // ADR-0031：排空中阻塞等待，不丢数据
-        if (draining) {
-            drainingLock.lock();
-            try {
-                while (draining) {
-                    drainingDone.await();
-                }
-            } catch (InterruptedException e) {
-                // ADR-0031 fix：不 return，等 draining 结束后继续走正常 offer 路径，避免请求丢失
-                Thread.currentThread().interrupt();
-            } finally {
-                drainingLock.unlock();
-            }
-        }
-
-        // DDL 事件特殊处理：阻塞等待队列消费完成，保证表结构修改的原子性
-        if (request instanceof WriterRequest) {
-            WriterRequest writerRequest = (WriterRequest) request;
-            if (ChangedEventTypeEnum.isDDL(writerRequest.getTypeEnum())) {
-                // DDL事件，阻塞等待队列消费完成
-                while (isRunning()) {
-                    if (queue.isEmpty()) {
-                        // 事件进入队列时，设置 pending 状态
-                        setPendingTask();
-                        doOffer(writerRequest);
-                        return;
-                    }
-                    try {
-                        TimeUnit.MILLISECONDS.sleep(10);
-                    } catch (InterruptedException ex) {
-                        logger.error(ex.getMessage(), ex);
-                        Thread.currentThread().interrupt();
-                        return;
-                    }
-                }
-            }
-        }
-
-        // 普通事件：事件进入队列时，设置 pending 状态
-        setPendingTask();
-        doOffer((WriterRequest) request);
-    }
-
-    private void doOffer(WriterRequest request) {
-        if (queue.offer(request)) {
-            return;
-        }
-        if (isRunning()) {
-            offerFailed(queue, request);
-        }
-    }
-
     /**
-     * 停止执行器
-     */
-    public void stop() {
-        if (taskKey != null && scheduledTaskService != null) {
-            scheduledTaskService.stop(taskKey);
-        }
-        hasPendingTask = false; // 停止时清除 pending 状态
-    }
-
-    /**
-     * 检查是否有待处理的任务
-     */
-    public boolean hasPendingTask() {
-        return hasPendingTask;
-    }
-
-    /**
-     * 设置 pending 状态（事件进入队列时调用）
-     */
-    public void setPendingTask() {
-        hasPendingTask = true;
-    }
-
-    /**
-     * 清除 pending 状态（队列为空时调用）
-     */
-    public void clearPendingTask() {
-        hasPendingTask = false;
-    }
-
-    /**
-     * 处理完成后的钩子方法：刷新偏移量，并检查队列是否为空来清除 pending 状态
-     */
-    protected void afterProcess(WriterResponse lastResponse) {
-        if (lastResponse != null && lastResponse.getChangedOffset() != null) {
-            ChangedOffset offset = lastResponse.getChangedOffset();
-
-            // 直接获取 listener 并刷新偏移量（快照更新）
-            Meta meta = profileComponent.getMeta(metaId);
-            if (meta != null) {
-                Listener listener = meta.getListener();
-                if (listener != null) {
-                    try {
-                        // 每个 meta 独享一个队列，队列是 FIFO，事件按 binlog 顺序进入
-                        // process() 传入的 offset 是当前批次的最大位置
-                        // 队列中的事件位置一定 >= 当前批次的最大位置
-                        // 所以更新快照到当前批次的最大位置是安全的，不需要等待队列为空
-                        listener.refreshEvent(offset);
-                    } catch (Exception e) {
-                        logger.error("刷新监听器偏移量失败: metaId={}, error={}", metaId, e.getMessage(), e);
-                    }
-                }
-            }
-        }
-
-        // 处理完所有批次后，检查队列是否为空，如果为空则清除 pending 状态
-        if (queue != null && queue.isEmpty()) {
-            clearPendingTask();
-        }
-    }
-
-    /**
-     * 直接执行事件（不走队列，用于重试场景）
-     *
-     * @param event 变更事件
-     * @throws Exception 处理异常
-     */
-    public void executeDirectly(ChangedEvent event) throws Exception {
-        WriterRequest request = new WriterRequest(event);
-        WriterResponse response = new WriterResponse();
-
-        // 标记为重试操作，防止重试失败时再次写入错误队列
-        response.setErrQueueRetry(true);
-
-        // 分区处理
-        partition(request, response);
-
-        // 直接调用核心处理方法，异常自然抛出
-        Meta meta = profileComponent.getMeta(response.getChangedOffset().getMetaId());
-        final Mapping mapping = profileComponent.getMapping(meta.getMappingId());
-        pullNoCatch(response, meta, mapping);
-    }
-
-    private void distributeTableGroup(WriterResponse response, Meta meta, Mapping mapping,
-            TableGroupPicker tableGroupPicker, List<Field> sourceFields, boolean enableFilter) throws Exception {
-        if (response.getColumnNames() == null || response.getColumnNames().isEmpty()) {
-            return;
-        }
-
-        TableGroup tableGroup = tableGroupPicker.getTableGroup();
-
-        Map<String, Integer> fieldIndexMap = buildFieldIndexMap(response.getColumnNames(), sourceFields);
-
-        if (fieldIndexMap.isEmpty()) {
-            String message = String.format("字段定位错误！表名: %s, 列名: %s，未找到任何匹配字段",
-                    response.getTableName(), response.getColumnNames());
-            handleFailData(response, meta, mapping, tableGroup, sourceFields, fieldIndexMap, new RuntimeException(message), false);
-            return;
-        }
-
-        List<Field> actualSourceFields = sourceFields.stream()
-                .filter(f -> fieldIndexMap.containsKey(f.nameIgnoreCase()))
-                .collect(Collectors.toList());
-
-        boolean enableSchemaResolver = configRegistry.getConfig().getBasic().getEnableSchemaResolver();
-        ConnectorConfig sourceConfig = getConnectorConfig(mapping.getSourceConnectorId());
-        ConnectorService sourceConnector = connectorFactory.getConnectorService(sourceConfig.getConnectorType());
-        try {
-            AbstractPluginContext context = new AbstractPluginContext();
-            context.setSourceConnectorInstance(connectorFactory.connect(sourceConfig));
-            context.setTargetConnectorInstance(
-                    connectorFactory.connect(getConnectorConfig(mapping.getTargetConnectorId())));
-            context.setEvent(response.getEvent());
-            context.setEnablePrintTraceInfo(StringUtil.isNotBlank(response.getTraceId()));
-
-            SyncTask task = new SyncTask(mapping, tableGroup, meta,
-                    tableGroupPicker.getPicker()
-                            .setSourceResolver(enableSchemaResolver ? sourceConnector.getSchemaResolver() : null),
-                    context, response.getColumnNames(), response.isErrQueueRetry());
-            new SyncPipeline(connectorFactory, counterService, errorQueueCollector)
-                    .execute(task, null, actualSourceFields, fieldIndexMap, enableFilter,
-                            response.getDataList(), response.getBeforeRows());
-        } catch (Exception e) {
-            handleFailData(response, meta, mapping, tableGroup, sourceFields, fieldIndexMap, e, true);
-        }
-    }
-
-    /**
-     * 解析DDL
-     * 完整的DDL处理流程：解析DDL → 执行DDL（如果启用）→ 刷新表结构 → 更新字段映射
+     * 写入 DDL：解析 DDL → 执行 DDL（如果启用）→ 刷新表结构 → 更新字段映射
      *
      * @param response   WriterResponse，包含DDL SQL和事件信息
      * @param mapping    Mapping配置，包含源和目标连接器ID
      * @param tableGroup TableGroup配置，包含表结构和字段映射
      */
-    public void parseDDl(WriterResponse response, Meta meta, Mapping mapping, TableGroup tableGroup) {
+    public void writeDDL(WriterResponse response, Meta meta, Mapping mapping, TableGroup tableGroup) {
         try {
             ListenerConfig listenerConfig = mapping.getListener();
 
-            // 注意：全局 DDL 开关检查已在 Listener 和 pull() 方法中完成，此处无需重复检查
+            // 注意：全局 DDL 开关检查已在 Listener 和 doSync() 方法中完成，此处无需重复检查
 
             // 1. 解析 DDL 获取操作类型
             ConnectorConfig tConnConfig = getConnectorConfig(mapping.getTargetConnectorId());
@@ -506,6 +481,296 @@ public class MetaBufferActuator implements BufferActuator, ScheduledTaskJob {
                     tableGroup.getTargetTable().getName(), e.getMessage(), e);
             // refreshOffset 会在外部统一调用，这里不需要处理
         }
+    }
+
+    /**
+     * 写入 DML：将数据同步到目标表。
+     */
+    private void writeDML(WriterResponse response, Meta meta, Mapping mapping,
+            TableGroupPicker tableGroupPicker, List<Field> sourceFields, boolean enableFilter) throws Exception {
+        if (response.getColumnNames() == null || response.getColumnNames().isEmpty()) {
+            return;
+        }
+
+        TableGroup tableGroup = tableGroupPicker.getTableGroup();
+
+        Map<String, Integer> fieldIndexMap = buildFieldIndexMap(response.getColumnNames(), sourceFields);
+
+        if (fieldIndexMap.isEmpty()) {
+            String message = String.format("字段定位错误！表名: %s, 列名: %s，未找到任何匹配字段",
+                    response.getTableName(), response.getColumnNames());
+            handleFailData(response, meta, mapping, tableGroup, sourceFields, fieldIndexMap, new RuntimeException(message), false);
+            return;
+        }
+
+        List<Field> actualSourceFields = sourceFields.stream()
+                .filter(f -> fieldIndexMap.containsKey(f.nameIgnoreCase()))
+                .collect(Collectors.toList());
+
+        boolean enableSchemaResolver = configRegistry.getConfig().getBasic().getEnableSchemaResolver();
+        ConnectorConfig sourceConfig = getConnectorConfig(mapping.getSourceConnectorId());
+        ConnectorService sourceConnector = connectorFactory.getConnectorService(sourceConfig.getConnectorType());
+        try {
+            AbstractPluginContext context = new AbstractPluginContext();
+            context.setSourceConnectorInstance(connectorFactory.connect(sourceConfig));
+            context.setTargetConnectorInstance(
+                    connectorFactory.connect(getConnectorConfig(mapping.getTargetConnectorId())));
+            context.setEvent(response.getEvent());
+            context.setEnablePrintTraceInfo(StringUtil.isNotBlank(response.getTraceId()));
+
+            SyncTask task = new SyncTask(mapping, tableGroup, meta,
+                    tableGroupPicker.getPicker()
+                            .setSourceResolver(enableSchemaResolver ? sourceConnector.getSchemaResolver() : null),
+                    context, response.getColumnNames(), response.isErrQueueRetry());
+            new SyncPipeline(connectorFactory, counterService, errorQueueCollector)
+                    .execute(task, null, actualSourceFields, fieldIndexMap, enableFilter,
+                            response.getDataList(), response.getBeforeRows());
+        } catch (Exception e) {
+            handleFailData(response, meta, mapping, tableGroup, sourceFields, fieldIndexMap, e, true);
+        }
+    }
+
+    // ========================================================================
+    // 流水线步骤 4: 提交偏移量 (commitOffset)
+    // ========================================================================
+
+    /**
+     * 提交偏移量：刷新监听器偏移量，并检查队列是否为空来清除 pending 状态。
+     */
+    private void commitOffset(WriterResponse lastResponse) {
+        if (lastResponse != null && lastResponse.getChangedOffset() != null) {
+            ChangedOffset offset = lastResponse.getChangedOffset();
+
+            // 直接获取 listener 并刷新偏移量（快照更新）
+            Meta meta = profileComponent.getMeta(metaId);
+            if (meta != null) {
+                Listener listener = meta.getListener();
+                if (listener != null) {
+                    try {
+                        // 每个 meta 独享一个队列，队列是 FIFO，事件按 binlog 顺序进入
+                        // executeBatch() 传入的 offset 是当前批次的最大位置
+                        // 队列中的事件位置一定 >= 当前批次的最大位置
+                        // 所以更新快照到当前批次的最大位置是安全的，不需要等待队列为空
+                        listener.refreshEvent(offset);
+                    } catch (Exception e) {
+                        logger.error("刷新监听器偏移量失败: metaId={}, error={}", metaId, e.getMessage(), e);
+                    }
+                }
+            }
+        }
+
+        // 执行完所有批次后，检查队列是否为空，如果为空则清除 pending 状态
+        if (queue != null && queue.isEmpty()) {
+            clearPendingTask();
+        }
+    }
+
+    // ========================================================================
+    // 重试入口（不走队列，直接执行）
+    // ========================================================================
+
+    /**
+     * 直接执行事件（不走队列，用于重试场景）
+     *
+     * @param event 变更事件
+     * @throws Exception 处理异常
+     */
+    public void executeDirectly(ChangedEvent event) throws Exception {
+        WriterRequest request = new WriterRequest(event);
+        WriterResponse response = new WriterResponse();
+
+        // 标记为重试操作，防止重试失败时再次写入错误队列
+        response.setErrQueueRetry(true);
+
+        // 合并到分组
+        mergeToGroup(request, response);
+
+        // 直接执行同步，异常自然抛出
+        Meta meta = profileComponent.getMeta(response.getChangedOffset().getMetaId());
+        final Mapping mapping = profileComponent.getMapping(meta.getMappingId());
+        doSync(response, meta, mapping);
+    }
+
+    // ========================================================================
+    // 队列维护
+    // ========================================================================
+
+    /**
+     * 初始化：注入队列/调度所需依赖，创建队列，启动调度器。
+     * 内部保证依赖注入顺序，调用方无需关心。
+     */
+    public void initialize(ConfigRegistry configRegistry, ScheduledTaskService scheduledTaskService, TimeRegistry timeRegistry) {
+        this.configRegistry = configRegistry;
+        this.scheduledTaskService = scheduledTaskService;
+        this.timeRegistry = timeRegistry;
+
+        Assert.notNull(configRegistry, "configRegistry 不能为 null");
+        this.queue = new LinkedBlockingQueue<>(getBufferQueueCapacity());
+        if (taskKey == null) {
+            taskKey = UUIDUtil.getUUID();
+        }
+        scheduledTaskService.start(taskKey, getBufferPeriodMillisecond(), this);
+        logger.info("[{}] 初始化完成: queueCapacity={}, period={}ms",
+                getClass().getSimpleName(), getBufferQueueCapacity(), getBufferPeriodMillisecond());
+    }
+
+    @Override
+    public Queue getQueue() {
+        return queue;
+    }
+
+    @Override
+    public int getQueueCapacity() {
+        return getBufferQueueCapacity();
+    }
+
+    @Override
+    public Executor getExecutor() {
+        // ADR-0031 fix：动态获取，避免 ExecutorFactory.reload() 后持有已关闭的旧线程池
+        return executorFactory.getGeneralExecutor();
+    }
+
+    /**
+     * 停止执行器
+     */
+    public void stop() {
+        if (taskKey != null && scheduledTaskService != null) {
+            scheduledTaskService.stop(taskKey);
+        }
+        hasPendingTask = false; // 停止时清除 pending 状态
+    }
+
+    /**
+     * ADR-0031：热重载（排空-切换）。
+     * <p>
+     * ① 标记 draining=true → enqueue() 阻塞<br>
+     * ② 主动触发一次消费（不等调度周期）<br>
+     * ③ 等待队列排空（直到完成）<br>
+     * ④ 替换队列<br>
+     * ⑤ 清除 draining 标志 → 唤醒 enqueue() 恢复<br>
+     * ⑥ 重注册定时调度（周期可能也变了）
+     */
+    @Override
+    public void reload() {
+        // 防御性检查：队列未初始化则跳过热重载（下次 enqueue 前会由 initialize() 完成初始化）
+        if (queue == null) {
+            logger.info("[{}] 尚未初始化，跳过热重载", getClass().getSimpleName());
+            return;
+        }
+
+        // ① 标记只出不进
+        draining = true;
+
+        try {
+            // ② 主动触发一次消费，不等调度周期
+            run();
+
+            // ③ 等待队列排空
+            while (!queue.isEmpty()) {
+                // 消费者已停止（如 unbind 并发执行），无人消费队列，跳出避免死等
+                if (!isRunning()) {
+                    logger.info("[{}] 任务已停止，跳过热重载，任务启动时会使用新配置创建队列", getClass().getSimpleName());
+                    return;  // finally 会清理 draining，reschedule 不会执行
+                }
+                try { Thread.sleep(50); } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    // 不 break，继续等待直到排空
+                }
+            }
+
+            // ④ 队列已空，替换
+            int newCapacity = getBufferQueueCapacity();
+            this.queue = new LinkedBlockingQueue<>(newCapacity);
+            logger.info("[{}] 队列已替换: capacity={}", getClass().getSimpleName(), newCapacity);
+        } finally {
+            // ⑤ 恢复，唤醒等待的 enqueue() 线程
+            draining = false;
+            drainingLock.lock();
+            try {
+                drainingDone.signalAll();
+            } finally {
+                drainingLock.unlock();
+            }
+        }
+
+        // ⑥ 重注册调度（周期可能也变了）
+        reschedule();
+    }
+
+    /**
+     * ADR-0031：重新注册定时调度（用新周期），队列不动。
+     */
+    @Override
+    public void reschedule() {
+        if (taskKey != null) {
+            scheduledTaskService.stop(taskKey);
+        }
+        if (taskKey == null) {
+            taskKey = UUIDUtil.getUUID();
+        }
+        scheduledTaskService.start(taskKey, getBufferPeriodMillisecond(), this);
+        logger.info("[{}] 调度已重新注册: period={}ms",
+                getClass().getSimpleName(), getBufferPeriodMillisecond());
+    }
+
+    // ========================================================================
+    // 状态查询
+    // ========================================================================
+
+    /**
+     * 消费者是否仍在运行（meta 状态为 Running）。
+     * reload() 等待排空时据此判断：任务已停止则跳出等待，避免死等。
+     */
+    protected boolean isRunning() {
+        Meta meta = profileComponent != null ? profileComponent.getMeta(metaId) : null;
+        return meta != null && MetaEnum.isRunning(meta.getState());
+    }
+
+    /**
+     * 检查是否有待处理的任务
+     */
+    public boolean hasPendingTask() {
+        return hasPendingTask;
+    }
+
+    /**
+     * 设置 pending 状态（事件进入队列时调用）
+     */
+    public void setPendingTask() {
+        hasPendingTask = true;
+    }
+
+    /**
+     * 清除 pending 状态（队列为空时调用）
+     */
+    public void clearPendingTask() {
+        hasPendingTask = false;
+    }
+
+    // ========================================================================
+    // 辅助方法
+    // ========================================================================
+
+    protected BufferProps getBufferProps() {
+        BufferProps buffers = configRegistry.getConfig().getBuffers();
+        return buffers != null ? buffers : new BufferProps();
+    }
+
+    private void meter(long count) {
+        // 统计执行器同步效率TPS
+        timeRegistry.meter(TimeRegistry.GENERAL_BUFFER_ACTUATOR_TPS).add(count);
+    }
+
+    private int getBufferPullCount() {
+        return getBufferProps().getBufferPullCount();
+    }
+
+    private int getBufferQueueCapacity() {
+        return getBufferProps().getBufferQueueCapacity();
+    }
+
+    private int getBufferPeriodMillisecond() {
+        return getBufferProps().getBufferPeriodMillisecond();
     }
 
     /**
@@ -596,226 +861,23 @@ public class MetaBufferActuator implements BufferActuator, ScheduledTaskJob {
     }
 
     // ========================================================================
-    // 以下为原 AbstractBufferActuator 方法，插入到原 MetaBufferActuator 的合适位置
+    // Getters and Setters
     // ========================================================================
 
-    /**
-     * 初始化：注入队列/调度所需依赖，创建队列，启动调度器。
-     * 内部保证依赖注入顺序，调用方无需关心。
-     */
-    public void initialize(ConfigRegistry configRegistry, ScheduledTaskService scheduledTaskService, TimeRegistry timeRegistry) {
-        this.configRegistry = configRegistry;
-        this.scheduledTaskService = scheduledTaskService;
-        this.timeRegistry = timeRegistry;
-
-        Assert.notNull(configRegistry, "configRegistry 不能为 null");
-        this.queue = new LinkedBlockingQueue<>(getBufferQueueCapacity());
-        if (taskKey == null) {
-            taskKey = UUIDUtil.getUUID();
-        }
-        scheduledTaskService.start(taskKey, getBufferPeriodMillisecond(), this);
-        logger.info("[{}] 初始化完成: queueCapacity={}, period={}ms",
-                getClass().getSimpleName(), getBufferQueueCapacity(), getBufferPeriodMillisecond());
-    }
-
-    @Override
-    public Queue getQueue() {
-        return queue;
-    }
-
-    @Override
-    public int getQueueCapacity() {
-        return getBufferQueueCapacity();
-    }
-
-    @Override
-    public void run() {
-        boolean locked = false;
-        try {
-            locked = taskLock.tryLock();
-            if (locked) {
-                submit();
-            }
-        } catch (Exception e) {
-            logger.error(e.getMessage(), e);
-        } finally {
-            if (locked) {
-                taskLock.unlock();
-            }
-        }
-    }
-
-    private void submit() throws Exception {
-        if (queue.isEmpty()) {
-            return;
-        }
-
-        AtomicLong batchCounter = new AtomicLong();
-        AtomicLong batchIndexCounter = new AtomicLong();  // 批次序号计数器，用于同一 position 保序
-        Map<String, WriterResponse> map = new HashMap<>();
-        WriterResponse maxOffsetResponse = null;
-        int bufferPullCount = getBufferPullCount();
-        while (!queue.isEmpty()) {
-            WriterRequest poll = queue.poll();
-            String key = getPartitionKey(poll);
-            WriterResponse response = map.compute(key, (k, v) -> {
-                if (v == null) {
-                    WriterResponse newResponse = new WriterResponse();
-                    // 为每个新创建的批次分配序号
-                    newResponse.setBatchIndex((int) batchIndexCounter.getAndIncrement());
-                    return newResponse;
-                }
-                return v;
-            });
-            partition(poll, response);
-            batchCounter.incrementAndGet();
-
-            // 记录最大 offset（queue 是 FIFO，最后一个 response 的 offset 最大）
-            maxOffsetResponse = response;
-
-            // 当达到批次大小时，处理当前批次
-            if (batchCounter.get() >= bufferPullCount) {
-                process(map, maxOffsetResponse);
-                map.clear();
-                meter(batchCounter.get());
-                batchCounter.set(0);
-                map = new HashMap<>();
-                maxOffsetResponse = null;
-            }
-
-            WriterRequest next = queue.peek();
-            if (null != next && skipPartition(next, response)) {
-                break;
-            }
-        }
-
-        // 处理剩余未达到批次大小的数据
-        if (!map.isEmpty()) {
-            process(map, maxOffsetResponse);
-            map.clear();
-            meter(batchCounter.get());
-        }
-
-        map = null;
-        batchCounter = null;
-    }
-
-    /**
-     * 批量处理分区数据
-     */
-    private void process(Map<String, WriterResponse> map, WriterResponse maxOffsetResponse) throws Exception {
-        // 直接处理所有响应，无需排序
-        // pull() 的执行顺序不影响正确性，因为每个表的 pull() 是独立的
-        for (Map.Entry<String, WriterResponse> entry : map.entrySet()) {
-            pull(entry.getValue());
-        }
-
-        // 处理完成后，调用钩子方法处理偏移量刷新、pending 状态等
-        afterProcess(maxOffsetResponse);
-    }
-
-    // ===== 缓冲区参数（从 ConfigRegistry 动态读取）=====
-
-    private int getBufferPullCount() {
-        return getBufferProps().getBufferPullCount();
-    }
-
-    private int getBufferQueueCapacity() {
-        return getBufferProps().getBufferQueueCapacity();
-    }
-
-    private int getBufferPeriodMillisecond() {
-        return getBufferProps().getBufferPeriodMillisecond();
-    }
-
-    /**
-     * 获取定时任务的 key
-     */
-    public String getTaskKey() {
-        return taskKey;
-    }
-
-    /**
-     * 设置定时任务的 key（用于手动管理定时任务）
-     */
-    public void setTaskKey(String taskKey) {
-        this.taskKey = taskKey;
-    }
-
-    /**
-     * ADR-0031：热重载（排空-切换）。
-     * <p>
-     * ① 标记 draining=true → offer() 阻塞<br>
-     * ② 主动触发一次消费（不等调度周期）<br>
-     * ③ 等待队列排空（直到完成）<br>
-     * ④ 替换队列<br>
-     * ⑤ 清除 draining 标志 → 唤醒 offer() 恢复<br>
-     * ⑥ 重注册定时调度（周期可能也变了）
-     */
-    @Override
-    public void reload() {
-        // ① 标记只出不进
-        draining = true;
-
-        try {
-            // ② 主动触发一次消费，不等调度周期
-            run();
-
-            // ③ 等待队列排空
-            while (!queue.isEmpty()) {
-                // 消费者已停止（如 unbind 并发执行），无人消费队列，跳出避免死等
-                if (!isRunning()) {
-                    logger.info("[{}] 任务已停止，跳过热重载，任务启动时会使用新配置创建队列", getClass().getSimpleName());
-                    return;  // finally 会清理 draining，reschedule 不会执行
-                }
-                try { Thread.sleep(50); } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    // 不 break，继续等待直到排空
-                }
-            }
-
-            // ④ 队列已空，替换
-            int newCapacity = getBufferQueueCapacity();
-            this.queue = new LinkedBlockingQueue<>(newCapacity);
-            logger.info("[{}] 队列已替换: capacity={}", getClass().getSimpleName(), newCapacity);
-        } finally {
-            // ⑤ 恢复，唤醒等待的 offer() 线程
-            draining = false;
-            drainingLock.lock();
-            try {
-                drainingDone.signalAll();
-            } finally {
-                drainingLock.unlock();
-            }
-        }
-
-        // ⑥ 重注册调度（周期可能也变了）
-        reschedule();
-    }
-
-    /**
-     * ADR-0031：重新注册定时调度（用新周期），队列不动。
-     */
-    @Override
-    public void reschedule() {
-        if (taskKey != null) {
-            scheduledTaskService.stop(taskKey);
-        }
-        if (taskKey == null) {
-            taskKey = UUIDUtil.getUUID();
-        }
-        scheduledTaskService.start(taskKey, getBufferPeriodMillisecond(), this);
-        logger.info("[{}] 调度已重新注册: period={}ms",
-                getClass().getSimpleName(), getBufferPeriodMillisecond());
-    }
-
-    // Getters and Setters
     public String getMetaId() {
         return metaId;
     }
 
     public void setMetaId(String metaId) {
         this.metaId = metaId;
+    }
+
+    public String getTaskKey() {
+        return taskKey;
+    }
+
+    public void setTaskKey(String taskKey) {
+        this.taskKey = taskKey;
     }
 
     public void setExecutorFactory(ExecutorFactory executorFactory) {
