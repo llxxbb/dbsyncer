@@ -60,7 +60,10 @@
      */
     TaskList.prototype.setData = function(tasks) {
         this.data = tasks || [];
+        // 渲染前记住选中状态，渲染后恢复（防止自动刷新丢失选择）
+        var selectedIds = this.getSelectedIds();
         this._renderBody();
+        this._restoreSelection(selectedIds);
         this._updateBatchState();
         return this;
     };
@@ -364,6 +367,19 @@
         var $all = this.$container.find('.tl-checkbox');
         var $checked = this.$container.find('.tl-checkbox:checked');
         this.$container.find('.tl-select-all').prop('checked', $all.length > 0 && $all.length === $checked.length);
+    };
+
+    /**
+     * 恢复选中状态（自动刷新后调用）
+     * @param ids 之前选中的 ID 数组
+     */
+    TaskList.prototype._restoreSelection = function(ids) {
+        if (!ids || ids.length === 0) return;
+        var self = this;
+        ids.forEach(function(id) {
+            self.$container.find('.tl-checkbox[value="' + id + '"]').prop('checked', true);
+        });
+        this._syncSelectAll();
     };
 
     TaskList.prototype._updateBatchState = function() {

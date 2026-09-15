@@ -46,15 +46,15 @@
         startAutoRefresh();
     }
 
-    function loadData() {
+    function loadData(silent) {
         if (stale()) return;
-        $.loadingT(true);
+        if (!silent) $.loadingT(true);
         $.ajax({
             url: '/index/abnormalTasks/api',
             type: 'GET',
             success: function(resp) {
                 if (stale()) return;
-                $.loadingT(false);
+                if (!silent) $.loadingT(false);
                 if (resp && resp.success) {
                     taskList.setData(resp.resultValue || []);
                 } else {
@@ -63,7 +63,7 @@
             },
             error: function() {
                 if (stale()) return;
-                $.loadingT(false);
+                if (!silent) $.loadingT(false);
                 taskList.setData([]);
             }
         });
@@ -75,7 +75,7 @@
             if (stale()) return;
             if (resp && resp.success) {
                 var interval = resp.resultValue;
-                refreshTimer = setInterval(loadData, interval * 1000);
+                refreshTimer = setInterval(function() { loadData(true); }, interval * 1000);
             }
         });
     }

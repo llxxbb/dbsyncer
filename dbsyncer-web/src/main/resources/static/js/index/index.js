@@ -61,16 +61,16 @@
         startAutoRefresh();
     }
 
-    function loadTaskList() {
+    function loadTaskList(silent) {
         if (stale()) return;
-        $.loadingT(true);
+        if (!silent) $.loadingT(true);
         $.ajax({
             url: '/index/mappingdata',
             type: 'GET',
             data: { projectGroupId: currentProjectGroupId },
             success: function(resp) {
                 if (stale()) return;
-                $.loadingT(false);
+                if (!silent) $.loadingT(false);
                 if (resp && resp.success) {
                     taskList.setData(resp.resultValue || []);
                 } else {
@@ -79,7 +79,7 @@
             },
             error: function() {
                 if (stale()) return;
-                $.loadingT(false);
+                if (!silent) $.loadingT(false);
                 taskList.setData([]);
             }
         });
@@ -91,7 +91,7 @@
             if (stale()) return;
             if (resp && resp.success) {
                 var interval = resp.resultValue;
-                refreshTimer = setInterval(loadTaskList, interval * 1000);
+                refreshTimer = setInterval(function() { loadTaskList(true); }, interval * 1000);
             }
         });
     }
