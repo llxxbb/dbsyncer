@@ -60,5 +60,6 @@
     $.fn.tableDnD 等），进而导致其它页面脚本运行时抛异常、列表渲染为空。
     详见 ADR-0032。
 -->
+<div th:replace="shared/task-list-templates :: taskListTemplates"></div>
 <script th:src="@{/js/shared/task-list.js}"></script>
 <script th:src="@{/js/datasource/datasource.js}"></script>

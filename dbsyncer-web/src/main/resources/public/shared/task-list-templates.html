@@ -1,0 +1,141 @@
+<!--
+    任务列表共享模板（<template> 标签）
+    结构在 HTML 里维护，JS 只负责克隆 + 填数据。
+    由 index.html / abnormalTasks.html / datasource.html 引入。
+-->
+<div xmlns:th="http://www.thymeleaf.org" th:fragment="taskListTemplates">
+
+    <!-- ==================== 工具栏 ==================== -->
+    <template id="tl-tpl-toolbar">
+        <div class="tl-toolbar" style="margin-bottom:10px;display:flex;align-items:center;gap:12px;padding:8px 0;">
+            <button class="btn btn-primary btn-sm tl-batch-start" disabled style="display:none;">
+                <span class="fa fa-play"></span> 批量启动
+            </button>
+            <button class="btn btn-warning btn-sm tl-batch-stop" disabled style="display:none;">
+                <span class="fa fa-stop"></span> 批量停止
+            </button>
+            <span class="tl-selected-count" style="color:#888;font-size:12px;"></span>
+            <button class="btn btn-default btn-sm tl-btn-select-all" style="margin-left:auto;">
+                <span class="fa fa-check-square-o"></span> 全选
+            </button>
+        </div>
+    </template>
+
+    <!-- ==================== 表格骨架 ==================== -->
+    <template id="tl-tpl-table">
+        <div class="panel panel-default">
+            <div class="panel-body">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped">
+                        <thead>
+                            <tr>
+                                <th data-col="checkbox" style="width:36px;">
+                                    <input type="checkbox" class="tl-select-all" title="全选/取消全选" />
+                                </th>
+                                <th>名称</th>
+                                <th>状态</th>
+                                <th>失败数</th>
+                                <th>起始源</th>
+                                <th>目标源</th>
+                                <th>同步类型</th>
+                                <th>读取/写入</th>
+                                <th>操作</th>
+                                <th>创建时间</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- ==================== 数据行 ==================== -->
+    <template id="tl-tpl-row">
+        <tr>
+            <!-- 复选框列（enableCheckbox=false 时由 JS 移除） -->
+            <td data-col="checkbox">
+                <input type="checkbox" class="tl-checkbox" />
+            </td>
+
+            <!-- 名称 -->
+            <td data-cell="name"
+                style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></td>
+
+            <!-- 状态 -->
+            <td data-cell="state">
+                <span class="label label-info tl-state-0" style="display:none;">未运行</span>
+                <span class="label label-success tl-state-1" style="display:none;">运行中</span>
+                <span class="label label-warning tl-state-2" style="display:none;">停止中</span>
+                <span class="label label-danger tl-state-3" style="display:none;">异常</span>
+                <span class="tl-error-tip mapping-error-sign" data-toggle="tooltip" data-placement="top"
+                      style="display:none;">
+                    <i class="fa fa-exclamation-triangle"></i>
+                </span>
+            </td>
+
+            <!-- 失败数 -->
+            <td data-cell="fail"></td>
+
+            <!-- 起始源 -->
+            <td data-cell="source">
+                <div style="display:flex;align-items:center;">
+                    <img class="tl-conn-img" draggable="false"
+                         style="width:20px;height:20px;margin-right:5px;" />
+                    <span class="tl-conn-name"></span>
+                    <i class="fa fa-circle well-sign-green tl-conn-ok"
+                       title="连接正常" style="margin-left:5px;display:none;"></i>
+                    <i class="fa fa-times-circle-o well-sign-red tl-conn-fail"
+                       title="连接异常" style="margin-left:5px;display:none;"></i>
+                </div>
+            </td>
+
+            <!-- 目标源 -->
+            <td data-cell="target">
+                <div style="display:flex;align-items:center;">
+                    <img class="tl-conn-img" draggable="false"
+                         style="width:20px;height:20px;margin-right:5px;" />
+                    <span class="tl-conn-name"></span>
+                    <i class="fa fa-circle well-sign-green tl-conn-ok"
+                       title="连接正常" style="margin-left:5px;display:none;"></i>
+                    <i class="fa fa-times-circle-o well-sign-red tl-conn-fail"
+                       title="连接异常" style="margin-left:5px;display:none;"></i>
+                </div>
+            </td>
+
+            <!-- 同步类型 -->
+            <td data-cell="model"></td>
+
+            <!-- 读取/写入 -->
+            <td data-cell="rw"></td>
+
+            <!-- 操作 -->
+            <td data-cell="action">
+                <div class="operation-buttons">
+                    <a href="javascript:;" class="btn btn-xs btn-primary tl-btn-start"
+                       style="margin-right:3px;display:none;">
+                        <i class="fa fa-play"></i> 启动
+                    </a>
+                    <a href="javascript:;" class="btn btn-xs btn-danger tl-btn-stop"
+                       style="margin-right:3px;display:none;">
+                        <i class="fa fa-stop"></i> 停止
+                    </a>
+                    <a href="javascript:;" class="btn btn-xs btn-success tl-btn-detail">
+                        <i class="fa fa-eye"></i> 详情
+                    </a>
+                </div>
+            </td>
+
+            <!-- 创建时间 -->
+            <td data-cell="time"></td>
+        </tr>
+    </template>
+
+    <!-- ==================== 空数据行 ==================== -->
+    <template id="tl-tpl-empty">
+        <tr>
+            <td class="tl-empty-msg" style="text-align:center;padding:30px;color:#999;"></td>
+        </tr>
+    </template>
+
+</div>

@@ -6,10 +6,9 @@
 
 ## 问题池
 
+- MappingVo 不能直接对外会泄露数据库连接密钥，现状：被大量引用，变更风险高。
 - sql server with(nolock) 有脏读问题，有概率造成数据不一致。
 - 存在 ddl 被 jsqlparser 解析多次的情况（一次表过滤的名称解析，一次内容解析）
 - 增量-定时 重构
   - 增量定时-移除 AbstractDatabaseConnector.reader, 与 Listener 中重复定义, 但 Reader 语义更好。
 - 使用 kafka 作为中间数据源
-
-

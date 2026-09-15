@@ -2,6 +2,9 @@
  * 统一任务列表模块（纯展示+交互，不含数据获取）
  * 供任务页、数据源页、异常任务页复用
  *
+ * HTML 结构由 <template> 标签定义（见 shared/task-list-templates.html），
+ * 本模块只负责：克隆模板 → 填数据 → 切换显隐 → 绑定事件。
+ *
  * 用法：
  *   var list = new TaskList();
  *   list.init('#container', { enableCheckbox: true, ... });
@@ -100,153 +103,204 @@
         return this;
     };
 
+    // ==================== 构建骨架 ====================
+
+    /**
+     * 从 <template> 克隆表格骨架和工具栏，组装到容器中。
+     * HTML 结构在 task-list-templates.html 里维护，这里只做条件裁剪。
+     */
+    TaskList.prototype._build = function() {
+        this.$container.empty();
+
+        // —— 工具栏（仅复选框模式） ——
+        if (this.config.enableCheckbox) {
+            var toolbar = this._cloneTemplate('tl-tpl-toolbar');
+            if (this.config.enableBatchStart) {
+                $(toolbar).find('.tl-batch-start').css('display', '');
+            } else {
+                $(toolbar).find('.tl-batch-start').remove();
+            }
+            if (this.config.enableBatchStop) {
+                $(toolbar).find('.tl-batch-stop').css('display', '');
+            } else {
+                $(toolbar).find('.tl-batch-stop').remove();
+            }
+            this.$container.append(toolbar);
+        }
+
+        // —— 表格 ——
+        var table = this._cloneTemplate('tl-tpl-table');
+        if (!this.config.enableCheckbox) {
+            // 移除表头中的复选框列
+            $(table).find('[data-col="checkbox"]').remove();
+        }
+        this.$container.append(table);
+        this._$tableBody = this.$container.find('tbody');
+        this._bindToolbarEvents();
+    };
+
     // ==================== 渲染 ====================
 
     TaskList.prototype._renderBody = function() {
         if (!this._$tableBody) return;
+        this._$tableBody.empty();
 
         var tasks = this.data;
         if (!tasks || tasks.length === 0) {
-            var colCount = this._getColumnCount();
-            this._$tableBody.html(
-                '<tr><td colspan="' + colCount + '" style="text-align:center;padding:30px;color:#999;">' +
-                this._esc(this.config.emptyMessage) + '</td></tr>'
-            );
+            var emptyRow = this._cloneTemplate('tl-tpl-empty');
+            $(emptyRow).find('.tl-empty-msg')
+                .text(this.config.emptyMessage)
+                .attr('colspan', this._getColumnCount());
+            this._$tableBody.append(emptyRow);
             return;
         }
 
-        var html = '';
+        // 批量插入：先收集到 DocumentFragment，一次 DOM 操作
+        var fragment = document.createDocumentFragment();
         for (var i = 0; i < tasks.length; i++) {
-            html += this._renderRow(tasks[i]);
+            fragment.appendChild(this._renderRow(tasks[i]));
         }
-        this._$tableBody.html(html);
+        this._$tableBody[0].appendChild(fragment);
         this._bindRowEvents();
     };
 
+    /**
+     * 克隆行模板并填入数据。
+     * 所有 HTML 结构在 <template id="tl-tpl-row"> 中定义，
+     * 这里只负责：设属性 → 填文本 → 切显隐。
+     */
     TaskList.prototype._renderRow = function(task) {
-        var h = '';
-        h += '<tr data-id="' + (task.id || '') + '"';
+        var row = this._cloneTemplate('tl-tpl-row');
+
+        // 行级属性
+        row.setAttribute('data-id', task.id || '');
         if (this.config.rowClickAction) {
-            h += ' style="cursor:pointer;"';
-        }
-        h += '>';
-
-        if (this.config.enableCheckbox) {
-            h += '<td><input type="checkbox" class="tl-checkbox" value="' + (task.id || '') + '" /></td>';
+            row.style.cursor = 'pointer';
         }
 
-        h += this._renderNameCell(task);
-        h += this._renderStateCell(task);
-        h += this._renderFailCell(task);
-        h += this._renderConnectorCell(task, 'source');
-        h += this._renderConnectorCell(task, 'target');
-        h += this._renderModelCell(task);
-        h += this._renderReadWriteCell(task);
-        h += this._renderActionCell(task);
-        h += this._renderTimeCell(task);
+        // 复选框列
+        if (!this.config.enableCheckbox) {
+            var cbCell = row.querySelector('[data-col="checkbox"]');
+            if (cbCell) cbCell.parentNode.removeChild(cbCell);
+        } else {
+            row.querySelector('.tl-checkbox').value = task.id || '';
+        }
 
-        h += '</tr>';
-        return h;
+        // 各列填数据
+        this._fillNameCell(row, task);
+        this._fillStateCell(row, task);
+        this._fillFailCell(row, task);
+        this._fillConnectorCell(row, task, 'source');
+        this._fillConnectorCell(row, task, 'target');
+        this._fillModelCell(row, task);
+        this._fillReadWriteCell(row, task);
+        this._fillActionCell(row, task);
+        this._fillTimeCell(row, task);
+
+        return row;
     };
 
-    // ---- 各列渲染 ----
+    // ---- 各列填充 ----
 
-    TaskList.prototype._renderNameCell = function(task) {
+    TaskList.prototype._fillNameCell = function(row, task) {
+        var cell = row.querySelector('[data-cell="name"]');
         var name = task.name || '-';
-        return '<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' +
-            this._esc(name) + '">' + this._esc(name) + '</td>';
+        cell.textContent = name;
+        cell.title = name;
     };
 
-    TaskList.prototype._renderStateCell = function(task) {
+    TaskList.prototype._fillStateCell = function(row, task) {
+        var cell = row.querySelector('[data-cell="state"]');
         var meta = task.meta || {};
         var state = meta.state != null ? parseInt(meta.state) : 0;
-        var h = '<td>';
-        if (state === 0) {
-            h += '<span class="label label-info">未运行</span>';
-        } else if (state === 1) {
-            h += '<span class="label label-success">运行中</span>';
-        } else if (state === 2) {
-            h += '<span class="label label-warning">停止中</span>';
-        } else if (state === 3) {
-            h += '<span class="label label-danger">异常</span>';
-            if (meta.errorMessage) {
-                h += ' <span title="' + this._esc(meta.errorMessage) +
-                    '" class="mapping-error-sign" data-toggle="tooltip" data-placement="top">' +
-                    '<i class="fa fa-exclamation-triangle"></i></span>';
-            }
+
+        // 显示对应状态的 label（模板中全部 display:none，按 state 显示）
+        var label = cell.querySelector('.tl-state-' + state);
+        if (label) label.style.display = '';
+
+        // 异常时显示错误提示
+        if (state === 3 && meta.errorMessage) {
+            var tip = cell.querySelector('.tl-error-tip');
+            tip.title = meta.errorMessage;
+            tip.style.display = '';
         }
-        h += '</td>';
-        return h;
     };
 
-    TaskList.prototype._renderFailCell = function(task) {
+    TaskList.prototype._fillFailCell = function(row, task) {
+        var cell = row.querySelector('[data-cell="fail"]');
         var fail = (task.meta && task.meta.fail) || 0;
+        cell.textContent = fail;
         if (fail > 0) {
-            return '<td><span style="color:#d9534f;font-weight:bold;">' + fail + '</span></td>';
+            cell.style.color = '#d9534f';
+            cell.style.fontWeight = 'bold';
         }
-        return '<td>0</td>';
     };
 
-    TaskList.prototype._renderConnectorCell = function(task, type) {
+    TaskList.prototype._fillConnectorCell = function(row, task, type) {
+        var cell = row.querySelector('[data-cell="' + type + '"]');
         var conn = task[type + 'Connector'];
-        if (!conn) return '<td>-</td>';
-
-        // connectorType 由后端 ConnectorBriefVo 平铺下发（不再嵌套整个 config，其中含数据库明文密码）
-        var connType = conn.connectorType || 'default';
-        var img = '/img/' + connType + '.png';
-        var name = conn.name || '-';
-
-        var h = '<td><div style="display:flex;align-items:center;">';
-        h += '<img draggable="false" src="' + img + '" style="width:20px;height:20px;margin-right:5px;">';
-        h += '<span title="' + this._esc(name) + '">' + this._esc(name) + '</span>';
-        if (conn.running) {
-            h += '<i class="fa fa-circle well-sign-green" title="连接正常" style="margin-left:5px;"></i>';
-        } else {
-            h += '<i class="fa fa-times-circle-o well-sign-red" title="连接异常" style="margin-left:5px;"></i>';
+        if (!conn) {
+            cell.textContent = '-';
+            return;
         }
-        h += '</div></td>';
-        return h;
+
+        var connType = conn.connectorType || 'default';
+        cell.querySelector('.tl-conn-img').src = '/img/' + connType + '.png';
+
+        var nameEl = cell.querySelector('.tl-conn-name');
+        nameEl.textContent = conn.name || '-';
+        nameEl.title = conn.name || '-';
+
+        // 连接状态图标
+        if (conn.running) {
+            cell.querySelector('.tl-conn-ok').style.display = '';
+        } else {
+            cell.querySelector('.tl-conn-fail').style.display = '';
+        }
     };
 
-    TaskList.prototype._renderModelCell = function(task) {
-        return '<td>' + (_modelNames[task.model] || '-') + '</td>';
+    TaskList.prototype._fillModelCell = function(row, task) {
+        row.querySelector('[data-cell="model"]').textContent = _modelNames[task.model] || '-';
     };
 
-    TaskList.prototype._renderReadWriteCell = function(task) {
+    TaskList.prototype._fillReadWriteCell = function(row, task) {
         var meta = task.meta || {};
-        return '<td>' + (meta.total || 0) + ' / ' + (meta.success || 0) + '</td>';
+        row.querySelector('[data-cell="rw"]').textContent = (meta.total || 0) + ' / ' + (meta.success || 0);
     };
 
-    TaskList.prototype._renderActionCell = function(task) {
+    TaskList.prototype._fillActionCell = function(row, task) {
+        var cell = row.querySelector('[data-cell="action"]');
         var meta = task.meta || {};
         var state = meta.state != null ? parseInt(meta.state) : 0;
         var id = task.id || '';
 
-        var h = '<td><div class="operation-buttons">';
         // 启动按钮：未运行(0) 或 异常(3)
         if (state === 0 || state === 3) {
-            h += '<a href="javascript:;" class="btn btn-xs btn-primary tl-btn-start" data-id="' + id +
-                '" style="margin-right:3px;"><i class="fa fa-play"></i> 启动</a>';
+            var startBtn = cell.querySelector('.tl-btn-start');
+            startBtn.style.display = '';
+            startBtn.setAttribute('data-id', id);
         }
         // 停止按钮：运行中(1)
         if (state === 1) {
-            h += '<a href="javascript:;" class="btn btn-xs btn-danger tl-btn-stop" data-id="' + id +
-                '" style="margin-right:3px;"><i class="fa fa-stop"></i> 停止</a>';
+            var stopBtn = cell.querySelector('.tl-btn-stop');
+            stopBtn.style.display = '';
+            stopBtn.setAttribute('data-id', id);
         }
-        // 详情按钮
-        h += '<a href="javascript:;" class="btn btn-xs btn-success tl-btn-detail" data-id="' + id +
-            '"><i class="fa fa-eye"></i> 详情</a>';
-        h += '</div></td>';
-        return h;
+        // 详情按钮始终显示
+        cell.querySelector('.tl-btn-detail').setAttribute('data-id', id);
     };
 
-    TaskList.prototype._renderTimeCell = function(task) {
+    TaskList.prototype._fillTimeCell = function(row, task) {
+        var cell = row.querySelector('[data-cell="time"]');
         var t = task.createTime || task.updateTime;
-        if (!t) return '<td>-</td>';
+        if (!t) {
+            cell.textContent = '-';
+            return;
+        }
         var d = new Date(t);
         var pad = function(n) { return n < 10 ? '0' + n : '' + n; };
-        return '<td>' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
-            ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()) + '</td>';
+        cell.textContent = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+            ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
     };
 
     // ==================== 事件绑定 ====================
@@ -359,64 +413,27 @@
         });
     };
 
-    // ==================== 构建 DOM ====================
+    // ==================== 工具 ====================
 
-    TaskList.prototype._build = function() {
-        this.$container.empty();
-
-        // 工具栏
-        if (this.config.enableCheckbox) {
-            var tb = '';
-            tb += '<div class="tl-toolbar" style="margin-bottom:10px;display:flex;align-items:center;gap:12px;padding:8px 0;">';
-            if (this.config.enableBatchStart) {
-                tb += '<button class="btn btn-primary btn-sm tl-batch-start" disabled><span class="fa fa-play"></span> 批量启动</button>';
-            }
-            if (this.config.enableBatchStop) {
-                tb += '<button class="btn btn-warning btn-sm tl-batch-stop" disabled><span class="fa fa-stop"></span> 批量停止</button>';
-            }
-            tb += '<span class="tl-selected-count" style="color:#888;font-size:12px;"></span>';
-            tb += '<button class="btn btn-default btn-sm tl-btn-select-all" style="margin-left:auto;"><span class="fa fa-check-square-o"></span> 全选</button>';
-            tb += '</div>';
-            this.$container.append(tb);
+    /**
+     * 克隆 <template> 的内容，返回克隆后的顶层元素。
+     * @param templateId 模板元素的 id
+     * @returns {Node} 克隆后的 DOM 节点（已脱离 template，可自由操作）
+     */
+    TaskList.prototype._cloneTemplate = function(templateId) {
+        var tpl = document.getElementById(templateId);
+        if (!tpl) {
+            console.error('[TaskList] 模板未找到: #' + templateId + '，请确认页面已引入 task-list-templates.html');
+            return document.createElement('div');
         }
-
-        // 表格
-        var table = '';
-        table += '<div class="panel panel-default"><div class="panel-body">';
-        table += '<div class="table-responsive">';
-        table += '<table class="table table-hover table-striped"><thead><tr>';
-
-        if (this.config.enableCheckbox) {
-            table += '<th style="width:36px;"><input type="checkbox" class="tl-select-all" title="全选/取消全选" /></th>';
-        }
-        table += '<th>名称</th>';
-        table += '<th>状态</th>';
-        table += '<th>失败数</th>';
-        table += '<th>起始源</th>';
-        table += '<th>目标源</th>';
-        table += '<th>同步类型</th>';
-        table += '<th>读取/写入</th>';
-        table += '<th>操作</th>';
-        table += '<th>创建时间</th>';
-        table += '</tr></thead><tbody></tbody></table>';
-        table += '</div></div></div>';
-
-        this.$container.append(table);
-        this._$tableBody = this.$container.find('tbody');
-        this._bindToolbarEvents();
+        var clone = tpl.content.cloneNode(true);
+        // template.content 是 DocumentFragment，取第一个元素节点返回
+        return clone.firstElementChild || clone.firstChild;
     };
 
     TaskList.prototype._getColumnCount = function() {
         // 名称 状态 失败数 起始源 目标源 同步类型 读取/写入 操作 创建时间 = 9
         return this.config.enableCheckbox ? 10 : 9;
-    };
-
-    // ==================== 工具 ====================
-
-    TaskList.prototype._esc = function(str) {
-        if (!str) return '';
-        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     };
 
     // ==================== 导出 ====================
