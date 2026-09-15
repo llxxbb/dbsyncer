@@ -327,27 +327,6 @@
     max-width: 800px;
 }
 
-/* 表单组样式 */
-.form-group {
-    margin-bottom: 20px;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: bold;
-    color: #555;
-}
-
-.form-control {
-    width: 100%;
-    padding: 10px 12px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 14px;
-    transition: border-color 0.3s ease;
-}
-
 /* 为数据源类型显示的div元素添加样式 */
 #connector-type {
     width: 100%;
@@ -361,12 +340,6 @@
     word-wrap: break-word;
     overflow: visible;
     text-overflow: clip;
-}
-
-.form-control:focus {
-    outline: none;
-    border-color: #4CAF50;
-    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
 }
 
 /* 空消息提示 */
