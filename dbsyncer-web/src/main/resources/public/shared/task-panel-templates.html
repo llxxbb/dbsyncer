@@ -9,7 +9,7 @@
     <template id="tp-tpl-toolbar">
         <div class="tp-toolbar" style="display:flex;align-items:center;gap:20px;margin-bottom:15px;flex-wrap:wrap;">
             <!-- 创建任务按钮 -->
-            <button class="btn btn-primary tp-btn-create">
+            <button type="button" class="btn btn-primary tp-btn-create">
                 <span class="fa fa-plus"></span> 添加任务
                 <span class="tp-task-count badge" style="margin-left:5px;">0</span>
             </button>
@@ -63,14 +63,14 @@
 
             <!-- 批量操作（过滤右侧） -->
             <div class="tp-batch-group" style="display:flex;align-items:center;gap:8px;margin-left:auto;">
-                <button class="btn btn-primary btn-sm tp-batch-start" disabled style="display:none;">
+                <button type="button" class="btn btn-primary btn-sm tp-batch-start" disabled style="display:none;">
                     <span class="fa fa-play"></span> 批量启动
                 </button>
-                <button class="btn btn-warning btn-sm tp-batch-stop" disabled style="display:none;">
+                <button type="button" class="btn btn-warning btn-sm tp-batch-stop" disabled style="display:none;">
                     <span class="fa fa-stop"></span> 批量停止
                 </button>
                 <span class="tp-selected-count" style="color:#888;font-size:12px;"></span>
-                <button class="btn btn-default btn-sm tp-btn-select-all">
+                <button type="button" class="btn btn-default btn-sm tp-btn-select-all">
                     <span class="fa fa-check-square-o"></span> 全选
                 </button>
             </div>
