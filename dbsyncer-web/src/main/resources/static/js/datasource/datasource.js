@@ -163,18 +163,14 @@
 
         relatedTaskPanel = new TaskPanel();
         relatedTaskPanel.init('#drivers-list', {
-            enableSearch: false,
-            enableFilter: false,
             enableCreate: false,
-            enableCardView: false,
             enableCheckbox: true,
             enableBatchStart: true,
             enableBatchStop: true,
             emptyMessage: '暂无关联任务',
-            onStart: function(id) { doSingleAction(id, '/mapping/start?id=', '启动'); },
-            onStop: function(id) { doSingleAction(id, '/mapping/stop?id=', '停止'); },
-            onBatchStart: function(ids) { doBatchAction(ids, '/mapping/batchStart', '启动'); },
-            onBatchStop: function(ids) { doBatchAction(ids, '/mapping/batchStop', '停止'); }
+            onRefresh: function() {
+                loadRelatedDrivers(currentConnectorId);
+            }
         });
 
         $.loadingT(true);
@@ -200,72 +196,9 @@
             error: function() {
                 $.loadingT(false);
                 showError('加载关联任务失败');
-                relatedTaskList.setData([]);
+                relatedTaskPanel.setData([]);
                 updateEditButtonState(false);
             }
-        });
-    }
-
-    function doSingleAction(id, urlPrefix, actionName) {
-        BootstrapDialog.show({
-            title: '确认',
-            type: BootstrapDialog.TYPE_PRIMARY,
-            message: '确认' + actionName + '该任务？',
-            size: BootstrapDialog.SIZE_NORMAL,
-            buttons: [{
-                label: '确定',
-                action: function(dialog) {
-                    $.loadingT(true);
-                    $.post(urlPrefix + id, function(data) {
-                        $.loadingT(false);
-                        if (data && data.success) {
-                            bootGrowl(data.resultValue || actionName + '成功', 'success');
-                            if (currentConnectorId) loadRelatedDrivers(currentConnectorId);
-                        } else {
-                            bootGrowl((data && data.resultValue) || actionName + '失败', 'danger');
-                        }
-                    }).error(function() {
-                        $.loadingT(false);
-                        bootGrowl(actionName + '失败', 'danger');
-                    });
-                    dialog.close();
-                }
-            }, {
-                label: '取消',
-                action: function(dialog) { dialog.close(); }
-            }]
-        });
-    }
-
-    function doBatchAction(ids, url, actionName) {
-        var dialogType = actionName === '停止' ? BootstrapDialog.TYPE_WARNING : BootstrapDialog.TYPE_PRIMARY;
-        BootstrapDialog.show({
-            title: '确认',
-            type: dialogType,
-            message: '确认批量' + actionName + '选中的 ' + ids.length + ' 个任务？',
-            size: BootstrapDialog.SIZE_NORMAL,
-            buttons: [{
-                label: '确定',
-                action: function(dialog) {
-                    $.loadingT(true);
-                    $.post(url, { ids: ids.join(',') }, function(data) {
-                        $.loadingT(false);
-                        if (data && data.success) {
-                            bootGrowl(data.resultValue || '批量' + actionName + '完成', 'success');
-                            if (currentConnectorId) loadRelatedDrivers(currentConnectorId);
-                        } else {
-                            bootGrowl((data && data.resultValue) || '批量' + actionName + '失败', 'danger');
-                        }
-                    }).error(function() {
-                        $.loadingT(false);
-                        bootGrowl('批量' + actionName + '失败', 'danger');
-                    });
-                    dialog.close();
-                }
-            }, {
-                label: '取消',
-                action: function(dialog) { dialog.close(); }
-            }]
         });
     }
 
