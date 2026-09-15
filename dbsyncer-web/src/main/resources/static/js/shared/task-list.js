@@ -191,7 +191,8 @@
         var conn = task[type + 'Connector'];
         if (!conn) return '<td>-</td>';
 
-        var connType = (conn.config && conn.config.connectorType) || 'default';
+        // connectorType 由后端 ConnectorBriefVo 平铺下发（不再嵌套整个 config，其中含数据库明文密码）
+        var connType = conn.connectorType || 'default';
         var img = '/img/' + connType + '.png';
         var name = conn.name || '-';
 

@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "adrId": "0033",
+  "title": "任务列表接口投影（脱敏数据库凭据与源库表清单）",
+  "verifier": "@lxb",
+  "verifyDate": "2026-09-15",
+  "status": "completed",
+  "requirements": [
+    {
+      "id": 1,
+      "title": "/index/mappingdata 响应无凭据",
+      "description": "GET /index/mappingdata 返回的 MappingListItemVo 不含 password/username/jdbc:/table 等敏感字段",
+      "verifyMethods": [
+        {
+          "type": "test",
+          "criteria": "响应体中无 password/username/jdbc: 命中，体积 < 5KB",
+          "file": "doc/history/0033/e2e-05-任务列表投影.js",
+          "code": "bodies['/index/mappingdata'] 无凭据命中"
+        }
+      ],
+      "status": "passed",
+      "notes": "e2e-05 实测 3,201 B，0 命中 password/username/jdbc:"
+    },
+    {
+      "id": 2,
+      "title": "/index/searchMapping 响应无凭据",
+      "description": "GET /index/searchMapping 返回的 MappingListItemVo 不含敏感字段",
+      "verifyMethods": [
+        {
+          "type": "test",
+          "criteria": "响应体中无 password/username/jdbc: 命中",
+          "file": "doc/history/0033/e2e-05-任务列表投影.js",
+          "code": "bodies['/index/searchMapping'] 无凭据命中"
+        }
+      ],
+      "status": "passed",
+      "notes": "e2e-05 实测 2,451 B（关键字'增量'3 行），0 命中"
+    },
+    {
+      "id": 3,
+      "title": "/index/abnormalTasks/api 响应无凭据",
+      "description": "GET /index/abnormalTasks/api 返回的 MappingListItemVo 不含敏感字段",
+      "verifyMethods": [
+        {
+          "type": "test",
+          "criteria": "响应体中无 password/username/jdbc: 命中",
+          "file": "doc/history/0033/e2e-05-任务列表投影.js",
+          "code": "bodies['/index/abnormalTasks/api'] 无凭据命中"
+        }
+      ],
+      "status": "passed",
+      "notes": "e2e-05 实测 1,754 B（2 行），0 命中"
+    },
+    {
+      "id": 4,
+      "title": "/mapping/getRelatedMappings 响应无凭据",
+      "description": "GET /mapping/getRelatedMappings 返回的 MappingListItemVo 不含敏感字段",
+      "verifyMethods": [
+        {
+          "type": "test",
+          "criteria": "响应体中无 password/username/jdbc: 命中",
+          "file": "doc/history/0033/e2e-05-任务列表投影.js",
+          "code": "bodies['/mapping/getRelatedMappings'] 无凭据命中"
+        }
+      ],
+      "status": "passed",
+      "notes": "e2e-05 实测 16,868 B（20 行），0 命中"
+    }
+  ],
+  "summary": {
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "pending": 0
+  }
+}

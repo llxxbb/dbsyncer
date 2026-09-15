@@ -6,7 +6,7 @@ import org.dbsyncer.biz.TargetTableNotExistsException;
 import org.dbsyncer.biz.TableGroupService;
 import org.dbsyncer.biz.UserConfigService;
 import org.dbsyncer.biz.vo.MappingJsonVo;
-import org.dbsyncer.biz.vo.MappingRelatedVo;
+import org.dbsyncer.biz.vo.MappingListItemVo;
 import org.dbsyncer.biz.vo.MappingVo;
 import org.dbsyncer.biz.vo.RestResult;
 import org.dbsyncer.sdk.model.TableGroup;
@@ -123,20 +123,10 @@ public class MappingController extends BaseController {
         try {
             List<MappingVo> allMappings = mappingService.getMappingAll();
             // 筛选与指定数据源相关的映射（作为源或目标）
-            List<MappingRelatedVo> relatedMappings = allMappings.stream()
+            List<MappingListItemVo> relatedMappings = allMappings.stream()
                     .filter(mapping -> connectorId.equals(mapping.getSourceConnectorId()) ||
                             connectorId.equals(mapping.getTargetConnectorId()))
-                    .map(mapping -> {
-                        MappingRelatedVo vo = new MappingRelatedVo();
-                        vo.setId(mapping.getId());
-                        vo.setName(mapping.getName());
-                        vo.setModel(mapping.getModel());
-                        vo.setUpdateTime(mapping.getUpdateTime());
-                        vo.setMeta(mapping.getMeta());
-                        vo.setSourceConnector(mapping.getSourceConnector());
-                        vo.setTargetConnector(mapping.getTargetConnector());
-                        return vo;
-                    })
+                    .map(MappingListItemVo::from)
                     .collect(Collectors.toList());
             return RestResult.restSuccess(relatedMappings);
         } catch (Exception e) {

@@ -3,6 +3,7 @@
  */
 package org.dbsyncer.web.controller.index;
 
+import org.dbsyncer.biz.vo.MappingListItemVo;
 import org.dbsyncer.biz.vo.MappingVo;
 import org.dbsyncer.biz.PermissionService;
 import org.dbsyncer.biz.ProjectGroupService;
@@ -133,7 +134,7 @@ public class IndexController {
             List<MappingVo> mappings = projectGroup.getMappings();
             List<MappingVo> filteredMappings = filterMappingsByPermission(mappings, currentUsername);
 
-            return RestResult.restSuccess(filteredMappings);
+            return RestResult.restSuccess(MappingListItemVo.fromList(filteredMappings));
         } catch (Exception e) {
             logger.error(e.getMessage(), e);
             return RestResult.restFail(e.getMessage(),-10);
@@ -191,7 +192,7 @@ public class IndexController {
                 }
             }
 
-            return RestResult.restSuccess(resultMapping);
+            return RestResult.restSuccess(MappingListItemVo.fromList(resultMapping));
         } catch (Exception e) {
             logger.error("搜索驱动失败：" + e.getMessage(), e);
             return RestResult.restFail("搜索驱动失败：" + e.getMessage());
@@ -259,6 +260,7 @@ public class IndexController {
                     );
                     return -cmp;
                 })
+                .map(MappingListItemVo::from)
                 .collect(Collectors.toList()));
         } catch (Exception e) {
             logger.error("获取异常任务失败：" + e.getMessage(), e);
