@@ -137,6 +137,26 @@
     };
 
     /**
+     * 恢复搜索/过滤参数（setFilterOptions 重建 option 后选中值会丢失，需恢复）
+     * @param params getSearchParams() 返回的参数对象
+     */
+    TaskToolbar.prototype.restoreSearchParams = function(params) {
+        if (!params) return;
+        if (params.keyword) {
+            this.$container.find('.tp-search-input').val(params.keyword);
+        }
+        if (params.state) {
+            this.$container.find('.tp-filter-state').val(params.state);
+        }
+        if (params.sourceConnectorType) {
+            this.$container.find('.tp-filter-source').val(params.sourceConnectorType);
+        }
+        if (params.targetConnectorType) {
+            this.$container.find('.tp-filter-target').val(params.targetConnectorType);
+        }
+    };
+
+    /**
      * 清空搜索/过滤
      */
     TaskToolbar.prototype.clearSearch = function() {

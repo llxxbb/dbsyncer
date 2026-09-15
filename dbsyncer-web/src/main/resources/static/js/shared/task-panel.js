@@ -116,8 +116,14 @@
      */
     TaskPanel.prototype.setData = function(tasks) {
         this._fullData = tasks || [];
+        // 在重建过滤选项之前保存当前搜索/过滤状态（定时刷新时不应清空用户的查询条件）
+        var params = this.toolbar ? this.toolbar.getSearchParams() : null;
         this._extractFilterOptions();
-        this._applyFilter();
+        // 恢复被 setFilterOptions 重置的 select 选中值
+        if (params && this.toolbar) {
+            this.toolbar.restoreSearchParams(params);
+        }
+        this._applyFilter(params);
         return this;
     };
 
