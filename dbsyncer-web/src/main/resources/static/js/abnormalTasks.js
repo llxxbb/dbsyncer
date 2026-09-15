@@ -8,6 +8,24 @@
     var taskList = null;
     var refreshTimer = null;
 
+    // 页面代际守卫（ADR-0032）：本页面被新页面替换后，其异步回调与轮询自动失效
+    var guard = pageGuard();
+
+    /**
+     * 页面已被替换则顺手停掉轮询并返回 true，调用方应立即放弃本次回调。
+     * 有了它，定时器无需任何外部清理机制：导航离开后下一次触发就会自我销毁。
+     */
+    function stale() {
+        if (isPageAlive(guard)) {
+            return false;
+        }
+        if (refreshTimer) {
+            clearInterval(refreshTimer);
+            refreshTimer = null;
+        }
+        return true;
+    }
+
     function init() {
         taskList = new TaskList();
         taskList.init('#abnormalTasksContainer', {
@@ -29,11 +47,13 @@
     }
 
     function loadData() {
+        if (stale()) return;
         $.loadingT(true);
         $.ajax({
             url: '/index/abnormalTasks/api',
             type: 'GET',
             success: function(resp) {
+                if (stale()) return;
                 $.loadingT(false);
                 if (resp && resp.success) {
                     taskList.setData(resp.resultValue || []);
@@ -42,6 +62,7 @@
                 }
             },
             error: function() {
+                if (stale()) return;
                 $.loadingT(false);
                 taskList.setData([]);
             }
@@ -51,6 +72,7 @@
     function startAutoRefresh() {
         if (refreshTimer) clearInterval(refreshTimer);
         $.get('/monitor/getRefreshIntervalSeconds', function(resp) {
+            if (stale()) return;
             if (resp && resp.success) {
                 var interval = resp.resultValue;
                 refreshTimer = setInterval(loadData, interval * 1000);
@@ -119,11 +141,6 @@
             }]
         });
     }
-
-    // 清理定时器
-    $(window).on('beforeunload', function() {
-        if (refreshTimer) clearInterval(refreshTimer);
-    });
 
     init();
 

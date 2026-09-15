@@ -443,30 +443,30 @@ function showChartTable() {
     });
 }
 
-// 创建定时器 - 使用局部变量，避免全局作用域冲突
-var monitorTimer = null;
-
+// 创建刷新定时器。
+// 用页面代际守卫自我销毁（ADR-0032），因此无需在 window 上绑定
+// beforeunload/hashchange 来清理——那种做法每次进入本页都会往常驻的外壳多叠一层处理器，
+// 而且全局的 monitorTimer 会被新实例覆盖，旧定时器句柄丢失后永远清不掉。
 function createTimer() {
     showChartTable();
+    var guard = pageGuard();
     doGetWithoutLoading("/monitor/getRefreshIntervalSeconds", {}, function (data) {
+        if (!isPageAlive(guard)) {
+            return;
+        }
         if (data.success == true) {
-            if (monitorTimer == null) {
-                monitorTimer = setInterval(function () {
-                    showChartTable();
-                }, data.resultValue * 1000);
-            }
+            // 定时器句柄局部持有，确保每个页面实例只能清除自己的定时器
+            var timer = setInterval(function () {
+                if (!isPageAlive(guard)) {
+                    clearInterval(timer);
+                    return;
+                }
+                showChartTable();
+            }, data.resultValue * 1000);
         } else {
             bootGrowl(data.resultValue, "danger");
         }
     });
-}
-
-// 清除定时器函数
-function clearMonitorTimer() {
-    if (monitorTimer) {
-        clearInterval(monitorTimer);
-        monitorTimer = null;
-    }
 }
 
 $(function () {
@@ -492,11 +492,6 @@ $(function () {
     });
 
     createTimer();
-    
-    // 监听页面切换事件，确保离开监控页面时清除定时器
-    $(window).on('beforeunload hashchange', function() {
-        clearMonitorTimer();
-    });
 
     // 绑定回车事件
     $("#searchDataKeyword").keydown(function (e) {

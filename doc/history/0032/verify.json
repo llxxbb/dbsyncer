@@ -1,0 +1,136 @@
+{
+  "version": 1,
+  "adrId": "0032",
+  "title": "SPA 单容器页面模型（废弃 route/多容器）",
+  "verifier": "@lxb",
+  "verifyDate": "2026-09-14",
+  "status": "completed",
+  "requirements": [
+    {
+      "id": 1,
+      "title": "删除 route/多容器概念",
+      "description": "全站只有一个内容容器，nav 不再有 data-route，加载函数不再有 route 参数",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "content.html 只声明 1 个 #initContainer；全仓无 data-route / initContainer0 引用",
+          "file": "dbsyncer-web/src/main/resources/public/content.html",
+          "code": "<div id=\"initContainer\" th:fragment=\"content\" class=\"contentDiv\">"
+        }
+      ],
+      "status": "passed",
+      "notes": "content.html 仅 1 个 #initContainer；grep 全仓 data-route / initContainer0 / contentDiv(JS,CSS) 均为 0 处残留"
+    },
+    {
+      "id": 2,
+      "title": "片段不得引入公共库",
+      "description": "外壳独占全部库；datasource.html 重写为裸片段，避免第二个 jQuery 覆盖 window.$ 抹掉插件",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "datasource.html 无 DOCTYPE/head/body，无 jQuery/Bootstrap/loading-plus/common.js 引入；浏览数据源页后 $.loadingT、$.fn.serializeJson、$.fn.tableDnD 仍为 function",
+          "file": "dbsyncer-web/src/main/resources/public/datasource/datasource.html",
+          "code": "<div id=\"datasourcePage\" th:fragment=\"page\">"
+        },
+        {
+          "type": "test",
+          "criteria": "Playwright 端到端：登录后遍历 10 个导航页各 2 次 + 编辑页 2 次 + 后退/前进 + 快速切换 4 轮 + 分组切换 + 离开页面静置观测，断言容器数=1、遮罩未卡死、插件完好、请求数不翻倍、0 个 JS 错误",
+          "file": "doc/history/0032/e2e-01-异常任务复现.js, e2e-02-分组与数据源.js, e2e-03-全页面遍历.js, e2e-04-定时器泄漏.js",
+          "code": ""
+        }
+      ],
+      "status": "passed",
+      "notes": "e2e-02：浏览数据源页后 $.loadingT/$.fn.serializeJson/$.fn.tableDnD 仍为 function，无 .wrapper/#nav 残留，列表 10 项，遮罩未卡死"
+    },
+    {
+      "id": 3,
+      "title": "每次导航只加载一次页面",
+      "description": "updateHash 返回哈希是否变化，doLoader 在变化时直接返回，由 hashchange 完成唯一一次加载",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "静置 15s 内 /index/abnormalTasks/api 请求数等于刷新周期数（3 次 / 5s 间隔），无双倍；快速切换 4 轮后 #abnormalTasksContainer 节点数为 1",
+          "file": "dbsyncer-web/src/main/resources/static/js/common.js",
+          "code": "function doLoader(url) { if (updateHash(url)) { return; } doLoaderWithoutHashUpdate(url); }"
+        },
+        {
+          "type": "test",
+          "criteria": "Playwright 端到端：登录后遍历 10 个导航页各 2 次 + 编辑页 2 次 + 后退/前进 + 快速切换 4 轮 + 分组切换 + 离开页面静置观测，断言容器数=1、遮罩未卡死、插件完好、请求数不翻倍、0 个 JS 错误",
+          "file": "doc/history/0032/e2e-01-异常任务复现.js, e2e-02-分组与数据源.js, e2e-03-全页面遍历.js, e2e-04-定时器泄漏.js",
+          "code": ""
+        }
+      ],
+      "status": "passed",
+      "notes": "e2e-01：快速切换 4 轮后容器数 1、#abnormalTasksContainer 节点数 1、rows=2；静置 15s 仅 3 次 /api 请求（=5s 刷新间隔，单一定时器）；0 个 JS 错误"
+    },
+    {
+      "id": 4,
+      "title": "代际守卫与中断在途请求",
+      "description": "加载前递增 window.__pageEpoch 并 abort 上一个容器请求，旧响应不写 DOM、旧回调自动放弃",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "pageGuard()/isPageAlive() 存在；doLoaderWithoutHashUpdate 内先 __pageEpoch++ 再 containerXHR.abort()；.always() 中有 containerXHR === xhr 归属判断",
+          "file": "dbsyncer-web/src/main/resources/static/js/common.js",
+          "code": "function pageGuard() / function isPageAlive(guard)"
+        },
+        {
+          "type": "test",
+          "criteria": "Playwright 端到端：登录后遍历 10 个导航页各 2 次 + 编辑页 2 次 + 后退/前进 + 快速切换 4 轮 + 分组切换 + 离开页面静置观测，断言容器数=1、遮罩未卡死、插件完好、请求数不翻倍、0 个 JS 错误",
+          "file": "doc/history/0032/e2e-01-异常任务复现.js, e2e-02-分组与数据源.js, e2e-03-全页面遍历.js, e2e-04-定时器泄漏.js",
+          "code": ""
+        }
+      ],
+      "status": "passed",
+      "notes": "e2e-04：__pageEpoch=15（15 次页面加载），__pageCleanups/registerPageCleanup/containerLoadSeq/loadingTForceClose 均为 undefined"
+    },
+    {
+      "id": 5,
+      "title": "页面定时器自我销毁",
+      "description": "持有定时器的页面用局部句柄 + 代际守卫，在回调内自清；不再往 window/外壳绑清理处理器",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "abnormalTasks.js、index/index.js、mapping/edit.js、monitor/index.js 各自局部持有句柄并在 isPageAlive 为假时 clearInterval；全仓无 $(window).on('beforeunload'/'hashchange') 清理代码；离开页面后静置 15s 无该页轮询请求",
+          "file": "dbsyncer-web/src/main/resources/static/js/abnormalTasks.js",
+          "code": "function stale() { if (isPageAlive(guard)) return false; clearInterval(refreshTimer); ... }"
+        },
+        {
+          "type": "test",
+          "criteria": "Playwright 端到端：登录后遍历 10 个导航页各 2 次 + 编辑页 2 次 + 后退/前进 + 快速切换 4 轮 + 分组切换 + 离开页面静置观测，断言容器数=1、遮罩未卡死、插件完好、请求数不翻倍、0 个 JS 错误",
+          "file": "doc/history/0032/e2e-01-异常任务复现.js, e2e-02-分组与数据源.js, e2e-03-全页面遍历.js, e2e-04-定时器泄漏.js",
+          "code": ""
+        }
+      ],
+      "status": "passed",
+      "notes": "e2e-04：离开编辑页后 /mapping/get 请求 0 个；重复进出监控页 3 次后单页静置 12s 仅 3 次轮询（未叠加），离开后 monitor 请求 0 个；window 事件处理器仅 load×4/resize×3（外壳级），beforeunload/pagehide ×0"
+    },
+    {
+      "id": 6,
+      "title": "任务列表跟随分组切换",
+      "description": "init() 读服务端渲染的 #projectGroup，不解析地址栏；分组项去掉重复的透明 onclick 按钮",
+      "verifyMethods": [
+        {
+          "type": "code",
+          "criteria": "切换到「测试2：增量读」后列表 rows 从 1 变为 4 且与卡片视图一致；一次点击分组只触发一次 updateHash；#projectGroup 值与所选分组同步",
+          "file": "dbsyncer-web/src/main/resources/static/js/index/index.js",
+          "code": "currentProjectGroupId = $('#projectGroup').val() || '';"
+        },
+        {
+          "type": "test",
+          "criteria": "Playwright 端到端：登录后遍历 10 个导航页各 2 次 + 编辑页 2 次 + 后退/前进 + 快速切换 4 轮 + 分组切换 + 离开页面静置观测，断言容器数=1、遮罩未卡死、插件完好、请求数不翻倍、0 个 JS 错误",
+          "file": "doc/history/0032/e2e-01-异常任务复现.js, e2e-02-分组与数据源.js, e2e-03-全页面遍历.js, e2e-04-定时器泄漏.js",
+          "code": ""
+        }
+      ],
+      "status": "passed",
+      "notes": "e2e-02：16/16 通过。切到「测试2：增量读」列表 rows 由 1 变 4，与卡片视图内容一致；切回「未分配」#projectGroup 为空、rows=1；悬停分组列表 12s 的请求数与空闲基线一致"
+    }
+  ],
+  "summary": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "pending": 0
+  }
+}

@@ -2,24 +2,6 @@
 var $location = (window.location + '').split('/');
 var $path = document.location.pathname;
 var $basePath = $location[0] + '//' + $location[2] + $path.substr(0, $path.substr(1).indexOf("/") + 1);
-// 全局内容区域
-var $initContainer = $(".contentDiv");
-$initContainer.css("min-height", $(window).height() - 125);
-
-// 移除全局定时器变量定义，避免跨页面作用域冲突
-// 每个页面应该使用自己的局部定时器变量
-
-// 清除编辑页面轮询定时器（在SPA路由切换时调用）
-function clearEditPageTimer() {
-    if (typeof timer3 !== 'undefined' && timer3 !== null) {
-        clearInterval(timer3);
-        timer3 = null;
-    }
-    if (typeof currentMappingId !== 'undefined') {
-        currentMappingId = null;
-    }
-}
-
 // ******************* 插件封装 ***************************
 // 全局提示框
 function bootGrowl(data, type) {
@@ -89,7 +71,7 @@ function backIndexPage(projectGroupId, forceToIndex) {
             projectGroupId = $('#projectGroup').val() || '';
         }
         // 使用updateHash更新URL哈希，而不是直接调用doLoader
-        updateHash("/index?projectGroupId=" + projectGroupId + "&refresh=" + new Date().getTime(), 1);
+        updateHash("/index?projectGroupId=" + projectGroupId + "&refresh=" + new Date().getTime());
 
          // 设置导航栏活动状态为驱动
         var $menu = $('#menu > li');
@@ -338,126 +320,138 @@ $.fn.serializeJson = function () {
     return o;
 };
 
-// 更新URL哈希值
-function updateHash(url, route) {
-    // 使用更明确的变量名，避免与window.location.hash混淆
-    const hashValue = '#' + url + (route ? '?route=' + route : '');
-    
+// ==================== SPA 页面加载（ADR-0032）====================
+//
+// 设计约束：页面之间不共享任何状态。每次导航都会
+//   1) 递增全局代际号 window.__pageEpoch，使上一个页面尚未返回的异步回调自动失效；
+//   2) 中断上一个页面尚未完成的容器请求；
+//   3) 用新页面的完整 HTML 覆盖唯一内容容器 #initContainer。
+//
+// 因此不存在“旧页面 DOM 残留”或“旧回调写入新页面”的问题，
+// 也无需遮罩引用计数、过期响应序号表或页面清理函数注册表。
+
+// 页面代际号：每次加载新页面 +1
+window.__pageEpoch = 0;
+
+/**
+ * 取当前页面代际号。页面脚本应在启动时调用一次并保存返回值，
+ * 之后在每个异步回调里用 isPageAlive() 比对，即可判断自己是否已被新页面替换。
+ */
+function pageGuard() {
+    return window.__pageEpoch;
+}
+
+/** 判断给定代际号是否仍然有效（即该页面仍是当前页面）。 */
+function isPageAlive(guard) {
+    return guard === window.__pageEpoch;
+}
+
+// 唯一内容容器
+var $initContainer = $('#initContainer');
+$initContainer.css('min-height', $(window).height() - 125);
+
+// 容器加载请求句柄，用于在快速切换时中断上一个页面的加载
+var containerXHR = null;
+
+/**
+ * 更新 URL 哈希值。
+ * @param url 页面相对路径（可带查询参数）
+ * @returns {boolean} 哈希是否发生变化。变化时由 hashchange 负责加载，调用方无需重复加载。
+ */
+function updateHash(url) {
+    const hashValue = '#' + url;
+
     // 如果当前URL不是编辑页面，则记录为来源页面
     const currentHash = window.location.hash.substring(1);
     if (currentHash && !currentHash.includes('/page/edit') && !currentHash.includes('/pageAdd')) {
         sessionStorage.setItem('previousPage', currentHash);
     }
-    
+
     // 检查是否需要更新哈希，避免不必要的hashchange事件
-    if (window.location.hash !== hashValue) {
-        window.location.hash = hashValue;
+    const before = window.location.hash;
+    if (before === hashValue) {
+        return false;
+    }
+    window.location.hash = hashValue;
+    // 浏览器可能对 hash 做编码归一化，以最终值为准判断是否真的变化
+    return window.location.hash !== before;
+}
+
+/**
+ * 从 URL 中提取 projectGroupId 并同步到隐藏字段。
+ * 页面 HTML 写入 DOM 时其脚本已同步执行完毕，因此 Thymeleaf 服务端渲染的
+ * #projectGroup 才是页面 init() 的取值来源；此处仅在 URL 显式携带 projectGroupId 时覆盖它。
+ */
+function syncProjectGroupId(url) {
+    var reg = new RegExp('(?:\\?|&)projectGroupId=([^&]*)');
+    var match = url.match(reg);
+    if (match) {
+        $('#projectGroup').val(decodeURIComponent(match[1].replace(/\+/g, ' ')));
     }
 }
 
-// 不更新哈希的页面加载函数
-function doLoaderWithoutHashUpdate(url, route = 0) {
-    // 清除编辑页面的轮询定时器，防止SPA路由切换后旧定时器继续发送请求
-    clearEditPageTimer();
-    // 加载页面
-    const contents = document.querySelectorAll('.contentDiv');
-    contents.forEach(function (content) {
-        content.classList.add('hidden');
-    });
-    const contentToShow = $('#initContainer' + route);
-    if (contentToShow) {
-        contentToShow.removeClass('hidden');
+/**
+ * 加载页面到唯一内容容器，不更新哈希。
+ * 用于哈希已经变化（hashchange 回调中）或不需要改变地址栏的场景。
+ * 响应中的 <script> 会在 HTML 写入 DOM 后同步执行，因此页面脚本可直接调用 init()。
+ *
+ * @param url 页面相对路径（可带查询参数）
+ */
+function doLoaderWithoutHashUpdate(url) {
+    // 递增代际号：上一个页面所有尚未返回的回调都会因代际不符而自行放弃
+    window.__pageEpoch++;
+    // 中断上一个页面的容器加载，避免其响应覆盖当前页面
+    if (containerXHR) {
+        containerXHR.abort();
+        containerXHR = null;
     }
-        contentToShow.load($basePath + url, function (response, status, xhr) {
+    $.loadingT(true);
+
+    var xhr = $.ajax({
+        url: $basePath + url,
+        type: 'GET',
+        dataType: 'html'
+    }).done(function (html) {
+        // 内容尚未写入，先关闭导航遮罩。
+        // 紧接着 .html() 会同步执行页面脚本，页面若需要自己的加载遮罩（如列表拉数据），
+        // 会在那时重新打开并由其自身的 AJAX 回调关闭，不会被这里提前掩盖。
+        // 这一步不可省：部分页面（如数据源）不自管理遮罩，否则遮罩会一直挡到 30s 超时。
+        $.loadingT(false);
+        // 用 .html() 写入：与 jQuery .load() 等价，同样会执行响应中的 <script>
+        $initContainer.html(html);
+        syncProjectGroupId(url);
+    }).fail(function (resp, status) {
+        // 主动中断的请求属于正常流程：遮罩已由新一次导航接管，不能在这里关闭
+        if (status === 'abort') {
+            return;
+        }
+        $.loadingT(false);
+        bootGrowl((resp.responseText || '页面加载失败'), 'danger');
+    }).always(function () {
+        // 只有当句柄仍属于本次请求时才清除；
+        // 否则旧请求的迟到回调会把新请求的句柄抹掉，导致新请求再也无法被中断
+        if (containerXHR === xhr) {
+            containerXHR = null;
+        }
         try {
-            if (status != 'success') {
-                bootGrowl(response);
-                return;
-            }
             watermark();
-            // 页面加载完成后，先从传递的URL参数中提取projectGroupId
-            var reg = new RegExp('(?:\\?|&)projectGroupId=([^&]*)');
-            var match = url.match(reg);
-            var projectGroupId = match ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : '';
-            // 如果传递的URL参数中没有projectGroupId，则从当前URL中提取
-            if (!projectGroupId) {
-                reg = new RegExp('[\#&]projectGroupId=([^&#]*)');
-                match = reg.exec(window.location.href);
-                projectGroupId = match ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : '';
-            }
-            // 更新隐藏字段
-            if (projectGroupId) {
-                $('#projectGroup').val(projectGroupId);
-            }
-        } catch(e) {
-            bootGrowl("页面初始化异常：" + (e.message || e), "danger");
-        } finally {
-            $.loadingT(false);
+        } catch (e) {
+            bootGrowl('页面初始化异常：' + (e.message || e), 'danger');
         }
     });
+    containerXHR = xhr;
 }
 
-// 全局加载页面
-function doLoader(url, route = 0) {
-    // 清除编辑页面的轮询定时器，防止SPA路由切换后旧定时器继续发送请求
-    clearEditPageTimer();
-    // 更新URL哈希
-    updateHash(url, route);
-    
-    // 加载页面
-    const contents = document.querySelectorAll('.contentDiv');
-    contents.forEach(function (content) {
-        content.classList.add('hidden');
-    });
-    const contentToShow = $('#initContainer' + route);
-    if (contentToShow) {
-        contentToShow.removeClass('hidden');
+/**
+ * 加载页面并更新哈希。
+ * 若哈希确实变化，浏览器会异步触发 hashchange 并由 handleHashChange 完成加载，
+ * 此处直接返回，避免同一页面被重复加载（脚本重复执行会导致定时器与请求翻倍）。
+ */
+function doLoader(url) {
+    if (updateHash(url)) {
+        return;
     }
-    contentToShow.load($basePath + url, function (response, status, xhr) {
-        try {
-            if (status != 'success') {
-                bootGrowl(response);
-                return;
-            }
-            watermark();
-        } catch(e) {
-            bootGrowl("页面初始化异常：" + (e.message || e), "danger");
-        } finally {
-            $.loadingT(false);
-        }
-    });
-}
-
-function timerLoad(url, route = 1) {
-
-    const contentToShow = $('#initContainer' + route);
-    contentToShow.load($basePath + url, function (response, status, xhr) {
-        try {
-            if (status != 'success') {
-                bootGrowl(response);
-                return;
-            }
-            watermark();
-            // 页面加载完成后，先从传递的URL参数中提取projectGroupId
-            var reg = new RegExp('(?:\\?|&)projectGroupId=([^&]*)');
-            var match = url.match(reg);
-            var projectGroupId = match ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : '';
-            // 如果传递的URL参数中没有projectGroupId，则从当前URL中提取
-            if (!projectGroupId) {
-                reg = new RegExp('[\#&]projectGroupId=([^&#]*)');
-                match = reg.exec(window.location.href);
-                projectGroupId = match ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : '';
-            }
-            // 更新隐藏字段
-            if (projectGroupId) {
-                $('#projectGroup').val(projectGroupId);
-            }
-        } catch(e) {
-            bootGrowl("页面初始化异常：" + (e.message || e), "danger");
-        } finally {
-            $.loadingT(false);
-        }
-    });
+    doLoaderWithoutHashUpdate(url);
 }
 
 // 异常请求

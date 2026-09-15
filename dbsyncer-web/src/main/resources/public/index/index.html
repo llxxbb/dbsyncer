@@ -29,22 +29,20 @@
                                         font-weight: bold;
                                     }
                                 </style>
-                                <div th:if="${currentUser?.roleCode eq 'admin'}" class="group-list-item" data-group-id="" style="display: flex; align-items: center; padding: 8px 15px; position: relative; border-bottom: 1px solid #e0e0e0;" th:classappend="${#strings.isEmpty(projectGroupId)} ? 'active-group-item'" title="未分配">
+                                <div th:if="${currentUser?.roleCode eq 'admin'}" class="group-list-item" data-group-id="" style="display: flex; align-items: center; padding: 8px 15px; position: relative; border-bottom: 1px solid #e0e0e0; cursor: pointer;" th:classappend="${#strings.isEmpty(projectGroupId)} ? 'active-group-item'" title="未分配">
                                     <img th:src="@{/img/File.png}" style="width: 16px; height: 16px; margin-right: 10px; flex-shrink: 0;" />
                                     <span style="vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0;">&nbsp;未分配</span>
-                                    <button type="button" class="btn btn-default btn-block text-left" onclick="groupShow('')" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;"></button>
                                 </div>
                                 <div th:each="g,s:${projectGroups}" class="group-list-item"
                                     th:attr="data-group-id=${g?.id}"
-                                    style="display: flex; align-items: center; padding: 8px 15px; position: relative; border-bottom: 1px solid #e0e0e0;"
+                                    style="display: flex; align-items: center; padding: 8px 15px; position: relative; border-bottom: 1px solid #e0e0e0; cursor: pointer;"
                                     th:classappend="${g?.id eq projectGroupId} ? 'active-group-item'"
                                     th:title="${g?.name}">
                                     <img th:src="@{/img/File.png}"
                                         style="width: 16px; height: 16px; margin-right: 10px; flex-shrink: 0;" />
                                     <span style="vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0;">&nbsp;<span
                                         th:text="${g?.name}"></span></span>
-                                    <button type="button" th:attr="onclick=|groupShow('${g?.id}')|" style="position: absolute; left: 0; top: 0; width: calc(100% - 40px); height: 100%; opacity: 0; cursor: pointer; z-index: 1;"></button>
-                                    <div style="position: absolute; right: 0; top: 0; width: 40px; height: 100%; opacity: 0; transition: opacity 0.2s ease-in-out;" th:if="${currentUser?.roleCode eq 'admin'}">
+                                    <div style="position: absolute; right: 0; top: 0; width: 40px; height: 100%; opacity: 0; transition: opacity 0.2s ease-in-out; z-index: 2;" th:if="${currentUser?.roleCode eq 'admin'}">
                                         <div class="dropdown" style="height: 100%;">
                                             <button type="button" class="btn dropdown-toggle"
                                                 data-toggle="dropdown"

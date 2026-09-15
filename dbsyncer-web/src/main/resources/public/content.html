@@ -1,20 +1,7 @@
-<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml"
-      xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
-
-
-<div id="initContainer0" th:fragment="content" class="contentDiv hidden"> </div>
-
-<div id="initContainer1" th:fragment="content" class="contentDiv"> </div>
-
-<div id="initContainer2" th:fragment="content" class="contentDiv hidden"> </div>
-
-<div id="initContainer3" th:fragment="content" class="contentDiv hidden"> </div>
-
-<div id="initContainer4" th:fragment="content" class="contentDiv hidden"> </div>
-
-<div id="initContainer5" th:fragment="content" class="contentDiv hidden"> </div>
-
-<div id="initContainer6" th:fragment="content" class="contentDiv hidden"> </div>
-
-</html>
+<!--
+    SPA 唯一内容容器（ADR-0032）。
+    页面之间不共享任何状态：每次导航都中断上一个页面的加载、递增全局代际号，
+    再用新页面的完整 HTML 覆盖本容器，因此任意两个页面互不干扰。
+    导航栏与页脚由外壳 public/index.html 自行引入，此处不重复声明。
+-->
+<div id="initContainer" th:fragment="content" class="contentDiv"></div>

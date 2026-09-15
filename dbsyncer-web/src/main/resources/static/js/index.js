@@ -48,9 +48,8 @@ $(function () {
 
     // 绑定所有的菜单链接点击事件，根据不同的URL加载页面
     $("#menu li a[url]").click(function () {
-        var route = $(this).data('route');
         // 使用updateHash更新URL哈希而不是直接调用doLoader
-        updateHash($(this).attr("url"), route);
+        updateHash($(this).attr("url"));
         
         // 设置活动菜单项
         const $menu = $("#menu > li");
@@ -85,43 +84,20 @@ function handleHashChange() {
         return;
     }
     
-    // 解析哈希值，提取URL和路由参数
-    const hashPath = hashValue.substring(1); // 去掉#号
-    
-    // 解析路由参数
-    let url = hashPath;
-    let route = 0;
-    
-    // 兼容的URL参数解析方法
-    const hashParts = hashPath.split('?');
-    const basePath = hashParts[0];
-    let paramsString = hashParts[1] || '';
-    
-    // 解析route参数
-    const routeMatch = paramsString.match(/[?&]route=(\d+)/);
-    if (routeMatch) {
-        route = parseInt(routeMatch[1]);
-        // 移除route参数，保留其他所有参数
-        paramsString = paramsString.replace(/[?&]route=\d+/, '');
+    // 去掉 '#' 得到页面 URL（含查询参数）。
+    // 所有页面共用唯一内容容器，URL 即页面标识，无需再解析路由编号（ADR-0032）。
+    const hashPath = hashValue.substring(1);
+    if (!hashPath) {
+        backIndexPage();
+        return;
     }
-    
-    // 重新构建URL，确保参数分隔符正确
-    if (paramsString) {
-        // 如果paramsString非空，确保以?开头
-        if (paramsString.charAt(0) !== '?') {
-            paramsString = '?' + paramsString;
-        }
-    }
-    
-    // 重新构建URL
-    url = basePath + paramsString;
     
     // 根据URL路径设置导航栏活动状态
     const $menu = $("#menu > li");
     $menu.removeClass('active');
     
     // 使用data-path精确匹配菜单项
-    const urlPath = url.split('?')[0];
+    const urlPath = hashPath.split('?')[0];
     const $matchingLink = $("#menu li a[data-path='" + urlPath + "']");
     
     if ($matchingLink.length > 0) {
@@ -135,7 +111,7 @@ function handleHashChange() {
     }
     
     // 使用不更新哈希的加载函数，避免循环触发hashchange事件
-    doLoaderWithoutHashUpdate(url, route);
+    doLoaderWithoutHashUpdate(hashPath);
 }
 
 // 初始化哈希路由

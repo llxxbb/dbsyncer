@@ -460,12 +460,12 @@ function initTableSelectors() {
                 if (data.success == true) {
                     bootGrowl("新增映射关系成功!", "success");
                     var url = '/mapping/page/edit?id=' + mappingId + "&classOn=1&refresh=" + new Date().getTime();
-                    doLoaderWithoutHashUpdate(url, 0);
+                    doLoaderWithoutHashUpdate(url);
                 } else {
                     bootGrowl(data.resultValue, "danger");
                     if (data.status == 400) {
                         var url = '/mapping/page/edit?id=' + mappingId + "&classOn=1&refresh=" + new Date().getTime();
-                        doLoaderWithoutHashUpdate(url, 0);
+                        doLoaderWithoutHashUpdate(url);
                     }
                 }
             });
@@ -484,7 +484,7 @@ function bindMappingTableGroupDelClick() {
                     bootGrowl("删除映射关系成功!", "success");
                     // 直接重新加载页面内容，确保映射列表更新
                     var url = '/mapping/page/edit?id=' + $mappingId + "&classOn=1&refresh=" + new Date().getTime();
-                    doLoaderWithoutHashUpdate(url, 0);
+                    doLoaderWithoutHashUpdate(url);
                 } else {
                     bootGrowl(data.resultValue, "danger");
                 }
@@ -554,7 +554,7 @@ function executeResync(mappingId, tableGroupIds, truncateTarget) {
             bootGrowl(data.resultValue, "success");
             // 刷新页面
             var url = '/mapping/page/edit?id=' + mappingId + "&classOn=1&refresh=" + new Date().getTime();
-            doLoaderWithoutHashUpdate(url, 0);
+            doLoaderWithoutHashUpdate(url);
         } else {
             bootGrowl(data.resultValue, "danger");
         }
@@ -846,6 +846,8 @@ function getMappping(id) {
     clearTimer();
     // 更新当前任务ID
     currentMappingId = id;
+    // 页面代际守卫（ADR-0032）：页面被替换后轮询自行停止
+    var guard = pageGuard();
 
     // 立即加载一次数据，确保页面初始加载时就能显示表数据
     $.ajax({
@@ -886,6 +888,13 @@ function getMappping(id) {
             if (currentMappingId === localId) {
                 // 直接创建新定时器，因为已经清除了旧的
                 timer3 = setInterval(function () {
+                    // 页面已被替换：停掉轮询并自我销毁。
+                    // 有了代际守卫，就不需要再往常驻的外壳导航按钮上层层绑定 clearTimer()
+                    if (!isPageAlive(guard)) {
+                        clearInterval(timer3);
+                        timer3 = null;
+                        return;
+                    }
                     // 再次检查当前任务ID是否与闭包中的任务ID相同
                     if (currentMappingId === localId) {
                         $.ajax({
@@ -987,25 +996,6 @@ function getMappping(id) {
             bootGrowl(data.resultValue, "danger");
         }
     });
-    //通过其他方式返回时也需要清除定时器
-    bindNavbarEvents();
-}
- // 绑定导航栏所有按钮的点击事件，清除timer3
-function bindNavbarEvents() {
-    // 1. 顶部菜单按钮（驱动、监控、插件、配置等）
-    $("#menu a").click(function() {
-        clearTimer();
-    });
-
-    // 2. 用户下拉菜单（修改个人信息、注销）
-    $("#edit_personal, #nav_logout").click(function() {
-        clearTimer();
-    });
-
-    // 3. 导航栏中可能存在的其他链接（如配置下拉菜单中的系统参数、用户管理）
-    $("a[url]").click(function() {
-       clearTimer();
-    });
 }
 
 // 封装清除timer3的函数，避免重复代码
@@ -1056,7 +1046,20 @@ function renderDuration() {
     }
 }
 
-setInterval(renderDuration, 1000);
+// 每秒刷新耗时显示。
+// 用页面代际守卫自我销毁（ADR-0032）：离开编辑页后下一次触发即停止。
+// 定时器句柄必须局部持有，不能用顶层 var（那是全局的，
+// 重复进入页面会被新实例覆盖，导致旧定时器句柄丢失、永远无法清除）。
+(function () {
+    var guard = pageGuard();
+    var timer = setInterval(function () {
+        if (!isPageAlive(guard)) {
+            clearInterval(timer);
+            return;
+        }
+        renderDuration();
+    }, 1000);
+})();
 
 // 绑定编辑页面操作按钮事件
 function bindEditPageOperationButtons() {
@@ -1402,12 +1405,9 @@ $(function () {
          backIndexPage();
     });
 
-    // 添加页面卸载事件监听，确保在用户离开页面时清除定时器
-    $(window).on('beforeunload pagehide', function() {
-        clearTimer();
-        // 重置当前任务ID
-        currentMappingId = null;
-    });
+    // 不再监听 window 的 beforeunload/pagehide 来清定时器：
+    // window 是常驻外壳，每次进入编辑页都会多叠一层处理器（既有泄漏），
+    // 而轮询已由页面代际守卫自我销毁（ADR-0032），真实卸载时 JS 状态本身也会全部销毁。
 
 })
 

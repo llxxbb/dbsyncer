@@ -9,6 +9,24 @@
     var refreshTimer = null;
     var currentProjectGroupId = '';
 
+    // 页面代际守卫（ADR-0032）：本页面被新页面替换后，其异步回调与轮询自动失效
+    var guard = pageGuard();
+
+    /**
+     * 页面已被替换则顺手停掉轮询并返回 true，调用方应立即放弃本次回调。
+     * 有了它，定时器无需任何外部清理机制：导航离开后下一次触发就会自我销毁。
+     */
+    function stale() {
+        if (isPageAlive(guard)) {
+            return false;
+        }
+        if (refreshTimer) {
+            clearInterval(refreshTimer);
+            refreshTimer = null;
+        }
+        return true;
+    }
+
     function init() {
         bindAddProjectGroup();
         bindAddConnector();
@@ -33,23 +51,25 @@
             onStop: function(id) { doSingleAction(id, '/mapping/stop?id=', '停止'); }
         });
 
-        // 从 URL 获取 projectGroupId
-        currentProjectGroupId = getUrlParam('projectGroupId');
-        if (currentProjectGroupId) {
-            $('#projectGroup').val(currentProjectGroupId);
-        }
+        // projectGroupId 由服务端渲染在 #projectGroup 隐藏字段中，直接读它即可。
+        // 不要去解析地址栏：hash 路由下地址形如 .../#/index?projectGroupId=xxx，
+        // 常规的 query 解析很容易在 '#' 之后取不到值（历史上这里就因此永远拿到空字符串），
+        // 表现为任务列表不跟随分组切换，而卡片视图（服务端渲染）正常。
+        currentProjectGroupId = $('#projectGroup').val() || '';
 
         loadTaskList();
         startAutoRefresh();
     }
 
     function loadTaskList() {
+        if (stale()) return;
         $.loadingT(true);
         $.ajax({
             url: '/index/mappingdata',
             type: 'GET',
             data: { projectGroupId: currentProjectGroupId },
             success: function(resp) {
+                if (stale()) return;
                 $.loadingT(false);
                 if (resp && resp.success) {
                     taskList.setData(resp.resultValue || []);
@@ -58,6 +78,7 @@
                 }
             },
             error: function() {
+                if (stale()) return;
                 $.loadingT(false);
                 taskList.setData([]);
             }
@@ -67,6 +88,7 @@
     function startAutoRefresh() {
         if (refreshTimer) clearInterval(refreshTimer);
         $.get('/monitor/getRefreshIntervalSeconds', function(resp) {
+            if (stale()) return;
             if (resp && resp.success) {
                 var interval = resp.resultValue;
                 refreshTimer = setInterval(loadTaskList, interval * 1000);
@@ -162,8 +184,10 @@
     function groupShow(id) {
         currentProjectGroupId = id || '';
         $('#projectGroup').val(currentProjectGroupId);
-        updateHash('/index?projectGroupId=' + currentProjectGroupId, 1);
-        loadTaskList();
+        // 仅更新 hash，由 SPA 路由重新加载页面（新页面的 init() 会拉取任务列表）。
+        // 不能再额外调用 loadTaskList()：否则一次点击会发两次请求，
+        // 且旧页面实例的定时器仍在跑，叠加后表现为鼠标移动就持续发请求。
+        updateHash('/index?projectGroupId=' + currentProjectGroupId);
     }
 
     // ==================== 连接管理 ====================
@@ -249,7 +273,7 @@
             $menu.find("a[url='/monitor']").parent().addClass('active');
 
             var id = $(this).attr('id');
-            updateHash('/monitor?dataStatus=0&id=' + id, 2);
+            updateHash('/monitor?dataStatus=0&id=' + id);
         });
     }
 
@@ -329,6 +353,7 @@
                 targetConnectorType: targetConnectorType
             },
             success: function(data) {
+                if (stale()) return;
                 $.loadingT(false);
                 if (data.success && data.status === 200) {
                     var results = data.resultValue || [];
@@ -344,6 +369,7 @@
                 }
             },
             error: function() {
+                if (stale()) return;
                 $.loadingT(false);
                 bootGrowl('搜索请求失败', 'danger');
             }
@@ -379,27 +405,9 @@
         }
     }
 
-    // ==================== 工具函数 ====================
-
-    function getUrlParam(name) {
-        name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
-        var regex = new RegExp('[\\#&]' + name + '=([^&#]*)');
-        var results = regex.exec(window.location.href);
-        return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
-    }
-
-    // 暴露给 HTML 模板的 inline onclick 调用
-    window.groupShow = groupShow;
+    // ==================== 导出给 HTML 模板的 inline onclick ====================
     window.doEditProjectGroup = doEditProjectGroup;
     window.doRemoveProjectGroup = doRemoveProjectGroup;
-
-    // 清理定时器
-    $(window).on('beforeunload', function() {
-        if (refreshTimer) {
-            clearInterval(refreshTimer);
-            refreshTimer = null;
-        }
-    });
 
     $(function() { init(); });
 
