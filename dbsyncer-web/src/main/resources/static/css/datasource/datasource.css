@@ -291,11 +291,6 @@
     font-size: 14px;
 }
 
-/* 隐藏类样式 */
-.hidden {
-    display: none !important;
-}
-
 /* 未选择连接时的提示 */
 .no-connector-selected {
     height: 100%;
@@ -396,25 +391,8 @@
     margin-right: 5px;
 }
 
-/* 状态标签样式 */
-.well-sign-green {
-    color: #5cb85c;
-    font-size: 10px;
-}
-
-.well-sign-red {
-    color: #d9534f;
-    font-size: 10px;
-}
-
-.mapping-error-sign {
-    color: #f0ad4e;
-    margin-left: 5px;
-    cursor: help;
-}
-
-/* 按钮样式 - 限定在数据源页面容器内 */
-.datasource-container .btn {
+/* 按钮样式 - 限定在左侧面板（添加数据源、搜索、连接项操作），不影响右侧共享任务面板 */
+.left-panel .btn {
     padding: 8px 16px;
     border: none;
     border-radius: 4px;
@@ -423,31 +401,31 @@
     transition: all 0.3s ease;
 }
 
-.datasource-container .btn-primary {
+.left-panel .btn-primary {
     background-color: #4CAF50;
     color: white;
 }
 
-.datasource-container .btn-primary:hover {
+.left-panel .btn-primary:hover {
     background-color: #45a049;
 }
 
-.datasource-container .btn-default {
+.left-panel .btn-default {
     background-color: #f1f1f1;
     color: #333;
 }
 
-.datasource-container .btn-default:hover {
+.left-panel .btn-default:hover {
     background-color: #e0e0e0;
 }
 
-/* 下拉菜单样式 */
-.dropdown {
+/* 下拉菜单样式 - 仅用于左侧连接列表的操作菜单 */
+.left-panel .dropdown {
     position: relative;
     display: inline-block;
 }
 
-.dropdown-menu {
+.left-panel .dropdown-menu {
     position: absolute;
     right: 0;
     top: 100%;
@@ -463,15 +441,15 @@
     display: none;
 }
 
-.dropdown-menu.show {
+.left-panel .dropdown-menu.show {
     display: block;
 }
 
-.dropdown-menu li {
+.left-panel .dropdown-menu li {
     padding: 0;
 }
 
-.dropdown-menu a {
+.left-panel .dropdown-menu a {
     display: block;
     padding: 8px 16px;
     color: #333;
@@ -479,7 +457,7 @@
     transition: background-color 0.3s ease;
 }
 
-.dropdown-menu a:hover {
+.left-panel .dropdown-menu a:hover {
     background-color: #f5f5f5;
 }
 
