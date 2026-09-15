@@ -1,24 +1,18 @@
 /**
  * 异常任务页面
- * 使用统一 TaskList 模块渲染任务列表
+ * 使用 TaskPanel 组件渲染
  */
 (function ($) {
     'use strict';
 
-    var taskList = null;
+    var panel = null;
     var refreshTimer = null;
 
-    // 页面代际守卫（ADR-0032）：本页面被新页面替换后，其异步回调与轮询自动失效
+    // 页面代际守卫（ADR-0032）
     var guard = pageGuard();
 
-    /**
-     * 页面已被替换则顺手停掉轮询并返回 true，调用方应立即放弃本次回调。
-     * 有了它，定时器无需任何外部清理机制：导航离开后下一次触发就会自我销毁。
-     */
     function stale() {
-        if (isPageAlive(guard)) {
-            return false;
-        }
+        if (isPageAlive(guard)) return false;
         if (refreshTimer) {
             clearInterval(refreshTimer);
             refreshTimer = null;
@@ -27,13 +21,17 @@
     }
 
     function init() {
-        taskList = new TaskList();
-        taskList.init('#abnormalTasksContainer', {
+        panel = new TaskPanel();
+        panel.init('#abnormalTasksContainer', {
+            enableSearch: false,
+            enableFilter: false,
+            enableCreate: false,
+            enableCardView: false,
             enableCheckbox: true,
             enableBatchStart: true,
             enableBatchStop: false,
-            rowClickAction: 'detail',
             emptyMessage: '暂无异常任务',
+
             onStart: function(id) {
                 doSingleAction(id, '/mapping/start?id=', '启动');
             },
@@ -56,15 +54,15 @@
                 if (stale()) return;
                 if (!silent) $.loadingT(false);
                 if (resp && resp.success) {
-                    taskList.setData(resp.resultValue || []);
+                    panel.setData(resp.resultValue || []);
                 } else {
-                    taskList.setData([]);
+                    panel.setData([]);
                 }
             },
             error: function() {
                 if (stale()) return;
                 if (!silent) $.loadingT(false);
-                taskList.setData([]);
+                panel.setData([]);
             }
         });
     }

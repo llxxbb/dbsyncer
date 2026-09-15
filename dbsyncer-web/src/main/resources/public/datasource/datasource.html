@@ -37,16 +37,17 @@
             <!-- 可拖拽分割线 -->
             <div class="resizer" id="resizer"></div>
             
-            <!-- 下半部分：关联任务列表 -->
+            <!-- 下半部分：关联任务面板 -->
             <div id="related-drivers" class="drivers-section">
                 <div class="drivers-header">
                     <h3>关联任务</h3>
+                    <span class="drivers-count" style="margin-left:10px;color:#888;font-size:12px;"></span>
                 </div>
                 <div id="drivers-list" class="drivers-list">
                     <div class="no-drivers-selected">
                         <p>请从左侧选择一个数据源查看关联任务</p>
                     </div>
-                    <!-- 任务列表将通过JavaScript动态生成 -->
+                    <!-- 任务面板将通过JavaScript动态生成 -->
                 </div>
             </div>
         </div>
@@ -60,6 +61,12 @@
     $.fn.tableDnD 等），进而导致其它页面脚本运行时抛异常、列表渲染为空。
     详见 ADR-0032。
 -->
+<!-- 共享模板 -->
+<div th:replace="shared/task-panel-templates :: taskPanelTemplates"></div>
 <div th:replace="shared/task-list-templates :: taskListTemplates"></div>
+<!-- 共享组件 -->
 <script th:src="@{/js/shared/task-list.js}"></script>
+<script th:src="@{/js/shared/task-toolbar.js}"></script>
+<script th:src="@{/js/shared/task-panel.js}"></script>
+<!-- 页面脚本 -->
 <script th:src="@{/js/datasource/datasource.js}"></script>

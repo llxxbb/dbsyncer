@@ -1,6 +1,12 @@
 <div id="abnormalTasksPage" th:fragment="page">
     <div id="abnormalTasksContainer"></div>
 </div>
+<!-- 共享模板 -->
+<div th:replace="shared/task-panel-templates :: taskPanelTemplates"></div>
 <div th:replace="shared/task-list-templates :: taskListTemplates"></div>
+<!-- 共享组件 -->
 <script th:src="@{/js/shared/task-list.js}"></script>
+<script th:src="@{/js/shared/task-toolbar.js}"></script>
+<script th:src="@{/js/shared/task-panel.js}"></script>
+<!-- 页面脚本 -->
 <script th:src="@{/js/abnormalTasks.js}"></script>

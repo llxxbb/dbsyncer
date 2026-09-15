@@ -37,6 +37,11 @@
      *   enableBatchStop: false     是否显示批量停止按钮
      *   rowClickAction: null       行点击行为: 'detail' | null
      *   emptyMessage: '没有找到任务'  空数据提示
+     *   onStart: null              启动单个任务回调 (id, list)
+     *   onStop: null               停止单个任务回调 (id, list)
+     *   onDetail: null             查看详情回调 (id, list)，默认打开新窗口
+     *   onBatchStart: null         批量启动回调 (ids, list)
+     *   onBatchStop: null          批量停止回调 (ids, list)
      */
     TaskList.prototype.init = function(containerSelector, config) {
         this.$container = $(containerSelector);

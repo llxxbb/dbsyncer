@@ -1,11 +1,11 @@
 /**
  * 数据源页面
- * 使用统一 TaskList 模块渲染关联任务列表
+ * 使用 TaskPanel 组件渲染关联任务列表
  */
 (function ($) {
     'use strict';
 
-    var relatedTaskList = null;
+    var relatedTaskPanel = null;
     var currentConnectorId = null;
 
     function init() {
@@ -157,16 +157,19 @@
     function loadRelatedDrivers(connectorId) {
         currentConnectorId = connectorId;
 
-        if (relatedTaskList) {
-            relatedTaskList.destroy();
+        if (relatedTaskPanel) {
+            relatedTaskPanel.destroy();
         }
 
-        relatedTaskList = new TaskList();
-        relatedTaskList.init('#drivers-list', {
+        relatedTaskPanel = new TaskPanel();
+        relatedTaskPanel.init('#drivers-list', {
+            enableSearch: false,
+            enableFilter: false,
+            enableCreate: false,
+            enableCardView: false,
             enableCheckbox: true,
             enableBatchStart: true,
             enableBatchStop: true,
-            rowClickAction: null,
             emptyMessage: '暂无关联任务',
             onStart: function(id) { doSingleAction(id, '/mapping/start?id=', '启动'); },
             onStop: function(id) { doSingleAction(id, '/mapping/stop?id=', '停止'); },
@@ -184,13 +187,13 @@
                 if (data.success === true) {
                     var drivers = data.resultValue || [];
                     $('.drivers-count').text('共 ' + drivers.length + ' 个任务');
-                    relatedTaskList.setData(drivers);
+                    relatedTaskPanel.setData(drivers);
 
                     var hasRunning = drivers.some(function(d) { return d.meta && d.meta.state === 1; });
                     updateEditButtonState(hasRunning);
                 } else {
                     showError('加载关联任务失败：' + data.resultValue);
-                    relatedTaskList.setData([]);
+                    relatedTaskPanel.setData([]);
                     updateEditButtonState(false);
                 }
             },

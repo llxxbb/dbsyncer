@@ -1,0 +1,116 @@
+<!--
+    任务卡片共享模板（<template> 标签）
+    结构在 HTML 里维护，JS 只负责克隆 + 填数据。
+    由 index.html 引入。
+-->
+<div xmlns:th="http://www.thymeleaf.org" th:fragment="taskCardTemplates">
+
+    <!-- ==================== 卡片容器 ==================== -->
+    <template id="tc-tpl-container">
+        <div class="tc-card-list mappingList"></div>
+    </template>
+
+    <!-- ==================== 单张卡片 ==================== -->
+    <template id="tc-tpl-card">
+        <div class="mapping-card" style="cursor:pointer;">
+            <div class="panel panel-default dbsyncer_block dbsyncer_task_card"
+                 style="height:280px;display:flex;flex-direction:column;width:100%;margin:0;">
+                <div class="panel-body" style="flex:1;display:flex;flex-direction:column;padding:6px;">
+                    <!-- 顶部：任务名称 -->
+                    <div style="margin-bottom:6px;">
+                        <h4 class="tc-card-name"
+                            style="margin:0;font-size:14px;font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#000000;"></h4>
+                    </div>
+
+                    <!-- 分割线 -->
+                    <div style="margin:6px 0;padding-top:1px;border-top:1px solid #e0e0e0;"></div>
+
+                    <!-- 连接信息 -->
+                    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+                        <!-- 起始源 -->
+                        <div class="tc-conn-source" style="display:flex;align-items:center;padding:8px;background-color:#f8f9fa;border-radius:4px;margin-bottom:8px;overflow:hidden;">
+                            <img class="tc-conn-img" draggable="false"
+                                 style="width:18px;height:18px;margin-right:6px;flex-shrink:0;" />
+                            <span class="tc-conn-name"
+                                  style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;color:#555;min-width:0;"></span>
+                            <i class="fa fa-circle tc-conn-ok"
+                               title="连接正常" style="margin-left:5px;color:#5cb85c;font-size:12px;flex-shrink:0;display:none;"></i>
+                            <i class="fa fa-times-circle tc-conn-fail"
+                               title="连接异常" style="margin-left:5px;color:#d9534f;font-size:12px;flex-shrink:0;display:none;"></i>
+                        </div>
+
+                        <!-- 箭头和同步类型 -->
+                        <div style="display:flex;align-items:center;margin:4px 0;padding-left:14px;">
+                            <img src="/img/Arrow.png" style="width:24px;height:24px;margin-right:8px;opacity:0.6;" />
+                            <span class="tc-model-name" style="font-size:13px;font-weight:bold;color:#000000;"></span>
+                        </div>
+
+                        <!-- 目标源 -->
+                        <div class="tc-conn-target" style="display:flex;align-items:center;padding:8px;background-color:#f8f9fa;border-radius:4px;overflow:hidden;">
+                            <img class="tc-conn-img" draggable="false"
+                                 style="width:18px;height:18px;margin-right:6px;flex-shrink:0;" />
+                            <span class="tc-conn-name"
+                                  style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;color:#555;min-width:0;"></span>
+                            <i class="fa fa-circle tc-conn-ok"
+                               title="连接正常" style="margin-left:5px;color:#5cb85c;font-size:12px;flex-shrink:0;display:none;"></i>
+                            <i class="fa fa-times-circle tc-conn-fail"
+                               title="连接异常" style="margin-left:5px;color:#d9534f;font-size:12px;flex-shrink:0;display:none;"></i>
+                        </div>
+                    </div>
+
+                    <!-- 底部：统计数据、运行状态、状态标识和操作 -->
+                    <div style="margin-top:12px;padding-top:10px;border-top:1px solid #e0e0e0;">
+                        <!-- 读取条数和写入条数 -->
+                        <div style="display:flex;align-items:center;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #e0e0e0;">
+                            <div style="flex:1;text-align:center;border-right:1px solid #e0e0e0;">
+                                <div style="font-size:11px;color:#666;">读取条数</div>
+                                <div class="tc-total" style="font-size:13px;font-weight:bold;color:#333;">0</div>
+                            </div>
+                            <div style="flex:1;text-align:center;">
+                                <div style="font-size:11px;color:#666;">写入条数</div>
+                                <div class="tc-success" style="font-size:13px;font-weight:bold;color:#333;">0</div>
+                            </div>
+                        </div>
+
+                        <!-- 运行状态、失败数和操作按钮 -->
+                        <div style="display:flex;align-items:center;justify-content:space-between;">
+                            <!-- 运行状态 -->
+                            <div class="tc-state-group" style="flex-shrink:0;">
+                                <span class="label label-info tc-state-0" style="font-size:11px;display:none;">未运行</span>
+                                <span class="label label-success tc-state-1" style="font-size:11px;display:none;">运行中</span>
+                                <span class="label label-warning tc-state-2" style="font-size:11px;display:none;">停止中</span>
+                                <span class="label label-danger tc-state-3" style="font-size:11px;display:none;">异常</span>
+                                <span class="tc-error-tip mapping-error-sign" data-toggle="tooltip" data-placement="top"
+                                      style="display:none;"><i class="fa fa-exclamation-triangle"></i></span>
+                            </div>
+
+                            <!-- 失败数 -->
+                            <div class="tc-fail-group" style="align-items:center;flex-shrink:0;margin-left:10px;display:none;">
+                                <span class="fa fa-exclamation-triangle text-warning"></span>
+                                <span class="tc-fail-count" style="margin-left:4px;color:#d9534f;font-weight:bold;"></span>
+                            </div>
+
+                            <!-- 操作按钮 -->
+                            <div class="operation-buttons">
+                                <a href="javascript:;" class="btn btn-xs btn-start tc-btn-start"
+                                   style="font-size:11px;padding:2px 6px;display:none;">
+                                    <i class="fa fa-play"></i> 启动
+                                </a>
+                                <a href="javascript:;" class="btn btn-xs btn-danger btn-stop tc-btn-stop"
+                                   style="font-size:11px;padding:2px 6px;display:none;">
+                                    <i class="fa fa-stop"></i> 停止
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- ==================== 空状态 ==================== -->
+    <template id="tc-tpl-empty">
+        <div class="tc-empty" style="text-align:center;padding:30px;color:#999;">暂无任务</div>
+    </template>
+
+</div>

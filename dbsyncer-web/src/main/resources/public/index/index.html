@@ -71,95 +71,25 @@
             </div>
 
             <div class="col-md-10" style="flex: 1; max-width: calc(100% - 280px);">
-                <!-- 任务管理 -->
-                <div class="col-md-12">
-                    <!-- 任务开始位置 -->
-                    <div class="form-group" th:if="${connectorSize gt 0}">
-                        <div class="col-md-12" style="display: flex; align-items: center; gap: 20px;">
-                            <button type="button" class="btn btn-primary" id="indexAddMappingBtn" th:if="${currentUser?.roleCode eq 'admin'}">
-                                <span class="fa fa-plus"></span>添加任务([[${mappings?.size()} ?: 0]])
-                            </button>
-                            
-                            <!-- 布局切换按钮 -->
-                            <div class="btn-group">
-                                <button type="button" class="btn btn-default active" id="listViewBtn" title="列表视图">
-                                    <i class="fa fa-list"></i>
-                                </button>
-                                <button type="button" class="btn btn-default" id="cardViewBtn" title="卡片视图">
-                                    <i class="fa fa-th-large"></i>
-                                </button>
-                            </div>
-                            
-                            <!-- 搜索框 -->
-                            <div class="input-group" style="width: 200px;">
-                                <input type="text" class="form-control" id="mappingSearchInput" placeholder="搜索任务..."
-                                    style="border-radius: 4px 0 0 4px;" />
-                                <span class="input-group-btn">
-                                    <button class="btn btn-default" id="mappingSearchBtn" type="button"
-                                        style="border-radius: 0 4px 4px 0; margin-left: -1px;">
-                                        <i class="fa fa-search"></i>
-                                    </button>
-                                </span>
-                            </div>
-                            
-                            <!-- 三个下拉框 -->
-                            <div style="display: flex; align-items: center; gap: 15px;">
-                                <div style="display: flex; align-items: center; gap: 5px;">
-                                    <span>状态：</span>
-                                    <select class="form-control input-sm" id="filterState" style="width: 80px;">
-                                        <option value="">全部</option>
-                                        <option value="0">未开始</option>
-                                        <option value="1">进行中</option>
-                                        <option value="3">异常</option>
-                                    </select>
-                                </div>
-                                <div style="display: flex; align-items: center; gap: 5px;">
-                                    <span>数据源：</span>
-                                    <select class="form-control input-sm" id="filterSource" style="width: 100px;">
-                                        <option value="">全部</option>
-                                    </select>
-                                </div>
-                                <div style="display: flex; align-items: center; gap: 5px;">
-                                    <span>目标源：</span>
-                                    <select class="form-control input-sm" id="filterTarget" style="width: 100px;">
-                                        <option value="">全部</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 无搜索结果提示 -->
-                    <div id="noSearchResults" class="alert alert-info" style="display: none; margin-top: 20px;">
-                        <strong>提示：</strong>没有找到匹配的任务，请尝试其他关键词。
-                    </div>
-                    <!-- 显示任务列表 -->
-                    <div class="row">
-                        <!-- 列表视图（由 TaskList 模块渲染） -->
-                        <div id="listView" class="col-md-12">
-                            <div id="taskListContainer"></div>
-                        </div>
-                        
-                        <!-- 卡片视图（Thymeleaf 渲染） -->
-                        <div id="cardView" class="col-md-12" style="display: none; padding-left: 0; padding-right: 0;">
-                            <div class="mappingList" th:if="${mappings?.size() gt 0}">
-                                <div th:each="m : ${mappings}" th:id="${m?.id}" class="mapping-card">
-                                    <div th:replace="shared/task-card :: task-card(${m})"></div>
-                                </div>
-                            </div>
-                            <div th:if="${mappings?.size() eq 0}" style="text-align:center;padding:30px;color:#999;">暂无任务</div>
-                        </div>
-                    </div>
-                    <!-- 任务结束位置 -->
-                </div>
+                <!-- 任务面板（TaskPanel 组件渲染） -->
+                <div id="taskPanel" th:if="${connectorSize gt 0}"></div>
+                <input type="hidden" id="isAdmin" th:value="${currentUser?.roleCode eq 'admin'}" />
             </div>
 
         </form>
     </div>
 </div>
 
+<!-- 共享模板 -->
+<div th:replace="shared/task-panel-templates :: taskPanelTemplates"></div>
 <div th:replace="shared/task-list-templates :: taskListTemplates"></div>
+<div th:replace="shared/task-card-templates :: taskCardTemplates"></div>
+<!-- 共享组件 -->
 <script th:src="@{/js/shared/task-list.js}"></script>
+<script th:src="@{/js/shared/task-card-list.js}"></script>
+<script th:src="@{/js/shared/task-toolbar.js}"></script>
+<script th:src="@{/js/shared/task-panel.js}"></script>
+<!-- 页面脚本 -->
 <script th:src="@{/js/index/index.js}"></script>
 
 </html>

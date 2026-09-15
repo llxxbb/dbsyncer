@@ -1,0 +1,89 @@
+<!--
+    任务面板共享模板（<template> 标签）
+    结构在 HTML 里维护，JS 只负责克隆 + 填数据。
+    由 index.html / abnormalTasks.html / datasource.html 引入。
+-->
+<div xmlns:th="http://www.thymeleaf.org" th:fragment="taskPanelTemplates">
+
+    <!-- ==================== 工具栏 ==================== -->
+    <template id="tp-tpl-toolbar">
+        <div class="tp-toolbar" style="display:flex;align-items:center;gap:20px;margin-bottom:15px;flex-wrap:wrap;">
+            <!-- 创建任务按钮 -->
+            <button class="btn btn-primary tp-btn-create">
+                <span class="fa fa-plus"></span> 添加任务
+                <span class="tp-task-count badge" style="margin-left:5px;">0</span>
+            </button>
+
+            <!-- 视图切换 -->
+            <div class="btn-group tp-view-toggle">
+                <button type="button" class="btn btn-default tp-btn-list active" title="列表视图">
+                    <i class="fa fa-list"></i>
+                </button>
+                <button type="button" class="btn btn-default tp-btn-card" title="卡片视图">
+                    <i class="fa fa-th-large"></i>
+                </button>
+            </div>
+
+            <!-- 搜索框 -->
+            <div class="input-group tp-search-group" style="width:200px;">
+                <input type="text" class="form-control tp-search-input" placeholder="搜索任务..."
+                       style="border-radius:4px 0 0 4px;" />
+                <span class="input-group-btn">
+                    <button class="btn btn-default tp-search-btn" type="button"
+                            style="border-radius:0 4px 4px 0;margin-left:-1px;">
+                        <i class="fa fa-search"></i>
+                    </button>
+                </span>
+            </div>
+
+            <!-- 过滤下拉 -->
+            <div class="tp-filter-group" style="display:flex;align-items:center;gap:15px;">
+                <div style="display:flex;align-items:center;gap:5px;">
+                    <span>状态：</span>
+                    <select class="form-control input-sm tp-filter-state" style="width:80px;">
+                        <option value="">全部</option>
+                        <option value="0">未开始</option>
+                        <option value="1">进行中</option>
+                        <option value="3">异常</option>
+                    </select>
+                </div>
+                <div style="display:flex;align-items:center;gap:5px;">
+                    <span>数据源：</span>
+                    <select class="form-control input-sm tp-filter-source" style="width:100px;">
+                        <option value="">全部</option>
+                    </select>
+                </div>
+                <div style="display:flex;align-items:center;gap:5px;">
+                    <span>目标源：</span>
+                    <select class="form-control input-sm tp-filter-target" style="width:100px;">
+                        <option value="">全部</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- ==================== 批量操作工具栏（列表视图内） ==================== -->
+    <template id="tp-tpl-batch-toolbar">
+        <div class="tp-batch-toolbar" style="margin-bottom:10px;display:flex;align-items:center;gap:12px;padding:8px 0;">
+            <button class="btn btn-primary btn-sm tp-batch-start" disabled style="display:none;">
+                <span class="fa fa-play"></span> 批量启动
+            </button>
+            <button class="btn btn-warning btn-sm tp-batch-stop" disabled style="display:none;">
+                <span class="fa fa-stop"></span> 批量停止
+            </button>
+            <span class="tp-selected-count" style="color:#888;font-size:12px;"></span>
+            <button class="btn btn-default btn-sm tp-btn-select-all" style="margin-left:auto;">
+                <span class="fa fa-check-square-o"></span> 全选
+            </button>
+        </div>
+    </template>
+
+    <!-- ==================== 无搜索结果提示 ==================== -->
+    <template id="tp-tpl-no-results">
+        <div class="alert alert-info tp-no-results" style="display:none;margin-top:20px;">
+            <strong>提示：</strong>没有找到匹配的任务，请尝试其他关键词。
+        </div>
+    </template>
+
+</div>
