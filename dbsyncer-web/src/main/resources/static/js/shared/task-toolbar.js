@@ -52,6 +52,8 @@
             enableSearch: true,
             enableFilter: true,
             enableCardView: true,
+            enableBatchStart: false,
+            enableBatchStop: false,
             initialView: 'list',
             onCreate: null,
             onSearch: null,
@@ -194,6 +196,21 @@
         }
         if (!this.config.enableCardView) {
             $toolbar.find('.tp-view-toggle').remove();
+        }
+        // 批量操作：无复选框模式时隐藏整组
+        if (!this.config.enableBatchStart && !this.config.enableBatchStop) {
+            $toolbar.find('.tp-batch-group').remove();
+        } else {
+            if (this.config.enableBatchStart) {
+                $toolbar.find('.tp-batch-start').css('display', '');
+            } else {
+                $toolbar.find('.tp-batch-start').remove();
+            }
+            if (this.config.enableBatchStop) {
+                $toolbar.find('.tp-batch-stop').css('display', '');
+            } else {
+                $toolbar.find('.tp-batch-stop').remove();
+            }
         }
 
         this.$container.append(toolbar);

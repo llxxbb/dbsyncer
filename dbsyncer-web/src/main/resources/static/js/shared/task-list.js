@@ -120,22 +120,6 @@
     TaskList.prototype._build = function() {
         this.$container.empty();
 
-        // —— 工具栏（仅复选框模式） ——
-        if (this.config.enableCheckbox) {
-            var toolbar = this._cloneTemplate('tl-tpl-toolbar');
-            if (this.config.enableBatchStart) {
-                $(toolbar).find('.tl-batch-start').css('display', '');
-            } else {
-                $(toolbar).find('.tl-batch-start').remove();
-            }
-            if (this.config.enableBatchStop) {
-                $(toolbar).find('.tl-batch-stop').css('display', '');
-            } else {
-                $(toolbar).find('.tl-batch-stop').remove();
-            }
-            this.$container.append(toolbar);
-        }
-
         // —— 表格 ——
         var table = this._cloneTemplate('tl-tpl-table');
         if (!this.config.enableCheckbox) {
@@ -390,12 +374,14 @@
     TaskList.prototype._updateBatchState = function() {
         if (!this.config.enableCheckbox) return;
         var count = this.$container.find('.tl-checkbox:checked').length;
-        this.$container.find('.tl-batch-start, .tl-batch-stop').prop('disabled', count === 0);
-        this.$container.find('.tl-selected-count').text(count > 0 ? '已选 ' + count + ' 个任务' : '');
+        var $batch = this.config.$batchToolbar || this.$container;
+        $batch.find('.tp-batch-start, .tp-batch-stop, .tl-batch-start, .tl-batch-stop').prop('disabled', count === 0);
+        $batch.find('.tp-selected-count, .tl-selected-count').text(count > 0 ? '已选 ' + count + ' 个任务' : '');
     };
 
     TaskList.prototype._bindToolbarEvents = function() {
         var self = this;
+        var $batch = self.config.$batchToolbar || self.$container;
 
         // 表头全选
         self.$container.find('.tl-select-all').off('click').on('click', function(e) {
@@ -405,8 +391,8 @@
             self._updateBatchState();
         });
 
-        // 全选按钮
-        self.$container.find('.tl-btn-select-all').off('click').on('click', function() {
+        // 全选按钮（在工具栏中）
+        $batch.find('.tp-btn-select-all, .tl-btn-select-all').off('click').on('click', function() {
             var $all = self.$container.find('.tl-checkbox');
             var $checked = self.$container.find('.tl-checkbox:checked');
             var newState = !($all.length > 0 && $all.length === $checked.length);
@@ -416,7 +402,7 @@
         });
 
         // 批量启动
-        self.$container.find('.tl-batch-start').off('click').on('click', function() {
+        $batch.find('.tp-batch-start, .tl-batch-start').off('click').on('click', function() {
             var ids = self.getSelectedIds();
             if (ids.length === 0) return;
             if (self.config.onBatchStart) {
@@ -425,7 +411,7 @@
         });
 
         // 批量停止
-        self.$container.find('.tl-batch-stop').off('click').on('click', function() {
+        $batch.find('.tp-batch-stop, .tl-batch-stop').off('click').on('click', function() {
             var ids = self.getSelectedIds();
             if (ids.length === 0) return;
             if (self.config.onBatchStop) {

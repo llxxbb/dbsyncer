@@ -33,6 +33,9 @@
         panel = new TaskPanel();
         panel.init('#taskPanel', {
             enableCreate: isAdmin,
+            enableCheckbox: true,
+            enableBatchStart: true,
+            enableBatchStop: true,
             onCreate: function() {
                 updateHash('/mapping/pageAdd?projectGroupId=' + currentProjectGroupId);
             },

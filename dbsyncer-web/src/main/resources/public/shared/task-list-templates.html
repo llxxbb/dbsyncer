@@ -5,22 +5,6 @@
 -->
 <div xmlns:th="http://www.thymeleaf.org" th:fragment="taskListTemplates">
 
-    <!-- ==================== 工具栏 ==================== -->
-    <template id="tl-tpl-toolbar">
-        <div class="tl-toolbar" style="margin-bottom:10px;display:flex;align-items:center;gap:12px;padding:8px 0;">
-            <button class="btn btn-primary btn-sm tl-batch-start" disabled style="display:none;">
-                <span class="fa fa-play"></span> 批量启动
-            </button>
-            <button class="btn btn-warning btn-sm tl-batch-stop" disabled style="display:none;">
-                <span class="fa fa-stop"></span> 批量停止
-            </button>
-            <span class="tl-selected-count" style="color:#888;font-size:12px;"></span>
-            <button class="btn btn-default btn-sm tl-btn-select-all" style="margin-left:auto;">
-                <span class="fa fa-check-square-o"></span> 全选
-            </button>
-        </div>
-    </template>
-
     <!-- ==================== 表格骨架 ==================== -->
     <template id="tl-tpl-table">
         <div class="panel panel-default">

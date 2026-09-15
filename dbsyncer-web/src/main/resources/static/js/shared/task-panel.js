@@ -177,11 +177,17 @@
         this.toolbar = new TaskToolbar();
         this.toolbar.init($toolbarContainer[0], {
             enableCreate: this.config.enableCreate,
+            enableBatchStart: this.config.enableBatchStart,
+            enableBatchStop: this.config.enableBatchStop,
             initialView: initialView,
             onCreate: this.config.onCreate,
             onSearch: function(params) { this._applyFilter(params); }.bind(this),
             onViewChange: function(view) { this._onViewChange(view); }.bind(this)
         });
+
+        // 获取工具栏中的批量操作区域，传给列表使用
+        var $batchToolbar = $toolbarContainer.find('.tp-batch-group');
+        this._$batchGroup = $batchToolbar;
 
         // —— 无搜索结果提示 ——
         var noResults = this._cloneTemplate('tp-tpl-no-results');
@@ -202,6 +208,7 @@
             enableCheckbox: this.config.enableCheckbox,
             enableBatchStart: this.config.enableBatchStart,
             enableBatchStop: this.config.enableBatchStop,
+            $batchToolbar: $batchToolbar,
             emptyMessage: this.config.emptyMessage,
             onStart: function(id) { this._doSingleAction(id, '/mapping/start?id=', '启动'); }.bind(this),
             onStop: function(id) { this._doSingleAction(id, '/mapping/stop?id=', '停止'); }.bind(this),
@@ -224,6 +231,9 @@
         }
 
         // 过滤选项在 setData 时自动从任务数据中提取
+
+        // 根据初始视图设置批量操作显隐（卡片视图禁用）
+        this._syncBatchVisibility();
     };
 
     // ==================== 启动/停止操作（内置） ====================
@@ -441,7 +451,19 @@
             if (this._$cardView) this._$cardView.show();
         }
 
+        // 卡片视图禁用批量操作
+        this._syncBatchVisibility();
+
         _saveViewMode(view);
+    };
+
+    /**
+     * 根据当前视图同步批量操作组的显隐（卡片视图禁用）
+     */
+    TaskPanel.prototype._syncBatchVisibility = function() {
+        if (!this._$batchGroup || !this._$batchGroup.length) return;
+        var isCardView = this._currentView === 'card';
+        this._$batchGroup.toggle(!isCardView);
     };
 
     // ==================== 工具 ====================
