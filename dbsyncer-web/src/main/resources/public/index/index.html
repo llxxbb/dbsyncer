@@ -28,6 +28,10 @@
                                         background-color: #e6e6e6;
                                         font-weight: bold;
                                     }
+                                    /* 下拉菜单打开时抬升当前行，避免被下一行悬停按钮覆盖导致菜单消失 */
+                                    .group-list-item.dropdown-open {
+                                        z-index: 20;
+                                    }
                                 </style>
                                 <div th:if="${currentUser?.roleCode eq 'admin'}" class="group-list-item" data-group-id="" style="display: flex; align-items: center; padding: 8px 15px; position: relative; border-bottom: 1px solid #e0e0e0; cursor: pointer;" th:classappend="${#strings.isEmpty(projectGroupId)} ? 'active-group-item'" title="未分配">
                                     <img th:src="@{/img/File.png}" style="width: 16px; height: 16px; margin-right: 10px; flex-shrink: 0;" />

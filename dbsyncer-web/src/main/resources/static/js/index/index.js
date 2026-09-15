@@ -138,6 +138,10 @@
             var groupId = $(this).data('group-id') || '';
             groupShow(groupId);
         });
+        // 下拉菜单打开时抬升当前行层级，防止鼠标移入菜单时被下一行的悬停按钮覆盖
+        $(document).on('shown.bs.dropdown hidden.bs.dropdown', '.group-list-item .dropdown', function(e) {
+            $(this).closest('.group-list-item').toggleClass('dropdown-open', e.type === 'shown');
+        });
     }
 
     function groupShow(id) {
