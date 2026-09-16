@@ -89,6 +89,7 @@ public class ConfigRegistry {
         this.mergedConfig = merge(propsConfig, dbConfig);
         this.ready = true;
         syncTemplatePropsToSystem();
+        syncSqlServerCTPropsToSystem();
         logger.info("ConfigRegistry 设置 dbConfig 完成");
     }
 
@@ -102,6 +103,7 @@ public class ConfigRegistry {
         this.dbConfig = newDbConfig;
         this.mergedConfig = merge(propsConfig, dbConfig);
         syncTemplatePropsToSystem();
+        syncSqlServerCTPropsToSystem();
         logger.info("ConfigRegistry 重新合并完成");
     }
 
@@ -115,6 +117,20 @@ public class ConfigRegistry {
         Integer maxDepth = mergedConfig.getTemplate().getMaxDepth();
         if (maxDepth != null) {
             System.setProperty(ConfigKeys.TEMPLATE_MAX_DEPTH, String.valueOf(maxDepth));
+        }
+    }
+
+    /**
+     * 将 SqlServerCTProps 桥接到 System.getProperty，供 SqlServerCTListener 每次轮询时现读。
+     * <p>
+     * 背景：{@code SqlServerCTListener} 不是 Spring Bean（由 {@code SqlServerCTConnector} 手动 new），
+     * 无法直接注入 Props，因此通过 System.setProperty 桥接。
+     */
+    private void syncSqlServerCTPropsToSystem() {
+        SqlServerCTProps ct = mergedConfig.getSqlserverCT();
+        if (ct != null) {
+            System.setProperty(ConfigKeys.SQLSERVER_CT_POLL_INTERVAL_MS, String.valueOf(ct.getPollIntervalMs()));
+            System.setProperty(ConfigKeys.SQLSERVER_CT_SNAPSHOT_TIME_INTERVAL_MS, String.valueOf(ct.getSnapshotTimeIntervalMs()));
         }
     }
 
@@ -191,6 +207,7 @@ public class ConfigRegistry {
         config.setNotify(load(NotifyProps::new));
         config.setError(load(ErrorProps::new));
         config.setTemplate(load(TemplateProps::new));
+        config.setSqlserverCT(load(SqlServerCTProps::new));
 
         return config;
     }

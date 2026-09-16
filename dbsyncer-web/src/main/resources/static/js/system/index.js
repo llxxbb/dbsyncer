@@ -14,6 +14,7 @@ function loadTabs() {
             fillErrorTab(tabsData.error);
             fillMonitorTab(tabsData.monitor);
             fillTemplateTab(tabsData.template);
+            fillSqlServerCTTab(tabsData["sqlserver_ct"]);
         }
     });
 }
@@ -38,6 +39,12 @@ function fillBasicTab(basic) {
 function fillTemplateTab(template) {
     if (!template) return;
     $('#template_maxDepth').val(template.maxDepth);
+}
+
+function fillSqlServerCTTab(ct) {
+    if (!ct) return;
+    $('#sqlserverCT_pollIntervalMs').val(ct.pollIntervalMs);
+    $('#sqlserverCT_snapshotTimeIntervalMs').val(ct.snapshotTimeIntervalMs);
 }
 
 function fillExecutorsTab(exec) {
@@ -238,6 +245,11 @@ function buildPayload(tab) {
         case 'template':
             return {
                 maxDepth: parseInt($('#template_maxDepth').val())
+            };
+        case 'sqlserver_ct':
+            return {
+                pollIntervalMs: parseInt($('#sqlserverCT_pollIntervalMs').val()),
+                snapshotTimeIntervalMs: parseInt($('#sqlserverCT_snapshotTimeIntervalMs').val())
             };
         default:
             return {};

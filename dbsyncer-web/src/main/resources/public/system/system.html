@@ -19,6 +19,7 @@
         <li role="presentation"><a href="#tab-error" data-toggle="tab">错误队列</a></li>
         <li role="presentation"><a href="#tab-monitor" data-toggle="tab">监控定时任务</a></li>
         <li role="presentation"><a href="#tab-template" data-toggle="tab">模板引擎</a></li>
+        <li role="presentation"><a href="#tab-sqlserverCT" data-toggle="tab">SQL Server CT增量</a></li>
     </ul>
 
     <!-- Tab 内容 -->
@@ -472,6 +473,29 @@
                     <label class="col-sm-2 control-label">最大依赖深度<i class="fa fa-question-circle fa_gray" title="模板引擎解析字段映射时允许的最大依赖链深度（>=1）。深度越大支持的映射链越长，但过深可能导致循环依赖。立即生效。"></i></label>
                     <div class="col-sm-4">
                         <input type="number" class="form-control" min="1" name="maxDepth" id="template_maxDepth"/>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Tab: SQL Server CT增量配置 -->
+        <div role="tabpanel" class="tab-pane" id="tab-sqlserverCT">
+            <div class="alert alert-info">以下配置修改后<strong>立即生效</strong>。控制 SQL Server CT（Change Tracking）增量同步的轮询行为</div>
+            <form id="sqlserverCTForm" class="form-horizontal" role="form">
+                <div class="form-group">
+                    <div class="text-right col-sm-12">
+                        <button type="button" class="btn btn-primary btn-save-tab" data-tab="sqlserver_ct"><span class="fa fa-save"></span>保存</button>
+                        <button type="button" class="btn btn-default btn-reset-tab" data-tab="sqlserver_ct"><span class="fa fa-undo"></span>恢复系统默认</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">版本号轮询间隔(ms)<i class="fa fa-question-circle fa_gray" title="SQL Server CT 连接器每次查询源端变更版本号之间的等待间隔（毫秒）。值越小增量同步延迟越低，但源端查询压力越大。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="100" name="pollIntervalMs" id="sqlserverCT_pollIntervalMs"/>
+                    </div>
+                    <label class="col-sm-2 control-label">快照持久化间隔(ms)<i class="fa fa-question-circle fa_gray" title="已同步版本号快照写入持久化存储的时间间隔（毫秒）。快照用于异常恢复时确定增量起点，避免重复拉取。值越小恢复精度越高，但写入开销越大。"></i></label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" min="1000" name="snapshotTimeIntervalMs" id="sqlserverCT_snapshotTimeIntervalMs"/>
                     </div>
                 </div>
             </form>

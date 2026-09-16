@@ -78,7 +78,10 @@ public enum SystemTabEnum {
             SystemConfig::getError, (c, p) -> c.setError((ErrorProps) p), ErrorProps.class),
 
     TEMPLATE(ConfigCategory.C, "C类：模板引擎配置",
-            SystemConfig::getTemplate, (c, p) -> c.setTemplate((TemplateProps) p), TemplateProps.class);
+            SystemConfig::getTemplate, (c, p) -> c.setTemplate((TemplateProps) p), TemplateProps.class),
+
+    SQLSERVER_CT(ConfigCategory.C, "C类：SQL Server 增量配置",
+            SystemConfig::getSqlserverCT, (c, p) -> c.setSqlserverCT((SqlServerCTProps) p), SqlServerCTProps.class);
 
     // ===== 字段 =====
 

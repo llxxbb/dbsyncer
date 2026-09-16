@@ -57,9 +57,10 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
     // 流式查询的 fetchSize，控制每次从数据库获取的记录数
     private static final int STREAMING_FETCH_SIZE = 5000;
 
-    // 增量持久化配置（可配置）
-    private static long SNAPSHOT_TIME_INTERVAL_MS = Long.parseLong(
-            System.getProperty("sqlserver.ct.snapshot.time.interval.ms", "30000"));
+    // 增量持久化配置（每次现读，支持运行期热更新）
+    private long getSnapshotTimeIntervalMs() {
+        return Long.parseLong(System.getProperty("sqlserver.ct.snapshot.time.interval.ms", "30000"));
+    }
 
     private final SqlServerTemplate sqlTemplate;
 
@@ -80,9 +81,10 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
     private String serverName;
     private String schema;
     private String realDatabaseName;
-    // 版本号轮询间隔（毫秒），可通过系统属性 sqlserver.ct.poll.interval.ms 覆盖
-    private static long POLL_INTERVAL_MILLIS = Long.parseLong(
-            System.getProperty("sqlserver.ct.poll.interval.ms", "30000"));
+    // 版本号轮询间隔（毫秒），每次现读，支持运行期热更新
+    private long getPollIntervalMillis() {
+        return Long.parseLong(System.getProperty("sqlserver.ct.poll.interval.ms", "30000"));
+    }
     // 主键信息缓存（表名 -> 主键列表）
     private final Map<String, List<String>> primaryKeysCache = new HashMap<>();
     // 表列数缓存（表名 -> 列数），避免重复查询 INFORMATION_SCHEMA
@@ -105,8 +107,8 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
 
     @Override
     public void start() throws Exception {
-        logger.info("SNAPSHOT_TIME_INTERVAL_MS: {}", SNAPSHOT_TIME_INTERVAL_MS);
-        logger.info("POLL_INTERVAL_MILLIS: {}", POLL_INTERVAL_MILLIS);
+        logger.info("SNAPSHOT_TIME_INTERVAL_MS: {}", getSnapshotTimeIntervalMs());
+        logger.info("POLL_INTERVAL_MILLIS: {}", getPollIntervalMillis());
         
         try {
             connectLock.lock();
@@ -1231,7 +1233,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
                     Long maxVersion = getMaxVersion();
                     if (maxVersion == null || maxVersion <= lastSuccessfulVersion) {
                         maybeSnapshot();
-                        sleepInMills(POLL_INTERVAL_MILLIS);
+                        sleepInMills(getPollIntervalMillis());
                         continue;
                     }
 
@@ -1259,7 +1261,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
 
         private void maybeSnapshot() {
             long now = System.currentTimeMillis();
-            if (now - lastSnapshotTime < SNAPSHOT_TIME_INTERVAL_MS) {
+            if (now - lastSnapshotTime < getSnapshotTimeIntervalMs()) {
                 return;
             }
             snapshotProgress(lastSuccessfulVersion);

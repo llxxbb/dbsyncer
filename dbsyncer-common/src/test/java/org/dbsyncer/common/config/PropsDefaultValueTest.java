@@ -8,6 +8,7 @@ import org.dbsyncer.common.config.props.MonitorProps;
 import org.dbsyncer.common.config.props.RetryProps;
 import org.dbsyncer.common.config.props.ServerProps;
 import org.dbsyncer.common.config.props.TemplateProps;
+import org.dbsyncer.common.config.props.SqlServerCTProps;
 import org.dbsyncer.common.config.props.WorkerProps;
 import org.dbsyncer.common.util.JsonUtil;
 import org.junit.Test;
@@ -68,6 +69,11 @@ public class PropsDefaultValueTest {
     @Test
     public void templateKeepsDefaults() {
         assertLoadKeepsDefaults(new TemplateProps());
+    }
+
+    @Test
+    public void sqlserverCTKeepsDefaults() {
+        assertLoadKeepsDefaults(new SqlServerCTProps());
     }
 
     /**

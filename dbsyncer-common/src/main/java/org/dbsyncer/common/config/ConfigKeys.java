@@ -19,6 +19,7 @@ package org.dbsyncer.common.config;
  *   <li>NOTIFY_* — 通知通道配置（C 类，立即生效）</li>
  *   <li>ERROR_* — 错误处理配置（C 类，立即生效）</li>
  *   <li>TEMPLATE_* — 模板引擎配置</li>
+ *   <li>SQLSERVER_CT_* — SQL Server 增量配置（C 类，立即生效）</li>
  * </ul>
  */
 public final class ConfigKeys {
@@ -155,6 +156,11 @@ public final class ConfigKeys {
     // ===== 模板引擎配置 =====
 
     public static final String TEMPLATE_MAX_DEPTH = "dbsyncer.template.maxDepth";
+
+    // ===== C 类：SQL Server 增量配置（立即生效） =====
+
+    public static final String SQLSERVER_CT_POLL_INTERVAL_MS = "sqlserver.ct.poll.interval.ms";
+    public static final String SQLSERVER_CT_SNAPSHOT_TIME_INTERVAL_MS = "sqlserver.ct.snapshot.time.interval.ms";
 
     // ===== 监控定时任务配置 =====
 

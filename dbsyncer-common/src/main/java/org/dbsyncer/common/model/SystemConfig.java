@@ -82,6 +82,9 @@ public class SystemConfig extends ConfigModel {
     /** Tab 6 错误处理，null=未覆盖 */
     private ErrorProps error;
 
+    /** SQL Server 增量同步配置，null=未覆盖 */
+    private SqlServerCTProps sqlserverCT;
+
     // ===== 基础设置（原扁平字段组织成子对象） =====
 
     /** Tab 1 基础设置 */
@@ -225,6 +228,16 @@ public class SystemConfig extends ConfigModel {
 
     public void setTemplate(TemplateProps template) {
         this.template = template;
+    }
+
+    // ===== SqlServerCTProps =====
+
+    public SqlServerCTProps getSqlserverCT() {
+        return sqlserverCT;
+    }
+
+    public void setSqlserverCT(SqlServerCTProps sqlserverCT) {
+        this.sqlserverCT = sqlserverCT;
     }
 
     // ===== 敏感字段加解密 =====
