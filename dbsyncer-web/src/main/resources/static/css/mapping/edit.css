@@ -11,6 +11,8 @@
 #progressChart{width:100px;height:100px;margin:0 auto}
 #progressText{font-size:1.2em;font-weight:bold;color:#333;margin-top:10px}
 .highlight-number{font-size:1.8em;font-weight:bold;margin:30px;padding:0}
+/* 统计面板两行布局间距 */
+.panel-body .row > div[class*="col-md"] .highlight-number{margin-top:10px;margin-bottom:10px}
 .progress-color{color:#3498db}
 .total-color{color:#529de2}
 .success-color{color:#27ae60}

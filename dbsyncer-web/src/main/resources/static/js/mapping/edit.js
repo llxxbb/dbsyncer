@@ -1423,6 +1423,9 @@ function updateTableGroups(mappingId, total, successCount, failCount) {
                 var tbody = $("#tableGroupProgress tbody");
                 tbody.empty();
 
+                // 累加所有表组的同步速度，用于更新顶部面板
+                var totalSpeed = 0;
+
                 if (tableGroups.length > 0) {
                     $.each(tableGroups, function(index, tableGroup) {
                         var sourceTableName = tableGroup.sourceTable ? tableGroup.sourceTable.name : '';
@@ -1440,7 +1443,13 @@ function updateTableGroups(mappingId, total, successCount, failCount) {
                         var lastSyncTime = tableGroup.lastSyncTime || 0;
                         var currentTime = new Date().getTime();
                         // 如果最后同步时间超过5秒，则显示0条/秒
-                        var speedDisplay = (currentTime - lastSyncTime > 5000) ? "0 条/秒" : (currentSpeed.toFixed(0) + " 条/秒");
+                        var isActive = (currentTime - lastSyncTime <= 5000);
+                        var speedDisplay = isActive ? (currentSpeed.toFixed(0) + " 条/秒") : "0 条/秒";
+
+                        // 累加有效速度
+                        if (isActive) {
+                            totalSpeed += currentSpeed;
+                        }
 
                         // 计算同步状态
                         var syncStatus = "未开始";
@@ -1473,6 +1482,10 @@ function updateTableGroups(mappingId, total, successCount, failCount) {
                     var tr = '<tr><td colspan="6" class="text-center">暂无表映射关系</td></tr>';
                     tbody.append(tr);
                 }
+
+                // 更新顶部面板的全体同步速度
+                var speedText = totalSpeed > 0 ? (totalSpeed.toFixed(0) + " 条/秒") : "0 条/秒";
+                $("#metaSpeed").find(".highlight-number").text(speedText);
             }
             
             // 添加表格排序功能

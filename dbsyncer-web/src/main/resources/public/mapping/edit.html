@@ -133,9 +133,10 @@
                 </div>
                 <div class="panel panel-default">
                     <div class="panel-body" th:with="model=${mapping?.model},total=${mapping?.meta?.total},success=${mapping?.meta?.success},fail=${mapping?.meta?.fail},beginTime=${mapping?.meta?.beginTime},endTime=${mapping?.meta?.endTime},state=${mapping?.meta?.state}">
+                        <!-- 第一行：状态 / 进度 / 耗时 / 速度 -->
                         <div class="row">
-                            <div class="col-md-2">
-                                <div  class="text-left" id ="mappingState">
+                            <div class="col-md-3">
+                                <div class="text-left" id="mappingState">
                                     <p>任务状态：</p>
                                     <span th:if="${mapping?.meta?.state eq 0}" class="highlight-number total-color">未运行</span>
                                     <span th:if="${mapping?.meta?.state eq 1}" class="highlight-number success-color">运行中</span>
@@ -143,7 +144,7 @@
                                     <span th:if="${mapping?.meta?.state eq 3}" class="highlight-number error-color">异常</span>
                                 </div>
                             </div>
-                            <div class="col-md-2" id="metaPercent">
+                            <div class="col-md-3" id="metaPercent">
                                 <div class="text-left">
                                     <p>数据同步进度:</p>
                                     <span th:if="${mapping?.meta?.counting}">(正在统计中)</span>
@@ -151,45 +152,47 @@
                                             <span th:if="${total gt 0 and (success + fail) gt 0}" class="highlight-number">
                                                 [[${#numbers.formatPercent(((success + fail) / total), 1, 2)}]]
                                             </span>
-                                            <span th:unless="${total gt 0 and (success + fail) gt 0}" class="highlight-number" >0%</span>
+                                            <span th:unless="${total gt 0 and (success + fail) gt 0}" class="highlight-number">0%</span>
                                         </span>
-                                    <!--环状图-->
-<!--                                    <canvas id="progressChart" width="100" height="100" style="display: block; margin: 0 auto;"></canvas>-->
-                                    <!--   <p id="progressText" style="font-size: 1.2em; font-weight: bold; color: #333;">0%</p>-->
                                 </div>
                             </div>
-
-                            <div class="col-md-2">
+                            <div class="col-md-3">
                                 <div class="text-left" id="metaDuration" style="white-space: nowrap; padding-right: 10px;"
                                      th:attr="data-begin-time=${beginTime},data-end-time=${endTime},data-state=${state}">
-                                    <p>耗时:</p>
+                                    <p>持续运行:</p>
                                     <span th:if="${beginTime gt 0 and (endTime gt 0 or state eq 1)}"
                                           th:class="highlight-number"
                                           th:text="${state eq 1 ? '-' : ((endTime - beginTime) / 1000 lt 60 ? (endTime - beginTime) / 1000 + '秒' : ((endTime - beginTime) / 1000 lt 3600 ? (endTime - beginTime) / 1000 / 60 + '分' + ((endTime - beginTime) / 1000 - (endTime - beginTime) / 1000 / 60 * 60) + '秒' : (endTime - beginTime) / 1000 / 3600 + '时' + ((endTime - beginTime) / 1000 - (endTime - beginTime) / 1000 / 3600 * 3600) / 60 + '分' + ((endTime - beginTime) / 1000 - (endTime - beginTime) / 1000 / 3600 * 3600 - ((endTime - beginTime) / 1000 - (endTime - beginTime) / 1000 / 3600 * 3600) / 60 * 60) + '秒'))}">-</span>
                                     <span th:unless="${beginTime gt 0 and (endTime gt 0 or state eq 1)}" class="highlight-number">-</span>
                                 </div>
                             </div>
-
-                            <div class="col-md-2">
-                                <div  class="text-left" id ="metaModel">
+                            <div class="col-md-3">
+                                <div class="text-left" id="metaSpeed">
+                                    <p>同步速度:</p>
+                                    <span class="highlight-number progress-color">0 条/秒</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- 第二行：总数 / 成功 / 失败 -->
+                        <div class="row" style="margin-top: 10px;">
+                            <div class="col-md-3">
+                                <div class="text-left" id="metaModel">
                                     <p>总数:</p>
                                     <span class="highlight-number total-color">[[${total}]]</span>
                                 </div>
                             </div>
-
-                            <div class="col-md-2">
-                                <div id="metaSuccess">
+                            <div class="col-md-3">
+                                <div class="text-left" id="metaSuccess">
                                     <p>成功:</p>
                                     <span class="highlight-number success-color">[[${success}]]</span>
                                 </div>
                             </div>
-                            <div class="col-md-2">
+                            <div class="col-md-3">
                                 <div class="text-left" id="metaError">
                                     <p>失败:</p>
                                     <span class="highlight-number error-color">[[${fail}]]</span>
                                 </div>
                             </div>
-
                         </div>
                     </div>
                 </div>
