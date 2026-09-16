@@ -599,8 +599,8 @@ function doMappingSubmit() {
     if ($form.formValidate() == true) {
         let data = $form.serializeJson();
         submit(data);
-        //提交时刷新定时器
-        clearTimer();
+        //提交时停止轮询
+        mappingPoller.stop();
     }
 }
 
@@ -837,13 +837,64 @@ function updateProgressChart(total, success, fail) {
 }
 
 
- var timer3 = null;
 // 全局变量，用于保存当前任务ID
 var currentMappingId = null;
 
+/**
+ * 任务轮询控制器（ADR-0032）。
+ *
+ * 定时器句柄刻意不放在顶层 var 里：edit.js 每次导航都会被重新 eval，顶层赋值
+ * 会先抹掉上一个实例仍持有的句柄（使其永远清不掉），而且新旧实例会竞争写入
+ * 同一个全局槽位。那正是「旧定时器 clearInterval(timer3) 误杀新定时器、轮询
+ * 永久停止、界面只能靠 F5 刷新」的成因。
+ *
+ * 改为闭包持有后，句柄对外不可见也不可写，每个页面实例只能清除自己的定时器。
+ * start() 内部先停掉上一个，保证同一实例内最多只有一个轮询在跑。
+ */
+var mappingPoller = (function () {
+    // 当前页面实例私有的定时器句柄
+    var handle = null;
+
+    // 仅回收句柄。start() 复用它，避免顺带清掉调用方刚设置好的 currentMappingId。
+    function clearHandle() {
+        if (handle !== null) {
+            clearInterval(handle);
+            handle = null;
+        }
+    }
+
+    // 停止轮询。保留原 clearTimer() 的语义：同时清空任务标识，
+    // 使依赖 currentMappingId 的日志查询等逻辑一并失效。
+    function stop() {
+        clearHandle();
+        currentMappingId = null;
+    }
+
+    function start(guard, intervalMs, tick) {
+        clearHandle();
+        var self = setInterval(function () {
+            // 页面已被替换：停掉轮询并自我销毁。
+            // 有了代际守卫，就不需要再往常驻的外壳导航按钮上层层绑定清理逻辑。
+            // 注意这里只能清「自己」的句柄 self，不能清 handle ——
+            // handle 可能已被新实例覆盖，清它会误杀健康的定时器。
+            if (!isPageAlive(guard)) {
+                clearInterval(self);
+                if (handle === self) {
+                    handle = null;
+                }
+                return;
+            }
+            tick();
+        }, intervalMs);
+        handle = self;
+    }
+
+    return { start: start, stop: stop };
+})();
+
 function getMappping(id) {
-    // 先清除旧定时器，确保每次调用都使用最新的id
-    clearTimer();
+    // 先停掉旧轮询，确保每次调用都使用最新的id
+    mappingPoller.stop();
     // 更新当前任务ID
     currentMappingId = id;
     // 页面代际守卫（ADR-0032）：页面被替换后轮询自行停止
@@ -892,21 +943,10 @@ function getMappping(id) {
             }
             // 检查当前任务ID是否与闭包中的任务ID相同，如果不同则不创建定时器
             if (currentMappingId === localId) {
-                // 直接创建新定时器，因为已经清除了旧的。
-                // 关键：tick 内必须清理“自己”的句柄 pollingTimer，而不是全局 timer3。
-                // timer3 是所有页面实例共享的全局变量，旧实例的定时器若执行
-                // clearInterval(timer3)，会把新页面刚创建的健康定时器一并杀掉，
-                // 导致轮询永久停止、界面只能靠 F5 刷新。
-                var pollingTimer = setInterval(function () {
-                    // 页面已被替换：停掉轮询并自我销毁。
-                    // 有了代际守卫，就不需要再往常驻的外壳导航按钮上层层绑定 clearTimer()
-                    if (!isPageAlive(guard)) {
-                        clearInterval(pollingTimer);
-                        if (timer3 === pollingTimer) {
-                            timer3 = null;
-                        }
-                        return;
-                    }
+                // 句柄由 mappingPoller 闭包私有持有，start() 内部会先停掉上一个；
+                // 代际守卫与「只清自己句柄」的自我销毁逻辑都在控制器里，
+                // 这里只负责描述「每个周期做什么」。
+                mappingPoller.start(guard, data.resultValue * 1000, function () {
                     // 再次检查当前任务ID是否与闭包中的任务ID相同
                     if (currentMappingId === localId) {
                         $.ajax({
@@ -1002,22 +1042,12 @@ function getMappping(id) {
                             }
                         });
                     }
-                }, data.resultValue * 1000);
-                timer3 = pollingTimer;
+                });
             }
         } else {
             bootGrowl(data.resultValue, "danger");
         }
     });
-}
-
-// 封装清除timer3的函数，避免重复代码
-function clearTimer() {
-    if (timer3 !== null) {
-        clearInterval(timer3);
-        timer3 = null;
-    }
-    currentMappingId = null;
 }
 
 function updateMetaDuration(beginTime, endTime, state) {
@@ -1312,8 +1342,8 @@ function doPostForEditPage(url) {
             bootGrowl(data.resultValue, "success");
             
             if (url.indexOf('/mapping/remove') !== -1) {
-                // 清除定时器，避免删除后仍尝试获取任务状态
-                clearTimer();
+                // 停止轮询，避免删除后仍尝试获取任务状态
+                mappingPoller.stop();
                 backIndexPage(projectGroup);
             } else {
                 var mappingId = $("#mappingId").val();
@@ -1413,8 +1443,8 @@ $(function () {
 
     // 返回
     $("#mappingBackBtn").click(function () {
-         //清除定时器
-         clearTimer();
+         //停止轮询
+         mappingPoller.stop();
          backIndexPage();
     });
 
