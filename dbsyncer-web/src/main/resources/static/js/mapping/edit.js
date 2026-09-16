@@ -884,15 +884,27 @@ function getMappping(id) {
         if (data.success == true) {
             // 保存当前闭包中的任务ID
             var localId = id;
+            // 响应到达时页面可能已被 SPA 重载（如启动/停止后 refresh() 触发 hashchange，
+            // __pageEpoch 递增）。此时本次响应属于旧页面实例，必须直接丢弃，
+            // 否则会创建出守卫已失效的“僵尸定时器”。
+            if (!isPageAlive(guard)) {
+                return;
+            }
             // 检查当前任务ID是否与闭包中的任务ID相同，如果不同则不创建定时器
             if (currentMappingId === localId) {
-                // 直接创建新定时器，因为已经清除了旧的
-                timer3 = setInterval(function () {
+                // 直接创建新定时器，因为已经清除了旧的。
+                // 关键：tick 内必须清理“自己”的句柄 pollingTimer，而不是全局 timer3。
+                // timer3 是所有页面实例共享的全局变量，旧实例的定时器若执行
+                // clearInterval(timer3)，会把新页面刚创建的健康定时器一并杀掉，
+                // 导致轮询永久停止、界面只能靠 F5 刷新。
+                var pollingTimer = setInterval(function () {
                     // 页面已被替换：停掉轮询并自我销毁。
                     // 有了代际守卫，就不需要再往常驻的外壳导航按钮上层层绑定 clearTimer()
                     if (!isPageAlive(guard)) {
-                        clearInterval(timer3);
-                        timer3 = null;
+                        clearInterval(pollingTimer);
+                        if (timer3 === pollingTimer) {
+                            timer3 = null;
+                        }
                         return;
                     }
                     // 再次检查当前任务ID是否与闭包中的任务ID相同
@@ -991,6 +1003,7 @@ function getMappping(id) {
                         });
                     }
                 }, data.resultValue * 1000);
+                timer3 = pollingTimer;
             }
         } else {
             bootGrowl(data.resultValue, "danger");
@@ -2582,7 +2595,8 @@ function loadLogTypeOptions() {
     });
 }
 
-var currentMappingId = null;
+// currentMappingId 已在文件顶部（轮询定时器附近）声明。
+// 此处不可重复赋 null，否则会清空正在运行的轮询所依赖的任务标识。
 
 function doQueryLog(pageNum, append, callback) {
     if (!currentMappingId) return;
