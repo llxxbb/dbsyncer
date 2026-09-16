@@ -218,4 +218,19 @@ public class ProjectGroupServiceImpl implements ProjectGroupService {
         }
     }
 
+    @Override
+    public List<ProjectGroup> getGroupsByMappingId(String mappingId) {
+        if (StringUtil.isBlank(mappingId)) {
+            return Collections.emptyList();
+        }
+        List<ProjectGroup> allGroups = profileComponent.getProjectGroupAll();
+        if (CollectionUtils.isEmpty(allGroups)) {
+            return Collections.emptyList();
+        }
+        return allGroups.stream()
+                .filter(group -> group.getMappingIds().contains(mappingId))
+                .collect(Collectors.toList());
+    }
+
+
 }

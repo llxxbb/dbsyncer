@@ -69,4 +69,13 @@ public interface ProjectGroupService {
      */
     List<ProjectGroup> getProjectGroupsByUser(String username);
 
+    /**
+     * 获取包含指定任务的所有项目组
+     *
+     * @param mappingId 任务 ID
+     * @return 包含该任务的项目组列表，无匹配时返回空列表
+     */
+    List<ProjectGroup> getGroupsByMappingId(String mappingId);
+
+
 }

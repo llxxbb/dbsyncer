@@ -102,6 +102,9 @@ public class MappingServiceImpl implements MappingService {
     private MetaService metaService;
 
     @Resource
+    private ProjectGroupService projectGroupService;
+
+    @Resource
     private org.dbsyncer.sdk.storage.StorageService storageService;
 
     @Resource
@@ -169,6 +172,12 @@ public class MappingServiceImpl implements MappingService {
         String newName = (name != null && !name.trim().isEmpty()) ? name.trim() : mapping.getName() + "(复制)";
 
         Mapping newMapping = mappingModelService.copy(mapping, snowflakeIdWorker, newName, model, targetConnectorId);
+        // 新任务继承源任务的项目组归属
+        String newMappingId = newMapping.getId();
+        for (ProjectGroup group : projectGroupService.getGroupsByMappingId(mapping.getId())) {
+            group.getMappingIds().add(newMappingId);
+            profileComponent.editConfigModel(group);
+        }
         this.logService.log(newMapping, LogType.COPY, LogLevel.INFO,
                 LogType.COPY.getType() + ":" + newMapping.getName());
 
