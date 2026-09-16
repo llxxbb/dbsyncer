@@ -3,7 +3,7 @@
 var tabsData = {};
 
 function loadTabs() {
-    doGet('/system/tabs', function (data) {
+    doGetWithoutLoading('/system/tabs', {}, function (data) {
         if (data.success) {
             tabsData = data.resultValue || data.result;
             fillBasicTab(tabsData.basic);
@@ -277,34 +277,6 @@ function toggleStorageErrorLength() {
     } else {
         $('#maxStorageErrorLength_group').addClass('hidden');
     }
-}
-
-// ===== HTTP helpers =====
-
-function doGet(url, callback) {
-    $.ajax({
-        url: url,
-        type: 'GET',
-        dataType: 'json',
-        success: callback,
-        error: function (xhr) {
-            bootGrowl("请求失败: " + xhr.statusText, "danger");
-        }
-    });
-}
-
-function doPoster(url, data, callback) {
-    $.ajax({
-        url: url,
-        type: 'POST',
-        contentType: 'application/json',
-        data: JSON.stringify(data),
-        dataType: 'json',
-        success: callback,
-        error: function (xhr) {
-            bootGrowl("请求失败: " + xhr.statusText, "danger");
-        }
-    });
 }
 
 // ===== 初始化 =====

@@ -14,6 +14,7 @@ import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
 import java.util.Map;
 
 @Controller
@@ -39,10 +40,13 @@ public class SystemController extends BaseController {
      */
     @PostMapping("/editTab")
     @ResponseBody
-    public RestResult editTab(@RequestBody Map<String, String> body) {
+    public RestResult editTab(HttpServletRequest request) {
         try {
-            String tab = body.get("tab");
-            String payload = body.get("payload");
+            // 统一使用表单参数（与 BaseController#getParams 约定一致），
+            // payload 为嵌套配置的 JSON 字符串
+            Map<String, String> params = getParams(request);
+            String tab = params.get("tab");
+            String payload = params.get("payload");
             String result = systemConfigService.editTab(tab, payload);
             return RestResult.restSuccess(result);
         } catch (Exception e) {
