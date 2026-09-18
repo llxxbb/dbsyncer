@@ -446,12 +446,14 @@
 <script th:src="@{/js/mapping/fieldDifferenceComponent.js}"></script>
 <script th:src="@{/js/mapping/tempPKManager.js}"></script>
 <script th:src="@{/js/components/dualListSelector.js}"></script>
-<!-- 从 edit.js 拆出的模块。放在 edit.js 之前：edit.js 的 ready 块会直接调用
-     bindConnectorDetailBtnClick()，而 SPA 外壳里 jQuery 的 ready 回调是同步执行的，
-     晚加载会 ReferenceError。本文件只有函数声明、无顶层可执行语句，前置安全。
+<!-- 从 edit.js 拆出的模块。下面两个必须放在 edit.js 之前：edit.js 的 ready 块会直接
+     调用 bindConnectorDetailBtnClick() 和 initErrorQueue()，而 SPA 外壳里 jQuery 的
+     ready 回调是同步执行的，晚加载会 ReferenceError。两者都只有函数声明、无顶层可执行
+     语句、也不写任何全局变量，前置安全。
      （editLog.js 相反，必须放在 edit.js 之后：它的 ready 块要写 edit.js 声明的
       currentMappingId，早于 edit.js 的 var 初始化会被覆盖成 null。） -->
 <script th:src="@{/js/mapping/editConnectorDetail.js}"></script>
+<script th:src="@{/js/mapping/editErrorQueue.js}"></script>
 <script th:src="@{/js/mapping/edit.js}"></script>
 <script th:src="@{/js/mapping/editLog.js}"></script>
 <script th:src="@{/js/mapping/editTableSorting.js}"></script>
