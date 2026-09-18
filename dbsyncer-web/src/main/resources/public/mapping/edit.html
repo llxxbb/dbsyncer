@@ -446,14 +446,24 @@
 <script th:src="@{/js/mapping/fieldDifferenceComponent.js}"></script>
 <script th:src="@{/js/mapping/tempPKManager.js}"></script>
 <script th:src="@{/js/components/dualListSelector.js}"></script>
-<!-- 从 edit.js 拆出的模块。下面两个必须放在 edit.js 之前：edit.js 的 ready 块会直接
-     调用 bindConnectorDetailBtnClick() 和 initErrorQueue()，而 SPA 外壳里 jQuery 的
-     ready 回调是同步执行的，晚加载会 ReferenceError。两者都只有函数声明、无顶层可执行
-     语句、也不写任何全局变量，前置安全。
-     （editLog.js 相反，必须放在 edit.js 之后：它的 ready 块要写 edit.js 声明的
-      currentMappingId，早于 edit.js 的 var 初始化会被覆盖成 null。） -->
+<!-- 从 edit.js 拆出的模块。加载顺序是有约束的，改前先读各模块文件头：
+
+     【必须在 edit.js 之前】editConnectorDetail.js / editErrorQueue.js / editBatchConvert.js
+       edit.js 的 ready 块在求值期就会直接调用 bindConnectorDetailBtnClick()、
+       initErrorQueue()（classOn=3 时）和 initBatchConvertConfig()，而 SPA 外壳里
+       jQuery 的 ready 回调是同步执行的，晚加载会 ReferenceError。三者都只有函数
+       声明、无顶层可执行语句、也不写任何全局变量，前置安全。
+
+     【必须在 edit.js 之后】editLog.js
+       它的 ready 块要写 edit.js 声明的 currentMappingId，早于 edit.js 的 var
+       初始化会被覆盖成 null。
+
+     【顺序无关】editTableSorting.js
+       与 edit.js 只在 AJAX 回调里互调（updateTableGroups → addTableSorting），
+       运行时解析。 -->
 <script th:src="@{/js/mapping/editConnectorDetail.js}"></script>
 <script th:src="@{/js/mapping/editErrorQueue.js}"></script>
+<script th:src="@{/js/mapping/editBatchConvert.js}"></script>
 <script th:src="@{/js/mapping/edit.js}"></script>
 <script th:src="@{/js/mapping/editLog.js}"></script>
 <script th:src="@{/js/mapping/editTableSorting.js}"></script>
