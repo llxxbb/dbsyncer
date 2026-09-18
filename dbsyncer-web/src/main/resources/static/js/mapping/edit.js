@@ -1571,12 +1571,6 @@ function loadSortingState() {
     return null;
 }
 
-// 清除排序状态
-function clearSortingState() {
-    var key = getSortingStorageKey();
-    localStorage.removeItem(key);
-}
-
 // 添加表格排序功能
 function addTableSorting() {
     var table = $('#tableGroupProgress');
@@ -2124,49 +2118,6 @@ function loadBatchFieldTypes() {
     });
 }
 
-function getDatabaseFieldTypes(connectorType) {
-    var databaseTypes = {
-        'mysql': [
-            'TINYINT', 'SMALLINT', 'MEDIUMINT', 'INT', 'INTEGER', 'BIGINT',
-            'FLOAT', 'DOUBLE', 'DECIMAL', 'NUMERIC', 'REAL',
-            'BIT', 'BOOLEAN',
-            'CHAR', 'VARCHAR', 'TINYTEXT', 'TEXT', 'MEDIUMTEXT', 'LONGTEXT',
-            'BINARY', 'VARBINARY', 'TINYBLOB', 'BLOB', 'MEDIUMBLOB', 'LONGBLOB',
-            'ENUM', 'SET',
-            'DATE', 'TIME', 'DATETIME', 'TIMESTAMP', 'YEAR',
-            'JSON'
-        ],
-        'sqlserver': [
-            'BIGINT', 'BIT', 'DECIMAL', 'INT', 'MONEY', 'NUMERIC', 'SMALLINT', 'SMALLMONEY', 'TINYINT',
-            'FLOAT', 'REAL',
-            'DATE', 'DATETIME', 'DATETIME2', 'DATETIMEOFFSET', 'SMALLDATETIME', 'TIME',
-            'CHAR', 'VARCHAR', 'TEXT',
-            'NCHAR', 'NVARCHAR', 'NTEXT',
-            'BINARY', 'VARBINARY', 'IMAGE',
-            'UNIQUEIDENTIFIER', 'XML'
-        ],
-        'oracle': [
-            'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE',
-            'CHAR', 'VARCHAR2', 'NCHAR', 'NVARCHAR2', 'CLOB', 'NCLOB', 'LONG',
-            'DATE', 'TIMESTAMP', 'TIMESTAMP WITH TIME ZONE', 'TIMESTAMP WITH LOCAL TIME ZONE',
-            'RAW', 'LONG RAW', 'BLOB', 'BFILE',
-            'ROWID', 'UROWID', 'XMLTYPE'
-        ],
-        'postgresql': [
-            'SMALLINT', 'INTEGER', 'BIGINT', 'DECIMAL', 'NUMERIC', 'REAL', 'DOUBLE PRECISION',
-            'CHARACTER', 'CHAR', 'CHARACTER VARYING', 'VARCHAR', 'TEXT',
-            'BYTEA',
-            'TIMESTAMP', 'TIMESTAMP WITH TIME ZONE', 'TIMESTAMP WITHOUT TIME ZONE',
-            'DATE', 'TIME', 'TIME WITH TIME ZONE', 'TIME WITHOUT TIME ZONE', 'INTERVAL',
-            'BOOLEAN', 'UUID', 'XML', 'JSON', 'JSONB'
-        ],
-        'sqlite': [
-            'INTEGER', 'REAL', 'TEXT', 'BLOB', 'NUMERIC'
-        ]
-    };
-    return databaseTypes[connectorType] || databaseTypes['mysql'];
-}
-
 function findJDBCTypeCodeByName(typeName) {
     var typeMap = {
         'VARCHAR': 12, 'NVARCHAR': -9, 'CHAR': 1, 'NCHAR': -15,
@@ -2601,16 +2552,6 @@ function getConfigLabel(key) {
         'schema': 'Schema'
     };
     return labels[key] || key;
-}
-
-function escapeHtml(str) {
-    if (str === null || str === undefined) return '';
-    if (typeof str !== 'string') {
-        str = String(str);
-    }
-    var div = document.createElement('div');
-    div.appendChild(document.createTextNode(str));
-    return div.innerHTML;
 }
 
 function loadLogTypeOptions() {
