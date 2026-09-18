@@ -73,7 +73,7 @@ function loadBatchFieldTypes() {
             var targetSrc = $targetImg.attr('src');
             var match = targetSrc.match(/\/img\/([^.]+)\.png/);
             if (match && match[1]) {
-                connectorType = match[1].toLowerCase();
+                connectorType = toLowerCaseInvariant(match[1]);
             }
         }
     }
@@ -108,7 +108,7 @@ function findJDBCTypeCodeByName(typeName) {
         'SERIAL': 4, 'BIGSERIAL': -5,
         'MONEY': 2, 'IMAGE': -4, 'UNIQUEIDENTIFIER': 1
     };
-    return typeMap[typeName.toUpperCase()] || 12;
+    return typeMap[toUpperCaseInvariant(typeName)] || 12;
 }
 
 function submitBatchConvertConfig() {
@@ -184,7 +184,7 @@ function submitBatchConvertConfig() {
                             var oldPK = existingPKs.filter(function(s) { return s; }).join(',') || "(无)";
                             // 去重：只显示实际新增的字段（不区分大小写）
                             var pkArray = (oldPK === "(无)") ? [] : oldPK.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s; });
-                            var exists = pkArray.some(function(pk) { return pk.toLowerCase() === targetFieldName.toLowerCase(); });
+                            var exists = containsIgnoreCase(pkArray, targetFieldName);
                             if (!exists) {
                                 pkArray.push(targetFieldName);
                             }
@@ -344,7 +344,7 @@ function addConvertToSingleTableGroup(tableGroup, convertConfig, targetFieldName
     // 前端检查：转换配置是否重复（基于字段名 + 转换类型，不区分大小写）
     var exists = false;
     for (var i = 0; i < converts.length; i++) {
-        if (converts[i].name.toLowerCase() === targetFieldName.toLowerCase() && converts[i].convertCode === convertConfig.convertType) {
+        if (equalsIgnoreCase(converts[i].name, targetFieldName) && converts[i].convertCode === convertConfig.convertType) {
             exists = true;
             break;
         }
@@ -400,7 +400,7 @@ function addConvertToSingleTableGroup(tableGroup, convertConfig, targetFieldName
         var existingPKs = (tableGroup.targetTable && tableGroup.targetTable.primaryKeys) ? tableGroup.targetTable.primaryKeys : [];
         var pkArray = existingPKs.map(function(s) { return typeof s === 'string' ? s.trim() : ''; }).filter(function(s) { return s; });
         // 不区分大小写检查是否已存在
-        var exists = pkArray.some(function(pk) { return pk.toLowerCase() === targetFieldName.toLowerCase(); });
+        var exists = containsIgnoreCase(pkArray, targetFieldName);
         if (!exists) {
             pkArray.push(targetFieldName);
         }

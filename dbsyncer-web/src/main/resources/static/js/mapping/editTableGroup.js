@@ -7,17 +7,15 @@ function getBackendPKs() {
     return pkStr ? pkStr.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s; }) : [];
 }
 
-// 大小写不敏感的数组包含判断
-function containsIgnoreCase(arr, val) {
-    var lower = val.toLowerCase();
-    return arr.some(function(item) { return item.toLowerCase() === lower; });
-}
+// 大小写不敏感的数组包含判断：统一使用 common.js 的 containsIgnoreCase。
+// 原先这里有一份同名本地实现，会在表组编辑页遮蔽 common.js 的版本；它既不安全
+// （val/arr 为空即抛异常）也违反 AGENTS.md 的大小写规约（直接调 toLowerCase），故删除。
 
 // 大小写不敏感去重，保留首次出现顺序
 function dedupIgnoreCase(arr) {
     var seen = {};
     return arr.filter(function(item) {
-        var key = item.toLowerCase();
+        var key = toLowerCaseInvariant(item);
         if (seen[key]) return false;
         seen[key] = true;
         return true;
@@ -220,10 +218,9 @@ function bindFieldMappingListClick(){
         const backendPKs = getBackendPKs();
         let tempPKs = tempData ? tempData.tempPKs.slice() : backendPKs.slice();
 
-        const targetFieldLower = targetField.toLowerCase();
         let idx = -1;
         for (let i = 0; i < tempPKs.length; i++) {
-            if (tempPKs[i].toLowerCase() === targetFieldLower) { idx = i; break; }
+            if (equalsIgnoreCase(tempPKs[i], targetField)) { idx = i; break; }
         }
         if (idx >= 0) {
             tempPKs.splice(idx, 1);

@@ -320,6 +320,75 @@ $.fn.serializeJson = function () {
     return o;
 };
 
+// ******************* 字符串工具（ADR-0008 大小写不敏感）*******************
+//
+// 业务代码禁止直接调用 .toLowerCase() / .toUpperCase() / 手写大小写无关比较：
+// 这两个方法跟随宿主默认 locale，而土耳其语等 locale 下 ASCII 的 'I'/'i' 折叠结果不同
+// （'I'.toLowerCase() === '\u0131'）。SQL 类型名、连接器类型、字段名都是 ASCII 标识符，
+// 一旦折叠错就会静默查表失败或漏配主键，很难排查。
+// 下面这几个函数是前端唯一的入口，语义与 Java 侧
+// org.dbsyncer.common.util.StringUtil#equalsIgnoreCase 对齐（两侧皆空为 true，单侧为空为 false）。
+
+/** ASCII 大小写位移：offset 为 +32（转小写）或 -32（转大写）。不使用任何 locale 相关 API。 */
+function foldAsciiCase(text, offset) {
+    var from = offset > 0 ? 65 : 97;   // 'A' 或 'a'
+    var to = offset > 0 ? 90 : 122;    // 'Z' 或 'z'
+    var out = '';
+    for (var i = 0; i < text.length; i++) {
+        var code = text.charCodeAt(i);
+        out += (code >= from && code <= to) ? String.fromCharCode(code + offset) : text.charAt(i);
+    }
+    return out;
+}
+
+/**
+ * 折叠为小写。null/undefined 返回空串。
+ * ASCII 段先做确定性位移（不依赖 locale），非 ASCII 段再交给带显式 locale 的
+ * toLocaleLowerCase；老浏览器忽略 locale 参数、退化为默认 locale 时，
+ * 会出问题的 ASCII 'I'/'i' 也已经在上一步处理完了。
+ */
+function toLowerCaseInvariant(value) {
+    if (value === null || value === undefined) {
+        return '';
+    }
+    return foldAsciiCase(String(value), 32).toLocaleLowerCase('en-US');
+}
+
+/** 折叠为大写。规则同 toLowerCaseInvariant。 */
+function toUpperCaseInvariant(value) {
+    if (value === null || value === undefined) {
+        return '';
+    }
+    return foldAsciiCase(String(value), -32).toLocaleUpperCase('en-US');
+}
+
+/** 大小写无关比较，null/undefined 安全。字段名、表名、主键名比较一律走这里。 */
+function equalsIgnoreCase(a, b) {
+    if (a === b) {
+        return true;                   // 含两侧同为 null/undefined
+    }
+    if (a === null || a === undefined || b === null || b === undefined) {
+        return false;
+    }
+    return toLowerCaseInvariant(a) === toLowerCaseInvariant(b);
+}
+
+/**
+ * 列表中是否存在与 name 大小写无关相等的元素。
+ * 对应后端 TableGroup#containsPrimaryKey（ADR-0008 把主键判重收敛到业务对象层）。
+ */
+function containsIgnoreCase(list, name) {
+    if (!list || !list.length) {
+        return false;
+    }
+    for (var i = 0; i < list.length; i++) {
+        if (equalsIgnoreCase(list[i], name)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // ==================== SPA 页面加载（ADR-0032）====================
 //
 // 设计约束：页面之间不共享任何状态。每次导航都会
