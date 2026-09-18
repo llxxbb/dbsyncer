@@ -93,10 +93,6 @@ cd dbsyncer-common && mvn test
 
 Default: 5005 (can conflict). Check `application.properties` for `server.port` and Java agent settings.
 
-## Frontend Rules
-
-[前端开发规范](doc/agents/frontEndRole.md)
-
 ## 字符串比较
 
 **禁止**直接调用 `.toLowerCase()` / `.toUpperCase()` / `.equalsIgnoreCase()`。使用 `StringUtil.equalsIgnoreCase()` 或 `field.matchesName()`（ADR-0008）。

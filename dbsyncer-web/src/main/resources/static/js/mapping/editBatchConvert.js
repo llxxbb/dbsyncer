@@ -38,10 +38,6 @@ function initBatchConvertConfig() {
         }
     });
     
-    $('input[name="applyScope"]').on('change', function() {
-        updateBatchConvertCounts();
-    });
-    
     $('#batchConvertConfigBtn').on('click', function() {
         var selectedIds = getCheckedBoxSize($('.tableGroupCheckbox'));
         if (selectedIds.length === 0) {
@@ -59,10 +55,10 @@ function initBatchConvertConfig() {
 }
 
 function updateBatchConvertCounts() {
+    // 弹窗底部只展示「已选中 N 个映射关系」（#selectedCount）。
+    // 原先还往 #allTableGroupCount 写总数，但任何模板里都没有这个元素，属于死写入，已删除。
     var selectedCount = getCheckedBoxSize($('.tableGroupCheckbox')).length;
-    var totalCount = $('.tableGroupCheckbox').length;
     $('#selectedCount').text(selectedCount);
-    $('#allTableGroupCount').text(totalCount);
 }
 
 function loadBatchFieldTypes() {
@@ -369,14 +365,15 @@ function addConvertToSingleTableGroup(tableGroup, convertConfig, targetFieldName
         converts.push(newConvert);
     }
     
-    // ADR-0011: FieldMapping.source/target 现在是 String（字段名），不再持有 Field 对象
+    // ADR-0011: FieldMapping 的传输格式只有 source/target 两个字段名（字符串），不再持有
+    // Field 对象；后端 TableGroupChecker.setFieldMapping() 与 FieldMapping 的反序列化器
+    // 也都只读这两个键，因此这里不再携带 pk（主键另由 targetTablePK 参数传递）。
     var fieldMappingData = [];
     if (tableGroup.fieldMapping) {
         tableGroup.fieldMapping.forEach(function(fm) {
             fieldMappingData.push({
-                source: (typeof fm.source === 'string') ? fm.source : (fm.source ? fm.source.name : ""),
-                target: (typeof fm.target === 'string') ? fm.target : (fm.target ? fm.target.name : ""),
-                pk: (typeof fm.target === 'object' && fm.target !== null) ? fm.target.pk : false
+                source: fm.source || "",
+                target: fm.target || ""
             });
         });
     }
@@ -385,8 +382,7 @@ function addConvertToSingleTableGroup(tableGroup, convertConfig, targetFieldName
     if (!exists) {
         fieldMappingData.push({
             source: "",
-            target: targetFieldName,
-            pk: setTempPK
+            target: targetFieldName
         });
     }
     
