@@ -184,7 +184,7 @@ function submitBatchConvertConfig() {
                             var oldPK = existingPKs.filter(function(s) { return s; }).join(',') || "(无)";
                             // 去重：只显示实际新增的字段（不区分大小写）
                             var pkArray = (oldPK === "(无)") ? [] : oldPK.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s; });
-                            var exists = containsIgnoreCase(pkArray, targetFieldName);
+                            var exists = containsNameIgnoreCase(pkArray, targetFieldName);
                             if (!exists) {
                                 pkArray.push(targetFieldName);
                             }
@@ -400,7 +400,7 @@ function addConvertToSingleTableGroup(tableGroup, convertConfig, targetFieldName
         var existingPKs = (tableGroup.targetTable && tableGroup.targetTable.primaryKeys) ? tableGroup.targetTable.primaryKeys : [];
         var pkArray = existingPKs.map(function(s) { return typeof s === 'string' ? s.trim() : ''; }).filter(function(s) { return s; });
         // 不区分大小写检查是否已存在
-        var exists = containsIgnoreCase(pkArray, targetFieldName);
+        var exists = containsNameIgnoreCase(pkArray, targetFieldName);
         if (!exists) {
             pkArray.push(targetFieldName);
         }

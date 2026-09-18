@@ -293,10 +293,11 @@ class DualListSelector {
             return;
         }
 
-        const keywords = keyword.toLowerCase().split(',').map(k => k.trim()).filter(k => k);
+        // 两端统一用 ASCII 折叠（common.js），比较结果不受浏览器 locale 影响
+        const keywords = toLowerCaseInvariant(keyword).split(',').map(k => k.trim()).filter(k => k);
         $list.find('li').each(function() {
-            const text = $(this).text().toLowerCase();
-            const displayName = $(this).data('id').toString().toLowerCase();
+            const text = toLowerCaseInvariant($(this).text());
+            const displayName = toLowerCaseInvariant($(this).data('id'));
             let match;
             if (mode === 'exact') {
                 match = keywords.some(k => displayName === k);

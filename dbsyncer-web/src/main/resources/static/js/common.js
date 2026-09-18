@@ -374,10 +374,14 @@ function equalsIgnoreCase(a, b) {
 }
 
 /**
- * 列表中是否存在与 name 大小写无关相等的元素。
+ * 列表中是否存在与 name 大小写无关相等的元素（list 必须是数组/类数组）。
  * 对应后端 TableGroup#containsPrimaryKey（ADR-0008 把主键判重收敛到业务对象层）。
+ *
+ * 命名警示：Java 侧 StringUtil#containsIgnoreCase(str, searchStr) 是「子串包含」语义，
+ * 与本函数不同，故这里刻意不叫 containsIgnoreCase。子串忽略大小写请显式写
+ * toLowerCaseInvariant(haystack).indexOf(toLowerCaseInvariant(needle))。
  */
-function containsIgnoreCase(list, name) {
+function containsNameIgnoreCase(list, name) {
     if (!list || !list.length) {
         return false;
     }

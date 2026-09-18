@@ -372,7 +372,7 @@
             return;
         }
 
-        var keyword = (params.keyword || '').toLowerCase();
+        var keyword = toLowerCaseInvariant(params.keyword);
         var state = params.state;
         var sourceType = params.sourceConnectorType;
         var targetType = params.targetConnectorType;
@@ -392,7 +392,8 @@
             var target = task.targetConnector || {};
 
             // 关键词匹配（任务名称）
-            if (keyword && (task.name || '').toLowerCase().indexOf(keyword) === -1) {
+            // 子串包含：两端都用 toLowerCaseInvariant 折叠，keyword 已在上方折叠过
+            if (keyword && toLowerCaseInvariant(task.name).indexOf(keyword) === -1) {
                 continue;
             }
 

@@ -37,8 +37,8 @@ function renderPKStatus() {
 
         $pkCell.find('.temp-pk-container').empty();
 
-        var isBackendPK = containsIgnoreCase(backendPKs, targetField);
-        var isTempPK = containsIgnoreCase(tempPKs, targetField);
+        var isBackendPK = containsNameIgnoreCase(backendPKs, targetField);
+        var isTempPK = containsNameIgnoreCase(tempPKs, targetField);
 
         if (isBackendPK && isTempPK) {
         } else if (isBackendPK && !isTempPK) {
@@ -78,7 +78,7 @@ function reconcileBackendPKIcons(backendPKs) {
         var targetField = $(this).find('td:eq(1)').text().trim();
         var $backendIcon = $(this).find('.backend-pk-icon');
 
-        if (containsIgnoreCase(backendPKs, targetField)) {
+        if (containsNameIgnoreCase(backendPKs, targetField)) {
             if ($backendIcon.length === 0) {
                 $(this).find('.temp-pk-container').before(
                     '<i title="后端主键（已保存）" class="fa fa-key fa-fw fa-rotate-90 text-warning backend-pk-icon"></i>'
@@ -129,7 +129,7 @@ function initFieldMappingParams(){
         row.push({
             "source":$(this).find("td:eq(0)").text(),
             "target":targetField,
-            "pk": containsIgnoreCase(pkArray, targetField)
+            "pk": containsNameIgnoreCase(pkArray, targetField)
         });
     });
     
@@ -531,7 +531,7 @@ function bindFieldMappingAddClick(){
                     let tempData = TempPKManager.load(tgId);
                     let backendPKs = getBackendPKs();
                     let tempPKs = tempData ? tempData.tempPKs.slice() : backendPKs.slice();
-                    if (!containsIgnoreCase(tempPKs, tField)) {
+                    if (!containsNameIgnoreCase(tempPKs, tField)) {
                         tempPKs.push(tField);
                         TempPKManager.save(tgId, tempPKs);
                         $('#targetTablePK').val(tempPKs.join(','));
@@ -772,8 +772,8 @@ function updatePrimaryKeyMarkers(pkString) {
         let targetField = $(this).find('td:eq(1)').text().trim();
         let $pkCell = $(this).find('td:eq(2)');
         
-        var isBackendPK = containsIgnoreCase(backendPKs, targetField);
-        var isTempPK = containsIgnoreCase(pkArray, targetField);
+        var isBackendPK = containsNameIgnoreCase(backendPKs, targetField);
+        var isTempPK = containsNameIgnoreCase(pkArray, targetField);
         
         $pkCell.find('.temp-pk-container').empty();
         $pkCell.find('.backend-pk-icon').removeClass('backend-pk-cancelled');
