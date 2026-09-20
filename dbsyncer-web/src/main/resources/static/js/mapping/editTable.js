@@ -278,7 +278,7 @@ function updateTableGroups(mappingId, total, successCount, failCount) {
                         var currentTime = new Date().getTime();
                         // 如果最后同步时间超过5秒，则显示0条/秒
                         var isActive = (currentTime - lastSyncTime <= 5000);
-                        var speedDisplay = isActive ? (currentSpeed.toFixed(0) + " 条/秒") : "0 条/秒";
+                        var speedDisplay = isActive ? currentSpeed.toFixed(0) : "0";
 
                         // 累加有效速度
                         if (isActive) {

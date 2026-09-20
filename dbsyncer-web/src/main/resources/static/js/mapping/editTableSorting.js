@@ -8,7 +8,7 @@
  *   - jQuery $
  *   - localStorage        排序状态，键名 tableGroupSorting_<mappingId>
  *   - #mappingId          取任务 id 拼存储键
- *   - #tableGroupProgress 被排序的表格；仅第 2/3/4 列（同步数量/状态/速度）可排序
+ *   - #tableGroupProgress 被排序的表格；仅第 2/4 列（同步数量/速度）可排序
  *
  * 入向调用点（唯一）：edit.js 的 updateTableGroups() 在渲染完表格行后调用
  * addTableSorting()。它在函数体内、运行时解析，与脚本加载顺序无关。
@@ -62,7 +62,7 @@ function addTableSorting() {
     // 为表头添加排序功能
     headers.each(function(index) {
         // 只为需要排序的列添加排序功能
-        if (index === 2 || index === 3 || index === 4) { // 同步数量、同步状态、同步速度
+        if (index === 2 || index === 4) { // 同步数量、同步速度
             var header = $(this);
             header.css('cursor', 'pointer');
             header.addClass('sortable');
@@ -106,7 +106,7 @@ function restoreSortingState(table) {
         var header = headers.eq(state.columnIndex);
         
         // 检查是否是可排序的列
-        if (header.length && (state.columnIndex === 2 || state.columnIndex === 3 || state.columnIndex === 4)) {
+        if (header.length && (state.columnIndex === 2 || state.columnIndex === 4)) {
             // 更新表头状态
             headers.each(function() {
                 $(this).data('sort', '');
@@ -128,8 +128,10 @@ function sortTable(table, columnIndex, direction) {
     
     // 排序行
     rows.sort(function(a, b) {
-        var aVal = $(a).find('td').eq(columnIndex).data('sort') || $(a).find('td').eq(columnIndex).text();
-        var bVal = $(b).find('td').eq(columnIndex).data('sort') || $(b).find('td').eq(columnIndex).text();
+        var aSortAttr = $(a).find('td').eq(columnIndex).data('sort');
+        var bSortAttr = $(b).find('td').eq(columnIndex).data('sort');
+        var aVal = (aSortAttr !== undefined && aSortAttr !== null) ? aSortAttr : $(a).find('td').eq(columnIndex).text();
+        var bVal = (bSortAttr !== undefined && bSortAttr !== null) ? bSortAttr : $(b).find('td').eq(columnIndex).text();
         
         // 转换为数字进行比较
         if (!isNaN(aVal) && !isNaN(bVal)) {
