@@ -72,7 +72,6 @@ function doMappingSubmit() {
     }
 }
 
-// updateProgressChart 改进版
 // 切换到指定的映射关系标签页
 function nextToMapping(str) {
     const $baseConfigLink = $('a[href="#' + str + '"]');

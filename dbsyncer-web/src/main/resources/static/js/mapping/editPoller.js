@@ -1,18 +1,17 @@
 /**
- * 轮询/状态/进度图表模块（从 edit.js 拆出，Stage 8）
+ * 轮询/状态模块（从 edit.js 拆出，Stage 8）
  *
- * 职责：任务编辑页的状态轮询、进度图表渲染、耗时显示更新——
+ * 职责：任务编辑页的状态轮询、耗时显示更新——
  *       定期从后端获取任务状态并更新页面显示（状态/进度/耗时/速度/表组进度），
- *       使用 Chart.js 渲染环形进度图，每秒刷新耗时显示。
+ *       每秒刷新耗时显示。
  *
  * 依赖（全部是全局，不是模块内定义）：
  *   - jQuery $
- *   - Chart                     chart.js 插件
  *   - pageGuard / isPageAlive   common.js（ADR-0032 页面代际守卫）
  *   - doGetWithoutLoading       common.js
  *   - bootGrowl                 common.js
- *   - getCheckedBoxSize         edit.js（运行时调用，在轮询回调内）
- *   - updateTableGroups         edit.js（运行时调用，在轮询回调内）
+ *   - getCheckedBoxSize         editTable.js（运行时调用，在轮询回调内）
+ *   - updateTableGroups         editTable.js（运行时调用，在轮询回调内）
  *
  * 导出（全局变量，供其他模块使用）：
  *   - currentMappingId    当前任务ID，editLog.js 读取
@@ -27,48 +26,6 @@
  *   但由于它只依赖 pageGuard/isPageAlive/renderDuration（本模块内定义），
  *   不依赖 edit.js 的任何内容，所以前置加载安全。
  */
-
-// 更新进度图表
-function updateProgressChart(total, success, fail) {
-    const $canvas = $('#progressChart');
-    if ($canvas.length === 0) return;
-
-    const canvas = $canvas[0];
-    const ctx = canvas.getContext('2d');
-    const progress = total > 0 ? (success + fail) / total : 0;
-
-    let chart = Chart.getChart(canvas);
-    if (chart) {
-        chart.data.datasets[0].data[0] = progress;
-        chart.update();
-    } else {
-        new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                datasets: [{
-                    data: [progress, 1 - progress],
-                    backgroundColor: ['#3498db', 'rgba(255, 255, 255, 0.2)'],
-                    borderColor: '#3498db',
-                    borderWidth: 5,
-                    cutout: '70%'
-                }]
-            },
-            options: {
-                responsive: false,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { enabled: false }
-                },
-                animation: {
-                    animateRotate: true,
-                    animateScale: true
-                }
-            }
-        });
-    }
-}
-
 
 // 全局变量，用于保存当前任务ID
 var currentMappingId = null;
@@ -254,9 +211,6 @@ function getMappping(id) {
                                             $("#progressText").text("0%");
                                         }
                                     }
-                                    // 重新绘制环形图
-                                    updateProgressChart(total, successCount, failCount);
-
                                     $("#metaModel").html('<p>总数:</p>' + '<span class="highlight-number total-color">'+total+'</span>');
 
                                     if (successCount > 0) {
