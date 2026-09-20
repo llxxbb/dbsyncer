@@ -269,10 +269,15 @@ function renderDuration() {
     } else if (totalSeconds < 3600) {
         var minutes = Math.floor(totalSeconds / 60);
         $span.text(minutes + '分' + (totalSeconds - minutes * 60) + '秒');
-    } else {
+    } else if (totalSeconds < 86400) {
         var hours = Math.floor(totalSeconds / 3600);
         var minutes = Math.floor((totalSeconds - hours * 3600) / 60);
         $span.text(hours + '时' + minutes + '分' + (totalSeconds - hours * 3600 - minutes * 60) + '秒');
+    } else {
+        var days = Math.floor(totalSeconds / 86400);
+        var hours = Math.floor((totalSeconds - days * 86400) / 3600);
+        var minutes = Math.floor((totalSeconds - days * 86400 - hours * 3600) / 60);
+        $span.text(days + '天' + hours + '时' + minutes + '分');
     }
 }
 
