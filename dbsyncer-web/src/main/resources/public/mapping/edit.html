@@ -448,22 +448,36 @@
 <script th:src="@{/js/components/dualListSelector.js}"></script>
 <!-- 从 edit.js 拆出的模块。加载顺序是有约束的，改前先读各模块文件头：
 
-     【必须在 edit.js 之前】editConnectorDetail.js / editErrorQueue.js / editBatchConvert.js
+     【必须在 edit.js 之前】editConnectorDetail.js / editErrorQueue.js / editBatchConvert.js / editTableSelector.js / editFieldDiff.js / editOperationButtons.js / editTable.js
        edit.js 的 ready 块在求值期就会直接调用 bindConnectorDetailBtnClick()、
-       initErrorQueue()（classOn=3 时）和 initBatchConvertConfig()，而 SPA 外壳里
-       jQuery 的 ready 回调是同步执行的，晚加载会 ReferenceError。三者都只有函数
-       声明、无顶层可执行语句、也不写任何全局变量，前置安全。
+       initErrorQueue()（classOn=3 时）、initBatchConvertConfig()、
+       bindTableSelect()、bindMultipleSelectFilterBtnClick()、bindEditPageOperationButtons()、
+       bindMappingTableGroupCheckBoxClick()、bindMappingTableGroupListClick()、
+       bindMappingTableGroupDelClick()、bindMappingTableGroupResyncClick()、bindRefreshTablesClick()，
+       而 SPA 外壳里 jQuery 的 ready 回调是同步执行的，晚加载会 ReferenceError。
+       editFieldDiff.js 含有顶层 $(document).on('fieldDiffConfigChanged', ...) 事件注册，
+       也需前置。七者都只有函数声明或事件注册、不写任何全局变量，前置安全。
 
-     【必须在 edit.js 之后】editLog.js
-       它的 ready 块要写 edit.js 声明的 currentMappingId，早于 edit.js 的 var
+     【必须在 editPoller.js 之后】editLog.js
+       它的 ready 块要写 editPoller.js 声明的 currentMappingId，早于 editPoller.js 的 var
        初始化会被覆盖成 null。
 
-     【顺序无关】editTableSorting.js
-       与 edit.js 只在 AJAX 回调里互调（updateTableGroups → addTableSorting），
-       运行时解析。 -->
+     【顺序无关】editTableSorting.js / editCopy.js
+       editTableSorting.js 与 edit.js 只在 AJAX 回调里互调（updateTableGroups → addTableSorting），
+       运行时解析。editCopy.js 的 showCopyMappingDialog 在 click 回调内调用，
+       运行时解析，加载顺序无严格要求。
+     -->
 <script th:src="@{/js/mapping/editConnectorDetail.js}"></script>
 <script th:src="@{/js/mapping/editErrorQueue.js}"></script>
 <script th:src="@{/js/mapping/editBatchConvert.js}"></script>
+<script th:src="@{/js/mapping/editTableSelector.js}"></script>
+<script th:src="@{/js/mapping/editFieldDiff.js}"></script>
+<script th:src="@{/js/mapping/editOperationButtons.js}"></script>
+<script th:src="@{/js/mapping/editTable.js}"></script>
+<script th:src="@{/js/mapping/editRename.js}"></script>
+<script th:src="@{/js/mapping/editCreateTable.js}"></script>
+<script th:src="@{/js/mapping/editCopy.js}"></script>
+<script th:src="@{/js/mapping/editPoller.js}"></script>
 <script th:src="@{/js/mapping/edit.js}"></script>
 <script th:src="@{/js/mapping/editLog.js}"></script>
 <script th:src="@{/js/mapping/editTableSorting.js}"></script>
