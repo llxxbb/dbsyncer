@@ -14,7 +14,6 @@ public class ConfigEncryptorTest {
         // 通过反射创建测试实例
         ConfigEncryptor encryptor = createTestEncryptor("test-secret-key-123");
         assertNotNull(encryptor);
-        assertTrue(encryptor.isAvailable());
 
         String plaintext = "my-secret-password";
         String encrypted = encryptor.encrypt(plaintext);

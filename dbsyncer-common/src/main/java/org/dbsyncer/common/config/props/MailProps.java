@@ -83,7 +83,7 @@ public class MailProps implements Serializable, EnvironmentLoadable {
     @JsonIgnore
     public List<SensitiveField> getSensitiveFields() {
         return Collections.singletonList(
-            new SensitiveField("mail.password", () -> password, v -> this.password = v)
+            SensitiveField.secret("mail.password", () -> password, v -> this.password = v)
         );
     }
 }

@@ -88,13 +88,6 @@ public class ConfigEncryptor {
     }
 
     /**
-     * 是否可用（始终可用，因为有缺省值）。
-     */
-    public boolean isAvailable() {
-        return keyBytes != null;
-    }
-
-    /**
      * 获取密钥来源描述（脱敏）。
      */
     public String getKeySource() {
@@ -174,8 +167,7 @@ public class ConfigEncryptor {
             System.arraycopy(hash, 0, keyBytes, 0, 16);
             return keyBytes;
         } catch (Exception e) {
-            logger.error("密钥派生失败: {}", e.getMessage());
-            return null;
+            throw new IllegalStateException("密钥派生失败: " + e.getMessage(), e);
         }
     }
 }

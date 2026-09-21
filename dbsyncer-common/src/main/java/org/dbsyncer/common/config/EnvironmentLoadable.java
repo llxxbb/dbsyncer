@@ -2,10 +2,13 @@ package org.dbsyncer.common.config;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.dbsyncer.common.config.props.ConfigEntry;
+import org.dbsyncer.common.util.JsonUtil;
 import org.springframework.core.env.Environment;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Props 统一契约：自加载 + 自描述 + 敏感字段声明。
@@ -44,8 +47,9 @@ public interface EnvironmentLoadable {
      * <p>
      * 用于：
      * <ul>
-     *   <li>存储加密：序列化前对敏感字段加密</li>
-     *   <li>存储解密：反序列化后对敏感字段解密</li>
+     *   <li>存储加密：序列化前对 secret 型字段加密</li>
+     *   <li>存储解密：反序列化后对 secret 型字段解密</li>
+     *   <li>展示掩码：forDisplay() 对所有声明字段执行掩码</li>
      *   <li>保存保护：前端传回掩码值时保留原值</li>
      * </ul>
      * <p>
@@ -61,14 +65,27 @@ public interface EnvironmentLoadable {
     /**
      * 返回用于展示的安全副本（敏感字段已掩码）。
      * <p>
-     * 默认返回 this（不掩码）。需要掩码的 Props 应覆写此方法，
-     * 返回深拷贝并将敏感字段替换为掩码值。
+     * 默认实现：JSON 深拷贝 → 遍历 {@link #getSensitiveFields()} → 逐字段掩码。
+     * 各 Props 无需手写 forDisplay()，只要正确声明 getSensitiveFields() 即可自动获得。
+     * <p>
+     * 无敏感字段时返回 this（避免无谓的序列化开销）。
      *
-     * @return 掩码后的副本，或 this（如果不需掩码）
+     * @return 掩码后的副本，或 this（如果没有敏感字段）
      */
     @JsonIgnore
     default EnvironmentLoadable forDisplay() {
-        return this;
+        List<SensitiveField> fields = getSensitiveFields();
+        if (fields.isEmpty()) {
+            return this;
+        }
+        // JSON 深拷贝：副本的 getSensitiveFields() 会创建新的 SensitiveField 实例指向副本字段
+        String json = JsonUtil.objToJson(this);
+        EnvironmentLoadable copy = JsonUtil.jsonToObj(json, this.getClass());
+        // 对副本的敏感字段执行掩码
+        for (SensitiveField field : copy.getSensitiveFields()) {
+            field.mask();
+        }
+        return copy;
     }
 
     /**
@@ -81,5 +98,37 @@ public interface EnvironmentLoadable {
      */
     default List<String> validate() {
         return Collections.emptyList();
+    }
+
+    /**
+     * 恢复 incoming 中未修改的敏感字段：从 existing 中按字段名匹配，回填原值。
+     * <p>
+     * 通用机制，适用于任何 {@link EnvironmentLoadable}：
+     * <ul>
+     *   <li>系统级 Tab 保存（editTab）</li>
+     *   <li>分组级配置保存（saveGroupNotifyConfig）</li>
+     * </ul>
+     * <p>
+     * "未修改"的判定由 {@link SensitiveField#isUnchanged()} 负责。
+     *
+     * @param incoming 前端传入的 Props（可能包含掩码值/空值）
+     * @param existing 数据库中的现有 Props（明文）
+     */
+    static void restoreMaskedFields(EnvironmentLoadable incoming, EnvironmentLoadable existing) {
+        if (incoming == null || existing == null) {
+            return;
+        }
+        Map<String, SensitiveField> exMap = new HashMap<>();
+        for (SensitiveField f : existing.getSensitiveFields()) {
+            exMap.put(f.getName(), f);
+        }
+        for (SensitiveField inField : incoming.getSensitiveFields()) {
+            if (inField.isUnchanged()) {
+                SensitiveField exField = exMap.get(inField.getName());
+                if (exField != null && exField.getValue() != null) {
+                    inField.setValue(exField.getValue());
+                }
+            }
+        }
     }
 }

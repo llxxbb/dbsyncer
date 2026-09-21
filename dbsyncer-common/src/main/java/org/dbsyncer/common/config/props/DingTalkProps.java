@@ -83,7 +83,7 @@ public class DingTalkProps implements Serializable, EnvironmentLoadable {
     @JsonIgnore
     public List<SensitiveField> getSensitiveFields() {
         return Collections.singletonList(
-            new SensitiveField("dingtalk.secret", () -> secret, v -> this.secret = v)
+            SensitiveField.secret("dingtalk.secret", () -> secret, v -> this.secret = v)
         );
     }
 }

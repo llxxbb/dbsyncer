@@ -266,9 +266,6 @@ public class SystemConfig extends ConfigModel {
      * @param encryptor 加密器
      */
     public void encryptSensitiveFields(ConfigEncryptor encryptor) {
-        if (encryptor == null || !encryptor.isAvailable()) {
-            return;
-        }
         for (SystemTabEnum tab : SystemTabEnum.values()) {
             EnvironmentLoadable props = tab.getProps(this);
             if (props != null) {
@@ -287,9 +284,6 @@ public class SystemConfig extends ConfigModel {
      * @param encryptor 加密器
      */
     public void decryptSensitiveFields(ConfigEncryptor encryptor) {
-        if (encryptor == null || !encryptor.isAvailable()) {
-            return;
-        }
         for (SystemTabEnum tab : SystemTabEnum.values()) {
             EnvironmentLoadable props = tab.getProps(this);
             if (props != null) {
@@ -303,6 +297,8 @@ public class SystemConfig extends ConfigModel {
     /**
      * 恢复指定 Tab 的被掩码敏感字段。
      * 用于 editTab 场景：只编辑单个 Tab，无需遍历所有 Tab。
+     * <p>
+     * 委托给 {@link EnvironmentLoadable#restoreMaskedFields} 通用实现。
      *
      * @param tabEnum 当前编辑的 Tab
      * @param incoming 前端传入的 Tab 级 Props（可能包含掩码值）
@@ -315,25 +311,6 @@ public class SystemConfig extends ConfigModel {
             return;
         }
         EnvironmentLoadable exProps = tabEnum.getProps(existing);
-        if (exProps != null) {
-            restoreMaskedFields(incoming.getSensitiveFields(), exProps.getSensitiveFields());
-        }
-    }
-
-    private void restoreMaskedFields(java.util.List<SensitiveField> incoming,
-                                     java.util.List<SensitiveField> existing) {
-        java.util.Map<String, SensitiveField> exMap = new java.util.HashMap<>();
-        for (SensitiveField f : existing) {
-            exMap.put(f.getName(), f);
-        }
-        for (SensitiveField inField : incoming) {
-            // 前端未输入新值（空字符串）时，保留原值
-            if (inField.isUnchanged()) {
-                SensitiveField exField = exMap.get(inField.getName());
-                if (exField != null && exField.getValue() != null) {
-                    inField.setValue(exField.getValue());
-                }
-            }
-        }
+        EnvironmentLoadable.restoreMaskedFields(incoming, exProps);
     }
 }

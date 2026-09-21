@@ -2,7 +2,10 @@ package org.dbsyncer.common.config.props;
 
 import org.dbsyncer.common.config.ConfigKeys;
 import org.dbsyncer.common.config.EnvironmentLoadable;
+import org.dbsyncer.common.config.SensitiveField;
 import org.springframework.core.env.Environment;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -63,5 +66,25 @@ public class StorageConnectionProps implements Serializable, EnvironmentLoadable
         entries.add(new ConfigEntry(ConfigKeys.STORAGE_MYSQL_PASSWORD, mysqlPassword, true));
         entries.add(new ConfigEntry(ConfigKeys.STORAGE_MYSQL_DRIVER_CLASS_NAME, mysqlDriverClassName));
         return entries;
+    }
+
+    /**
+     * 声明敏感字段：
+     * <ul>
+     *   <li>mysqlUrl / mysqlUsername：display-mask 型，不加密，展示时部分遮盖</li>
+     *   <li>mysqlPassword：secret 型，加密存储，展示时全掩码</li>
+     * </ul>
+     */
+    @Override
+    @JsonIgnore
+    public List<SensitiveField> getSensitiveFields() {
+        List<SensitiveField> fields = new ArrayList<>();
+        fields.add(SensitiveField.displayMask("storageConn.mysqlUrl",
+                () -> mysqlUrl, v -> this.mysqlUrl = v, SensitiveField::maskIp));
+        fields.add(SensitiveField.displayMask("storageConn.mysqlUsername",
+                () -> mysqlUsername, v -> this.mysqlUsername = v, SensitiveField::maskUsername));
+        fields.add(SensitiveField.secret("storageConn.mysqlPassword",
+                () -> mysqlPassword, v -> this.mysqlPassword = v));
+        return fields;
     }
 }

@@ -83,9 +83,7 @@ public class ConfigBootstrap {
                 // 加密后写入 DB
                 SystemConfig toStore = JsonUtil.jsonToObj(
                         JsonUtil.objToJson(systemConfig), SystemConfig.class);
-                if (encryptor != null && encryptor.isAvailable()) {
-                    toStore.encryptSensitiveFields(encryptor);
-                }
+                toStore.encryptSensitiveFields(encryptor);
                 profileComponent.addConfigModel(toStore);
                 // 用写入后的副本重新初始化 Registry
                 configRegistry.onDbConfigChanged(systemConfig);
@@ -95,9 +93,7 @@ public class ConfigBootstrap {
             }
         } else {
             // 3. 解密敏感字段（如果加密了的话）
-            if (encryptor != null && encryptor.isAvailable()) {
-                systemConfig.decryptSensitiveFields(encryptor);
-            }
+            systemConfig.decryptSensitiveFields(encryptor);
         }
 
         // 3. 配置迁移（首次启动会跳过，因为 schemaVersion 已经是当前版本）
@@ -135,11 +131,7 @@ public class ConfigBootstrap {
         
         // 显示加密密钥来源
         ConfigEncryptor encryptor = ConfigEncryptor.getInstance();
-        if (encryptor != null && encryptor.isAvailable()) {
-            sb.append("  敏感配置加密：已启用（密钥来源：").append(encryptor.getKeySource()).append("）\n");
-        } else {
-            sb.append("  敏感配置加密：未启用\n");
-        }
+        sb.append("  敏感配置加密：已启用（密钥来源：").append(encryptor.getKeySource()).append("）\n");
         
         sb.append("═══════════════════════════════════════════════════════════════════════════════");
 

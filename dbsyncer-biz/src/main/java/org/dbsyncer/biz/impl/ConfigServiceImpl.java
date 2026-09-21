@@ -81,10 +81,7 @@ public class ConfigServiceImpl implements ConfigService {
     @Override
     @Deprecated
     public String edit(Map<String, String> params) throws Exception {
-        SystemConfig cfg = getSystemConfig();
-        BeanUtils.copyProperties(params, cfg);
-        profileComponent.editConfigModel(cfg);
-        return "修改成功.";
+        return "未实现";
     }
 
     @Override
@@ -187,14 +184,10 @@ public class ConfigServiceImpl implements ConfigService {
 
         // ① DB 落库（加密存储）
         ConfigEncryptor encryptor = ConfigEncryptor.getInstance();
-        if (encryptor != null && encryptor.isAvailable()) {
-            // 再深拷贝一份用于加密存储，避免加密污染 cfg
-            SystemConfig toStore = JsonUtil.jsonToObj(JsonUtil.objToJson(cfg), SystemConfig.class);
-            toStore.encryptSensitiveFields(encryptor);
-            profileComponent.editConfigModel(toStore);
-        } else {
-            profileComponent.editConfigModel(cfg);
-        }
+        // 再深拷贝一份用于加密存储，避免加密污染 cfg
+        SystemConfig toStore = JsonUtil.jsonToObj(JsonUtil.objToJson(cfg), SystemConfig.class);
+        toStore.encryptSensitiveFields(encryptor);
+        profileComponent.editConfigModel(toStore);
 
         // ② 通知 Registry 重新合并（cfg 此时是干净的待存副本，不是 live 引用）
         configRegistry.onDbConfigChanged(cfg);
@@ -262,11 +255,10 @@ public class ConfigServiceImpl implements ConfigService {
         StorageConnectionProps storageConn = config.getStorageConn();
         if (storageConn != null) {
             info.put("storageType", storageConn.getType() != null ? storageConn.getType() : "disk");
-            // 数据库信息脱敏
-            String dbUrl = storageConn.getMysqlUrl() != null ? storageConn.getMysqlUrl() : "";
-            info.put("databaseUrl", maskIp(dbUrl));
-            String dbUser = storageConn.getMysqlUsername() != null ? storageConn.getMysqlUsername() : "";
-            info.put("databaseUsername", maskUsername(dbUser));
+            // 数据库信息脱敏：走通用 forDisplay() 机制
+            StorageConnectionProps display = (StorageConnectionProps) storageConn.forDisplay();
+            info.put("databaseUrl", display.getMysqlUrl() != null ? display.getMysqlUrl() : "");
+            info.put("databaseUsername", display.getMysqlUsername() != null ? display.getMysqlUsername() : "");
             // 密码不展示
         }
 
@@ -330,34 +322,11 @@ public class ConfigServiceImpl implements ConfigService {
         }
     }
 
-    /**
-     * IP 段脱敏
-     */
-    private String maskIp(String url) {
-        if (StringUtil.isBlank(url)) {
-            return url;
-        }
-        // 简单脱：将 jdbc:mysql://xxx:port 中的 IP 段替换为 ***
-        return url.replaceAll("(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})", "***.***.***.***");
-    }
-
-    /**
-     * 用户名脱敏
-     */
-    private String maskUsername(String username) {
-        if (StringUtil.isBlank(username) || username.length() <= 4) {
-            return "****";
-        }
-        return username.substring(0, 4) + "****";
-    }
-
     @Override
     public synchronized void editSystemConfig(SystemConfig config) throws Exception {
         // 加密敏感字段
         ConfigEncryptor encryptor = ConfigEncryptor.getInstance();
-        if (encryptor != null && encryptor.isAvailable()) {
-            config.encryptSensitiveFields(encryptor);
-        }
+        config.encryptSensitiveFields(encryptor);
         // 持久化
         profileComponent.editConfigModel(config);
         // 通知 ConfigRegistry 配置已变更
@@ -387,7 +356,7 @@ public class ConfigServiceImpl implements ConfigService {
         // 如果已存在配置，且新配置的密码/secret 为空，保留原值
         NotifyProps existing = configs.get(projectGroupId);
         if (existing != null && incoming != null) {
-            restoreEmptySensitiveFields(incoming, existing);
+            EnvironmentLoadable.restoreMaskedFields(incoming, existing);
         }
 
         configs.put(projectGroupId, incoming);
@@ -405,19 +374,4 @@ public class ConfigServiceImpl implements ConfigService {
         editSystemConfig(toStore);
     }
 
-    /**
-     * 恢复空的敏感字段（密码、secret）
-     */
-    private void restoreEmptySensitiveFields(NotifyProps incoming, NotifyProps existing) {
-        if (incoming.getMail() != null && existing.getMail() != null) {
-            if (StringUtil.isBlank(incoming.getMail().getPassword())) {
-                incoming.getMail().setPassword(existing.getMail().getPassword());
-            }
-        }
-        if (incoming.getDingtalk() != null && existing.getDingtalk() != null) {
-            if (StringUtil.isBlank(incoming.getDingtalk().getSecret())) {
-                incoming.getDingtalk().setSecret(existing.getDingtalk().getSecret());
-            }
-        }
-    }
 }
