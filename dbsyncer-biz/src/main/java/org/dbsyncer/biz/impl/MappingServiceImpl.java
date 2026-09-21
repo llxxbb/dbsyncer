@@ -19,10 +19,13 @@ import org.dbsyncer.manager.ManagerFactory;
 import org.dbsyncer.parser.*;
 import org.dbsyncer.parser.service.MappingModelService;
 import org.dbsyncer.parser.service.MetaService;
+import org.dbsyncer.sdk.notify.NotifyConfigResolver;
 import org.dbsyncer.sdk.notify.NotifyType;
 import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
+import org.dbsyncer.sdk.spi.MessageService;
+import org.dbsyncer.sdk.storage.StorageService;
 import org.dbsyncer.sdk.enums.MetaEnum;
 import org.dbsyncer.parser.model.*;
 import org.dbsyncer.common.model.ConfigModel;
@@ -36,6 +39,7 @@ import org.dbsyncer.sdk.enums.StorageEnum;
 import org.dbsyncer.sdk.enums.TableTypeEnum;
 import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.common.config.SnowflakeIdWorker;
+import org.dbsyncer.common.config.props.NotifyProps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
@@ -105,10 +109,13 @@ public class MappingServiceImpl implements MappingService {
     private ProjectGroupService projectGroupService;
 
     @Resource
-    private org.dbsyncer.sdk.storage.StorageService storageService;
+    private StorageService storageService;
 
     @Resource
-    private org.dbsyncer.sdk.spi.MessageService messageService;
+    private MessageService messageService;
+
+    @Resource
+    private NotifyConfigResolver notifyConfigResolver;
 
     @Override
     public String add(Map<String, String> params) throws Exception {
@@ -412,7 +419,8 @@ public class MappingServiceImpl implements MappingService {
             msg.append("**操作类型**: 停止任务\n\n");
             msg.append("**Mapping ID**: ").append(mappingId).append("\n\n");
             msg.append("**任务名称**: ").append(mapping.getName()).append("\n\n");
-            messageService.sendMessage("dbsyncer", msg.toString(), NotifyType.MANUAL_OPERATION);
+            NotifyProps props = notifyConfigResolver.resolve(mappingId);
+            messageService.sendMessage("dbsyncer", msg.toString(), NotifyType.MANUAL_OPERATION, props);
         }
         return "任务停止成功";
     }
@@ -802,7 +810,8 @@ public class MappingServiceImpl implements MappingService {
             msg.append("**操作类型**: 重置任务\n\n");
             msg.append("**Mapping ID**: ").append(mappingId).append("\n\n");
             msg.append("**任务名称**: ").append(mapping.getName()).append("\n\n");
-            messageService.sendMessage("dbsyncer", msg.toString(), NotifyType.MANUAL_OPERATION);
+            NotifyProps props = notifyConfigResolver.resolve(mappingId);
+            messageService.sendMessage("dbsyncer", msg.toString(), NotifyType.MANUAL_OPERATION, props);
         }
         if (!StringUtil.equals(mapping.getModel(), ModelEnum.INCREMENT.getCode())) {
             submitMappingCountTask(mapping);
@@ -827,7 +836,7 @@ public class MappingServiceImpl implements MappingService {
             return;
         }
 
-        org.dbsyncer.sdk.spi.ConnectorService<?, ?> targetConnectorService = connectorFactory
+        ConnectorService targetConnectorService = (ConnectorService) connectorFactory
                 .getConnectorService(targetConnector.getConfig().getConnectorType());
 
         // 只支持数据库类型的连接器执行 TRUNCATE

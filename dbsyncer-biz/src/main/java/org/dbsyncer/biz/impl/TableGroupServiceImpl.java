@@ -21,6 +21,8 @@ import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.manager.ManagerFactory;
+import org.dbsyncer.sdk.notify.NotifyConfigResolver;
+import org.dbsyncer.common.config.props.NotifyProps;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.spi.MessageService;
@@ -79,6 +81,9 @@ public class TableGroupServiceImpl implements TableGroupService {
 
     @Resource
     private MessageService messageService;
+
+    @Resource
+    private NotifyConfigResolver notifyConfigResolver;
 
     @Resource
     private FullSyncExecutor parserComponent;
@@ -695,8 +700,9 @@ public class TableGroupServiceImpl implements TableGroupService {
             profileComponent.editConfigModel(mapping);
 
             String model = org.dbsyncer.sdk.enums.ModelEnum.getModelEnum(mapping.getModel()).getName();
+            NotifyProps props = notifyConfigResolver.resolve(mappingId);
             this.messageService.sendMessage("重新同步", String.format("手动重新同步驱动：%s(%s)，共 %d 个表映射关系",
-                    mapping.getName(), model, tableGroupsToReset.size()));
+                    mapping.getName(), model, tableGroupsToReset.size()), null, props);
 
             // 传递要同步的 TableGroup 列表，实现选择性同步
             managerFactory.start(mapping, tableGroupsToReset);

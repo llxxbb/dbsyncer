@@ -28,6 +28,7 @@ import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.listener.Listener;
 import org.dbsyncer.sdk.model.ConnectorConfig;
+import org.dbsyncer.sdk.notify.NotifyConfigResolver;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.model.TableGroupQuartzCommand;
@@ -66,6 +67,9 @@ public final class IncrementPuller implements Puller {
 
     @Resource
     private MessageService messageService;
+
+    @Resource
+    private NotifyConfigResolver notifyConfigResolver;
 
     @Resource
     private ProfileComponent profileComponent;
@@ -183,6 +187,7 @@ public final class IncrementPuller implements Puller {
             meta.getId(), 
             list, 
             messageService,
+            notifyConfigResolver,
             onClose  // 传递顶层关闭回调
         );
         listener.register(consumer);

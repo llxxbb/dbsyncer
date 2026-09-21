@@ -12,6 +12,8 @@ import org.dbsyncer.common.config.SystemTabEnum;
 import org.dbsyncer.common.config.props.*;
 import org.dbsyncer.common.constant.ConfigConstant;
 
+import java.util.Map;
+
 /**
  * 系统配置。
  * <p>
@@ -78,6 +80,14 @@ public class SystemConfig extends ConfigModel {
 
     /** Tab 5 通知通道，null=未覆盖 */
     private NotifyProps notify;
+
+    /**
+     * 分组通知配置（ADR-0035）
+     * <p>
+     * key = projectGroupId → 该分组的独立配置
+     * key = "__unassigned__" → 未分配分组的独立配置
+     */
+    private Map<String, NotifyProps> groupNotifyConfigs;
 
     /** Tab 6 错误处理，null=未覆盖 */
     private ErrorProps error;
@@ -200,6 +210,14 @@ public class SystemConfig extends ConfigModel {
 
     public void setNotify(NotifyProps notify) {
         this.notify = notify;
+    }
+
+    public Map<String, NotifyProps> getGroupNotifyConfigs() {
+        return groupNotifyConfigs;
+    }
+
+    public void setGroupNotifyConfigs(Map<String, NotifyProps> groupNotifyConfigs) {
+        this.groupNotifyConfigs = groupNotifyConfigs;
     }
 
     public ErrorProps getError() {

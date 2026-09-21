@@ -16,6 +16,7 @@
         <li role="presentation"><a href="#tab-buffers" data-toggle="tab">缓冲区 <span class="text-info" title="修改后自动热重载">⟳</span></a></li>
         <li role="presentation"><a href="#tab-retry" data-toggle="tab">重试策略</a></li>
         <li role="presentation"><a href="#tab-notify" data-toggle="tab">通知通道</a></li>
+        <li role="presentation"><a href="#tab-group-notify" data-toggle="tab">分组通知</a></li>
         <li role="presentation"><a href="#tab-error" data-toggle="tab">错误队列</a></li>
         <li role="presentation"><a href="#tab-monitor" data-toggle="tab">监控定时任务</a></li>
         <li role="presentation"><a href="#tab-template" data-toggle="tab">模板引擎</a></li>
@@ -501,6 +502,104 @@
             </form>
         </div>
 
+    </div>
+</div>
+
+<!-- Tab: 分组通知配置 -->
+<div role="tabpanel" class="tab-pane" id="tab-group-notify">
+    <div class="row" style="margin-top:10px;">
+        <!-- 左侧：分组列表 -->
+        <div class="col-sm-4">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <div class="input-group input-group-sm">
+                        <input type="text" class="form-control" id="groupNotifyFilter" placeholder="搜索分组...">
+                        <span class="input-group-btn">
+                            <button class="btn btn-default" type="button" id="btnRefreshGroups"><i class="fa fa-refresh"></i></button>
+                        </span>
+                    </div>
+                    <div style="margin-top:5px;">
+                        <span class="label label-pill label-default group-filter-btn" data-filter="all" style="cursor:pointer;margin-right:3px;">全部</span>
+                        <span class="label label-pill label-success group-filter-btn" data-filter="configured" style="cursor:pointer;margin-right:3px;">已配置</span>
+                        <span class="label label-pill label-warning group-filter-btn" data-filter="unconfigured" style="cursor:pointer;">未配置</span>
+                    </div>
+                </div>
+                <div class="panel-body" style="max-height:500px;overflow-y:auto;padding:0;">
+                    <ul class="list-group" id="groupNotifyList" style="margin-bottom:0;"></ul>
+                </div>
+            </div>
+        </div>
+        <!-- 右侧：配置表单 -->
+        <div class="col-sm-8">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <span id="groupNotifyTitle">请选择分组</span>
+                    <input type="hidden" id="groupNotifyId">
+                </div>
+                <div class="panel-body">
+                    <form id="groupNotifyForm" class="form-horizontal" role="form">
+                        <div class="form-group">
+                            <label class="col-sm-2 control-label">启用通道</label>
+                            <div class="col-sm-10">
+                                <label class="checkbox-inline"><input type="checkbox" name="gn_channels" value="mail"> 邮件</label>
+                                <label class="checkbox-inline"><input type="checkbox" name="gn_channels" value="dingtalk"> 钉钉</label>
+                            </div>
+                        </div>
+                        <!-- 邮件配置 -->
+                        <div id="gn_mail_section" style="display:none;">
+                            <div class="form-group">
+                                <label class="col-sm-2 control-label">发件邮箱</label>
+                                <div class="col-sm-4">
+                                    <input type="text" class="form-control" name="gn_mail_username" placeholder="留空使用全局配置"/>
+                                </div>
+                                <label class="col-sm-2 control-label">密码</label>
+                                <div class="col-sm-4">
+                                    <input type="password" class="form-control" name="gn_mail_password" placeholder="留空保留原值"/>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="col-sm-2 control-label">通知类型</label>
+                                <div class="col-sm-10" id="gn_mail_types">
+                                    <label class="checkbox-inline"><input type="checkbox" name="gn_mail_types" value="MANUAL_OPERATION"> 手动操作</label>
+                                    <label class="checkbox-inline"><input type="checkbox" name="gn_mail_types" value="TASK_INTERRUPTED"> 任务中断</label>
+                                    <label class="checkbox-inline"><input type="checkbox" name="gn_mail_types" value="DDL"> DDL事件</label>
+                                    <label class="checkbox-inline"><input type="checkbox" name="gn_mail_types" value="TARGET_EXCEPTION"> 目标异常</label>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- 钉钉配置 -->
+                        <div id="gn_dingtalk_section" style="display:none;">
+                            <div class="form-group">
+                                <label class="col-sm-2 control-label">Webhook URL</label>
+                                <div class="col-sm-4">
+                                    <input type="text" class="form-control" name="gn_dingtalk_webhookUrl" placeholder="留空使用全局配置"/>
+                                </div>
+                                <label class="col-sm-2 control-label">Secret</label>
+                                <div class="col-sm-4">
+                                    <input type="password" class="form-control" name="gn_dingtalk_secret" placeholder="留空保留原值"/>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="col-sm-2 control-label">通知类型</label>
+                                <div class="col-sm-10" id="gn_dingtalk_types">
+                                    <label class="checkbox-inline"><input type="checkbox" name="gn_dingtalk_types" value="MANUAL_OPERATION"> 手动操作</label>
+                                    <label class="checkbox-inline"><input type="checkbox" name="gn_dingtalk_types" value="TASK_INTERRUPTED"> 任务中断</label>
+                                    <label class="checkbox-inline"><input type="checkbox" name="gn_dingtalk_types" value="DDL"> DDL事件</label>
+                                    <label class="checkbox-inline"><input type="checkbox" name="gn_dingtalk_types" value="TARGET_EXCEPTION"> 目标异常</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <div class="col-sm-offset-2 col-sm-10">
+                                <button type="button" class="btn btn-default" id="btnTestGroupNotify">测试</button>
+                                <button type="button" class="btn btn-primary" id="btnSaveGroupNotify">保存</button>
+                                <button type="button" class="btn btn-danger" id="btnDeleteGroupNotify">删除</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 

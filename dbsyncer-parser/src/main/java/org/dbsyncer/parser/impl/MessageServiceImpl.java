@@ -1,22 +1,23 @@
 package org.dbsyncer.parser.impl;
 
+import org.dbsyncer.common.config.props.NotifyProps;
 import org.dbsyncer.common.util.StringUtil;
-import org.dbsyncer.sdk.spi.MessageService;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.model.UserConfig;
 import org.dbsyncer.sdk.notify.NotifyMessage;
-import org.dbsyncer.sdk.notify.NotifyType;
 import org.dbsyncer.sdk.notify.NotifyService;
-import org.springframework.stereotype.Component;
-
+import org.dbsyncer.sdk.notify.NotifyType;
+import org.dbsyncer.sdk.spi.MessageService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Component;
+
 import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Component
 public class MessageServiceImpl implements MessageService {
@@ -35,11 +36,21 @@ public class MessageServiceImpl implements MessageService {
 
     @Override
     public void sendMessage(String title, String content) {
-        sendMessage(title, content, null);
+        sendMessage(title, content, null, null);
     }
 
     @Override
     public void sendMessage(String title, String content, NotifyType type) {
+        sendMessage(title, content, type, null);
+    }
+
+    /**
+     * 发送消息（带事件类型和通知配置）
+     * <p>
+     * ADR-0035：支持分组通知配置，调用方负责解析配置，MessageService 不耦合分组逻辑
+     */
+    @Override
+    public void sendMessage(String title, String content, NotifyType type, NotifyProps props) {
         if (notifyService == null) {
             return;
         }
@@ -62,7 +73,9 @@ public class MessageServiceImpl implements MessageService {
                 .setReceivers(mails)
                 .setType(type);
         logger.info("发送通知消息：{}", msg.getContent());
-        notifyService.sendMessage(msg);
+
+        // ADR-0035：使用传入的 props 发送
+        notifyService.sendMessage(msg, props);
     }
 
 }

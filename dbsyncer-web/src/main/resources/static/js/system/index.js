@@ -311,4 +311,253 @@ $(function () {
     // 开关切换
     $('#basic_enableWatermark').change(toggleWatermark);
     $('#basic_enableStorageWriteFail').change(toggleStorageErrorLength);
+
+    // 分组通知配置
+    initGroupNotify();
 });
+
+// ===== 分组通知配置 =====
+
+var groupNotifyConfigs = {};
+var projectGroups = [];
+var currentGroupFilter = 'all';
+
+function initGroupNotify() {
+    loadGroupNotifyConfigs();
+    loadProjectGroups();
+
+    // 通道复选框切换
+    $(document).on('change', 'input[name="gn_channels"]', function() {
+        var mailChecked = $('input[name="gn_channels"][value="mail"]').is(':checked');
+        var dingtalkChecked = $('input[name="gn_channels"][value="dingtalk"]').is(':checked');
+        $('#gn_mail_section').toggle(mailChecked);
+        $('#gn_dingtalk_section').toggle(dingtalkChecked);
+    });
+
+    // 过滤器
+    $(document).on('click', '.group-filter-btn', function() {
+        currentGroupFilter = $(this).data('filter');
+        renderGroupNotifyList();
+    });
+
+    // 搜索
+    $(document).on('input', '#groupNotifyFilter', function() {
+        renderGroupNotifyList();
+    });
+
+    // 刷新
+    $(document).on('click', '#btnRefreshGroups', function() {
+        loadGroupNotifyConfigs();
+        loadProjectGroups();
+    });
+
+    // 保存
+    $(document).on('click', '#btnSaveGroupNotify', function() {
+        saveGroupNotifyConfig();
+    });
+
+    // 删除
+    $(document).on('click', '#btnDeleteGroupNotify', function() {
+        deleteGroupNotifyConfig();
+    });
+
+    // 测试
+    $(document).on('click', '#btnTestGroupNotify', function() {
+        testGroupNotify();
+    });
+}
+
+function loadGroupNotifyConfigs() {
+    $.ajax({
+        url: '/system/groupNotifyConfigs',
+        type: 'GET',
+        success: function(res) {
+            if (res.code === '200') {
+                groupNotifyConfigs = res.data || {};
+                renderGroupNotifyList();
+            }
+        }
+    });
+}
+
+function loadProjectGroups() {
+    $.ajax({
+        url: '/projectGroup/list',
+        type: 'GET',
+        success: function(res) {
+            if (res.code === '200') {
+                projectGroups = res.data || [];
+                renderGroupNotifyList();
+            }
+        }
+    });
+}
+
+function renderGroupNotifyList() {
+    var filter = $('#groupNotifyFilter').val().toLowerCase();
+    var $list = $('#groupNotifyList');
+    $list.empty();
+
+    // 添加“未分配”项
+    var unassignedConfigured = groupNotifyConfigs['__unassigned__'] != null;
+    if (currentGroupFilter === 'all' || (currentGroupFilter === 'configured' && unassignedConfigured) || (currentGroupFilter === 'unconfigured' && !unassignedConfigured)) {
+        if (!filter || '未分配分组'.toLowerCase().indexOf(filter) >= 0) {
+            var label = unassignedConfigured ? 'label-success' : 'label-default';
+            $list.append('<li class="list-group-item group-notify-item" data-id="__unassigned__" style="cursor:pointer;">' +
+                '<span class="label ' + label + '" style="margin-right:5px;">●</span> 未分配分组</li>');
+        }
+    }
+
+    // 添加分组
+    for (var i = 0; i < projectGroups.length; i++) {
+        var g = projectGroups[i];
+        var name = g.name || g.id;
+        var configured = groupNotifyConfigs[g.id] != null;
+
+        if (currentGroupFilter === 'configured' && !configured) continue;
+        if (currentGroupFilter === 'unconfigured' && configured) continue;
+        if (filter && name.toLowerCase().indexOf(filter) < 0) continue;
+
+        var label = configured ? 'label-success' : 'label-default';
+        $list.append('<li class="list-group-item group-notify-item" data-id="' + g.id + '" style="cursor:pointer;">' +
+            '<span class="label ' + label + '" style="margin-right:5px;">●</span> ' + name + '</li>');
+    }
+}
+
+$(document).on('click', '.group-notify-item', function() {
+    var id = $(this).data('id');
+    selectGroup(id);
+});
+
+function selectGroup(id) {
+    $('#groupNotifyId').val(id);
+    var name = id === '__unassigned__' ? '未分配分组' : '';
+    for (var i = 0; i < projectGroups.length; i++) {
+        if (projectGroups[i].id === id) {
+            name = projectGroups[i].name || projectGroups[i].id;
+            break;
+        }
+    }
+    $('#groupNotifyTitle').text('配置分组：' + name);
+
+    // 填充表单
+    var config = groupNotifyConfigs[id];
+    $('input[name="gn_channels"]').prop('checked', false);
+    $('input[name="gn_mail_types"]').prop('checked', false);
+    $('input[name="gn_dingtalk_types"]').prop('checked', false);
+    $('input[name="gn_mail_username"]').val('');
+    $('input[name="gn_mail_password"]').val('');
+    $('input[name="gn_dingtalk_webhookUrl"]').val('');
+    $('input[name="gn_dingtalk_secret"]').val('');
+
+    if (config) {
+        var channels = config.channels || [];
+        for (var i = 0; i < channels.length; i++) {
+            $('input[name="gn_channels"][value="' + channels[i] + '"]').prop('checked', true);
+        }
+        if (config.mail) {
+            $('input[name="gn_mail_username"]').val(config.mail.username || '');
+            var types = config.mail.notifyTypes || [];
+            for (var i = 0; i < types.length; i++) {
+                $('input[name="gn_mail_types"][value="' + types[i] + '"]').prop('checked', true);
+            }
+        }
+        if (config.dingtalk) {
+            $('input[name="gn_dingtalk_webhookUrl"]').val(config.dingtalk.webhookUrl || '');
+            var types = config.dingtalk.notifyTypes || [];
+            for (var i = 0; i < types.length; i++) {
+                $('input[name="gn_dingtalk_types"][value="' + types[i] + '"]').prop('checked', true);
+            }
+        }
+    }
+
+    // 触发通道切换
+    $('input[name="gn_channels"]').trigger('change');
+}
+
+function buildGroupNotifyPayload() {
+    var channels = [];
+    $('input[name="gn_channels"]:checked').each(function() { channels.push($(this).val()); });
+
+    var payload = { channels: channels };
+
+    if (channels.indexOf('mail') >= 0) {
+        var mail = {};
+        var username = $('input[name="gn_mail_username"]').val();
+        var password = $('input[name="gn_mail_password"]').val();
+        if (username) mail.username = username;
+        if (password) mail.password = password;
+        var types = [];
+        $('input[name="gn_mail_types"]:checked').each(function() { types.push($(this).val()); });
+        if (types.length > 0) mail.notifyTypes = types;
+        payload.mail = mail;
+    }
+
+    if (channels.indexOf('dingtalk') >= 0) {
+        var dingtalk = {};
+        var webhookUrl = $('input[name="gn_dingtalk_webhookUrl"]').val();
+        var secret = $('input[name="gn_dingtalk_secret"]').val();
+        if (webhookUrl) dingtalk.webhookUrl = webhookUrl;
+        if (secret) dingtalk.secret = secret;
+        var types = [];
+        $('input[name="gn_dingtalk_types"]:checked').each(function() { types.push($(this).val()); });
+        if (types.length > 0) dingtalk.notifyTypes = types;
+        payload.dingtalk = dingtalk;
+    }
+
+    return JSON.stringify(payload);
+}
+
+function saveGroupNotifyConfig() {
+    var id = $('#groupNotifyId').val();
+    if (!id) { alert('请选择分组'); return; }
+    var payload = buildGroupNotifyPayload();
+    $.ajax({
+        url: '/system/saveGroupNotifyConfig',
+        type: 'POST',
+        data: { projectGroupId: id, payload: payload },
+        success: function(res) {
+            if (res.code === '200') {
+                alert('保存成功');
+                loadGroupNotifyConfigs();
+            } else {
+                alert('保存失败：' + res.msg);
+            }
+        }
+    });
+}
+
+function deleteGroupNotifyConfig() {
+    var id = $('#groupNotifyId').val();
+    if (!id) { alert('请选择分组'); return; }
+    if (!confirm('确定删除该分组的通知配置？')) return;
+    $.ajax({
+        url: '/system/deleteGroupNotifyConfig',
+        type: 'POST',
+        data: { projectGroupId: id },
+        success: function(res) {
+            if (res.code === '200') {
+                alert('删除成功');
+                loadGroupNotifyConfigs();
+            } else {
+                alert('删除失败：' + res.msg);
+            }
+        }
+    });
+}
+
+function testGroupNotify() {
+    var payload = buildGroupNotifyPayload();
+    $.ajax({
+        url: '/system/testGroupNotify',
+        type: 'POST',
+        data: { payload: payload },
+        success: function(res) {
+            if (res.code === '200') {
+                alert('测试消息已发送');
+            } else {
+                alert('测试失败：' + res.msg);
+            }
+        }
+    });
+}

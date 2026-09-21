@@ -3,6 +3,7 @@ package org.dbsyncer.parser.error;
 import org.dbsyncer.common.config.ConfigRegistry;
 import org.dbsyncer.common.config.listener.ConfigChangeListener;
 import org.dbsyncer.common.config.props.ErrorProps;
+import org.dbsyncer.common.config.props.NotifyProps;
 import org.dbsyncer.common.model.Paging;
 import org.dbsyncer.common.model.SystemConfig;
 import org.dbsyncer.common.retry.KeywordMatcher;
@@ -24,6 +25,7 @@ import org.dbsyncer.sdk.filter.Query;
 import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.sdk.model.TableGroup;
+import org.dbsyncer.sdk.notify.NotifyConfigResolver;
 import org.dbsyncer.sdk.notify.NotifyType;
 import org.dbsyncer.sdk.storage.StorageService;
 import org.dbsyncer.storage.enums.StorageDataStatusEnum;
@@ -57,6 +59,9 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector, ConfigChang
 
     @Resource
     private MessageService messageService;
+
+    @Resource
+    private NotifyConfigResolver notifyConfigResolver;
 
     @Resource
     private SnowflakeIdWorker snowflakeIdWorker;
@@ -229,7 +234,8 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector, ConfigChang
         msg.append("**目标表**: ").append(targetTableName).append("\n\n");
         msg.append("**失败数量**: ").append(failCount).append(" 条\n\n");
         msg.append("**错误原因**: ").append(errorMsg);
-        messageService.sendMessage("dbsyncer", msg.toString(), notifyType);
+        NotifyProps props = notifyConfigResolver.resolve(mappingId);
+        messageService.sendMessage("dbsyncer", msg.toString(), notifyType, props);
     }
 
     @Override

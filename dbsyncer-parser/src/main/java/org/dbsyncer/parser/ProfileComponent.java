@@ -104,6 +104,14 @@ public interface ProfileComponent {
     List<ProjectGroup> getProjectGroupAll();
 
     /**
+     * 查找 mappingId 所属的分组 ID
+     *
+     * @param mappingId 映射 ID
+     * @return 分组 ID，未找到返回 null
+     */
+    String findProjectGroupId(String mappingId);
+
+    /**
      * 根据ID获取用户组
      *
      * @param id

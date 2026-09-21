@@ -8,7 +8,9 @@ import org.dbsyncer.sdk.enums.MetaEnum;
 import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.sdk.model.TableGroup;
+import org.dbsyncer.sdk.notify.NotifyConfigResolver;
 import org.dbsyncer.sdk.notify.NotifyType;
+import org.dbsyncer.common.config.props.NotifyProps;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.slf4j.Logger;
@@ -36,6 +38,9 @@ public class ManagerFactory {
 
     @Resource
     private MessageService messageService;
+
+    @Resource
+    private NotifyConfigResolver notifyConfigResolver;
 
     @Resource
     private Map<String, Puller> map;
@@ -83,7 +88,8 @@ public class ManagerFactory {
             msg.append("**Mapping ID**: ").append(mappingId).append("\n\n");
             msg.append("**任务名称**: ").append(mappingName).append("\n\n");
             msg.append("**错误原因**: ").append(e.getMessage());
-            messageService.sendMessage("dbsyncer", msg.toString(), NotifyType.TASK_INTERRUPTED);
+            NotifyProps props = notifyConfigResolver.resolve(mappingId);
+            messageService.sendMessage("dbsyncer", msg.toString(), NotifyType.TASK_INTERRUPTED, props);
             
             throw new ManagerException(e.getMessage());
         }

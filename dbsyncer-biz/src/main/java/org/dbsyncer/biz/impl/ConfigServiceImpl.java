@@ -13,6 +13,7 @@ import org.dbsyncer.common.config.ConfigEncryptor;
 import org.dbsyncer.common.config.EnvironmentLoadable;
 import org.dbsyncer.common.config.SystemTabEnum;
 import org.dbsyncer.common.config.props.*;
+import org.dbsyncer.common.config.props.NotifyProps;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.NetworkUtil;
@@ -348,5 +349,75 @@ public class ConfigServiceImpl implements ConfigService {
             return "****";
         }
         return username.substring(0, 4) + "****";
+    }
+
+    @Override
+    public synchronized void editSystemConfig(SystemConfig config) throws Exception {
+        // 加密敏感字段
+        ConfigEncryptor encryptor = ConfigEncryptor.getInstance();
+        if (encryptor != null && encryptor.isAvailable()) {
+            config.encryptSensitiveFields(encryptor);
+        }
+        // 持久化
+        profileComponent.editConfigModel(config);
+        // 通知 ConfigRegistry 配置已变更
+        configRegistry.onDbConfigChanged(config);
+    }
+
+    @Override
+    public Map<String, NotifyProps> getGroupNotifyConfigs() {
+        SystemConfig config = configRegistry.getConfig();
+        Map<String, NotifyProps> configs = config.getGroupNotifyConfigs();
+        return configs != null ? configs : Collections.emptyMap();
+    }
+
+    @Override
+    public synchronized void saveGroupNotifyConfig(String projectGroupId, String payload) throws Exception {
+        SystemConfig config = configRegistry.getConfig();
+        // 深拷贝
+        SystemConfig toStore = JsonUtil.jsonToObj(JsonUtil.objToJson(config), SystemConfig.class);
+        Map<String, NotifyProps> configs = toStore.getGroupNotifyConfigs();
+        if (configs == null) {
+            configs = new HashMap<>();
+            toStore.setGroupNotifyConfigs(configs);
+        }
+
+        NotifyProps incoming = JsonUtil.jsonToObj(payload, NotifyProps.class);
+
+        // 如果已存在配置，且新配置的密码/secret 为空，保留原值
+        NotifyProps existing = configs.get(projectGroupId);
+        if (existing != null && incoming != null) {
+            restoreEmptySensitiveFields(incoming, existing);
+        }
+
+        configs.put(projectGroupId, incoming);
+        editSystemConfig(toStore);
+    }
+
+    @Override
+    public synchronized void deleteGroupNotifyConfig(String projectGroupId) throws Exception {
+        SystemConfig config = configRegistry.getConfig();
+        SystemConfig toStore = JsonUtil.jsonToObj(JsonUtil.objToJson(config), SystemConfig.class);
+        Map<String, NotifyProps> configs = toStore.getGroupNotifyConfigs();
+        if (configs != null) {
+            configs.remove(projectGroupId);
+        }
+        editSystemConfig(toStore);
+    }
+
+    /**
+     * 恢复空的敏感字段（密码、secret）
+     */
+    private void restoreEmptySensitiveFields(NotifyProps incoming, NotifyProps existing) {
+        if (incoming.getMail() != null && existing.getMail() != null) {
+            if (StringUtil.isBlank(incoming.getMail().getPassword())) {
+                incoming.getMail().setPassword(existing.getMail().getPassword());
+            }
+        }
+        if (incoming.getDingtalk() != null && existing.getDingtalk() != null) {
+            if (StringUtil.isBlank(incoming.getDingtalk().getSecret())) {
+                incoming.getDingtalk().setSecret(existing.getDingtalk().getSecret());
+            }
+        }
     }
 }

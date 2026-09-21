@@ -53,7 +53,21 @@ public class CompositeNotifyService implements NotifyService {
 
     @Override
     public void sendMessage(NotifyMessage notifyMessage) {
-        List<String> channels = getChannels();
+        sendMessage(notifyMessage, configRegistry.getConfig().getNotify());
+    }
+
+    /**
+     * 发送通知消息，使用显式传入的 NotifyProps。
+     * <p>
+     * ADR-0035：支持分组通知配置，按通道逐一发送。
+     */
+    @Override
+    public void sendMessage(NotifyMessage notifyMessage, NotifyProps props) {
+        if (props == null) {
+            logger.warn("未配置任何通知配置，消息发送已跳过");
+            return;
+        }
+        List<String> channels = props.getChannels();
         if (CollectionUtils.isEmpty(channels)) {
             logger.warn("未配置任何通知通道，消息发送已跳过");
             return;
@@ -62,8 +76,8 @@ public class CompositeNotifyService implements NotifyService {
         // 按通道逐一发送
         if (channels.contains("mail")) {
             try {
-                if (mailNotifyService != null) {
-                    mailNotifyService.sendMessage(notifyMessage);
+                if (mailNotifyService != null && props.getMail() != null) {
+                    mailNotifyService.sendMessage(notifyMessage, props);
                 }
             } catch (Exception e) {
                 logger.error("邮件通知发送失败", e);
@@ -72,17 +86,12 @@ public class CompositeNotifyService implements NotifyService {
 
         if (channels.contains("dingtalk")) {
             try {
-                if (dingTalkNotifyService != null) {
-                    dingTalkNotifyService.sendMessage(notifyMessage);
+                if (dingTalkNotifyService != null && props.getDingtalk() != null) {
+                    dingTalkNotifyService.sendMessage(notifyMessage, props);
                 }
             } catch (Exception e) {
                 logger.error("钉钉通知发送失败", e);
             }
         }
-    }
-
-    private List<String> getChannels() {
-        NotifyProps notify = configRegistry.getConfig().getNotify();
-        return notify != null ? notify.getChannels() : null;
     }
 }

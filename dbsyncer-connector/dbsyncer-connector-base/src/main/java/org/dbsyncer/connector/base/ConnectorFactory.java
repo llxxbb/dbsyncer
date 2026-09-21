@@ -26,7 +26,9 @@ import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.plugin.SyncRow;
+import org.dbsyncer.sdk.notify.NotifyConfigResolver;
 import org.dbsyncer.sdk.notify.NotifyType;
+import org.dbsyncer.common.config.props.NotifyProps;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.spi.LogService;
@@ -68,6 +70,9 @@ public class ConnectorFactory implements DisposableBean {
 
     @Resource
     private MessageService messageService;
+
+    @Resource
+    private NotifyConfigResolver notifyConfigResolver;
 
     @Resource
     private ConfigRegistry configRegistry;
@@ -318,10 +323,11 @@ public class ConnectorFactory implements DisposableBean {
         }
 
         Mapping mapping = firstRow.getMapping();
+        NotifyProps props = notifyConfigResolver.resolve(mapping != null ? mapping.getId() : null);
         RetryAfter retryAfter = RetryAfter.compose(
                 RetryAfter.slf4j(logger),
                 RetryCallbacks.logService(logService, mapping),
-                RetryCallbacks.messageService(messageService, mapping, NotifyType.TARGET_EXCEPTION)
+                RetryCallbacks.messageService(messageService, mapping, NotifyType.TARGET_EXCEPTION, props)
         );
 
         return retryInterceptor.execute(() -> {
@@ -354,7 +360,8 @@ public class ConnectorFactory implements DisposableBean {
         msg.append("**DDL 语句**: ").append(ddlConfig.getSql());
 
         logService.log(mapping, LogType.SYNC, LogLevel.INFO, msg.toString());
-        messageService.sendMessage("dbsyncer", msg.toString(), NotifyType.DDL);
+        NotifyProps props = notifyConfigResolver.resolve(mapping != null ? mapping.getId() : null);
+        messageService.sendMessage("dbsyncer", msg.toString(), NotifyType.DDL, props);
         return result;
     }
 

@@ -5,6 +5,7 @@ package org.dbsyncer.parser.impl;
 
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
+import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.parser.CacheService;
 import org.dbsyncer.parser.ProfileComponent;
@@ -147,6 +148,24 @@ public class ProfileComponentImpl implements ProfileComponent {
     @Override
     public List<ProjectGroup> getProjectGroupAll() {
         return operationTemplate.queryAll(ProjectGroup.class);
+    }
+
+    @Override
+    public String findProjectGroupId(String mappingId) {
+        if (StringUtil.isBlank(mappingId)) {
+            return null;
+        }
+        List<ProjectGroup> allGroups = getProjectGroupAll();
+        if (CollectionUtils.isEmpty(allGroups)) {
+            return null;
+        }
+        for (ProjectGroup group : allGroups) {
+            if (!CollectionUtils.isEmpty(group.getMappingIds())
+                    && group.getMappingIds().contains(mappingId)) {
+                return group.getId();
+            }
+        }
+        return null;
     }
 
     @Override

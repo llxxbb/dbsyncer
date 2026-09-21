@@ -5,6 +5,7 @@ package org.dbsyncer.biz;
 
 import org.dbsyncer.biz.vo.SystemConfigVo;
 import org.dbsyncer.biz.vo.VersionVo;
+import org.dbsyncer.common.config.props.NotifyProps;
 import org.dbsyncer.common.model.ConfigModel;
 import org.dbsyncer.common.model.SystemConfig;
 
@@ -104,4 +105,31 @@ public interface ConfigService {
      * @return 版本信息
      */
     VersionVo getVersionInfo(String username) throws Exception;
+
+    /**
+     * 保存系统配置（ADR-0035：用于分组通知配置的持久化）
+     *
+     * @param config 系统配置
+     */
+    void editSystemConfig(SystemConfig config) throws Exception;
+
+    /**
+     * 获取分组通知配置
+     */
+    Map<String, NotifyProps> getGroupNotifyConfigs();
+
+    /**
+     * 保存分组通知配置
+     *
+     * @param projectGroupId 分组 ID
+     * @param payload        配置 JSON
+     */
+    void saveGroupNotifyConfig(String projectGroupId, String payload) throws Exception;
+
+    /**
+     * 删除分组通知配置
+     *
+     * @param projectGroupId 分组 ID
+     */
+    void deleteGroupNotifyConfig(String projectGroupId) throws Exception;
 }

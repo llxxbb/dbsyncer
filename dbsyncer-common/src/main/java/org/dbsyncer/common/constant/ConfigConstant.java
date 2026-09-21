@@ -57,4 +57,9 @@ public class ConfigConstant {
      */
     public static final String BINLOG_DATA = "data";
 
+    /**
+     * 分组通知配置：未分配分组的 key（ADR-0035）
+     */
+    public static final String UNASSIGNED_GROUP_KEY = "__unassigned__";
+
 }

@@ -1,5 +1,6 @@
 package org.dbsyncer.sdk.util;
 
+import org.dbsyncer.common.config.props.NotifyProps;
 import org.dbsyncer.common.retry.RetryAfter;
 import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.notify.NotifyType;
@@ -37,11 +38,24 @@ public final class RetryCallbacks {
      *
      * @param messageService 消息服务
      * @param mapping        映射对象
-     * @param title          消息标题
      * @param type           通知类型
      * @return 回调实现
      */
     public static RetryAfter messageService(MessageService messageService, Mapping mapping, NotifyType type) {
+        return messageService(messageService, mapping, type, null);
+    }
+
+    /**
+     * 创建消息通知回调（带通知配置）
+     *
+     * @param messageService 消息服务
+     * @param mapping        映射对象
+     * @param type           通知类型
+     * @param props          通知配置
+     * @return 回调实现
+     */
+    public static RetryAfter messageService(MessageService messageService, Mapping mapping, NotifyType type,
+            NotifyProps props) {
         if (messageService == null) {
             return ctx -> {
             };
@@ -55,7 +69,7 @@ public final class RetryCallbacks {
             msg.append("**重试次数**: 第").append(ctx.getAttempt()).append("次\n\n");
             msg.append("**重试间隔**: ").append(ctx.getIntervalMs()).append("ms\n\n");
             msg.append("**异常信息**: ").append(ctx.getException().getMessage()).append("\n\n");
-            messageService.sendMessage("dbsyncer", msg.toString(), type);
+            messageService.sendMessage("dbsyncer", msg.toString(), type, props);
         };
     }
 }

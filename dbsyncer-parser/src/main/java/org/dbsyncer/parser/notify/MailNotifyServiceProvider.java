@@ -5,6 +5,7 @@ import org.dbsyncer.common.config.AppConfig;
 import org.dbsyncer.common.config.ConfigRegistry;
 import org.dbsyncer.common.config.listener.ConfigChangeListener;
 import org.dbsyncer.common.config.props.MailProps;
+import org.dbsyncer.common.config.props.NotifyProps;
 import org.dbsyncer.common.model.SystemConfig;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.sdk.notify.NotifyMessage;
@@ -70,7 +71,13 @@ public final class MailNotifyServiceProvider implements NotifyService, ConfigCha
     }
 
     private Session createSession() {
-        MailProps mail = getMailProps();
+        return createSession(getMailProps());
+    }
+
+    /**
+     * 根据指定的 MailProps 创建 Session。
+     */
+    private Session createSession(MailProps mail) {
         if (mail == null || StringUtil.isBlank(mail.getUsername())) {
             return null;
         }
@@ -140,6 +147,52 @@ public final class MailNotifyServiceProvider implements NotifyService, ConfigCha
             // 发送邮件
             Transport.send(message);
             logger.info("simple mail send success");
+        } catch (Exception e) {
+            logger.error("simple mail send error!", e);
+        }
+    }
+
+    /**
+     * 发送通知消息，使用显式传入的 NotifyProps。
+     * <p>
+     * ADR-0035：覆盖接口默认实现，从 NotifyProps 中提取 MailProps 发送。
+     */
+    @Override
+    public void sendMessage(NotifyMessage notifyMessage, NotifyProps props) {
+        if (props == null || props.getMail() == null) {
+            logger.warn("邮件配置为空，消息发送已跳过");
+            return;
+        }
+        MailProps mailProps = props.getMail();
+        if (StringUtil.isBlank(mailProps.getUsername())) {
+            logger.warn("邮件配置为空，消息发送已跳过");
+            return;
+        }
+
+        Session currentSession = createSession(mailProps);
+        if (currentSession == null) {
+            return;
+        }
+
+        try {
+            checkMail(notifyMessage);
+            String title = String.format("【%s通知】%s", appConfig.getName(), notifyMessage.getTitle());
+            String content = createTemplate(appConfig.getName(), notifyMessage.getContent());
+
+            MimeMessage message = new MimeMessage(currentSession);
+            message.setFrom(new InternetAddress(mailProps.getUsername()));
+
+            List<String> messageReceivers = notifyMessage.getReceivers();
+            int size = messageReceivers.size();
+            InternetAddress[] addresses = new InternetAddress[size];
+            for (int i = 0; i < size; i++) {
+                addresses[i] = new InternetAddress(messageReceivers.get(i));
+            }
+            message.setRecipients(Message.RecipientType.TO, addresses);
+            message.setSubject(title);
+            message.setContent(content, "text/html;charset=UTF-8");
+            Transport.send(message);
+            logger.info("simple mail send success (group config)");
         } catch (Exception e) {
             logger.error("simple mail send error!", e);
         }
