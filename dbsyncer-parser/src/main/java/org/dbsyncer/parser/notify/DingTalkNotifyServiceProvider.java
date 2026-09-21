@@ -4,7 +4,6 @@ import okhttp3.*;
 import org.dbsyncer.common.config.ConfigRegistry;
 import org.dbsyncer.common.config.props.DingTalkProps;
 import org.dbsyncer.common.config.props.NotifyProps;
-import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.sdk.notify.NotifyMessage;
@@ -17,11 +16,9 @@ import org.springframework.stereotype.Component;
 import javax.annotation.Resource;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -40,72 +37,34 @@ public class DingTalkNotifyServiceProvider implements NotifyService {
     @Resource
     private ConfigRegistry configRegistry;
 
-    /**
-     * 通知类型过滤缓存（懒加载，配置变更时置 null 失效）
-     */
-    private volatile Set<NotifyType> notifyTypeSet;
-
     private DingTalkProps getDingTalkProps() {
         if (configRegistry.getConfig().getNotify() == null) return null;
         return configRegistry.getConfig().getNotify().getDingtalk();
     }
 
     /**
-     * 判断当前通知类型是否应发送（基于 notifyTypes 过滤）
+     * 判断当前通知类型是否应发送（基于 notifyTypes 过滤）。
+     * <p>
+     * notifyTypes 为空表示全部放行；type 为 null 也放行。
      */
-    private boolean shouldNotify(NotifyType type) {
-        if (notifyTypeSet == null) {
-            synchronized (this) {
-                if (notifyTypeSet == null) {
-                    Set<NotifyType> set = new HashSet<>();
-                    DingTalkProps cfg = getDingTalkProps();
-                    if (cfg != null && !CollectionUtils.isEmpty(cfg.getNotifyTypes())) {
-                        for (String name : cfg.getNotifyTypes()) {
-                            try {
-                                set.add(NotifyType.valueOf(name));
-                            } catch (IllegalArgumentException ignored) {
-                            }
-                        }
-                    }
-                    notifyTypeSet = set;
-                }
+    private boolean shouldNotify(NotifyType type, List<String> notifyTypes) {
+        if (notifyTypes == null || notifyTypes.isEmpty()) {
+            return true;
+        }
+        if (type == null) {
+            return true;
+        }
+        for (String name : notifyTypes) {
+            if (StringUtil.equalsIgnoreCase(type.name(), name)) {
+                return true;
             }
         }
-        return notifyTypeSet.isEmpty() || type == null || notifyTypeSet.contains(type);
+        return false;
     }
 
     @Override
     public void sendMessage(NotifyMessage msg) {
-        if (msg == null || StringUtil.isBlank(msg.getContent())) return;
-
-        DingTalkProps cfg = getDingTalkProps();
-        if (cfg == null || !shouldNotify(msg.getType()) || StringUtil.isBlank(cfg.getWebhookUrl())) return;
-
-        // 添加发送时间到内容
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-        String contentWithTime = "**发送时间：** " + timestamp + "\n\n" + msg.getContent();
-
-        try {
-            Map<String, Object> markdown = new HashMap<>();
-            markdown.put("title", "DBSyncer");
-            markdown.put("text", contentWithTime);
-
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("msgtype", "markdown");
-            payload.put("markdown", markdown);
-
-            String body = JsonUtil.objToJson(payload);
-
-            Response response = HTTP_CLIENT.newCall(new Request.Builder()
-                    .url(cfg.getWebhookUrl())
-                    .post(RequestBody.create(MediaType.parse("application/json; charset=utf-8"), body))
-                    .build()).execute();
-
-            logger.debug("DingTalk response: {}", response.isSuccessful() ? response.body() : "error");
-            response.close();
-        } catch (Exception e) {
-            logger.error("DingTalk send error", e);
-        }
+        sendMessage(msg, configRegistry.getConfig().getNotify());
     }
 
     /**
@@ -115,62 +74,49 @@ public class DingTalkNotifyServiceProvider implements NotifyService {
      */
     @Override
     public void sendMessage(NotifyMessage msg, NotifyProps props) {
-        if (props == null || props.getDingtalk() == null) {
-            logger.warn("钉钉配置为空，消息发送已跳过");
-            return;
-        }
-        DingTalkProps dingtalkProps = props.getDingtalk();
-        if (msg == null || StringUtil.isBlank(msg.getContent())) return;
-        if (StringUtil.isBlank(dingtalkProps.getWebhookUrl())) {
-            logger.warn("钉钉配置为空，消息发送已跳过");
-            return;
-        }
+        DingTalkProps cfg = extractAndValidate(msg, props);
+        if (cfg == null) return;
+        doSend(cfg.getWebhookUrl(), msg);
+    }
 
-        // 检查通知类型过滤（使用传入的配置）
-        if (!shouldNotifyWithType(msg.getType(), dingtalkProps.getNotifyTypes())) return;
+    /**
+     * 提取 DingTalkProps 并校验必填项。
+     *
+     * @return DingTalkProps，校验失败返回 null
+     */
+    private DingTalkProps extractAndValidate(NotifyMessage msg, NotifyProps props) {
+        if (msg == null || StringUtil.isBlank(msg.getContent())) return null;
+        DingTalkProps cfg = props != null ? props.getDingtalk() : getDingTalkProps();
+        if (cfg == null || StringUtil.isBlank(cfg.getWebhookUrl())) return null;
+        if (!shouldNotify(msg.getType(), cfg.getNotifyTypes())) return null;
+        return cfg;
+    }
 
+    /**
+     * 构建 Markdown 内容并通过 Webhook 发送。
+     */
+    private void doSend(String webhookUrl, NotifyMessage msg) {
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
         String contentWithTime = "**发送时间：** " + timestamp + "\n\n" + msg.getContent();
 
+        Map<String, Object> markdown = new HashMap<>();
+        markdown.put("title", "DBSyncer");
+        markdown.put("text", contentWithTime);
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("msgtype", "markdown");
+        payload.put("markdown", markdown);
+
         try {
-            Map<String, Object> markdown = new HashMap<>();
-            markdown.put("title", "DBSyncer");
-            markdown.put("text", contentWithTime);
-
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("msgtype", "markdown");
-            payload.put("markdown", markdown);
-
             String body = JsonUtil.objToJson(payload);
-
             Response response = HTTP_CLIENT.newCall(new Request.Builder()
-                    .url(dingtalkProps.getWebhookUrl())
+                    .url(webhookUrl)
                     .post(RequestBody.create(MediaType.parse("application/json; charset=utf-8"), body))
                     .build()).execute();
-
-            logger.debug("DingTalk response (group config): {}", response.isSuccessful() ? response.body() : "error");
+            logger.debug("DingTalk response: code={}", response.code());
             response.close();
         } catch (Exception e) {
             logger.error("DingTalk send error", e);
         }
-    }
-
-    /**
-     * 判断当前通知类型是否应发送（基于指定的 notifyTypes 过滤）。
-     */
-    private boolean shouldNotifyWithType(NotifyType type, List<String> notifyTypes) {
-        if (notifyTypes == null || notifyTypes.isEmpty()) {
-            return true;
-        }
-        if (type == null) {
-            return true;
-        }
-        String typeName = type.name();
-        for (String name : notifyTypes) {
-            if (typeName.equalsIgnoreCase(name)) {
-                return true;
-            }
-        }
-        return false;
     }
 }

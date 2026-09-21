@@ -69,6 +69,10 @@ public interface AppProps {
      * 各 Props 无需手写 forDisplay()，只要正确声明 getSensitiveFields() 即可自动获得。
      * <p>
      * 无敏感字段时返回 this（避免无谓的序列化开销）。
+     * <p>
+     * <b>性能说明</b>：有敏感字段时每次调用都会执行 JSON 序列化/反序列化。
+     * 当前仅用于系统配置页展示（低频），性能可接受。
+     * 若未来用于高频场景，需在调用方加缓存。
      *
      * @return 掩码后的副本，或 this（如果没有敏感字段）
      */

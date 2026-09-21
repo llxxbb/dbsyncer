@@ -3,10 +3,8 @@ package org.dbsyncer.parser.notify;
 import com.sun.mail.util.MailSSLSocketFactory;
 import org.dbsyncer.common.config.AppConfig;
 import org.dbsyncer.common.config.ConfigRegistry;
-import org.dbsyncer.common.config.listener.ConfigChangeListener;
 import org.dbsyncer.common.config.props.MailProps;
 import org.dbsyncer.common.config.props.NotifyProps;
-import org.dbsyncer.common.model.SystemConfig;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.sdk.notify.NotifyMessage;
 import org.dbsyncer.sdk.notify.NotifyService;
@@ -34,17 +32,12 @@ import java.util.Properties;
  * @date 2022/11/13 22:20
  */
 @Component("mailNotifyService")
-public final class MailNotifyServiceProvider implements NotifyService, ConfigChangeListener {
+public final class MailNotifyServiceProvider implements NotifyService {
 
     private static final Logger logger = LoggerFactory.getLogger(MailNotifyServiceProvider.class);
 
     private final AppConfig appConfig;
     private final ConfigRegistry configRegistry;
-
-    /**
-     * 邮箱会话（懒加载，运行时初始化，避免 @PostConstruct 阶段 ConfigRegistry 尚未就绪）
-     */
-    private volatile Session session;
 
     public MailNotifyServiceProvider(AppConfig appConfig, ConfigRegistry configRegistry) {
         this.appConfig = appConfig;
@@ -54,24 +47,6 @@ public final class MailNotifyServiceProvider implements NotifyService, ConfigCha
     private MailProps getMailProps() {
         if (configRegistry.getConfig().getNotify() == null) return null;
         return configRegistry.getConfig().getNotify().getMail();
-    }
-
-    /**
-     * 懒加载获取邮箱会话，首次调用时从 ConfigRegistry 读取配置并初始化。
-     */
-    private Session getOrCreateSession() {
-        if (session == null) {
-            synchronized (this) {
-                if (session == null) {
-                    session = createSession();
-                }
-            }
-        }
-        return session;
-    }
-
-    private Session createSession() {
-        return createSession(getMailProps());
     }
 
     /**
@@ -104,52 +79,8 @@ public final class MailNotifyServiceProvider implements NotifyService, ConfigCha
     }
 
     @Override
-    public void onConfigChanged(SystemConfig config) {
-        // 通知配置变更时，使缓存的 Session 失效，下次发送时重新创建
-        synchronized (this) {
-            this.session = null;
-        }
-        logger.debug("邮件 Session 已失效，将在下次发送时重建");
-    }
-
-    @Override
     public void sendMessage(NotifyMessage notifyMessage) {
-        Session currentSession = getOrCreateSession();
-        if (currentSession == null) {
-            return;
-        }
-
-        try {
-            checkMail(notifyMessage);
-            // 统一应用标题
-            String title = String.format("【%s通知】%s", appConfig.getName(), notifyMessage.getTitle());
-            String content = createTemplate(appConfig.getName(), notifyMessage.getContent());
-
-            // 创建邮件消息
-            MimeMessage message = new MimeMessage(currentSession);
-            // 设置发件人
-            message.setFrom(new InternetAddress(getMailProps().getUsername()));
-
-            // 接收人
-            List<String> messageReceivers = notifyMessage.getReceivers();
-            int size = messageReceivers.size();
-            InternetAddress[] addresses = new InternetAddress[size];
-            for (int i = 0; i < size; i++) {
-                addresses[i] = new InternetAddress(messageReceivers.get(i));
-            }
-            message.setRecipients(Message.RecipientType.TO, addresses);
-
-            // 设置邮件标题
-            message.setSubject(title);
-
-            // 设置邮件的内容体
-            message.setContent(content, "text/html;charset=UTF-8");
-            // 发送邮件
-            Transport.send(message);
-            logger.info("simple mail send success");
-        } catch (Exception e) {
-            logger.error("simple mail send error!", e);
-        }
+        sendMessage(notifyMessage, configRegistry.getConfig().getNotify());
     }
 
     /**
@@ -159,42 +90,51 @@ public final class MailNotifyServiceProvider implements NotifyService, ConfigCha
      */
     @Override
     public void sendMessage(NotifyMessage notifyMessage, NotifyProps props) {
-        if (props == null || props.getMail() == null) {
-            logger.warn("邮件配置为空，消息发送已跳过");
-            return;
-        }
-        MailProps mailProps = props.getMail();
-        if (StringUtil.isBlank(mailProps.getUsername())) {
-            logger.warn("邮件配置为空，消息发送已跳过");
-            return;
-        }
+        MailProps cfg = extractAndValidate(notifyMessage, props);
+        if (cfg == null) return;
 
-        Session currentSession = createSession(mailProps);
-        if (currentSession == null) {
-            return;
-        }
+        Session currentSession = createSession(cfg);
+        if (currentSession == null) return;
 
+        doSend(currentSession, cfg.getUsername(), notifyMessage);
+    }
+
+    /**
+     * 提取 MailProps 并校验必填项。
+     *
+     * @return MailProps，校验失败返回 null
+     */
+    private MailProps extractAndValidate(NotifyMessage notifyMessage, NotifyProps props) {
+        if (notifyMessage == null || StringUtil.isBlank(notifyMessage.getContent())) return null;
+        MailProps cfg = props != null ? props.getMail() : getMailProps();
+        if (cfg == null || StringUtil.isBlank(cfg.getUsername())) return null;
+        return cfg;
+    }
+
+    /**
+     * 构建邮件消息并发送。
+     */
+    private void doSend(Session currentSession, String username, NotifyMessage notifyMessage) {
         try {
             checkMail(notifyMessage);
             String title = String.format("【%s通知】%s", appConfig.getName(), notifyMessage.getTitle());
             String content = createTemplate(appConfig.getName(), notifyMessage.getContent());
 
             MimeMessage message = new MimeMessage(currentSession);
-            message.setFrom(new InternetAddress(mailProps.getUsername()));
+            message.setFrom(new InternetAddress(username));
 
-            List<String> messageReceivers = notifyMessage.getReceivers();
-            int size = messageReceivers.size();
-            InternetAddress[] addresses = new InternetAddress[size];
-            for (int i = 0; i < size; i++) {
-                addresses[i] = new InternetAddress(messageReceivers.get(i));
+            List<String> receivers = notifyMessage.getReceivers();
+            InternetAddress[] addresses = new InternetAddress[receivers.size()];
+            for (int i = 0; i < receivers.size(); i++) {
+                addresses[i] = new InternetAddress(receivers.get(i));
             }
             message.setRecipients(Message.RecipientType.TO, addresses);
             message.setSubject(title);
             message.setContent(content, "text/html;charset=UTF-8");
             Transport.send(message);
-            logger.info("simple mail send success (group config)");
+            logger.info("邮件发送成功");
         } catch (Exception e) {
-            logger.error("simple mail send error!", e);
+            logger.error("邮件发送失败", e);
         }
     }
 
