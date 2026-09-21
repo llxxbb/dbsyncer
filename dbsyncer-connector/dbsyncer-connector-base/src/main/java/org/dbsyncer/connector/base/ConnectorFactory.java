@@ -323,11 +323,10 @@ public class ConnectorFactory implements DisposableBean {
         }
 
         Mapping mapping = firstRow.getMapping();
-        NotifyProps props = notifyConfigResolver.resolve(mapping != null ? mapping.getId() : null);
         RetryAfter retryAfter = RetryAfter.compose(
                 RetryAfter.slf4j(logger),
                 RetryCallbacks.logService(logService, mapping),
-                RetryCallbacks.messageService(messageService, mapping, NotifyType.TARGET_EXCEPTION, props)
+                RetryCallbacks.messageService(messageService, mapping, NotifyType.TARGET_EXCEPTION, notifyConfigResolver)
         );
 
         return retryInterceptor.execute(() -> {
@@ -353,15 +352,12 @@ public class ConnectorFactory implements DisposableBean {
         Assert.notNull(result, "Connector writer batch result can not null");
 
         logger.info("DDL 执行成功 [mappingId={}]: {}", mapping != null ? mapping.getId() : "unknown", ddlConfig.getSql());
-        StringBuilder msg = new StringBuilder();
-        msg.append("### DBSyncer 数据同步DDL事件\n\n");
-        msg.append("**Mapping ID**: ").append(mapping != null ? mapping.getId() : "unknown").append("\n\n");
-        msg.append("**Mapping name**: ").append(mapping != null ? mapping.getName() : "unknown").append("\n\n");
-        msg.append("**DDL 语句**: ").append(ddlConfig.getSql());
 
-        logService.log(mapping, LogType.SYNC, LogLevel.INFO, msg.toString());
-        NotifyProps props = notifyConfigResolver.resolve(mapping != null ? mapping.getId() : null);
-        messageService.sendMessage("dbsyncer", msg.toString(), NotifyType.DDL, props);
+        Map<String, String> details = new LinkedHashMap<>();
+        details.put("DDL 语句", ddlConfig.getSql());
+        messageService.sendNotifyMessage(mapping, "数据同步DDL事件", NotifyType.DDL, notifyConfigResolver, details);
+
+        logService.log(mapping, LogType.SYNC, LogLevel.INFO, "DDL: " + ddlConfig.getSql());
         return result;
     }
 

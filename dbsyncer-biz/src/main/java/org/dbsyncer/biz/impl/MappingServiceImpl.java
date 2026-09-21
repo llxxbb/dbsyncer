@@ -39,7 +39,6 @@ import org.dbsyncer.sdk.enums.StorageEnum;
 import org.dbsyncer.sdk.enums.TableTypeEnum;
 import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.common.config.SnowflakeIdWorker;
-import org.dbsyncer.common.config.props.NotifyProps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
@@ -412,15 +411,7 @@ public class MappingServiceImpl implements MappingService {
                     String.format("停止同步任务 (操作人：%s)", getCurrentUsername()));
 
             // 发送关闭驱动通知消息
-            String mappingId = mapping.getId();
-
-            StringBuilder msg = new StringBuilder();
-            msg.append("### DBSyncer 手动操作提示\n\n");
-            msg.append("**操作类型**: 停止任务\n\n");
-            msg.append("**Mapping ID**: ").append(mappingId).append("\n\n");
-            msg.append("**任务名称**: ").append(mapping.getName()).append("\n\n");
-            NotifyProps props = notifyConfigResolver.resolve(mappingId);
-            messageService.sendMessage("dbsyncer", msg.toString(), NotifyType.MANUAL_OPERATION, props);
+            messageService.sendNotifyMessage(mapping, "手动操作提示", NotifyType.MANUAL_OPERATION, notifyConfigResolver, null);
         }
         return "任务停止成功";
     }
@@ -803,15 +794,7 @@ public class MappingServiceImpl implements MappingService {
                     String.format("任务重置 (操作人：%s)", getCurrentUsername()));
 
             // 发送重置驱动通知消息
-            String mappingId = mapping.getId();
-
-            StringBuilder msg = new StringBuilder();
-            msg.append("### DBSyncer 手动操作提示\n\n");
-            msg.append("**操作类型**: 重置任务\n\n");
-            msg.append("**Mapping ID**: ").append(mappingId).append("\n\n");
-            msg.append("**任务名称**: ").append(mapping.getName()).append("\n\n");
-            NotifyProps props = notifyConfigResolver.resolve(mappingId);
-            messageService.sendMessage("dbsyncer", msg.toString(), NotifyType.MANUAL_OPERATION, props);
+            messageService.sendNotifyMessage(mapping, "手动操作提示", NotifyType.MANUAL_OPERATION, notifyConfigResolver, null);
         }
         if (!StringUtil.equals(mapping.getModel(), ModelEnum.INCREMENT.getCode())) {
             submitMappingCountTask(mapping);

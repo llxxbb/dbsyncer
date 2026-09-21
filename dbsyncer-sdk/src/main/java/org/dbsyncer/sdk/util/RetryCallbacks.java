@@ -3,11 +3,15 @@ package org.dbsyncer.sdk.util;
 import org.dbsyncer.common.config.props.NotifyProps;
 import org.dbsyncer.common.retry.RetryAfter;
 import org.dbsyncer.sdk.model.Mapping;
+import org.dbsyncer.sdk.notify.NotifyConfigResolver;
 import org.dbsyncer.sdk.notify.NotifyType;
 import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.spi.MessageService;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * RetryAfter 回调工厂
@@ -42,7 +46,7 @@ public final class RetryCallbacks {
      * @return 回调实现
      */
     public static RetryAfter messageService(MessageService messageService, Mapping mapping, NotifyType type) {
-        return messageService(messageService, mapping, type, null);
+        return messageService(messageService, mapping, type, (NotifyConfigResolver) null);
     }
 
     /**
@@ -53,7 +57,9 @@ public final class RetryCallbacks {
      * @param type           通知类型
      * @param props          通知配置
      * @return 回调实现
+     * @deprecated 使用 {@link #messageService(MessageService, Mapping, NotifyType, NotifyConfigResolver)} 代替
      */
+    @Deprecated
     public static RetryAfter messageService(MessageService messageService, Mapping mapping, NotifyType type,
             NotifyProps props) {
         if (messageService == null) {
@@ -61,15 +67,35 @@ public final class RetryCallbacks {
             };
         }
         return ctx -> {
-            StringBuilder msg = new StringBuilder();
-            msg.append("### DBSyncer 重试通知\n\n");
-            msg.append("**操作类型**: ").append(type.getName()).append("\n\n");
-            msg.append("**Mapping ID**: ").append(mapping.getId()).append("\n\n");
-            msg.append("**任务名称**: ").append(mapping.getName()).append("\n\n");
-            msg.append("**重试次数**: 第").append(ctx.getAttempt()).append("次\n\n");
-            msg.append("**重试间隔**: ").append(ctx.getIntervalMs()).append("ms\n\n");
-            msg.append("**异常信息**: ").append(ctx.getException().getMessage()).append("\n\n");
-            messageService.sendMessage("dbsyncer", msg.toString(), type, props);
+            Map<String, String> details = new LinkedHashMap<>();
+            details.put("重试次数", "第" + ctx.getAttempt() + "次");
+            details.put("重试间隔", ctx.getIntervalMs() + "ms");
+            details.put("异常信息", ctx.getException().getMessage());
+            messageService.sendNotifyMessage(mapping, "重试通知", type, mappingId -> props, details);
+        };
+    }
+
+    /**
+     * 创建消息通知回调（带通知配置解析器）
+     *
+     * @param messageService 消息服务
+     * @param mapping        映射对象
+     * @param type           通知类型
+     * @param resolver       通知配置解析器
+     * @return 回调实现
+     */
+    public static RetryAfter messageService(MessageService messageService, Mapping mapping, NotifyType type,
+            NotifyConfigResolver resolver) {
+        if (messageService == null) {
+            return ctx -> {
+            };
+        }
+        return ctx -> {
+            Map<String, String> details = new LinkedHashMap<>();
+            details.put("重试次数", "第" + ctx.getAttempt() + "次");
+            details.put("重试间隔", ctx.getIntervalMs() + "ms");
+            details.put("异常信息", ctx.getException().getMessage());
+            messageService.sendNotifyMessage(mapping, "重试通知", type, resolver, details);
         };
     }
 }

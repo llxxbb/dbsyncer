@@ -3,7 +3,6 @@ package org.dbsyncer.parser.error;
 import org.dbsyncer.common.config.ConfigRegistry;
 import org.dbsyncer.common.config.listener.ConfigChangeListener;
 import org.dbsyncer.common.config.props.ErrorProps;
-import org.dbsyncer.common.config.props.NotifyProps;
 import org.dbsyncer.common.model.Paging;
 import org.dbsyncer.common.model.SystemConfig;
 import org.dbsyncer.common.retry.KeywordMatcher;
@@ -39,6 +38,7 @@ import org.springframework.stereotype.Component;
 import javax.annotation.Resource;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -227,15 +227,12 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector, ConfigChang
 
     private void notifyError(Meta meta, String targetTableName, String errorMsg, int failCount, NotifyType notifyType) {
         String mappingId = meta.getMappingId();
-        StringBuilder msg = new StringBuilder();
-        msg.append("### DBSyncer 数据同步异常\n\n");
-        msg.append("**错误类型**: ").append(notifyType.getName()).append("\n\n");
-        msg.append("**Mapping ID**: ").append(mappingId).append("\n\n");
-        msg.append("**目标表**: ").append(targetTableName).append("\n\n");
-        msg.append("**失败数量**: ").append(failCount).append(" 条\n\n");
-        msg.append("**错误原因**: ").append(errorMsg);
-        NotifyProps props = notifyConfigResolver.resolve(mappingId);
-        messageService.sendMessage("dbsyncer", msg.toString(), notifyType, props);
+        Mapping mapping = profileComponent.getMapping(mappingId);
+        Map<String, String> details = new LinkedHashMap<>();
+        details.put("目标表", targetTableName);
+        details.put("失败数量", failCount + " 条");
+        details.put("错误原因", errorMsg);
+        messageService.sendNotifyMessage(mapping, "数据同步异常", notifyType, notifyConfigResolver, details);
     }
 
     @Override

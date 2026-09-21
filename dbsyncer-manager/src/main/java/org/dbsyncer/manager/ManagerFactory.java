@@ -10,7 +10,6 @@ import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.notify.NotifyConfigResolver;
 import org.dbsyncer.sdk.notify.NotifyType;
-import org.dbsyncer.common.config.props.NotifyProps;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.slf4j.Logger;
@@ -20,6 +19,7 @@ import org.springframework.util.Assert;
 
 import javax.annotation.Resource;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -79,18 +79,10 @@ public class ManagerFactory {
             logService.log(null, LogType.START, String.format("Puller 启动失败：mappingId=%s, metaId=%s, error=%s", mapping.getId(), mapping.getMetaId(), e.getMessage()));
             
             // 发送任务中断通知
-            String mappingId = mapping.getId();
-            String mappingName = mapping.getName();
-            
-            StringBuilder msg = new StringBuilder();
-            msg.append("### DBSyncer 任务中断\n\n");
-            msg.append("**错误类型**: ").append(NotifyType.TASK_INTERRUPTED.getName()).append("\n\n");
-            msg.append("**Mapping ID**: ").append(mappingId).append("\n\n");
-            msg.append("**任务名称**: ").append(mappingName).append("\n\n");
-            msg.append("**错误原因**: ").append(e.getMessage());
-            NotifyProps props = notifyConfigResolver.resolve(mappingId);
-            messageService.sendMessage("dbsyncer", msg.toString(), NotifyType.TASK_INTERRUPTED, props);
-            
+            Map<String, String> details = new LinkedHashMap<>();
+            details.put("错误原因", e.getMessage());
+            messageService.sendNotifyMessage(mapping, "任务中断", NotifyType.TASK_INTERRUPTED, notifyConfigResolver, details);
+
             throw new ManagerException(e.getMessage());
         }
     }

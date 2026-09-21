@@ -2,7 +2,6 @@ package org.dbsyncer.parser.consumer;
 
 import org.dbsyncer.sdk.spi.MessageService;
 import org.dbsyncer.sdk.notify.NotifyConfigResolver;
-import org.dbsyncer.common.config.props.NotifyProps;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.spi.LogType;
@@ -21,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -143,17 +143,10 @@ public final class ParserConsumer implements Watcher {
                 return;
             }
             
-            String mappingName = mapping.getName();
-            
-            StringBuilder msg = new StringBuilder();
-            msg.append("### DBSyncer 任务中断\n\n");
-            msg.append("**错误类型**: ").append(NotifyType.TASK_INTERRUPTED.getName()).append("\n\n");
-            msg.append("**Mapping ID**: ").append(mappingId).append("\n\n");
-            msg.append("**任务名称**: ").append(mappingName).append("\n\n");
-            msg.append("**错误原因**: ").append(errorMessage);
-            NotifyProps props = notifyConfigResolver.resolve(mappingId);
-            messageService.sendMessage("dbsyncer", msg.toString(), NotifyType.TASK_INTERRUPTED, props);
-            
+            Map<String, String> details = new LinkedHashMap<>();
+            details.put("错误原因", errorMessage);
+            messageService.sendNotifyMessage(mapping, "任务中断", NotifyType.TASK_INTERRUPTED, notifyConfigResolver, details);
+
             logger.info("发送任务中断通知成功：metaId={}, mappingId={}", metaId, mappingId);
         } catch (Exception ex) {
             logger.error("发送任务中断通知失败：metaId={}", metaId, ex);
