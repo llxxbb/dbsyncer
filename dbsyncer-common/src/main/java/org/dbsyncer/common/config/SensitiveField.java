@@ -9,7 +9,7 @@ import java.util.regex.Pattern;
 /**
  * 敏感字段描述。
  * <p>
- * 每个 Props 通过 {@link EnvironmentLoadable#getSensitiveFields()} 声明自己的敏感字段，
+ * 每个 Props 通过 {@link AppProps#getSensitiveFields()} 声明自己的敏感字段，
  * 系统在存储加密、展示掩码、保存保护等出口统一处理。
  * <p>
  * 两种语义由字段自身决定：

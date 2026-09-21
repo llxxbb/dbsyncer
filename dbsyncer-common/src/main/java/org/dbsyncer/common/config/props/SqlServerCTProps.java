@@ -1,7 +1,7 @@
 package org.dbsyncer.common.config.props;
 
 import org.dbsyncer.common.config.ConfigKeys;
-import org.dbsyncer.common.config.EnvironmentLoadable;
+import org.dbsyncer.common.config.AppProps;
 import org.springframework.core.env.Environment;
 
 import java.io.Serializable;
@@ -15,7 +15,7 @@ import java.util.List;
  * 通过 {@code ConfigRegistry.syncSqlServerCTPropsToSystem()} 桥接到
  * {@code System.getProperty}，供 {@code SqlServerCTListener} 每次轮询时现读。
  */
-public class SqlServerCTProps implements Serializable, EnvironmentLoadable {
+public class SqlServerCTProps implements Serializable, AppProps {
 
     private static final long serialVersionUID = 1L;
 

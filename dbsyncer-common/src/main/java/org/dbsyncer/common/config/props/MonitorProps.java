@@ -1,7 +1,7 @@
 package org.dbsyncer.common.config.props;
 
 import org.dbsyncer.common.config.ConfigKeys;
-import org.dbsyncer.common.config.EnvironmentLoadable;
+import org.dbsyncer.common.config.AppProps;
 import org.springframework.core.env.Environment;
 
 import java.io.Serializable;
@@ -13,7 +13,7 @@ import java.util.List;
  * <p>
  * 控制所有监控相关定时任务的执行间隔，统一从 ConfigRegistry 管理。
  */
-public class MonitorProps implements Serializable, EnvironmentLoadable {
+public class MonitorProps implements Serializable, AppProps {
 
     private static final long serialVersionUID = 1L;
 

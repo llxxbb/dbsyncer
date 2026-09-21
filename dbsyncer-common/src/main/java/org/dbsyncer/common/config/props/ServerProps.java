@@ -5,14 +5,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.dbsyncer.common.config.ConfigKeys;
-import org.dbsyncer.common.config.EnvironmentLoadable;
+import org.dbsyncer.common.config.AppProps;
 import org.springframework.core.env.Environment;
 
 /**
  * A 类：服务器配置（只读，不落库）
  */
 
-public class ServerProps implements Serializable, EnvironmentLoadable {
+public class ServerProps implements Serializable, AppProps {
 
     private static final long serialVersionUID = 1L;
 

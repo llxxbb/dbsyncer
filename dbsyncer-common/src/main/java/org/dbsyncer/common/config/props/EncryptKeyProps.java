@@ -1,7 +1,7 @@
 package org.dbsyncer.common.config.props;
 
 import org.dbsyncer.common.config.ConfigKeys;
-import org.dbsyncer.common.config.EnvironmentLoadable;
+import org.dbsyncer.common.config.AppProps;
 import org.dbsyncer.common.util.StringUtil;
 import org.springframework.core.env.Environment;
 
@@ -20,7 +20,7 @@ import java.util.List;
  * <p>
  * 注意：密钥本身不在 UI 展示，只展示来源。
  */
-public class EncryptKeyProps implements EnvironmentLoadable {
+public class EncryptKeyProps implements AppProps {
 
     /** 环境变量名 */
     private static final String ENV_KEY = "DBSYNCER_ENCRYPT_KEY";

@@ -1,7 +1,7 @@
 package org.dbsyncer.common.config.props;
 
 import org.dbsyncer.common.config.ConfigKeys;
-import org.dbsyncer.common.config.EnvironmentLoadable;
+import org.dbsyncer.common.config.AppProps;
 import org.dbsyncer.common.config.SensitiveField;
 import org.springframework.core.env.Environment;
 
@@ -15,7 +15,7 @@ import java.util.List;
  * A 类：存储连接配置（只读，不落库）
  */
 
-public class StorageConnectionProps implements Serializable, EnvironmentLoadable {
+public class StorageConnectionProps implements Serializable, AppProps {
 
     private static final long serialVersionUID = 1L;
 

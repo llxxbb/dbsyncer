@@ -172,7 +172,7 @@ public class ConfigBootstrap {
         }
     }
 
-    private List<ConfigEntry> entries(EnvironmentLoadable props) {
+    private List<ConfigEntry> entries(AppProps props) {
         return props != null ? props.toConfigEntries() : Collections.emptyList();
     }
 

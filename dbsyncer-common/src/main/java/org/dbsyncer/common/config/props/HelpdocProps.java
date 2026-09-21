@@ -1,7 +1,7 @@
 package org.dbsyncer.common.config.props;
 
 import org.dbsyncer.common.config.ConfigKeys;
-import org.dbsyncer.common.config.EnvironmentLoadable;
+import org.dbsyncer.common.config.AppProps;
 import org.springframework.core.env.Environment;
 
 import java.io.Serializable;
@@ -13,7 +13,7 @@ import java.util.List;
  * A 类：帮助文档配置（只读，不落库）
  */
 
-public class HelpdocProps implements Serializable, EnvironmentLoadable {
+public class HelpdocProps implements Serializable, AppProps {
 
     private static final long serialVersionUID = 1L;
 

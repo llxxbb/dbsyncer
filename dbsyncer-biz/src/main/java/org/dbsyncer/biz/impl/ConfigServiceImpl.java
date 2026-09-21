@@ -10,7 +10,7 @@ import org.dbsyncer.biz.vo.SystemConfigVo;
 import org.dbsyncer.biz.vo.VersionVo;
 import org.dbsyncer.common.config.AppConfig;
 import org.dbsyncer.common.config.ConfigEncryptor;
-import org.dbsyncer.common.config.EnvironmentLoadable;
+import org.dbsyncer.common.config.AppProps;
 import org.dbsyncer.common.config.SystemTabEnum;
 import org.dbsyncer.common.config.props.*;
 import org.dbsyncer.common.config.props.NotifyProps;
@@ -175,8 +175,8 @@ public class ConfigServiceImpl implements ConfigService {
         SystemConfig cfg = JsonUtil.jsonToObj(JsonUtil.objToJson(original), SystemConfig.class);
 
         // 敏感字段保护：前端传回掩码值/空值时从 original 恢复（仅当前 Tab）
-        if (props instanceof EnvironmentLoadable) {
-            cfg.restoreMaskedSensitiveFields(tabEnum, (EnvironmentLoadable) props, original);
+        if (props instanceof AppProps) {
+            cfg.restoreMaskedSensitiveFields(tabEnum, (AppProps) props, original);
         }
 
         // 设置子对象到 SystemConfig
@@ -214,8 +214,8 @@ public class ConfigServiceImpl implements ConfigService {
         for (SystemTabEnum tab : SystemTabEnum.getEditableTabs()) {
             Object props = tab.getProps(config);
             // 敏感字段掩码：委托 Props 自身的 forDisplay()
-            if (props instanceof EnvironmentLoadable) {
-                props = ((EnvironmentLoadable) props).forDisplay();
+            if (props instanceof AppProps) {
+                props = ((AppProps) props).forDisplay();
             }
             result.put(tab.getKey(), props);
         }
@@ -296,8 +296,8 @@ public class ConfigServiceImpl implements ConfigService {
     // ===== 内部方法 =====
 
     private List<String> validateTab(SystemTabEnum tabEnum, Object props) {
-        if (props instanceof EnvironmentLoadable) {
-            return ((EnvironmentLoadable) props).validate();
+        if (props instanceof AppProps) {
+            return ((AppProps) props).validate();
         }
         return Collections.emptyList();
     }
@@ -356,7 +356,7 @@ public class ConfigServiceImpl implements ConfigService {
         // 如果已存在配置，且新配置的密码/secret 为空，保留原值
         NotifyProps existing = configs.get(projectGroupId);
         if (existing != null && incoming != null) {
-            EnvironmentLoadable.restoreMaskedFields(incoming, existing);
+            AppProps.restoreMaskedFields(incoming, existing);
         }
 
         configs.put(projectGroupId, incoming);

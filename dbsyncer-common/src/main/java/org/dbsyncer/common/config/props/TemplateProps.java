@@ -1,7 +1,7 @@
 package org.dbsyncer.common.config.props;
 
 import org.dbsyncer.common.config.ConfigKeys;
-import org.dbsyncer.common.config.EnvironmentLoadable;
+import org.dbsyncer.common.config.AppProps;
 import org.springframework.core.env.Environment;
 
 import java.io.Serializable;
@@ -11,7 +11,7 @@ import java.util.List;
 /**
  * 模板引擎配置（C 类：立即生效）
  */
-public class TemplateProps implements Serializable, EnvironmentLoadable {
+public class TemplateProps implements Serializable, AppProps {
 
     private static final long serialVersionUID = 1L;
 

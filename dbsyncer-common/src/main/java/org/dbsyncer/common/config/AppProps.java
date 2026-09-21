@@ -22,7 +22,7 @@ import java.util.Map;
  *   <li>{@link #forDisplay} — 返回用于展示的安全副本（敏感字段已掩码）</li>
  * </ul>
  */
-public interface EnvironmentLoadable {
+public interface AppProps {
 
     /**
      * 从 Environment 读取配置值并填充自身字段。
@@ -73,14 +73,14 @@ public interface EnvironmentLoadable {
      * @return 掩码后的副本，或 this（如果没有敏感字段）
      */
     @JsonIgnore
-    default EnvironmentLoadable forDisplay() {
+    default AppProps forDisplay() {
         List<SensitiveField> fields = getSensitiveFields();
         if (fields.isEmpty()) {
             return this;
         }
         // JSON 深拷贝：副本的 getSensitiveFields() 会创建新的 SensitiveField 实例指向副本字段
         String json = JsonUtil.objToJson(this);
-        EnvironmentLoadable copy = JsonUtil.jsonToObj(json, this.getClass());
+        AppProps copy = JsonUtil.jsonToObj(json, this.getClass());
         // 对副本的敏感字段执行掩码
         for (SensitiveField field : copy.getSensitiveFields()) {
             field.mask();
@@ -103,7 +103,7 @@ public interface EnvironmentLoadable {
     /**
      * 恢复 incoming 中未修改的敏感字段：从 existing 中按字段名匹配，回填原值。
      * <p>
-     * 通用机制，适用于任何 {@link EnvironmentLoadable}：
+     * 通用机制，适用于任何 {@link AppProps}：
      * <ul>
      *   <li>系统级 Tab 保存（editTab）</li>
      *   <li>分组级配置保存（saveGroupNotifyConfig）</li>
@@ -114,7 +114,7 @@ public interface EnvironmentLoadable {
      * @param incoming 前端传入的 Props（可能包含掩码值/空值）
      * @param existing 数据库中的现有 Props（明文）
      */
-    static void restoreMaskedFields(EnvironmentLoadable incoming, EnvironmentLoadable existing) {
+    static void restoreMaskedFields(AppProps incoming, AppProps existing) {
         if (incoming == null || existing == null) {
             return;
         }

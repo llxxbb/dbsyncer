@@ -1,7 +1,7 @@
 package org.dbsyncer.common.config.props;
 
 import org.dbsyncer.common.config.ConfigKeys;
-import org.dbsyncer.common.config.EnvironmentLoadable;
+import org.dbsyncer.common.config.AppProps;
 import org.springframework.core.env.Environment;
 
 import java.io.Serializable;
@@ -15,7 +15,7 @@ import java.util.List;
  * 配置键名集中管理于此，字段作为纯数据容器，
  * 避免 key 作为实例字段导致反序列化后丢失的问题。
  */
-public class BufferProps implements Serializable, EnvironmentLoadable {
+public class BufferProps implements Serializable, AppProps {
 
     private static final long serialVersionUID = 1L;
 

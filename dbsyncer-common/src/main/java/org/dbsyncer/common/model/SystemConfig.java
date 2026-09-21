@@ -6,7 +6,7 @@ package org.dbsyncer.common.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.dbsyncer.common.config.ConfigEncryptor;
-import org.dbsyncer.common.config.EnvironmentLoadable;
+import org.dbsyncer.common.config.AppProps;
 import org.dbsyncer.common.config.SensitiveField;
 import org.dbsyncer.common.config.SystemTabEnum;
 import org.dbsyncer.common.config.props.*;
@@ -267,7 +267,7 @@ public class SystemConfig extends ConfigModel {
      */
     public void encryptSensitiveFields(ConfigEncryptor encryptor) {
         for (SystemTabEnum tab : SystemTabEnum.values()) {
-            EnvironmentLoadable props = tab.getProps(this);
+            AppProps props = tab.getProps(this);
             if (props != null) {
                 for (SensitiveField field : props.getSensitiveFields()) {
                     field.encrypt(encryptor);
@@ -285,7 +285,7 @@ public class SystemConfig extends ConfigModel {
      */
     public void decryptSensitiveFields(ConfigEncryptor encryptor) {
         for (SystemTabEnum tab : SystemTabEnum.values()) {
-            EnvironmentLoadable props = tab.getProps(this);
+            AppProps props = tab.getProps(this);
             if (props != null) {
                 for (SensitiveField field : props.getSensitiveFields()) {
                     field.decrypt(encryptor);
@@ -298,19 +298,19 @@ public class SystemConfig extends ConfigModel {
      * 恢复指定 Tab 的被掩码敏感字段。
      * 用于 editTab 场景：只编辑单个 Tab，无需遍历所有 Tab。
      * <p>
-     * 委托给 {@link EnvironmentLoadable#restoreMaskedFields} 通用实现。
+     * 委托给 {@link AppProps#restoreMaskedFields} 通用实现。
      *
      * @param tabEnum 当前编辑的 Tab
      * @param incoming 前端传入的 Tab 级 Props（可能包含掩码值）
      * @param existing 数据库中的现有 SystemConfig（明文）
      */
     public void restoreMaskedSensitiveFields(SystemTabEnum tabEnum,
-                                             EnvironmentLoadable incoming,
+                                             AppProps incoming,
                                              SystemConfig existing) {
         if (incoming == null || existing == null) {
             return;
         }
-        EnvironmentLoadable exProps = tabEnum.getProps(existing);
-        EnvironmentLoadable.restoreMaskedFields(incoming, exProps);
+        AppProps exProps = tabEnum.getProps(existing);
+        AppProps.restoreMaskedFields(incoming, exProps);
     }
 }

@@ -1,7 +1,7 @@
 package org.dbsyncer.common.config.props;
 
 import org.dbsyncer.common.config.ConfigKeys;
-import org.dbsyncer.common.config.EnvironmentLoadable;
+import org.dbsyncer.common.config.AppProps;
 import org.dbsyncer.common.util.MatchMode;
 import org.springframework.core.env.Environment;
 
@@ -13,7 +13,7 @@ import java.util.List;
  * Tab 6 错误处理。
  * 标量不装箱（ADR-0029 实施修订 R1 / D1）：类型默认值就是有效值，运行期不出现 null。
  */
-public class ErrorProps implements Serializable, EnvironmentLoadable {
+public class ErrorProps implements Serializable, AppProps {
 
     private static final long serialVersionUID = 1L;
 

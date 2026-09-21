@@ -30,7 +30,7 @@ public class PropsDefaultValueTest {
     /** 空的 Spring Environment：只有系统属性，不含任何 dbsyncer.* 键 */
     private static final StandardEnvironment EMPTY = new StandardEnvironment();
 
-    private static void assertLoadKeepsDefaults(EnvironmentLoadable target) {
+    private static void assertLoadKeepsDefaults(AppProps target) {
         String before = JsonUtil.objToJson(target);
         target.loadFromEnvironment(EMPTY);
         assertEquals("loadFromEnvironment(空 env) 不应改变任何字段值", before, JsonUtil.objToJson(target));

@@ -1,7 +1,7 @@
 package org.dbsyncer.common.config.props;
 
 import org.dbsyncer.common.config.ConfigKeys;
-import org.dbsyncer.common.config.EnvironmentLoadable;
+import org.dbsyncer.common.config.AppProps;
 import org.dbsyncer.common.config.SensitiveField;
 import org.springframework.core.env.Environment;
 
@@ -16,7 +16,7 @@ import java.util.List;
  * <p>
  * 创建子 Props 后委托子级完成自加载。
  */
-public class NotifyProps implements Serializable, EnvironmentLoadable {
+public class NotifyProps implements Serializable, AppProps {
 
     private static final long serialVersionUID = 1L;
 

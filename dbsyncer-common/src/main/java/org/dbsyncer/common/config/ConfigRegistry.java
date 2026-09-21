@@ -164,7 +164,7 @@ public class ConfigRegistry {
             if (db == null || tab.isEnvironmentOnly()) {
                 mergedItem = tab.getProps(props);
             } else {
-                EnvironmentLoadable dbItem = tab.getProps(db);
+                AppProps dbItem = tab.getProps(db);
                 mergedItem = dbItem != null ? dbItem : tab.getProps(props);
             }
             tab.setProps(merged, ConfigCopy.copy(mergedItem, tab.getPropsType()));
@@ -181,7 +181,7 @@ public class ConfigRegistry {
     /**
      * 从 Environment 加载 A/B/C 类配置。
      * <p>
-     * 所有 Props 均实现 {@link EnvironmentLoadable}，此处只做编排：
+     * 所有 Props 均实现 {@link AppProps}，此处只做编排：
      * 创建实例 → 调用 loadFromEnvironment → 挂载到 SystemConfig。
      */
     private SystemConfig loadFromEnvironment() {
@@ -215,7 +215,7 @@ public class ConfigRegistry {
     /**
      * 创建 Props 实例并从 Environment 加载配置。
      */
-    private <T extends EnvironmentLoadable> T load(Supplier<T> factory) {
+    private <T extends AppProps> T load(Supplier<T> factory) {
         T props = factory.get();
         props.loadFromEnvironment(environment);
         return props;

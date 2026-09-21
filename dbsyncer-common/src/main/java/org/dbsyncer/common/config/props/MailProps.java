@@ -1,7 +1,7 @@
 package org.dbsyncer.common.config.props;
 
 import org.dbsyncer.common.config.ConfigKeys;
-import org.dbsyncer.common.config.EnvironmentLoadable;
+import org.dbsyncer.common.config.AppProps;
 import org.dbsyncer.common.config.SensitiveField;
 import org.springframework.core.env.Environment;
 
@@ -15,9 +15,9 @@ import java.util.List;
 /**
  * 邮件通知子配置。
  * <p>
- * 实现 {@link EnvironmentLoadable}：自加载 + 自描述。
+ * 实现 {@link AppProps}：自加载 + 自描述。
  */
-public class MailProps implements Serializable, EnvironmentLoadable {
+public class MailProps implements Serializable, AppProps {
 
     private static final long serialVersionUID = 1L;
 

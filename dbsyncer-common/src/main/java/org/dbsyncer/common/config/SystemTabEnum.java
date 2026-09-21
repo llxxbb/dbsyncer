@@ -88,11 +88,11 @@ public enum SystemTabEnum {
     private final ConfigCategory category;
     private final String title;
     private final Class<?> propsType;
-    private final Function<SystemConfig, EnvironmentLoadable> getter;
+    private final Function<SystemConfig, AppProps> getter;
     private final BiConsumer<SystemConfig, Object> setter;
 
     SystemTabEnum(ConfigCategory category, String title,
-                  Function<SystemConfig, EnvironmentLoadable> getter,
+                  Function<SystemConfig, AppProps> getter,
                   BiConsumer<SystemConfig, Object> setter,
                   Class<?> propsType) {
         this.category = category;
@@ -121,7 +121,7 @@ public enum SystemTabEnum {
     }
 
     /** 获取子对象（类型安全） */
-    public EnvironmentLoadable getProps(SystemConfig config) {
+    public AppProps getProps(SystemConfig config) {
         return getter.apply(config);
     }
 
