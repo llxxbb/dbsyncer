@@ -819,7 +819,7 @@ public class MappingServiceImpl implements MappingService {
             return;
         }
 
-        ConnectorService targetConnectorService = (ConnectorService) connectorFactory
+        org.dbsyncer.sdk.spi.ConnectorService targetConnectorService = connectorFactory
                 .getConnectorService(targetConnector.getConfig().getConnectorType());
 
         // 只支持数据库类型的连接器执行 TRUNCATE
