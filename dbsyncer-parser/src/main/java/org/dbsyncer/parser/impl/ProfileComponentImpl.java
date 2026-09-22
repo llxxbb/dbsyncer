@@ -35,6 +35,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -64,6 +65,12 @@ public class ProfileComponentImpl implements ProfileComponent {
     @Resource
     private TableGroupModelService tableGroupModelService;
 
+    /**
+     * mappingId → groupId 缓存，避免每次查询都遍历全部分组。
+     * ProjectGroup 变更时清空（add/edit/remove）。
+     */
+    private final Map<String, String> mappingGroupCache = new ConcurrentHashMap<>();
+
     public ProfileComponentImpl() {
         logger.info("----ProfileComponentImpl init----");
     }   
@@ -92,17 +99,27 @@ public class ProfileComponentImpl implements ProfileComponent {
 
     @Override
     public String addConfigModel(ConfigModel model) throws Exception {
-        return operationTemplate.execute(new OperationConfig(model, CommandEnum.OPR_ADD));
+        String result = operationTemplate.execute(new OperationConfig(model, CommandEnum.OPR_ADD));
+        if (model instanceof ProjectGroup) {
+            mappingGroupCache.clear();
+        }
+        return result;
     }
 
     @Override
     public String editConfigModel(ConfigModel model) throws Exception {
-        return operationTemplate.execute(new OperationConfig(model, CommandEnum.OPR_EDIT));
+        String result = operationTemplate.execute(new OperationConfig(model, CommandEnum.OPR_EDIT));
+        if (model instanceof ProjectGroup) {
+            mappingGroupCache.clear();
+        }
+        return result;
     }
 
     @Override
     public void removeConfigModel(String id) throws Exception {
         operationTemplate.remove(new OperationConfig(id));
+        // 无法判断类型，但 remove 是低频操作，清空缓存无性能影响
+        mappingGroupCache.clear();
     }
 
     @Override
@@ -155,6 +172,13 @@ public class ProfileComponentImpl implements ProfileComponent {
         if (StringUtil.isBlank(mappingId)) {
             return null;
         }
+        return mappingGroupCache.computeIfAbsent(mappingId, this::doFindProjectGroupId);
+    }
+
+    /**
+     * 实际执行查找逻辑（内部方法，供缓存使用）
+     */
+    private String doFindProjectGroupId(String mappingId) {
         List<ProjectGroup> allGroups = getProjectGroupAll();
         if (CollectionUtils.isEmpty(allGroups)) {
             return null;

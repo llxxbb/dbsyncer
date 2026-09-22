@@ -10,7 +10,6 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 通知配置解析器实现
@@ -26,12 +25,6 @@ public class NotifyConfigResolverImpl implements NotifyConfigResolver {
     @Resource
     private ProfileComponent profileComponent;
 
-    /**
-     * mappingId → groupId 缓存，避免每次通知都遍历全部分组。
-     * ProjectGroup 变更时由 {@link #refreshMappingGroupCache()} 清空。
-     */
-    private final Map<String, String> mappingGroupCache = new ConcurrentHashMap<>();
-
     @Override
     public NotifyProps resolve(String mappingId) {
         NotifyProps globalProps = configRegistry.getConfig().getNotify();
@@ -44,10 +37,10 @@ public class NotifyConfigResolverImpl implements NotifyConfigResolver {
             return globalProps;
         }
 
-        // 确定 key（优先查缓存）
+        // 确定 key
         String key = ConfigConstant.UNASSIGNED_GROUP_KEY;
         if (StringUtil.isNotBlank(mappingId)) {
-            String groupId = mappingGroupCache.computeIfAbsent(mappingId, profileComponent::findProjectGroupId);
+            String groupId = profileComponent.findProjectGroupId(mappingId);
             if (StringUtil.isNotBlank(groupId)) {
                 key = groupId;
             }
@@ -60,15 +53,6 @@ public class NotifyConfigResolverImpl implements NotifyConfigResolver {
 
         // 按通道合并
         return mergeNotifyProps(groupProps, globalProps);
-    }
-
-    /**
-     * 清空 mappingId → groupId 缓存。
-     * <p>
-     * 由 ProjectGroup 变更（add/edit/remove）时调用，下次 resolve 时懒加载。
-     */
-    public void refreshMappingGroupCache() {
-        mappingGroupCache.clear();
     }
 
     /**
