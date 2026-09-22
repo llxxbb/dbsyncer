@@ -99,6 +99,22 @@ public class ProjectGroupController extends BaseController {
     }
 
     /**
+     * 获取所有分组列表（供 AJAX 调用）
+     *
+     * @return org.dbsyncer.biz.vo.RestResult
+     */
+    @GetMapping("/list")
+    @ResponseBody
+    public RestResult list() {
+        try {
+            return RestResult.restSuccess(projectGroupService.getProjectGroupAll());
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
+        }
+    }
+
+    /**
      * 参数： name(必) mappingIds connectorIds
      *
      * @param request

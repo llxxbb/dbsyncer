@@ -90,41 +90,155 @@ function fillRetryTab(retry) {
     $('#retry_excludeKeywords').val((retry.excludeKeywords || []).join('\n'));
 }
 
+var NOTIFY_TYPES = [
+    { value: 'MANUAL_OPERATION', label: '手动操作', tip: '任务停止/重置/重新同步等操作' },
+    { value: 'TASK_INTERRUPTED', label: '任务中断', tip: '任务异常中断' },
+    { value: 'DATA_ERROR_QUEUE', label: '数据错误', tip: '数据进入错误队列' },
+    { value: 'DATA_ERROR_CIRCUIT_BREAKER', label: '错误队列熔断', tip: '错误队列达到熔断阈值' },
+    { value: 'FATAL_MATCHED', label: '致命关键字', tip: '匹配致命关键字导致任务终止' },
+    { value: 'DDL', label: 'DDL操作', tip: '表结构变更事件' },
+    { value: 'TARGET_EXCEPTION', label: '目标异常', tip: '目标端写入异常' },
+    { value: 'SOURCE_EXCEPTION', label: '数据源异常', tip: '数据源读取异常' }
+];
+
+function renderNotifyForm($container, config, opts) {
+    opts = opts || {};
+    var pwdPlaceholder = opts.pwdPlaceholder || '留空保留原值';
+    var overridePlaceholder = opts.overridePlaceholder || '';
+    
+    var html = '';
+    html += '<div class="form-group">';
+    html += '<label class="col-sm-2 control-label">启用通道<i class="fa fa-question-circle fa_gray" title="选择要启用的通知通道。未勾选的通道不会发送任何通知消息。"></i></label>';
+    html += '<div class="col-sm-10">';
+    html += '<label class="checkbox-inline"><input type="checkbox" class="nf-channels" value="mail"> 邮件</label>';
+    html += '<label class="checkbox-inline"><input type="checkbox" class="nf-channels" value="dingtalk"> 钉钉</label>';
+    html += '</div></div>';
+    
+    html += '<div class="nf-mail-section" style="display:none;">';
+    html += '<h4>邮件配置</h4>';
+    html += '<div class="form-group">';
+    html += '<label class="col-sm-2 control-label">发件邮箱<i class="fa fa-question-circle fa_gray" title="用于发送告警通知邮件的发件人邮箱地址。需确保该邮箱已开启 SMTP 服务。"></i></label>';
+    html += '<div class="col-sm-4"><input type="text" class="form-control nf-mail-username"' + (overridePlaceholder ? ' placeholder="' + overridePlaceholder + '"' : '') + '/></div>';
+    html += '<label class="col-sm-2 control-label">授权码<i class="fa fa-question-circle fa_gray" title="发件邮箱的 SMTP 授权码（非邮箱登录密码）。通常需在邮箱设置中开启 SMTP 服务后获取。"></i></label>';
+    html += '<div class="col-sm-4"><input type="password" class="form-control nf-mail-password" placeholder="' + pwdPlaceholder + '"/></div>';
+    html += '</div>';
+    html += '<div class="form-group">';
+    html += '<label class="col-sm-2 control-label">通知类型<i class="fa fa-question-circle fa_gray" title="选择要接收的告警通知类型。不勾选任何项则默认接收全部类型的通知。"></i></label>';
+    html += '<div class="col-sm-10 nf-mail-types" style="line-height:2.2;">';
+    for (var i = 0; i < NOTIFY_TYPES.length; i++) {
+        html += '<label class="checkbox-inline" style="margin-right:15px;"><input type="checkbox" class="nf-mail-type" value="' + NOTIFY_TYPES[i].value + '" title="' + NOTIFY_TYPES[i].tip + '"> ' + NOTIFY_TYPES[i].label + '</label>';
+    }
+    html += '</div></div></div>';
+    
+    html += '<div class="nf-dingtalk-section" style="display:none;">';
+    html += '<h4>钉钉配置</h4>';
+    html += '<div class="form-group">';
+    html += '<label class="col-sm-2 control-label">Webhook URL<i class="fa fa-question-circle fa_gray" title="钉钉群机器人的 Webhook 推送地址。在钉钉群 → 设置 → 智能群助手 → 添加机器人 后获取。"></i></label>';
+    html += '<div class="col-sm-4"><input type="text" class="form-control nf-dingtalk-webhookUrl"' + (overridePlaceholder ? ' placeholder="' + overridePlaceholder + '"' : '') + '/></div>';
+    html += '<label class="col-sm-2 control-label">签名密钥<i class="fa fa-question-circle fa_gray" title="钉钉机器人的签名校验密钥（加签方式）。配置后需重启应用生效。如机器人安全设置中未启用加签可留空。"></i></label>';
+    html += '<div class="col-sm-4"><input type="password" class="form-control nf-dingtalk-secret" placeholder="' + pwdPlaceholder + '"/></div>';
+    html += '</div>';
+    html += '<div class="form-group">';
+    html += '<label class="col-sm-2 control-label">通知类型<i class="fa fa-question-circle fa_gray" title="选择要通过钉钉接收的告警通知类型。不勾选任何项则默认接收全部类型。"></i></label>';
+    html += '<div class="col-sm-10 nf-dingtalk-types" style="line-height:2.2;">';
+    for (var i = 0; i < NOTIFY_TYPES.length; i++) {
+        html += '<label class="checkbox-inline" style="margin-right:15px;"><input type="checkbox" class="nf-dingtalk-type" value="' + NOTIFY_TYPES[i].value + '" title="' + NOTIFY_TYPES[i].tip + '"> ' + NOTIFY_TYPES[i].label + '</label>';
+    }
+    html += '</div></div></div>';
+    
+    $container.html(html);
+    
+    if (config) {
+        fillNotifyFormValues($container, config);
+    }
+    
+    $container.find('.nf-channels').on('change', function() {
+        toggleNotifySections($container);
+    });
+}
+
+function toggleNotifySections($container) {
+    var mailChecked = $container.find('.nf-channels[value="mail"]').is(':checked');
+    var dingtalkChecked = $container.find('.nf-channels[value="dingtalk"]').is(':checked');
+    $container.find('.nf-mail-section').toggle(mailChecked);
+    $container.find('.nf-dingtalk-section').toggle(dingtalkChecked);
+}
+
+function fillNotifyFormValues($container, config) {
+    $container.find('.nf-channels').prop('checked', false);
+    $container.find('.nf-mail-type, .nf-dingtalk-type').prop('checked', false);
+    $container.find('input[type="text"], input[type="password"]').val('');
+    
+    if (!config) return;
+    
+    var channels = config.channels || [];
+    for (var i = 0; i < channels.length; i++) {
+        $container.find('.nf-channels[value="' + channels[i] + '"]').prop('checked', true);
+    }
+    
+    if (config.mail) {
+        $container.find('.nf-mail-username').val(config.mail.username || '');
+        var pwd = config.mail.password;
+        if (pwd && pwd.indexOf('****') >= 0) {
+            $container.find('.nf-mail-password').attr('placeholder', '已配置，留空则保留原值');
+        }
+        var types = config.mail.notifyTypes || [];
+        for (var i = 0; i < types.length; i++) {
+            $container.find('.nf-mail-type[value="' + types[i] + '"]').prop('checked', true);
+        }
+    }
+    
+    if (config.dingtalk) {
+        $container.find('.nf-dingtalk-webhookUrl').val(config.dingtalk.webhookUrl || '');
+        var secret = config.dingtalk.secret;
+        if (secret && secret.indexOf('****') >= 0) {
+            $container.find('.nf-dingtalk-secret').attr('placeholder', '已配置，留空则保留原值');
+        }
+        var types = config.dingtalk.notifyTypes || [];
+        for (var i = 0; i < types.length; i++) {
+            $container.find('.nf-dingtalk-type[value="' + types[i] + '"]').prop('checked', true);
+        }
+    }
+    
+    toggleNotifySections($container);
+}
+
+function readNotifyForm($container) {
+    var channels = [];
+    $container.find('.nf-channels:checked').each(function() { channels.push($(this).val()); });
+    
+    var payload = { channels: channels };
+    
+    if (channels.indexOf('mail') >= 0) {
+        var mail = {};
+        var username = $container.find('.nf-mail-username').val();
+        var password = $container.find('.nf-mail-password').val();
+        if (username) mail.username = username;
+        if (password) mail.password = password;
+        var types = [];
+        $container.find('.nf-mail-type:checked').each(function() { types.push($(this).val()); });
+        if (types.length > 0) mail.notifyTypes = types;
+        payload.mail = mail;
+    }
+    
+    if (channels.indexOf('dingtalk') >= 0) {
+        var dingtalk = {};
+        var webhookUrl = $container.find('.nf-dingtalk-webhookUrl').val();
+        var secret = $container.find('.nf-dingtalk-secret').val();
+        if (webhookUrl) dingtalk.webhookUrl = webhookUrl;
+        if (secret) dingtalk.secret = secret;
+        var types = [];
+        $container.find('.nf-dingtalk-type:checked').each(function() { types.push($(this).val()); });
+        if (types.length > 0) dingtalk.notifyTypes = types;
+        payload.dingtalk = dingtalk;
+    }
+    
+    return payload;
+}
+
 function fillNotifyTab(notify) {
     if (!notify) return;
-    // channels
-    $('input[name="channels"]').prop('checked', false);
-    if (notify.channels) {
-        notify.channels.forEach(function (ch) {
-            $('input[name="channels"][value="' + ch + '"]').prop('checked', true);
-        });
-    }
-    // mail
-    if (notify.mail) {
-        $('#notify_mail_username').val(notify.mail.username || '');
-        // 密码：如果是掩码值，显示在 placeholder 中，value 留空
-        var pwd = notify.mail.password;
-        if (pwd && pwd.indexOf('****') >= 0) {
-            $('#notify_mail_password').attr('placeholder', '已配置 (' + pwd + ')，留空则保留原值');
-            $('#notify_mail_password').val('');
-        } else {
-            $('#notify_mail_password').attr('placeholder', '未配置，请输入');
-            $('#notify_mail_password').val('');
-        }
-    }
-    // dingtalk
-    if (notify.dingtalk) {
-        $('#notify_dingtalk_webhookUrl').val(notify.dingtalk.webhookUrl || '');
-        // 密钥：如果是掩码值，显示在 placeholder 中，value 留空
-        var secret = notify.dingtalk.secret;
-        if (secret && secret.indexOf('****') >= 0) {
-            $('#notify_dingtalk_secret').attr('placeholder', '已配置 (' + secret + ')，留空则保留原值');
-            $('#notify_dingtalk_secret').val('');
-        } else {
-            $('#notify_dingtalk_secret').attr('placeholder', '未配置，请输入');
-            $('#notify_dingtalk_secret').val('');
-        }
-    }
+    renderNotifyForm($('#globalNotifyFields'), notify, { mode: 'global' });
 }
 
 function fillErrorTab(error) {
@@ -214,19 +328,7 @@ function buildPayload(tab) {
                 excludeKeywords: textToLines($('#retry_excludeKeywords').val())
             };
         case 'notify':
-            var channels = [];
-            $('input[name="channels"]:checked').each(function () { channels.push($(this).val()); });
-            return {
-                channels: channels,
-                mail: {
-                    username: $('#notify_mail_username').val(),
-                    password: $('#notify_mail_password').val()
-                },
-                dingtalk: {
-                    webhookUrl: $('#notify_dingtalk_webhookUrl').val(),
-                    secret: $('#notify_dingtalk_secret').val()
-                }
-            };
+            return readNotifyForm($('#globalNotifyFields'));
         case 'error':
             return {
                 threshold: parseInt($('#error_threshold').val()),
@@ -320,25 +422,10 @@ $(function () {
 
 var groupNotifyConfigs = {};
 var projectGroups = [];
-var currentGroupFilter = 'all';
 
 function initGroupNotify() {
     loadGroupNotifyConfigs();
     loadProjectGroups();
-
-    // 通道复选框切换
-    $(document).on('change', 'input[name="gn_channels"]', function() {
-        var mailChecked = $('input[name="gn_channels"][value="mail"]').is(':checked');
-        var dingtalkChecked = $('input[name="gn_channels"][value="dingtalk"]').is(':checked');
-        $('#gn_mail_section').toggle(mailChecked);
-        $('#gn_dingtalk_section').toggle(dingtalkChecked);
-    });
-
-    // 过滤器
-    $(document).on('click', '.group-filter-btn', function() {
-        currentGroupFilter = $(this).data('filter');
-        renderGroupNotifyList();
-    });
 
     // 搜索
     $(document).on('input', '#groupNotifyFilter', function() {
@@ -372,8 +459,8 @@ function loadGroupNotifyConfigs() {
         url: '/system/groupNotifyConfigs',
         type: 'GET',
         success: function(res) {
-            if (res.code === '200') {
-                groupNotifyConfigs = res.data || {};
+            if (res.success) {
+                groupNotifyConfigs = res.resultValue || {};
                 renderGroupNotifyList();
             }
         }
@@ -385,8 +472,8 @@ function loadProjectGroups() {
         url: '/projectGroup/list',
         type: 'GET',
         success: function(res) {
-            if (res.code === '200') {
-                projectGroups = res.data || [];
+            if (res.success) {
+                projectGroups = res.resultValue || [];
                 renderGroupNotifyList();
             }
         }
@@ -398,33 +485,37 @@ function renderGroupNotifyList() {
     var $list = $('#groupNotifyList');
     $list.empty();
 
-    // 添加“未分配”项
+    // 添加"未分配"项
     var unassignedConfigured = groupNotifyConfigs['__unassigned__'] != null;
-    if (currentGroupFilter === 'all' || (currentGroupFilter === 'configured' && unassignedConfigured) || (currentGroupFilter === 'unconfigured' && !unassignedConfigured)) {
-        if (!filter || '未分配分组'.toLowerCase().indexOf(filter) >= 0) {
-            var label = unassignedConfigured ? 'label-success' : 'label-default';
-            $list.append('<li class="list-group-item group-notify-item" data-id="__unassigned__" style="cursor:pointer;">' +
-                '<span class="label ' + label + '" style="margin-right:5px;">●</span> 未分配分组</li>');
-        }
+    if (!filter || '未分配分组'.toLowerCase().indexOf(filter) >= 0) {
+        var label = unassignedConfigured ? 'label-success' : 'label-default';
+        $list.append('<li class="list-group-item group-notify-item" data-id="__unassigned__" style="cursor:pointer;">' +
+            '<span class="label ' + label + '" style="margin-right:5px;">●</span> 未分配分组</li>');
     }
 
-    // 添加分组
+    // 添加全部分组
     for (var i = 0; i < projectGroups.length; i++) {
         var g = projectGroups[i];
         var name = g.name || g.id;
         var configured = groupNotifyConfigs[g.id] != null;
 
-        if (currentGroupFilter === 'configured' && !configured) continue;
-        if (currentGroupFilter === 'unconfigured' && configured) continue;
         if (filter && name.toLowerCase().indexOf(filter) < 0) continue;
 
         var label = configured ? 'label-success' : 'label-default';
         $list.append('<li class="list-group-item group-notify-item" data-id="' + g.id + '" style="cursor:pointer;">' +
             '<span class="label ' + label + '" style="margin-right:5px;">●</span> ' + name + '</li>');
     }
+
+    // 恢复选中状态
+    var selectedId = $('#groupNotifyId').val();
+    if (selectedId) {
+        $('.group-notify-item[data-id="' + selectedId + '"]').addClass('active');
+    }
 }
 
 $(document).on('click', '.group-notify-item', function() {
+    $('.group-notify-item').removeClass('active');
+    $(this).addClass('active');
     var id = $(this).data('id');
     selectGroup(id);
 });
@@ -440,72 +531,16 @@ function selectGroup(id) {
     }
     $('#groupNotifyTitle').text('配置分组：' + name);
 
-    // 填充表单
+    // 渲染表单
     var config = groupNotifyConfigs[id];
-    $('input[name="gn_channels"]').prop('checked', false);
-    $('input[name="gn_mail_types"]').prop('checked', false);
-    $('input[name="gn_dingtalk_types"]').prop('checked', false);
-    $('input[name="gn_mail_username"]').val('');
-    $('input[name="gn_mail_password"]').val('');
-    $('input[name="gn_dingtalk_webhookUrl"]').val('');
-    $('input[name="gn_dingtalk_secret"]').val('');
-
-    if (config) {
-        var channels = config.channels || [];
-        for (var i = 0; i < channels.length; i++) {
-            $('input[name="gn_channels"][value="' + channels[i] + '"]').prop('checked', true);
-        }
-        if (config.mail) {
-            $('input[name="gn_mail_username"]').val(config.mail.username || '');
-            var types = config.mail.notifyTypes || [];
-            for (var i = 0; i < types.length; i++) {
-                $('input[name="gn_mail_types"][value="' + types[i] + '"]').prop('checked', true);
-            }
-        }
-        if (config.dingtalk) {
-            $('input[name="gn_dingtalk_webhookUrl"]').val(config.dingtalk.webhookUrl || '');
-            var types = config.dingtalk.notifyTypes || [];
-            for (var i = 0; i < types.length; i++) {
-                $('input[name="gn_dingtalk_types"][value="' + types[i] + '"]').prop('checked', true);
-            }
-        }
-    }
-
-    // 触发通道切换
-    $('input[name="gn_channels"]').trigger('change');
+    renderNotifyForm($('#groupNotifyFields'), config, { 
+        mode: 'group', 
+        overridePlaceholder: '留空使用全局配置' 
+    });
 }
 
 function buildGroupNotifyPayload() {
-    var channels = [];
-    $('input[name="gn_channels"]:checked').each(function() { channels.push($(this).val()); });
-
-    var payload = { channels: channels };
-
-    if (channels.indexOf('mail') >= 0) {
-        var mail = {};
-        var username = $('input[name="gn_mail_username"]').val();
-        var password = $('input[name="gn_mail_password"]').val();
-        if (username) mail.username = username;
-        if (password) mail.password = password;
-        var types = [];
-        $('input[name="gn_mail_types"]:checked').each(function() { types.push($(this).val()); });
-        if (types.length > 0) mail.notifyTypes = types;
-        payload.mail = mail;
-    }
-
-    if (channels.indexOf('dingtalk') >= 0) {
-        var dingtalk = {};
-        var webhookUrl = $('input[name="gn_dingtalk_webhookUrl"]').val();
-        var secret = $('input[name="gn_dingtalk_secret"]').val();
-        if (webhookUrl) dingtalk.webhookUrl = webhookUrl;
-        if (secret) dingtalk.secret = secret;
-        var types = [];
-        $('input[name="gn_dingtalk_types"]:checked').each(function() { types.push($(this).val()); });
-        if (types.length > 0) dingtalk.notifyTypes = types;
-        payload.dingtalk = dingtalk;
-    }
-
-    return JSON.stringify(payload);
+    return JSON.stringify(readNotifyForm($('#groupNotifyFields')));
 }
 
 function saveGroupNotifyConfig() {
@@ -517,11 +552,11 @@ function saveGroupNotifyConfig() {
         type: 'POST',
         data: { projectGroupId: id, payload: payload },
         success: function(res) {
-            if (res.code === '200') {
-                alert('保存成功');
+            if (res.success) {
+                bootGrowl('保存成功', 'success');
                 loadGroupNotifyConfigs();
             } else {
-                alert('保存失败：' + res.msg);
+                bootGrowl(res.resultValue || '保存失败', 'danger');
             }
         }
     });
@@ -536,11 +571,11 @@ function deleteGroupNotifyConfig() {
         type: 'POST',
         data: { projectGroupId: id },
         success: function(res) {
-            if (res.code === '200') {
-                alert('删除成功');
+            if (res.success) {
+                bootGrowl('删除成功', 'success');
                 loadGroupNotifyConfigs();
             } else {
-                alert('删除失败：' + res.msg);
+                bootGrowl(res.resultValue || '删除失败', 'danger');
             }
         }
     });
@@ -553,10 +588,10 @@ function testGroupNotify() {
         type: 'POST',
         data: { payload: payload },
         success: function(res) {
-            if (res.code === '200') {
-                alert('测试消息已发送');
+            if (res.success) {
+                bootGrowl('测试消息已发送', 'success');
             } else {
-                alert('测试失败：' + res.msg);
+                bootGrowl(res.resultValue || '测试失败', 'danger');
             }
         }
     });

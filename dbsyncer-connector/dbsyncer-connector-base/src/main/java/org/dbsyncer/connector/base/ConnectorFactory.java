@@ -28,7 +28,6 @@ import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.plugin.SyncRow;
 import org.dbsyncer.sdk.notify.NotifyConfigResolver;
 import org.dbsyncer.sdk.notify.NotifyType;
-import org.dbsyncer.common.config.props.NotifyProps;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.spi.LogService;
