@@ -51,6 +51,11 @@ public class NotifyConfigResolverImpl implements NotifyConfigResolver {
             return globalProps;
         }
 
+        // 分组未启用独立配置，走全局
+        if (!Boolean.TRUE.equals(groupProps.getEnabled())) {
+            return globalProps;
+        }
+
         // 按通道合并
         return mergeNotifyProps(groupProps, globalProps);
     }

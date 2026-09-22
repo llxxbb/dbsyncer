@@ -105,8 +105,20 @@ function renderNotifyForm($container, config, opts) {
     opts = opts || {};
     var pwdPlaceholder = opts.pwdPlaceholder || '留空保留原值';
     var overridePlaceholder = opts.overridePlaceholder || '';
+    var isGroupMode = opts.mode === 'group';
     
     var html = '';
+    
+    // 分组模式：增加“启用独立配置”开关
+    if (isGroupMode) {
+        html += '<div class="form-group">';
+        html += '<label class="col-sm-2 control-label">启用配置<i class="fa fa-question-circle fa_gray" title="开启后使用本分组的通道配置；关闭则走全局配置。"></i></label>';
+        html += '<div class="col-sm-10">';
+        html += '<label class="checkbox-inline"><input type="checkbox" class="nf-enabled"> 启用</label>';
+        html += '</div></div>';
+    }
+    
+    html += '<div class="nf-fields-section"' + (isGroupMode ? ' style="display:none;"' : '') + '>';
     html += '<div class="form-group">';
     html += '<label class="col-sm-2 control-label">启用通道<i class="fa fa-question-circle fa_gray" title="选择要启用的通知通道。未勾选的通道不会发送任何通知消息。"></i></label>';
     html += '<div class="col-sm-10">';
@@ -145,11 +157,19 @@ function renderNotifyForm($container, config, opts) {
         html += '<label class="checkbox-inline" style="margin-right:15px;"><input type="checkbox" class="nf-dingtalk-type" value="' + NOTIFY_TYPES[i].value + '" title="' + NOTIFY_TYPES[i].tip + '"> ' + NOTIFY_TYPES[i].label + '</label>';
     }
     html += '</div></div></div>';
+    html += '</div>'; // close nf-fields-section
     
     $container.html(html);
     
     if (config) {
         fillNotifyFormValues($container, config);
+    }
+    
+    // 分组模式：绑定启用开关事件
+    if (isGroupMode) {
+        $container.find('.nf-enabled').on('change', function() {
+            $container.find('.nf-fields-section').toggle($(this).is(':checked'));
+        });
     }
     
     $container.find('.nf-channels').on('change', function() {
@@ -168,6 +188,14 @@ function fillNotifyFormValues($container, config) {
     $container.find('.nf-channels').prop('checked', false);
     $container.find('.nf-mail-type, .nf-dingtalk-type').prop('checked', false);
     $container.find('input[type="text"], input[type="password"]').val('');
+    
+    // 分组模式：处理 enabled 字段
+    var $enabled = $container.find('.nf-enabled');
+    if ($enabled.length > 0) {
+        var isEnabled = config && config.enabled === true;
+        $enabled.prop('checked', isEnabled);
+        $container.find('.nf-fields-section').toggle(isEnabled);
+    }
     
     if (!config) return;
     
@@ -204,10 +232,17 @@ function fillNotifyFormValues($container, config) {
 }
 
 function readNotifyForm($container) {
+    var payload = {};
+    
+    // 分组模式：读取 enabled 字段
+    var $enabled = $container.find('.nf-enabled');
+    if ($enabled.length > 0) {
+        payload.enabled = $enabled.is(':checked');
+    }
+    
     var channels = [];
     $container.find('.nf-channels:checked').each(function() { channels.push($(this).val()); });
-    
-    var payload = { channels: channels };
+    payload.channels = channels;
     
     if (channels.indexOf('mail') >= 0) {
         var mail = {};
@@ -424,8 +459,13 @@ var groupNotifyConfigs = {};
 var projectGroups = [];
 
 function initGroupNotify() {
-    loadGroupNotifyConfigs();
-    loadProjectGroups();
+    // 监听 tab 切换，切换到"通知通道"时才加载分组数据
+    $('a[data-toggle="tab"]').on('shown.bs.tab', function(e) {
+        if ($(e.target).attr('href') === '#tab-notify') {
+            loadGroupNotifyConfigs();
+            loadProjectGroups();
+        }
+    });
 
     // 搜索
     $(document).on('input', '#groupNotifyFilter', function() {

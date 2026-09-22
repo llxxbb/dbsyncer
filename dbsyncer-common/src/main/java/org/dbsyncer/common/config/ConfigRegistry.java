@@ -173,6 +173,11 @@ public class ConfigRegistry {
         // schemaVersion 从 DB 取（无 DB 记录时沿用 props，首次启动由 ConfigBootstrap 赋版本）
         merged.setSchemaVersion(db != null ? db.getSchemaVersion() : props.getSchemaVersion());
 
+        // groupNotifyConfigs 不在 SystemTabEnum 中，手动复制
+        if (db != null && db.getGroupNotifyConfigs() != null) {
+            merged.setGroupNotifyConfigs(db.getGroupNotifyConfigs());
+        }
+
         return merged;
     }
 

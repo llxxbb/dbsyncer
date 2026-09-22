@@ -20,9 +20,25 @@ public class NotifyProps implements Serializable, AppProps {
 
     private static final long serialVersionUID = 1L;
 
+    /**
+     * 是否启用独立配置（仅分组配置使用）。
+     * <p>
+     * false 或 null：走全局配置<br/>
+     * true：使用本分组的通道配置（通道为空则不发通知）
+     */
+    private Boolean enabled;
+
     private List<String> channels;
     private MailProps mail;
     private DingTalkProps dingtalk;
+
+    public Boolean getEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(Boolean enabled) {
+        this.enabled = enabled;
+    }
 
     public List<String> getChannels() {
         return channels;
