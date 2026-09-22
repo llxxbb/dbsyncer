@@ -15,6 +15,7 @@ import org.dbsyncer.biz.vo.ProjectGroupVo;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.ProfileComponent;
+import org.dbsyncer.parser.notify.NotifyConfigResolverImpl;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.common.model.ConfigModel;
@@ -64,12 +65,17 @@ public class ProjectGroupServiceImpl implements ProjectGroupService {
     @Resource
     private UserGroupService userGroupService;
 
+    @Resource
+    private NotifyConfigResolverImpl notifyConfigResolver;
+
     @Override
     public String add(Map<String, String> params) throws Exception {
         ConfigModel model = projectGroupChecker.checkAddConfigModel(params);
         this.logService.log(model, LogType.INSERT, LogLevel.INFO, "INSERT:" + model.getName());
 
-        return profileComponent.addConfigModel(model);
+        String result = profileComponent.addConfigModel(model);
+        notifyConfigResolver.refreshMappingGroupCache();
+        return result;
     }
 
     @Override
@@ -77,7 +83,9 @@ public class ProjectGroupServiceImpl implements ProjectGroupService {
         ConfigModel model = projectGroupChecker.checkEditConfigModel(params);
         this.logService.log(model, LogType.UPDATE, LogLevel.INFO, "UPDATE:" + model.getName());
 
-        return profileComponent.editConfigModel(model);
+        String result = profileComponent.editConfigModel(model);
+        notifyConfigResolver.refreshMappingGroupCache();
+        return result;
     }
 
     @Override
@@ -86,6 +94,7 @@ public class ProjectGroupServiceImpl implements ProjectGroupService {
         this.logService.log(projectGroup, LogType.DELETE, LogLevel.INFO, "DELETE:" + projectGroup.getName());
         Assert.notNull(projectGroup, "该分组已被删除");
         profileComponent.removeConfigModel(id);
+        notifyConfigResolver.refreshMappingGroupCache();
         return "删除分组成功!";
     }
 
