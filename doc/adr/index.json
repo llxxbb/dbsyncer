@@ -1,0 +1,291 @@
+{
+  "version": 1,
+  "updatedAt": "2026-09-23",
+  "statistics": {
+    "total": 36,
+    "byStatus": {
+      "Proposed": 12,
+      "Accepted": 19,
+      "Deprecated": 0,
+      "Superseded": 0
+    }
+  },
+  "entries": [
+    {
+      "number": "0036",
+      "title": "增量终止语义与快照点一致性修复",
+      "filename": "0036-增量终止语义与快照点一致性修复.md",
+      "status": "Accepted",
+      "date": "2026-09-22",
+      "decisionMaker": "凌曦"
+    },
+    {
+      "number": "0035",
+      "title": "报警按 ProjectGroup 分组配置",
+      "filename": "0035-报警按分组配置.md",
+      "status": "Proposed",
+      "date": "2026-09-21",
+      "decisionMaker": "@lxb"
+    },
+    {
+      "number": "0034",
+      "title": "任务面板组件化（TaskPanel / TaskToolbar / TaskList / TaskCardList）",
+      "filename": "0034-任务面板组件化.md",
+      "status": "Accepted",
+      "date": "2026-09-15",
+      "decisionMaker": "@lxb"
+    },
+    {
+      "number": "0033",
+      "title": "任务列表接口投影（脱敏数据库凭据与源库表清单）",
+      "filename": "0033-任务列表接口投影.md",
+      "status": "Accepted",
+      "date": "2026-09-15",
+      "decisionMaker": "@lxb"
+    },
+    {
+      "number": "0032",
+      "title": "SPA 单容器页面模型（废弃 route/多容器）",
+      "filename": "0032-SPA单容器页面模型.md",
+      "status": "Accepted",
+      "date": "2026-09-14",
+      "decisionMaker": "@lxb"
+    },
+    {
+      "number": "0031",
+      "title": "B 类配置业务热重载（替代进程级重启）",
+      "filename": "0031-B类配置业务热重载.md",
+      "status": "Accepted",
+      "date": "2026-09-01",
+      "decisionMaker": "@lxb"
+    },
+    {
+      "number": "0030",
+      "title": "消除 Sidecar，统一延迟线程池",
+      "filename": "0030-消除-sidecar-统一延迟线程池.md",
+      "status": "Accepted",
+      "date": "2026-09-01",
+      "decisionMaker": "@lxb"
+    },
+    {
+      "number": "0029",
+      "title": "运行时配置 UI 化",
+      "filename": "0029-运行时配置UI化.md",
+      "status": "Proposed",
+      "date": "2026-08-31",
+      "decisionMaker": "@dbsyncer-team"
+    },
+    {
+      "number": "0028",
+      "title": "系统配置启动期重复创建防护",
+      "filename": "0028-系统配置启动期重复创建防护.md",
+      "status": "Proposed",
+      "date": "2026-08-31",
+      "decisionMaker": "@dbsyncer-team"
+    },
+    {
+      "number": "0027",
+      "title": "MySQL 增量同步多表性能优化",
+      "filename": "0027-mysql-cdc-performance-optimization.md",
+      "status": "Proposed",
+      "date": "2026-08-24",
+      "decisionMaker": "@dbsyncer-team"
+    },
+    {
+      "number": "0026",
+      "title": "MySQL 主备切换 GTID 支持方案",
+      "filename": "0026-mysql-gtid-support.md",
+      "status": "Accepted",
+      "date": "2026-08-17"
+    },
+    {
+      "number": "0025",
+      "title": "致命关键字终止机制",
+      "filename": "0025-致命关键字终止机制.md",
+      "status": "Unknown",
+      "date": null
+    },
+    {
+      "number": "0024",
+      "title": "同步管线抽象",
+      "filename": "0024-同步管线抽象.md",
+      "status": "Accepted",
+      "date": "2026-08-06",
+      "decisionMaker": "@lxb"
+    },
+    {
+      "number": "0023",
+      "title": "错误队列数据一致性修复",
+      "filename": "0023-错误队列数据一致性修复.md",
+      "status": "Accepted",
+      "date": "2026-07-31",
+      "decisionMaker": "凌曦"
+    },
+    {
+      "number": "0022",
+      "title": "MySQL 与 SqlServerCT 类型映射风险分析",
+      "filename": "0022-MySQL与SqlServerCT类型映射风险分析.md",
+      "status": "Accepted",
+      "date": "2026-07-28",
+      "decisionMaker": "待定"
+    },
+    {
+      "number": "0021",
+      "title": "字段差异修复弹窗公共化",
+      "filename": "0021-字段差异修复弹窗公共化.md",
+      "status": "Accepted",
+      "date": "2026-07-18",
+      "decisionMaker": "凌曦"
+    },
+    {
+      "number": "0020",
+      "title": "异常同步任务监控面板",
+      "filename": "0020-异常同步任务监控面板.md",
+      "status": "Unknown",
+      "date": null
+    },
+    {
+      "number": "0019",
+      "title": "Model 层贫血化重构",
+      "filename": "0019-Model层贫血化重构.md",
+      "status": "Accepted",
+      "date": "2026-06-27",
+      "decisionMaker": "@lixuebin"
+    },
+    {
+      "number": "0018",
+      "title": "引入上下文感知的数据模型 (Context-Aware Data Model)",
+      "filename": "0018-引入上下文感知的数据模型.md",
+      "status": "Accepted",
+      "date": null
+    },
+    {
+      "number": "0017",
+      "title": "MetaInfo 继承 Table，统一主键传递链",
+      "filename": "0017-MetaInfo继承Table统一主键传递链.md",
+      "status": "Accepted",
+      "date": "2026-06-26",
+      "decisionMaker": "@用户"
+    },
+    {
+      "number": "0016",
+      "title": "日志查询功能分散到任务面板",
+      "filename": "0016-日志查询功能分散到任务面板.md",
+      "status": "Unknown",
+      "date": null
+    },
+    {
+      "number": "0015",
+      "title": "同步任务重试排除关键字配置",
+      "filename": "0015-同步任务重试排除关键字配置.md",
+      "status": "Accepted",
+      "date": "2026-06-08",
+      "decisionMaker": "老李"
+    },
+    {
+      "number": "0014",
+      "title": "钉钉群消息通知机制",
+      "filename": "0014-钉钉群消息通知机制.md",
+      "status": "Accepted",
+      "date": "2026-06-03",
+      "decisionMaker": "老李"
+    },
+    {
+      "number": "0013",
+      "title": "同步任务指数退避重试机制",
+      "filename": "0013-同步任务指数退避重试机制.md",
+      "status": "Accepted",
+      "date": "2026-06-02",
+      "decisionMaker": "老李"
+    },
+    {
+      "number": "0012",
+      "title": "消除 syncSourceTable/syncTargetTable 克隆，TableGroup 即上下文",
+      "filename": "0012-消除-syncSourceTable-克隆-TableGroup即上下文.md",
+      "status": "Proposed",
+      "date": "2026-05-28",
+      "decisionMaker": "老李"
+    },
+    {
+      "number": "0011",
+      "title": "简化 FieldMapping 结构",
+      "filename": "0011-简化-FieldMapping-结构.md",
+      "status": "Proposed",
+      "date": "2026-05-27",
+      "decisionMaker": "@老李"
+    },
+    {
+      "number": "0010",
+      "title": "MySQL 非 UTF-8 字符集列的数据一致性处理",
+      "filename": "0010-mysql-non-utf8-charset-handling.md",
+      "status": "Proposed",
+      "date": "2026-05-20",
+      "decisionMaker": "老李"
+    },
+    {
+      "number": "0009",
+      "title": "字段差异分析增加 MAPPING_ONLY 检测与修复",
+      "filename": "0009-字段差异分析增加MAPPING_ONLY检测与修复.md",
+      "status": "Proposed",
+      "date": "2026-05-14",
+      "decisionMaker": "老李"
+    },
+    {
+      "number": "0008",
+      "title": "字段名/表名大小写不敏感的业务对象封装",
+      "filename": "0008-field-table-case-insensitive.md",
+      "status": "Proposed",
+      "date": "2026-05-13",
+      "decisionMaker": "老李"
+    },
+    {
+      "number": "0007",
+      "title": "批量添加转换配置 — 临时主键变更为正式主键",
+      "filename": "0007-batch-convert-temp-to-formal-pk.md",
+      "status": "Proposed",
+      "date": "2026-05-11"
+    },
+    {
+      "number": "0006",
+      "title": "SQL Server CT 写入重构 — U→I 转换 + 覆盖写入 + 去除异常检测",
+      "filename": "0006-sqlserver-ct-query-refactor.md",
+      "status": "Proposed",
+      "date": "2026-04-28"
+    },
+    {
+      "number": "0005",
+      "title": "SQL Server CT 数据删除竞态问题解决方案",
+      "filename": "0005-sqlserver-ct-delete-race-condition.md",
+      "status": "Unknown",
+      "date": "2026-04-24"
+    },
+    {
+      "number": "0004",
+      "title": "SQL Server CT 大事务同步优化",
+      "filename": "0004-sqlserver-ct-bigtx-optimization.md",
+      "status": "Proposed",
+      "date": "2026-03-27"
+    },
+    {
+      "number": "0003",
+      "title": "TableGroup 主键顺序修复",
+      "filename": "0003-tablegroup-primary-key-order-fix.md",
+      "status": "Accepted",
+      "date": "2026-03-30"
+    },
+    {
+      "number": "0002",
+      "title": "支持编辑表映射时修改主键配置",
+      "filename": "0002-支持编辑表映射时修改主键配置.md",
+      "status": "Accepted",
+      "date": "2026-03-16"
+    },
+    {
+      "number": "0001",
+      "title": "字段映射高级配置 - 自定义字段元数据编辑",
+      "filename": "0001-field-mapping-advanced-config.md",
+      "status": "Unknown",
+      "date": null
+    }
+  ]
+}
