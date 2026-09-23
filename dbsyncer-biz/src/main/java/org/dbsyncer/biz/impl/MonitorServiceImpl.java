@@ -29,6 +29,7 @@ import org.dbsyncer.biz.vo.MetaVo;
 import org.dbsyncer.biz.vo.MetricResponseVo;
 import org.dbsyncer.common.config.listener.ConfigChangeListener;
 import org.dbsyncer.common.config.props.MonitorProps;
+import org.dbsyncer.common.config.props.NotifyProps;
 import org.dbsyncer.common.model.Paging;
 import org.dbsyncer.common.model.SystemConfig;
 import org.dbsyncer.common.scheduled.ScheduledTaskJob;
@@ -440,7 +441,8 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob, Sta
                         .append(" | ").append(error).append(" |\n");
             }
 
-            messageService.sendMessage("异常任务巡检", msg.toString(), NotifyType.ABNORMAL_TASK_PATROL);
+            NotifyProps props = configRegistry.getConfig().getNotify();
+            messageService.sendMessage("异常任务巡检", msg.toString(), NotifyType.ABNORMAL_TASK_PATROL, props);
             logger.info("异常任务巡检完成，发现 {} 个异常任务", abnormal.size());
         } catch (Exception e) {
             logger.error("异常任务巡检失败：" + e.getMessage(), e);
