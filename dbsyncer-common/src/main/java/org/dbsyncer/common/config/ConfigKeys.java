@@ -142,10 +142,10 @@ public final class ConfigKeys {
     public static final String NOTIFY_CHANNELS = "dbsyncer.plugin.notify.channels";
     public static final String NOTIFY_MAIL_USERNAME = "dbsyncer.plugin.notify.mail.username";
     public static final String NOTIFY_MAIL_PASSWORD = "dbsyncer.plugin.notify.mail.password";
-    public static final String NOTIFY_MAIL_NOTIFY_TYPES = "dbsyncer.plugin.notify.mail.notify-types";
+    public static final String NOTIFY_MAIL_EXCLUDED_NOTIFY_TYPES = "dbsyncer.plugin.notify.mail.excluded-notify-types";
     public static final String NOTIFY_DINGTALK_WEBHOOK_URL = "dbsyncer.plugin.notify.dingtalk.webhook-url";
     public static final String NOTIFY_DINGTALK_SECRET = "dbsyncer.plugin.notify.dingtalk.secret";
-    public static final String NOTIFY_DINGTALK_NOTIFY_TYPES = "dbsyncer.plugin.notify.dingtalk.notify-types";
+    public static final String NOTIFY_DINGTALK_EXCLUDED_NOTIFY_TYPES = "dbsyncer.plugin.notify.dingtalk.excluded-notify-types";
 
     // ===== C 类：错误处理配置（立即生效） =====
 

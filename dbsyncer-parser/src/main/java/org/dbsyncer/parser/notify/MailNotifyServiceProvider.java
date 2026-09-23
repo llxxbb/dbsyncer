@@ -8,6 +8,7 @@ import org.dbsyncer.common.config.props.NotifyProps;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.sdk.notify.NotifyMessage;
 import org.dbsyncer.sdk.notify.NotifyService;
+import org.dbsyncer.sdk.notify.NotifyType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -23,6 +24,7 @@ import javax.mail.internet.MimeMessage;
 import java.security.GeneralSecurityException;
 import java.util.List;
 import java.util.Properties;
+
 
 /**
  * 邮件通知服务实现
@@ -108,7 +110,29 @@ public final class MailNotifyServiceProvider implements NotifyService {
         if (notifyMessage == null || StringUtil.isBlank(notifyMessage.getContent())) return null;
         MailProps cfg = props != null ? props.getMail() : getMailProps();
         if (cfg == null || StringUtil.isBlank(cfg.getUsername())) return null;
+        if (!shouldNotify(notifyMessage.getType(), cfg.getExcludedNotifyTypes())) return null;
         return cfg;
+    }
+
+    /**
+     * 判断当前通知类型是否应发送（基于 excludedNotifyTypes 排除列表）。
+     * <p>
+     * excludedNotifyTypes 为空表示全部放行；type 为 null 也放行；
+     * 命中排除列表的类型将被跳过。
+     */
+    private boolean shouldNotify(NotifyType type, List<String> excludedNotifyTypes) {
+        if (excludedNotifyTypes == null || excludedNotifyTypes.isEmpty()) {
+            return true;
+        }
+        if (type == null) {
+            return true;
+        }
+        for (String name : excludedNotifyTypes) {
+            if (StringUtil.equalsIgnoreCase(type.name(), name)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

@@ -135,10 +135,10 @@ function renderNotifyForm($container, config, opts) {
     html += '<div class="col-sm-4"><input type="password" class="form-control nf-mail-password" placeholder="' + pwdPlaceholder + '"/></div>';
     html += '</div>';
     html += '<div class="form-group">';
-    html += '<label class="col-sm-2 control-label">通知类型<i class="fa fa-question-circle fa_gray" title="选择要接收的告警通知类型。不勾选任何项则默认接收全部类型的通知。"></i></label>';
+    html += '<label class="col-sm-2 control-label">排除类型<i class="fa fa-question-circle fa_gray" title="勾选后该类型的通知将不会发送。默认全部不勾选，即接收所有类型的通知。适用于排除噪音类型（如手动操作）的场景。"></i></label>';
     html += '<div class="col-sm-10 nf-mail-types" style="line-height:2.2;">';
     for (var i = 0; i < NOTIFY_TYPES.length; i++) {
-        html += '<label class="checkbox-inline" style="margin-right:15px;"><input type="checkbox" class="nf-mail-type" value="' + NOTIFY_TYPES[i].value + '" title="' + NOTIFY_TYPES[i].tip + '"> ' + NOTIFY_TYPES[i].label + '</label>';
+        html += '<label class="checkbox-inline" style="margin-right:15px;"><input type="checkbox" class="nf-mail-type" value="' + NOTIFY_TYPES[i].value + '" title="排除：' + NOTIFY_TYPES[i].tip + '"> ' + NOTIFY_TYPES[i].label + '</label>';
     }
     html += '</div></div></div>';
     
@@ -151,10 +151,10 @@ function renderNotifyForm($container, config, opts) {
     html += '<div class="col-sm-4"><input type="password" class="form-control nf-dingtalk-secret" placeholder="' + pwdPlaceholder + '"/></div>';
     html += '</div>';
     html += '<div class="form-group">';
-    html += '<label class="col-sm-2 control-label">通知类型<i class="fa fa-question-circle fa_gray" title="选择要通过钉钉接收的告警通知类型。不勾选任何项则默认接收全部类型。"></i></label>';
+    html += '<label class="col-sm-2 control-label">排除类型<i class="fa fa-question-circle fa_gray" title="勾选后该类型的通知将不会通过钉钉发送。默认全部不勾选，即接收所有类型。"></i></label>';
     html += '<div class="col-sm-10 nf-dingtalk-types" style="line-height:2.2;">';
     for (var i = 0; i < NOTIFY_TYPES.length; i++) {
-        html += '<label class="checkbox-inline" style="margin-right:15px;"><input type="checkbox" class="nf-dingtalk-type" value="' + NOTIFY_TYPES[i].value + '" title="' + NOTIFY_TYPES[i].tip + '"> ' + NOTIFY_TYPES[i].label + '</label>';
+        html += '<label class="checkbox-inline" style="margin-right:15px;"><input type="checkbox" class="nf-dingtalk-type" value="' + NOTIFY_TYPES[i].value + '" title="排除：' + NOTIFY_TYPES[i].tip + '"> ' + NOTIFY_TYPES[i].label + '</label>';
     }
     html += '</div></div></div>';
     html += '</div>'; // close nf-fields-section
@@ -210,7 +210,7 @@ function fillNotifyFormValues($container, config) {
         if (pwd && pwd.indexOf('****') >= 0) {
             $container.find('.nf-mail-password').attr('placeholder', '已配置，留空则保留原值');
         }
-        var types = config.mail.notifyTypes || [];
+        var types = config.mail.excludedNotifyTypes || [];
         for (var i = 0; i < types.length; i++) {
             $container.find('.nf-mail-type[value="' + types[i] + '"]').prop('checked', true);
         }
@@ -222,7 +222,7 @@ function fillNotifyFormValues($container, config) {
         if (secret && secret.indexOf('****') >= 0) {
             $container.find('.nf-dingtalk-secret').attr('placeholder', '已配置，留空则保留原值');
         }
-        var types = config.dingtalk.notifyTypes || [];
+        var types = config.dingtalk.excludedNotifyTypes || [];
         for (var i = 0; i < types.length; i++) {
             $container.find('.nf-dingtalk-type[value="' + types[i] + '"]').prop('checked', true);
         }
@@ -252,7 +252,7 @@ function readNotifyForm($container) {
         if (password) mail.password = password;
         var types = [];
         $container.find('.nf-mail-type:checked').each(function() { types.push($(this).val()); });
-        if (types.length > 0) mail.notifyTypes = types;
+        if (types.length > 0) mail.excludedNotifyTypes = types;
         payload.mail = mail;
     }
     
@@ -264,7 +264,7 @@ function readNotifyForm($container) {
         if (secret) dingtalk.secret = secret;
         var types = [];
         $container.find('.nf-dingtalk-type:checked').each(function() { types.push($(this).val()); });
-        if (types.length > 0) dingtalk.notifyTypes = types;
+        if (types.length > 0) dingtalk.excludedNotifyTypes = types;
         payload.dingtalk = dingtalk;
     }
     

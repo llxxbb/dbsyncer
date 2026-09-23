@@ -23,7 +23,12 @@ public class MailProps implements Serializable, AppProps {
 
     private String username;
     private String password;
-    private List<String> notifyTypes;
+    /**
+     * 排除的通知类型列表（denylist）。
+     * <p>
+     * 为空表示接收全部类型；非空时列表中的类型将被跳过不发送。
+     */
+    private List<String> excludedNotifyTypes;
 
     public String getUsername() {
         return username;
@@ -41,12 +46,12 @@ public class MailProps implements Serializable, AppProps {
         this.password = password;
     }
 
-    public List<String> getNotifyTypes() {
-        return notifyTypes;
+    public List<String> getExcludedNotifyTypes() {
+        return excludedNotifyTypes;
     }
 
-    public void setNotifyTypes(List<String> notifyTypes) {
-        this.notifyTypes = notifyTypes;
+    public void setExcludedNotifyTypes(List<String> excludedNotifyTypes) {
+        this.excludedNotifyTypes = excludedNotifyTypes;
     }
 
     @SuppressWarnings("unchecked")
@@ -54,9 +59,9 @@ public class MailProps implements Serializable, AppProps {
     public void loadFromEnvironment(Environment env) {
         this.username = env.getProperty(ConfigKeys.NOTIFY_MAIL_USERNAME, String.class, username);
         this.password = env.getProperty(ConfigKeys.NOTIFY_MAIL_PASSWORD, String.class, password);
-        List<String> types = env.getProperty(ConfigKeys.NOTIFY_MAIL_NOTIFY_TYPES, List.class);
+        List<String> types = env.getProperty(ConfigKeys.NOTIFY_MAIL_EXCLUDED_NOTIFY_TYPES, List.class);
         if (types != null) {
-            this.notifyTypes = types;
+            this.excludedNotifyTypes = types;
         }
     }
 
@@ -75,7 +80,7 @@ public class MailProps implements Serializable, AppProps {
         List<ConfigEntry> entries = new ArrayList<>();
         entries.add(new ConfigEntry(ConfigKeys.NOTIFY_MAIL_USERNAME, username));
         entries.add(new ConfigEntry(ConfigKeys.NOTIFY_MAIL_PASSWORD, password, true));
-        entries.add(new ConfigEntry(ConfigKeys.NOTIFY_MAIL_NOTIFY_TYPES, notifyTypes));
+        entries.add(new ConfigEntry(ConfigKeys.NOTIFY_MAIL_EXCLUDED_NOTIFY_TYPES, excludedNotifyTypes));
         return entries;
     }
 

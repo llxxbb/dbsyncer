@@ -43,23 +43,24 @@ public class DingTalkNotifyServiceProvider implements NotifyService {
     }
 
     /**
-     * 判断当前通知类型是否应发送（基于 notifyTypes 过滤）。
+     * 判断当前通知类型是否应发送（基于 excludedNotifyTypes 排除列表）。
      * <p>
-     * notifyTypes 为空表示全部放行；type 为 null 也放行。
+     * excludedNotifyTypes 为空表示全部放行；type 为 null 也放行；
+     * 命中排除列表的类型将被跳过。
      */
-    private boolean shouldNotify(NotifyType type, List<String> notifyTypes) {
-        if (notifyTypes == null || notifyTypes.isEmpty()) {
+    private boolean shouldNotify(NotifyType type, List<String> excludedNotifyTypes) {
+        if (excludedNotifyTypes == null || excludedNotifyTypes.isEmpty()) {
             return true;
         }
         if (type == null) {
             return true;
         }
-        for (String name : notifyTypes) {
+        for (String name : excludedNotifyTypes) {
             if (StringUtil.equalsIgnoreCase(type.name(), name)) {
-                return true;
+                return false;
             }
         }
-        return false;
+        return true;
     }
 
     @Override
@@ -88,7 +89,7 @@ public class DingTalkNotifyServiceProvider implements NotifyService {
         if (msg == null || StringUtil.isBlank(msg.getContent())) return null;
         DingTalkProps cfg = props != null ? props.getDingtalk() : getDingTalkProps();
         if (cfg == null || StringUtil.isBlank(cfg.getWebhookUrl())) return null;
-        if (!shouldNotify(msg.getType(), cfg.getNotifyTypes())) return null;
+        if (!shouldNotify(msg.getType(), cfg.getExcludedNotifyTypes())) return null;
         return cfg;
     }
 
