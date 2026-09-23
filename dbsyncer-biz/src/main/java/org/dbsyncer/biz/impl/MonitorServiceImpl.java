@@ -5,6 +5,7 @@ package org.dbsyncer.biz.impl;
 
 import org.apache.lucene.index.IndexableField;
 import org.dbsyncer.biz.ErrorQueueRetrier;
+import org.dbsyncer.biz.MappingService;
 import org.dbsyncer.biz.MonitorService;
 import org.dbsyncer.biz.ConfigService;
 import org.dbsyncer.common.config.ConfigRegistry;
@@ -23,6 +24,7 @@ import org.dbsyncer.biz.model.AppReportMetric;
 import org.dbsyncer.biz.model.MetricResponse;
 import org.dbsyncer.biz.vo.DataVo;
 import org.dbsyncer.biz.vo.LogVo;
+import org.dbsyncer.biz.vo.MappingVo;
 import org.dbsyncer.biz.vo.MetaVo;
 import org.dbsyncer.biz.vo.MetricResponseVo;
 import org.dbsyncer.common.config.props.MonitorProps;
@@ -43,12 +45,15 @@ import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.common.constant.ConfigConstant;
 import org.dbsyncer.sdk.enums.FilterEnum;
+import org.dbsyncer.sdk.enums.MetaEnum;
 import org.dbsyncer.sdk.enums.ModelEnum;
 import org.dbsyncer.sdk.enums.StorageEnum;
 import org.dbsyncer.sdk.filter.BooleanFilter;
 import org.dbsyncer.sdk.filter.FieldResolver;
 import org.dbsyncer.sdk.filter.Query;
 import org.dbsyncer.sdk.filter.impl.LongFilter;
+import org.dbsyncer.sdk.notify.NotifyType;
+import org.dbsyncer.sdk.spi.MessageService;
 import org.dbsyncer.sdk.storage.StorageService;
 import org.dbsyncer.storage.enums.StorageDataStatusEnum;
 import org.slf4j.Logger;
@@ -61,6 +66,7 @@ import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -108,6 +114,12 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob, Sta
 
     @Resource
     private org.dbsyncer.sdk.connector.CounterService counterService;
+
+    @Resource
+    private MappingService mappingService;
+
+    @Resource
+    private MessageService messageService;
 
     private final Map<String, MetricDetailFormatter> metricMap = new ConcurrentHashMap<>();
 
@@ -363,6 +375,55 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob, Sta
 
     @Override
     public void run() {
+        try {
+            List<MappingVo> allMappings = mappingService.getMappingAll();
+            List<MappingVo> abnormal = allMappings.stream()
+                    .filter(m -> m != null && m.getMeta() != null
+                            && (m.getMeta().getState() == MetaEnum.ERROR.getCode() || m.getMeta().getFail() > 0))
+                    .sorted((a, b) -> {
+                        int stateA = a.getMeta().getState();
+                        int stateB = b.getMeta().getState();
+                        if (stateA == MetaEnum.ERROR.getCode() && stateB != MetaEnum.ERROR.getCode()) return -1;
+                        if (stateA != MetaEnum.ERROR.getCode() && stateB == MetaEnum.ERROR.getCode()) return 1;
+                        return -Long.compare(a.getMeta().getFail(), b.getMeta().getFail());
+                    })
+                    .collect(Collectors.toList());
+
+            if (abnormal.isEmpty()) {
+                return;
+            }
+
+            String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            StringBuilder msg = new StringBuilder();
+            msg.append("### DBSyncer 异常任务巡检\n\n");
+            msg.append("**巡检时间**: ").append(now).append("\n\n");
+            msg.append("**异常数量**: ").append(abnormal.size()).append("\n\n");
+            msg.append("| 任务名称 | ID | 状态 | 失败次数 | 错误摘要 |\n");
+            msg.append("|---------|-----|------|---------|--------|\n");
+            for (MappingVo m : abnormal) {
+                String name = m.getName() != null ? m.getName() : "unknown";
+                String id = m.getId() != null ? m.getId() : "unknown";
+                String stateLabel = m.getMeta().getState() == MetaEnum.ERROR.getCode() ? "异常" : "运行中";
+                long failCount = m.getMeta().getFail();
+                String error = m.getMeta().getErrorMessage();
+                if (error != null && error.length() > 50) {
+                    error = error.substring(0, 50) + "...";
+                }
+                if (error == null) {
+                    error = "-";
+                }
+                msg.append("| ").append(name)
+                        .append(" | ").append(id)
+                        .append(" | ").append(stateLabel)
+                        .append(" | ").append(failCount)
+                        .append(" | ").append(error).append(" |\n");
+            }
+
+            messageService.sendMessage("异常任务巡检", msg.toString(), NotifyType.ABNORMAL_TASK_PATROL);
+            logger.info("异常任务巡检完成，发现 {} 个异常任务", abnormal.size());
+        } catch (Exception e) {
+            logger.error("异常任务巡检失败：" + e.getMessage(), e);
+        }
     }
 
     private Paging queryData(String metaId, int pageNum, int pageSize, String error, String dataStatus) {
