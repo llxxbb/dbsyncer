@@ -27,8 +27,10 @@ import org.dbsyncer.biz.vo.LogVo;
 import org.dbsyncer.biz.vo.MappingVo;
 import org.dbsyncer.biz.vo.MetaVo;
 import org.dbsyncer.biz.vo.MetricResponseVo;
+import org.dbsyncer.common.config.listener.ConfigChangeListener;
 import org.dbsyncer.common.config.props.MonitorProps;
 import org.dbsyncer.common.model.Paging;
+import org.dbsyncer.common.model.SystemConfig;
 import org.dbsyncer.common.scheduled.ScheduledTaskJob;
 import org.dbsyncer.common.scheduled.ScheduledTaskService;
 import org.dbsyncer.common.scheduled.StartupTaskRegistrar;
@@ -81,7 +83,10 @@ import java.util.stream.Collectors;
  * @Date 2020-04-27 10:20
  */
 @Service
-public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob, StartupTaskRegistrar {
+public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob, StartupTaskRegistrar, ConfigChangeListener {
+
+    /** 预警定时任务的固定 key，用于热重载时 stop/restart */
+    private static final String ALERT_TASK_KEY = "monitor-alert";
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -121,6 +126,9 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob, Sta
     @Resource
     private MessageService messageService;
 
+    /** 上次注册的 alertCron，用于检测变更 */
+    private volatile String lastAlertCron;
+
     private final Map<String, MetricDetailFormatter> metricMap = new ConcurrentHashMap<>();
 
     @PostConstruct
@@ -143,7 +151,20 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob, Sta
     @Override
     public void registerScheduledTasks() {
         MonitorProps m = configRegistry.getConfig().getMonitor();
-        scheduledTaskService.start(m.getAlertCron(), this);
+        lastAlertCron = m.getAlertCron();
+        scheduledTaskService.start(ALERT_TASK_KEY, lastAlertCron, this);
+    }
+
+    @Override
+    public void onConfigChanged(SystemConfig newConfig) {
+        String newCron = newConfig.getMonitor().getAlertCron();
+        if (StringUtil.equalsIgnoreCase(newCron, lastAlertCron)) {
+            return;
+        }
+        logger.info("检测到 alertCron 变更: {} → {}，重新注册预警定时任务", lastAlertCron, newCron);
+        scheduledTaskService.stop(ALERT_TASK_KEY);
+        lastAlertCron = newCron;
+        scheduledTaskService.start(ALERT_TASK_KEY, newCron, this);
     }
 
     @Override
