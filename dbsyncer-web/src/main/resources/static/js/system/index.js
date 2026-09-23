@@ -10,11 +10,14 @@ function loadTabs() {
             fillExecutorsTab(tabsData.executors);
             fillBuffersTab(tabsData.buffers);
             fillRetryTab(tabsData.retry);
-            fillNotifyTab(tabsData.notify);
             fillErrorTab(tabsData.error);
             fillMonitorTab(tabsData.monitor);
             fillTemplateTab(tabsData.template);
             fillSqlServerCTTab(tabsData["sqlserver_ct"]);
+            // 通知类型需要先加载枚举定义再渲染
+            loadNotifyTypes(function() {
+                fillNotifyTab(tabsData.notify);
+            });
         }
     });
 }
@@ -90,16 +93,20 @@ function fillRetryTab(retry) {
     $('#retry_excludeKeywords').val((retry.excludeKeywords || []).join('\n'));
 }
 
-var NOTIFY_TYPES = [
-    { value: 'MANUAL_OPERATION', label: '手动操作', tip: '任务停止/重置/重新同步等操作' },
-    { value: 'TASK_INTERRUPTED', label: '任务中断', tip: '任务异常中断' },
-    { value: 'DATA_ERROR_QUEUE', label: '数据错误', tip: '数据进入错误队列' },
-    { value: 'DATA_ERROR_CIRCUIT_BREAKER', label: '错误队列熔断', tip: '错误队列达到熔断阈值' },
-    { value: 'FATAL_MATCHED', label: '致命关键字', tip: '匹配致命关键字导致任务终止' },
-    { value: 'DDL', label: 'DDL操作', tip: '表结构变更事件' },
-    { value: 'TARGET_EXCEPTION', label: '目标异常', tip: '目标端写入异常' },
-    { value: 'SOURCE_EXCEPTION', label: '数据源异常', tip: '数据源读取异常' }
-];
+// 通知类型枚举定义，从后端 API 动态加载
+var NOTIFY_TYPES = [];
+
+function loadNotifyTypes(callback) {
+    doGetWithoutLoading('/system/notifyTypes', {}, function (data) {
+        if (data.success) {
+            var list = data.resultValue || data.result || [];
+            NOTIFY_TYPES = list.map(function (item) {
+                return { value: item.value, label: item.label, tip: item.description };
+            });
+        }
+        if (typeof callback === 'function') callback();
+    });
+}
 
 function renderNotifyForm($container, config, opts) {
     opts = opts || {};
@@ -138,7 +145,9 @@ function renderNotifyForm($container, config, opts) {
     html += '<label class="col-sm-2 control-label">排除类型<i class="fa fa-question-circle fa_gray" title="勾选后该类型的通知将不会发送。默认全部不勾选，即接收所有类型的通知。适用于排除噪音类型（如手动操作）的场景。"></i></label>';
     html += '<div class="col-sm-10 nf-mail-types" style="line-height:2.2;">';
     for (var i = 0; i < NOTIFY_TYPES.length; i++) {
-        html += '<label class="checkbox-inline" style="margin-right:15px;"><input type="checkbox" class="nf-mail-type" value="' + NOTIFY_TYPES[i].value + '" title="排除：' + NOTIFY_TYPES[i].tip + '"> ' + NOTIFY_TYPES[i].label + '</label>';
+        html += '<label class="checkbox-inline" style="margin-right:15px;" title="' + NOTIFY_TYPES[i].tip + '">';
+        html += '<input type="checkbox" class="nf-mail-type" value="' + NOTIFY_TYPES[i].value + '">';
+        html += ' ' + NOTIFY_TYPES[i].label + '</label>';
     }
     html += '</div></div></div>';
     
@@ -154,7 +163,9 @@ function renderNotifyForm($container, config, opts) {
     html += '<label class="col-sm-2 control-label">排除类型<i class="fa fa-question-circle fa_gray" title="勾选后该类型的通知将不会通过钉钉发送。默认全部不勾选，即接收所有类型。"></i></label>';
     html += '<div class="col-sm-10 nf-dingtalk-types" style="line-height:2.2;">';
     for (var i = 0; i < NOTIFY_TYPES.length; i++) {
-        html += '<label class="checkbox-inline" style="margin-right:15px;"><input type="checkbox" class="nf-dingtalk-type" value="' + NOTIFY_TYPES[i].value + '" title="排除：' + NOTIFY_TYPES[i].tip + '"> ' + NOTIFY_TYPES[i].label + '</label>';
+        html += '<label class="checkbox-inline" style="margin-right:15px;" title="' + NOTIFY_TYPES[i].tip + '">';
+        html += '<input type="checkbox" class="nf-dingtalk-type" value="' + NOTIFY_TYPES[i].value + '">';
+        html += ' ' + NOTIFY_TYPES[i].label + '</label>';
     }
     html += '</div></div></div>';
     html += '</div>'; // close nf-fields-section

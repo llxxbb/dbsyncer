@@ -9,60 +9,43 @@ package org.dbsyncer.sdk.notify;
  */
 public enum NotifyType {
 
-    /**
-     * 任务异常中断
-     */
-    TASK_INTERRUPTED,
+    TASK_INTERRUPTED("任务中断", "任务因异常而停止同步，需要立即排查原因并恢复"),
+    DATA_ERROR_QUEUE("数据错误", "同步数据写入失败进入错误队列，可能存在数据质量或映射问题"),
+    MANUAL_OPERATION("手动操作", "用户手动执行了停止、重置或重新同步等操作，用于审计追踪"),
+    DATA_ERROR_CIRCUIT_BREAKER("错误队列熔断", "错误队列达到熔断阈值，任务被自动暂停以防止错误堆积"),
+    FATAL_MATCHED("致命关键字命中", "异常信息匹配致命关键字，任务被立即终止且不会重试"),
+    DDL("DDL操作", "检测到表结构变更（增删改字段），可能影响后续数据同步"),
+    TARGET_EXCEPTION("目标异常", "目标数据库写入异常，可能是连接、权限或数据冲突问题"),
+    SOURCE_EXCEPTION("数据源异常", "源数据库读取异常，可能是连接断开、权限变更或源端故障");
 
     /**
-     * 数据进入错误队列
+     * 中文显示名称
      */
-    DATA_ERROR_QUEUE,
+    private final String label;
 
     /**
-     * 手动操作（停止/重置/重新同步等）
+     * 业务描述：说明为什么需要这个通知类型
      */
-    MANUAL_OPERATION,
+    private final String description;
+
+    NotifyType(String label, String description) {
+        this.label = label;
+        this.description = description;
+    }
+
+    public String getLabel() {
+        return label;
+    }
+
+    public String getDescription() {
+        return description;
+    }
 
     /**
-     * 错误队列熔断
+     * @deprecated 使用 {@link #getLabel()} 代替
      */
-    DATA_ERROR_CIRCUIT_BREAKER,
-
-    /**
-     * 致命错误（匹配致命关键字）
-     */
-    FATAL_MATCHED,
-    
-    DDL, 
-    TARGET_EXCEPTION,
-    SOURCE_EXCEPTION;
-
-    /**
-     * 获取通知类型的中文显示名称
-     *
-     * @return 中文名称
-     */
+    @Deprecated
     public String getName() {
-        switch (this) {
-            case TASK_INTERRUPTED:
-                return "任务中断";
-            case DATA_ERROR_QUEUE:
-                return "数据错误";
-            case MANUAL_OPERATION:
-                return "手动操作";
-            case DATA_ERROR_CIRCUIT_BREAKER:
-                return "错误队列熔断";
-            case FATAL_MATCHED:
-                return "致命关键字命中";
-            case DDL:
-                return "DDL操作";
-            case TARGET_EXCEPTION:
-                return "目标异常";
-            case SOURCE_EXCEPTION:
-                return "数据源异常";
-            default:
-                return name();
-        }
+        return label;
     }
 }

@@ -198,4 +198,21 @@ public class SystemController extends BaseController {
             return RestResult.restFail(e.getMessage());
         }
     }
+
+    /**
+     * 获取通知类型枚举定义（供前端动态渲染）
+     */
+    @GetMapping("/notifyTypes")
+    @ResponseBody
+    public RestResult getNotifyTypes() {
+        List<Map<String, String>> types = new ArrayList<>();
+        for (NotifyType type : NotifyType.values()) {
+            Map<String, String> item = new java.util.LinkedHashMap<>();
+            item.put("value", type.name());
+            item.put("label", type.getLabel());
+            item.put("description", type.getDescription());
+            types.add(item);
+        }
+        return RestResult.restSuccess(types);
+    }
 }
