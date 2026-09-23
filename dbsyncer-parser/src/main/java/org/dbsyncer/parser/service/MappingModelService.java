@@ -69,17 +69,20 @@ public class MappingModelService {
     }
 
     /**
-     * 重置 Meta 状态（不持久化 Meta，只修改状态）
-     * 
+     * 重置 Meta 状态为未运行并持久化
+     * <p>
+     * 异常状态不重置：errorMessage 非空说明任务因异常终止，保留状态与原因便于用户定位（ADR-0036 决策 6）。
+     *
      * @param mapping Mapping 对象
      * @throws Exception 持久化异常
      */
     public void resetMetaState(Mapping mapping) throws Exception {
         Meta meta = getMeta(mapping);
-        if (meta != null) {
-            meta.resetState();
-            profileComponent.editConfigModel(meta);
+        if (meta == null || meta.isError()) {
+            return;
         }
+        meta.resetState();
+        profileComponent.editConfigModel(meta);
     }
 
     /**

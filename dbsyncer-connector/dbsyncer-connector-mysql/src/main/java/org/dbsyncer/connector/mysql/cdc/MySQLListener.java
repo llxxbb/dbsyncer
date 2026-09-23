@@ -66,8 +66,10 @@ public class MySQLListener extends AbstractDatabaseListener {
         try {
             connectLock.lock();
             if (client != null && client.isConnected()) {
-                logger.error("MySQLExtractor is already started");
-                return;
+                // 不能静默返回：否则“重启”变成空操作，旧连接从实时位置续读而非快照点，
+                // 未落库的数据永远不会被重放（ADR-0036 决策 4）
+                logger.warn("MySQLExtractor 已在运行，先断开再按快照点重连: metaId={}", metaId);
+                client.disconnect();
             }
             run();
         } catch (Exception e) {

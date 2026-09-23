@@ -121,14 +121,12 @@ public final class IncrementPuller implements Puller {
         Thread worker = new Thread(() -> {
             logger.info("IncrementPuller worker线程启动: mappingId={}, metaId={}", mappingId, metaId);
             try {
-                Listener listener = meta.getListener();
-                if (listener == null) {
-                    meta.saveState(MetaEnum.RUNNING, "");
-                    profileComponent.editConfigModel(meta);
-                    tableGroupContext.put(mapping, list);
-                    listener = getListener(mapping, connector, targetConnector, list, meta, closeCallback);
-                    meta.setListener(listener);
-                }
+                releaseStaleListener(meta, metaId);
+                meta.saveState(MetaEnum.RUNNING, "");
+                profileComponent.editConfigModel(meta);
+                tableGroupContext.put(mapping, list);
+                Listener listener = getListener(mapping, connector, targetConnector, list, meta, closeCallback);
+                meta.setListener(listener);
                 logger.info("starting increment puller for mappingId: {}", mappingId);
                 logService.log(mapping, LogType.START, LogLevel.INFO, "开始增量同步");
                 listener.start();
@@ -165,6 +163,31 @@ public final class IncrementPuller implements Puller {
             }
             logger.info("关闭成功:{}", meta.getId());
         }
+    }
+
+
+    /**
+     * 释放残留监听器（ADR-0036 决策 4）。
+     * <p>
+     * 复用残留实例会让续读点脱离持久化快照（从实时位置续读），并跳过 tableGroupContext 重建，
+     * 属于“假启动”。这里先释放，再由调用方按 meta.getSnapshot() 重建监听器。
+     *
+     * @param meta   Meta 对象
+     * @param metaId Meta ID
+     */
+    private void releaseStaleListener(Meta meta, String metaId) {
+        Listener stale = meta.getListener();
+        if (stale == null) {
+            return;
+        }
+        logger.warn("检测到残留监听器，先关闭再重建: metaId={}", metaId);
+        try {
+            stale.close();
+        } catch (Exception e) {
+            logger.error("关闭残留监听器失败: metaId={}", metaId, e);
+        }
+        meta.setListener(null);
+        bufferActuatorRouter.unbind(metaId);
     }
 
 

@@ -23,24 +23,23 @@ public class CircuitBreakerEventListener {
     @Resource
     private ProfileComponent profileComponent;
 
+    /**
+     * 熔断事件处理：关闭数据同步任务
+     * <p>
+     * 关闭判据是"增量资源是否仍绑定"而非"任务是否运行中"：closeTask 先置 ERROR 再发事件，
+     * 用运行状态做判据恒为假，会导致监听器、执行器、binlog 连接永不释放（假终止）。
+     *
+     * @param event 熔断事件
+     * @throws Exception 
+     */
     @EventListener
-    public void onCircuitBreak(CircuitBreakEvent event) {
+    public void onCircuitBreak(CircuitBreakEvent event) throws Exception {
         String mappingId = event.getMappingId();
-        try {
-            Mapping mapping = profileComponent.getMapping(mappingId);
-            if (mapping == null) {
-                logger.warn("熔断事件: Mapping不存在, mappingId={}", mappingId);
-                return;
-            }
-            Meta meta = profileComponent.getMeta(mapping.getMetaId());
-            if (meta == null || !meta.isRunning()) {
-                logger.info("熔断事件: 任务未运行, 无需关闭, mappingId={}", mappingId);
-                return;
-            }
-            logger.info("熔断事件: 正在关闭任务, mappingId={}", mappingId);
-            managerFactory.close(mapping);
-        } catch (Exception e) {
-            logger.error("熔断事件处理失败: mappingId={}", mappingId, e);
+        Mapping mapping = profileComponent.getMapping(mappingId);
+        if (mapping == null) {
+            logger.warn("熔断事件: Mapping不存在, mappingId={}", mappingId);
+            throw new IllegalStateException("熔断事件: Mapping不存在, mappingId=" + mappingId);
         }
+        managerFactory.close(mapping);
     }
 }

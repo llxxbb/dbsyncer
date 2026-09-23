@@ -69,30 +69,33 @@ public final class ParserConsumer implements Watcher {
     @Override
     public void flushEvent(Map<String, String> snapshot) throws Exception {
         Meta meta = profileComponent.getMeta(metaId);
-        if (meta != null) {
-            meta.setSnapshot(snapshot);
-            // 更新 updateTime 以记录持久化时间
-            meta.setUpdateTime(Instant.now().toEpochMilli());
-            profileComponent.editConfigModel(meta);
-            
-            // 持久化发生变化的 TableGroup（增量场景）
-            // 由于在 Meta 中记录变化的表已经非常准确，无需额外的计数比较
-            Set<String> changedTableGroupIds = meta.getChangedTableGroupIds();
-            if (!changedTableGroupIds.isEmpty()) {
-                for (String tableGroupId : changedTableGroupIds) {
-                    try {
-                        TableGroup tableGroup = profileComponent.getTableGroup(tableGroupId);
-                        if (tableGroup != null) {
-                            profileComponent.editConfigModel(tableGroup);
-                        }
-                    } catch (Exception e) {
-                        logger.error("持久化 TableGroup 失败：tableGroupId={}", tableGroupId, e);
-                    }
-                }
-                // 持久化完成后清空标记
-                meta.clearChangedTableGroupIds();
+        if (meta == null) {
+            throw new IllegalStateException("Meta not found for metaId: " + metaId);
+        }
+        // 监听器已解绑：已关闭的监听器不得再写快照，否则会覆盖新监听器的续读点（ADR-0036 决策 5）
+        if (meta.getListener() == null) {
+            logger.warn("监听器已解绑，丢弃快照写入: metaId={}, snapshot={}", metaId, snapshot);
+            return;
+        }
+        meta.setSnapshot(snapshot);
+        // 更新 updateTime 以记录持久化时间
+        meta.setUpdateTime(Instant.now().toEpochMilli());
+        profileComponent.editConfigModel(meta);
+
+        // 持久化发生变化的 TableGroup（增量场景）
+        // 由于在 Meta 中记录变化的表已经非常准确，无需额外的计数比较
+        Set<String> changedTableGroupIds = meta.getChangedTableGroupIds();
+        if (changedTableGroupIds.isEmpty()) {
+            return;
+        }
+        for (String tableGroupId : changedTableGroupIds) {
+            TableGroup tableGroup = profileComponent.getTableGroup(tableGroupId);
+            if (tableGroup != null) {
+                profileComponent.editConfigModel(tableGroup);
             }
         }
+        // 持久化完成后清空标记
+        meta.clearChangedTableGroupIds();
     }
 
     @Override

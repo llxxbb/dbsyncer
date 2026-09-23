@@ -1,5 +1,6 @@
 .idea
 .trae
+.scratch
 conf/*
 data
 lib

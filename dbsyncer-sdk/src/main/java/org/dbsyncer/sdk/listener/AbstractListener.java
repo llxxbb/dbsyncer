@@ -53,6 +53,8 @@ public abstract class AbstractListener<C extends ConnectorInstance> implements L
     private volatile Map<String, String> pendingSnapshot = null;
     // 异步持久化执行器
     private ScheduledExecutorService flushExecutor;
+    // 关闭标志：置位后不再接受快照推进，也不再持久化快照（ADR-0036 决策 5）
+    private volatile boolean closed = false;
 
     @Override
     public void register(Watcher watcher) {
@@ -92,6 +94,11 @@ public abstract class AbstractListener<C extends ConnectorInstance> implements L
 
     @Override
     public void refreshEvent(ChangedOffset offset) {
+        // 监听器已关闭：断开窗口内到达的事件不得推进快照点，否则续读点会越过未落库的数据
+        if (closed) {
+            logger.warn("监听器已关闭，忽略快照推进: metaId={}", metaId);
+            return;
+        }
         pendingSnapshot = new HashMap<>(snapshot);
     }
 
@@ -115,19 +122,44 @@ public abstract class AbstractListener<C extends ConnectorInstance> implements L
             });
             // 每 3 秒检查并写入最新快照
             flushExecutor.scheduleWithFixedDelay(() -> {
-                Map<String, String> snapshot = pendingSnapshot;
-                // 如果 pendingSnapshot 不为空且与上次持久化的不同，则持久化
-                // 使用 Objects.equals 比较，避免重复持久化相同的快照点
-                if (snapshot != null && !Objects.equals(snapshot, lastFlushedSnapshot)) {
-                    try {
-                        logger.info("snapshot changed, flushing: {}", snapshot);
-                        watcher.flushEvent(snapshot);
-                        lastFlushedSnapshot = new HashMap<>(snapshot);
-                    } catch (Exception e) {
-                        logger.error("异步持久化失败", e);
-                    }
+                if (closed) {
+                    return;
                 }
+                flushPendingSnapshot();
             }, 3, 3, TimeUnit.SECONDS);
+        }
+    }
+
+    /**
+     * 持久化待写入的快照点。与上次持久化的内容相同则跳过，避免重复写入。
+     */
+    private void flushPendingSnapshot() {
+        Map<String, String> current = pendingSnapshot;
+        if (watcher == null || current == null || Objects.equals(current, lastFlushedSnapshot)) {
+            return;
+        }
+        try {
+            logger.info("snapshot changed, flushing: {}", current);
+            watcher.flushEvent(current);
+            lastFlushedSnapshot = new HashMap<>(current);
+        } catch (Exception e) {
+            logger.error("快照点持久化失败", e);
+        }
+    }
+
+    private void shutdownFlushExecutor() {
+        if (flushExecutor == null) {
+            return;
+        }
+        flushExecutor.shutdown();
+        try {
+            // 等待正在执行的任务完成
+            if (!flushExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+                flushExecutor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            flushExecutor.shutdownNow();
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -141,22 +173,12 @@ public abstract class AbstractListener<C extends ConnectorInstance> implements L
     }
 
     /**
-     * 系统关闭时立即持久化最新快照点
+     * 系统关闭时停止持久化线程
      */
     @PreDestroy
     public void destroy() {
-        if (flushExecutor != null) {
-            flushExecutor.shutdown();
-            try {
-                // 等待正在执行的任务完成
-                if (!flushExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
-                    flushExecutor.shutdownNow();
-                }
-            } catch (InterruptedException e) {
-                flushExecutor.shutdownNow();
-                Thread.currentThread().interrupt();
-            }
-        }
+        closed = true;
+        shutdownFlushExecutor();
     }
 
     @Override
@@ -256,6 +278,8 @@ public abstract class AbstractListener<C extends ConnectorInstance> implements L
 
     @Override
     public void close() {
+        closed = true;
+        shutdownFlushExecutor();
         staticLogService.log(mapping, LogType.STOP, "结束增量同步");
     }
 

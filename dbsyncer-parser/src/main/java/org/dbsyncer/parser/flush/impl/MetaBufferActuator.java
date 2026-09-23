@@ -240,6 +240,12 @@ public class MetaBufferActuator implements BufferActuator, ScheduledTaskJob {
         int bufferPullCount = getBufferPullCount();
 
         while (!queue.isEmpty()) {
+            // 任务已停止：立即停止出队，残留事件留在队列（快照点不动，重启后由源库重放）
+            if (!isRunning()) {
+                logger.warn("[{}] 任务已停止，停止出队: metaId={}, 残留事件={}",
+                        getClass().getSimpleName(), metaId, queue.size());
+                return;
+            }
             WriterRequest poll = queue.poll();
             String tableName = poll.getTableName();
             WriterResponse response = tableGroups.compute(tableName, (k, v) -> {
@@ -322,6 +328,9 @@ public class MetaBufferActuator implements BufferActuator, ScheduledTaskJob {
 
     /**
      * 执行一批同步任务。
+     * <p>
+     * 仅当全部表组都已处理时才提交偏移量：被跳过的批次（任务已停止）既未写入目标库、
+     * 也未进错误队列，提交偏移量会让快照点越过这些数据，重启后永久丢失。
      */
     private void executeBatch(Map<String, WriterResponse> tableGroups, WriterResponse maxOffsetResponse) throws Exception {
         // 直接执行所有表的同步，无需排序
@@ -360,7 +369,7 @@ public class MetaBufferActuator implements BufferActuator, ScheduledTaskJob {
      */
     private void doSync(WriterResponse response, Meta meta, Mapping mapping) throws Exception {
         if (!MetaEnum.isRunning(meta.getState())) {
-            logger.warn("任务已停止，跳过批次处理: metaId={}, 分区={}", meta.getId(), response.getTableName());
+            logger.warn("任务已停止，跳过批次处理: metaId={}, 表名={}", meta.getId(), response.getTableName());
             return;
         }
         // 打印trace信息
