@@ -417,28 +417,24 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob, Sta
 
             String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
             StringBuilder msg = new StringBuilder();
-            msg.append("### DBSyncer 异常任务巡检\n\n");
-            msg.append("**巡检时间**: ").append(now).append("\n\n");
-            msg.append("**异常数量**: ").append(abnormal.size()).append("\n\n");
-            msg.append("| 任务名称 | ID | 状态 | 失败次数 | 错误摘要 |\n");
-            msg.append("|---------|-----|------|---------|--------|\n");
+            msg.append("DBSyncer 异常任务巡检\n");
+            msg.append("巡检时间: ").append(now).append("\n");
+            msg.append("异常数量: ").append(abnormal.size()).append("\n\n");
             for (MappingVo m : abnormal) {
                 String name = m.getName() != null ? m.getName() : "unknown";
                 String id = m.getId() != null ? m.getId() : "unknown";
                 String stateLabel = m.getMeta().getState() == MetaEnum.ERROR.getCode() ? "异常" : "运行中";
                 long failCount = m.getMeta().getFail();
                 String error = m.getMeta().getErrorMessage();
-                if (error != null && error.length() > 50) {
-                    error = error.substring(0, 50) + "...";
+                if (error != null && error.length() > 80) {
+                    error = error.substring(0, 80) + "...";
                 }
-                if (error == null) {
+                if (error == null || error.isEmpty()) {
                     error = "-";
                 }
-                msg.append("| ").append(name)
-                        .append(" | ").append(id)
-                        .append(" | ").append(stateLabel)
-                        .append(" | ").append(failCount)
-                        .append(" | ").append(error).append(" |\n");
+                msg.append("- ").append(name).append(" [").append(id).append("]\n");
+                msg.append("  状态: ").append(stateLabel).append(", 失败: ").append(failCount).append("\n");
+                msg.append("  错误: ").append(error).append("\n\n");
             }
 
             NotifyProps props = configRegistry.getConfig().getNotify();
