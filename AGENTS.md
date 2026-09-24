@@ -54,6 +54,22 @@ StringUtil.equalsIgnoreCase(str1, str2)
 
 **Why**: Locale safety, null safety, single source of truth.
 
+### API Response Fields
+
+**NEVER** assume response field names. Always check the actual backend response structure.
+
+Standard response format:
+```javascript
+// Backend returns:
+{ success: true, resultValue: [...], status: ... }
+
+// Frontend should read:
+res.resultValue  // ✅ Correct
+res.data         // ❌ Wrong - field doesn't exist
+```
+
+**Why**: Backend uses `resultValue`, not `data`. Mismatch causes silent failures.
+
 ### Read Project Conventions
 
 Before coding, check `.openclaw/conventions.md` for project-specific rules. This file takes priority over general coding standards.

@@ -394,7 +394,7 @@ class DualListSelector {
             data: data,
             selected: [],
             displayField: 'name',
-            typeField: 'type',
+            typeField: config.typeField !== undefined ? config.typeField : 'type',
             disabledIds: config.disabledIds || [],
             onConfirm: (selectedIds) => {
                 this.updateButtonDisplay(config.side, config.type, selectedIds, data);
@@ -433,9 +433,13 @@ class DualListSelector {
             const typeMatch = text.match(/\((.*?)\)/);
             const itemType = typeMatch ? typeMatch[1] : (type === 'table' ? 'TABLE' : '');
 
+            // 提取方括号后缀（如 [CT]），拼到显示名上
+            const suffixMatch = text.match(/\[([^\]]+)\]\s*$/);
+            const displayName = suffixMatch ? name + ' [' + suffixMatch[1] + ']' : name;
+
             const item = {
                 id: name,
-                name: name,
+                name: displayName,
                 type: itemType
             };
 

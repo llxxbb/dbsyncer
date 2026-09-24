@@ -39,8 +39,8 @@ function bindTableSelect() {
             var connectorId = $("#sourceConnectorId").val();
             $.get('/mapping/getCTTables', { connectorId: connectorId }, function(res) {
                 var disabledIds = [];
-                if (res.success && res.data && res.data.length > 0) {
-                    var ctSet = new Set(res.data);
+                if (res.success && res.resultValue && res.resultValue.length > 0) {
+                    var ctSet = new Set(res.resultValue);
                     // 给 CT 表的 option 追加 [CT] 后缀（仅显示文本）
                     $('#sourceTable option').each(function() {
                         if (ctSet.has($(this).val())) {
@@ -99,6 +99,7 @@ function initTableSelectors(disabledIds) {
         title: '选择数据表',
         leftTitle: '可选表',
         rightTitle: '已选表',
+        typeField: '',
         disabledIds: disabledIds || [],
         onConfirm: function(selectedIds) {
             if (selectedIds.length === 0) {
