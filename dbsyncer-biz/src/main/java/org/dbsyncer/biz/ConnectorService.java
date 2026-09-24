@@ -87,4 +87,13 @@ public interface ConnectorService {
      * @return 过滤后的连接器列表
      */
     List<Connector> filterConnectors(List<Connector> connectors, String searchType, String keyword);
+
+    /**
+     * 获取指定连接器中已启用 Change Tracking 的表名列表
+     * 仅 SqlServerCT 连接器使用，其他类型返回空列表
+     *
+     * @param connectorId 连接器ID
+     * @return CT 表名列表
+     */
+    List<String> getCTTables(String connectorId);
 }

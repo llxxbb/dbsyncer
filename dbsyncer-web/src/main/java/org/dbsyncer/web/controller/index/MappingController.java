@@ -111,6 +111,19 @@ public class MappingController extends BaseController {
     }
 
     /**
+     * 获取指定连接器中已启用 Change Tracking 的表名列表
+     * 仅 SqlServerCT 连接器使用，其他类型返回空列表
+     *
+     * @param connectorId 连接器ID
+     * @return CT 表名列表
+     */
+    @GetMapping("/getCTTables")
+    @ResponseBody
+    public RestResult getCTTables(@RequestParam(value = "connectorId") String connectorId) {
+        return RestResult.restSuccess(connectorService.getCTTables(connectorId));
+    }
+
+    /**
      * 获取与特定数据源关联的驱动列表
      * @param connectorId
      * @return

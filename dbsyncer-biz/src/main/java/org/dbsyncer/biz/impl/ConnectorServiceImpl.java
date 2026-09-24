@@ -10,6 +10,10 @@ import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
+import org.dbsyncer.connector.sqlserver.SqlServerCTConnector;
+import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
+import org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance;
+import org.dbsyncer.sdk.connector.database.sql.impl.SqlServerTemplate;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
 import org.dbsyncer.sdk.spi.LogLevel;
@@ -29,6 +33,7 @@ import javax.annotation.Resource;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -317,6 +322,30 @@ public class ConnectorServiceImpl implements ConnectorService {
             return matcher.group(1);
         }
         return "";
+    }
+
+    @Override
+    public List<String> getCTTables(String connectorId) {
+        Connector connector = getConnector(connectorId);
+        if (connector == null) {
+            return Collections.emptyList();
+        }
+        String connectorType = connector.getConfig().getConnectorType();
+        if (!SqlServerCTConnector.CONNECTOR_TYPE.equals(connectorType)) {
+            return Collections.emptyList();
+        }
+        try {
+            DatabaseConnectorInstance instance = (DatabaseConnectorInstance) connectorFactory.connect(connector.getConfig());
+            AbstractDatabaseConnector dbConnector =
+                    (AbstractDatabaseConnector) connectorFactory.getConnectorService(connector.getConfig());
+            SqlServerTemplate sqlTemplate = (SqlServerTemplate) dbConnector.getSqlTemplate();
+            List<String> ctTables = instance.execute(databaseTemplate ->
+                    databaseTemplate.queryForList(sqlTemplate.buildQueryChangeTrackingTablesSql(), String.class));
+            return ctTables != null ? ctTables : Collections.emptyList();
+        } catch (Exception e) {
+            logger.warn("获取CT表列表失败: {}", e.getMessage());
+            return Collections.emptyList();
+        }
     }
 
 }

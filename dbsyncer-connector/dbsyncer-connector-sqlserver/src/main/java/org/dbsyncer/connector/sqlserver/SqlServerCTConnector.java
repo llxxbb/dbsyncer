@@ -16,9 +16,11 @@ import java.util.Map;
  */
 public class SqlServerCTConnector extends SqlServerConnector {
 
+    public static final String CONNECTOR_TYPE = "SqlServerCT";
+
     @Override
     public String getConnectorType() {
-        return "SqlServerCT";
+        return CONNECTOR_TYPE;
     }
 
     @Override

@@ -9,6 +9,8 @@
     <div class="form-group">
         <div class="row">
             <div class="col-md-4">
+                <input type="hidden" id="sourceConnectorType" th:value="${mapping?.sourceConnector?.config?.connectorType}" />
+                <input type="hidden" id="sourceConnectorId" th:value="${mapping?.sourceConnector?.id}" />
                 <button type="button" class="btn btn-default" id="sourceTableBtn">
                     <i class="fa fa-table"></i>
                     <span id="sourceTableText">选择数据表</span>

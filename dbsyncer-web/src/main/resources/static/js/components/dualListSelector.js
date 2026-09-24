@@ -22,11 +22,13 @@ class DualListSelector {
             selected: [],
             displayField: 'name',
             typeField: 'type',
+            disabledIds: [],
             onConfirm: null,
             onCancel: null
         }, options);
 
         this.selectedItems = [...this.options.selected];
+        this.disabledSet = new Set(this.options.disabledIds || []);
         this.init();
     }
 
@@ -190,6 +192,7 @@ class DualListSelector {
         });
 
         this.$availableList.on('dblclick', 'li', function() {
+            if ($(this).data('disabled')) return;
             const id = $(this).data('id');
             self.addToSelected(id);
             self.render();
@@ -202,6 +205,7 @@ class DualListSelector {
         });
 
         this.$availableList.on('click', 'li', function(e) {
+            if ($(this).data('disabled')) return;
             if (!e.ctrlKey && !e.metaKey) {
                 self.$availableList.find('li').removeClass('active');
             }
@@ -235,8 +239,13 @@ class DualListSelector {
         const html = items.map(item => {
             const displayText = item[this.options.displayField];
             const typeText = item[this.options.typeField] ? ` (${item[this.options.typeField]})` : '';
+            const isDisabled = this.disabledSet.has(item.id);
+            const cls = isDisabled ? ' disabled' : '';
+            const style = isDisabled
+                ? 'cursor:not-allowed; opacity:0.45;'
+                : 'cursor:pointer;';
             return `
-                <li class="list-group-item" data-id="${item.id}" style="cursor: pointer; word-break: break-all;">
+                <li class="list-group-item${cls}" data-id="${item.id}" style="${style} word-break:break-all;"${isDisabled ? ' data-disabled="true"' : ''}>
                     ${displayText}${typeText}
                 </li>
             `;
@@ -245,6 +254,7 @@ class DualListSelector {
     }
 
     addToSelected(id) {
+        if (this.disabledSet.has(id)) return;
         if (!this.selectedItems.includes(id)) {
             this.selectedItems.push(id);
         }
@@ -385,6 +395,7 @@ class DualListSelector {
             selected: [],
             displayField: 'name',
             typeField: 'type',
+            disabledIds: config.disabledIds || [],
             onConfirm: (selectedIds) => {
                 this.updateButtonDisplay(config.side, config.type, selectedIds, data);
                 $(`#${config.selectId}`).val(selectedIds).trigger('change');

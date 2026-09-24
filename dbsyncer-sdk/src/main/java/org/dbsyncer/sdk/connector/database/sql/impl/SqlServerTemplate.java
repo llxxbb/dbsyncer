@@ -741,6 +741,17 @@ public class SqlServerTemplate extends AbstractSqlTemplate {
                 escapedSchema, escapedTableName);
     }
 
+    /**
+     * 构建查询当前数据库所有已启用 Change Tracking 的表名的 SQL
+     * 返回结果集为单列 table_name
+     *
+     * @return SQL 语句
+     */
+    public String buildQueryChangeTrackingTablesSql() {
+        return "SELECT OBJECT_NAME(object_id) AS table_name " +
+               "FROM sys.change_tracking_tables WITH (NOLOCK)";
+    }
+
     @Override
     public List<String> buildAlterPrimaryKeySql(String tableName, List<String> oldPrimaryKeys, List<String> newPrimaryKeys, String schema) {
         String quotedTableName = buildTable(schema, tableName);

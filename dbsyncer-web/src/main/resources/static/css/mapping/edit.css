@@ -125,6 +125,11 @@
 .temp-pk-remove{margin-left:4px;font-size:12px;opacity:0.75}
 .backend-pk-cancelled{opacity:0.35;text-decoration:line-through}
 .pk-status-cell{white-space:nowrap;min-width:80px}
+/* SqlServerCT 模式下非 CT 表的灰色不可选样式 */
+.dual-list .list-group-item.disabled {
+    pointer-events: none;
+}
+
 @media (max-width: 991px) {
     .dual-list {
         max-height: 200px !important;
