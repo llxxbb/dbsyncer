@@ -26,32 +26,46 @@
 function bindTableSelect() {
     var connectorType = $("#sourceConnectorType").val();
     if (connectorType === 'SqlServerCT') {
-        // SqlServerCT：异步获取 CT 表名，计算 disabled 列表后初始化选择器
-        var connectorId = $("#sourceConnectorId").val();
-        $.get('/mapping/getCTTables', { connectorId: connectorId }, function(res) {
-            if (res.success && res.data && res.data.length > 0) {
-                var ctSet = new Set(res.data);
-                // 给 CT 表的 option 追加 [CT] 后缀（仅显示文本）
-                $('#sourceTable option').each(function() {
-                    if (ctSet.has($(this).val())) {
-                        $(this).text($(this).text() + ' [CT]');
-                    }
-                });
-                // 计算需要 disabled 的表（全量 - CT）
+        // SqlServerCT：延迟到用户点击「选择数据表」时才加载 CT 表数据
+        var $btn = $("#sourceTableBtn");
+        var loading = false;
+        $btn.on('click', function() {
+            if (loading) return;
+            loading = true;
+            var $this = $(this);
+            var originalHtml = $this.html();
+            $this.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> 加载中...');
+
+            var connectorId = $("#sourceConnectorId").val();
+            $.get('/mapping/getCTTables', { connectorId: connectorId }, function(res) {
                 var disabledIds = [];
-                $('#sourceTable option').each(function() {
-                    if (!ctSet.has($(this).val())) {
-                        disabledIds.push($(this).val());
-                    }
-                });
+                if (res.success && res.data && res.data.length > 0) {
+                    var ctSet = new Set(res.data);
+                    // 给 CT 表的 option 追加 [CT] 后缀（仅显示文本）
+                    $('#sourceTable option').each(function() {
+                        if (ctSet.has($(this).val())) {
+                            $(this).text($(this).text() + ' [CT]');
+                        }
+                    });
+                    // 计算需要 disabled 的表（全量 - CT）
+                    $('#sourceTable option').each(function() {
+                        if (!ctSet.has($(this).val())) {
+                            disabledIds.push($(this).val());
+                        }
+                    });
+                }
+                // 初始化选择器（SelectorManager.init 会重新绑定按钮 click）
                 initTableSelectors(disabledIds);
-            } else {
-                // CT 表为空或接口失败：全部可选（降级）
+                // 首次点击由我们负责显示弹窗
+                SelectorManager.get('sourceTableSelector').show();
+            }).fail(function() {
+                // 请求失败：降级，全部可选
                 initTableSelectors();
-            }
-        }).fail(function() {
-            // 请求失败：降级，全部可选
-            initTableSelectors();
+                SelectorManager.get('sourceTableSelector').show();
+            }).always(function() {
+                $this.prop('disabled', false).html(originalHtml);
+                loading = false;
+            });
         });
     } else {
         // 非 SqlServerCT：直接初始化
