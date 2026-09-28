@@ -27,9 +27,6 @@ public class BasicProps implements Serializable, AppProps {
     private boolean enableSchemaResolver = true;
     private boolean enablePrintTraceInfo = false;
 
-    /** 是否重置管理员密码（功能开关，非基础设施配置） */
-    private boolean resetPwd = false;
-
     public int getExpireDataDays() {
         return expireDataDays;
     }
@@ -110,14 +107,6 @@ public class BasicProps implements Serializable, AppProps {
         this.enablePrintTraceInfo = enablePrintTraceInfo;
     }
 
-    public boolean getResetPwd() {
-        return resetPwd;
-    }
-
-    public void setResetPwd(boolean resetPwd) {
-        this.resetPwd = resetPwd;
-    }
-
     /**
      * 从 Spring Environment 加载。
      * <p>
@@ -137,7 +126,6 @@ public class BasicProps implements Serializable, AppProps {
         this.watermark = env.getProperty(ConfigKeys.BASIC_WATERMARK, String.class, watermark);
         this.enableSchemaResolver = env.getProperty(ConfigKeys.BASIC_ENABLE_SCHEMA_RESOLVER, Boolean.class, enableSchemaResolver);
         this.enablePrintTraceInfo = env.getProperty(ConfigKeys.BASIC_ENABLE_PRINT_TRACE_INFO, Boolean.class, enablePrintTraceInfo);
-        this.resetPwd = env.getProperty(ConfigKeys.BASIC_RESET_PWD, Boolean.class, resetPwd);
     }
 
     /**
@@ -181,7 +169,6 @@ public class BasicProps implements Serializable, AppProps {
         entries.add(new ConfigEntry(ConfigKeys.BASIC_WATERMARK, watermark));
         entries.add(new ConfigEntry(ConfigKeys.BASIC_ENABLE_SCHEMA_RESOLVER, enableSchemaResolver));
         entries.add(new ConfigEntry(ConfigKeys.BASIC_ENABLE_PRINT_TRACE_INFO, enablePrintTraceInfo));
-        entries.add(new ConfigEntry(ConfigKeys.BASIC_RESET_PWD, resetPwd));
         return entries;
     }
 }

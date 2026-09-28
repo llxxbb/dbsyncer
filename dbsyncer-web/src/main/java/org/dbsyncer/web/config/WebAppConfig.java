@@ -5,7 +5,6 @@ import org.dbsyncer.biz.vo.RestResult;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.SHA1Util;
 import org.dbsyncer.common.util.StringUtil;
-import org.dbsyncer.common.config.ConfigRegistry;
 import org.dbsyncer.parser.model.UserInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,9 +67,6 @@ public class WebAppConfig extends WebSecurityConfigurerAdapter implements Authen
 
     @Resource
     private AccessDeniedHandler accessDeniedHandler;
-
-    @Resource
-    private ConfigRegistry configRegistry;
 
     /**
      * 登录失败
@@ -159,16 +155,6 @@ public class WebAppConfig extends WebSecurityConfigurerAdapter implements Authen
             userInfo = userConfigService.getUserInfo(username);
         } catch (Exception e) {
             throw new RuntimeException(e);
-        }
-        // 重置密码（从 ConfigRegistry 读取，C 类配置立即生效）
-        boolean resetPwd = Boolean.TRUE.equals(
-                configRegistry.getConfig().getBasic().getResetPwd());
-        if (resetPwd && userInfo != null) {
-            UserInfo defUser = userConfigService.getDefaultUser();
-            if (StringUtil.equals(defUser.getUsername(), username) && StringUtil.equals(defUser.getPassword(), password)) {
-                userInfo.setPassword(password);
-                logger.info("重置[{}]密码成功!", username);
-            }
         }
         if (null == userInfo || !StringUtil.equals(userInfo.getPassword(), password)) {
             throw new BadCredentialsException("对不起,您输入的帐号或密码错误");

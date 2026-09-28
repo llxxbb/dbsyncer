@@ -97,7 +97,6 @@ public final class ConfigKeys {
     public static final String BASIC_WATERMARK = "dbsyncer.basic.watermark";
     public static final String BASIC_ENABLE_SCHEMA_RESOLVER = "dbsyncer.basic.enable-schema-resolver";
     public static final String BASIC_ENABLE_PRINT_TRACE_INFO = "dbsyncer.basic.enable-print-trace-info";
-    public static final String BASIC_RESET_PWD = "dbsyncer.basic.reset-pwd";
 
     // ===== B 类：执行器线程池配置（热重载） =====
 

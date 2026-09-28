@@ -79,6 +79,9 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
     @Resource
     private ConfigBootstrap configService;
 
+    @Resource
+    private AdminPasswordResetor adminPasswordResetor;
+
     private boolean preloadCompleted;
 
     public PreloadTemplate() {
@@ -109,7 +112,10 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
 
         logger.info("+++++++++++++++配置预加载完成++++++++++++++++");
 
-        // 5. Launch drivers（最后启动任务）
+        // 5. 启动参数重置管理员密码（配置已加载，可安全持久化）
+        adminPasswordResetor.resetIfNeeded();
+
+        // 6. Launch drivers（最后启动任务）
         launch();
 
         // 6. 开放端口

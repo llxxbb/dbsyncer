@@ -17,8 +17,7 @@ import static org.junit.Assert.*;
 /**
  * {@link ConfigRegistry} 合并策略单元测试。
  * <p>
- * 覆盖报障场景 {@code dbsyncer.basic.reset-pwd: props=false, db=-, final=-}：
- * 不装箱之后 merged 里的 boolean 恒有值，不再出现 null。
+ * 覆盖报障场景：不装箱之后 merged 里的 boolean 恒有值，不再出现 null。
  */
 public class ConfigRegistryMergeTest {
 
@@ -33,7 +32,7 @@ public class ConfigRegistryMergeTest {
     }
 
     /**
-     * 模拟存量 DB 行：basic 子对象存在，但缺 resetPwd（NON_DEFAULT 把 false 省掉了）。
+     * 模拟存量 DB 行：basic 子对象存在，但缺 enablePrintTraceInfo（NON_DEFAULT 把 false 省掉了）。
      */
     private static SystemConfig dbWithPartialBasic() {
         return JsonUtil.jsonToObj("{\"basic\":{\"expireDataDays\":60}}", SystemConfig.class);
@@ -47,7 +46,7 @@ public class ConfigRegistryMergeTest {
         BasicProps basic = registry.getConfig().getBasic();
         assertNotNull(basic);
         // 修复前：装箱 Boolean 拿到 null，对照表打印 final=-
-        assertFalse(basic.getResetPwd());
+        assertFalse(basic.getEnablePrintTraceInfo());
         assertFalse(basic.getEnableCDN());
         assertTrue(basic.getEnableSchemaResolver());
         // DB 里写了 60 → DB 优先
@@ -73,13 +72,13 @@ public class ConfigRegistryMergeTest {
     @Test
     public void resetTabFallsBackToEnvironment() {
         ConfigRegistry registry = new ConfigRegistry(env(ConfigKeys.BASIC_ENABLE_CDN, "true",
-                ConfigKeys.BASIC_RESET_PWD, "true"));
+                ConfigKeys.BASIC_ENABLE_PRINT_TRACE_INFO, "true"));
         SystemConfig db = dbWithPartialBasic();
         db.setBasic(null); // resetTab：把 Tab 子对象置 null
         registry.init(db);
 
         assertTrue(registry.getConfig().getBasic().getEnableCDN());
-        assertTrue(registry.getConfig().getBasic().getResetPwd());
+        assertTrue(registry.getConfig().getBasic().getEnablePrintTraceInfo());
     }
 
     @Test
@@ -95,13 +94,13 @@ public class ConfigRegistryMergeTest {
 
     @Test
     public void firstStartupWithoutDbKeepsEnvironmentOnlyTabs() {
-        ConfigRegistry registry = new ConfigRegistry(env(ConfigKeys.BASIC_RESET_PWD, "true"));
+        ConfigRegistry registry = new ConfigRegistry(env(ConfigKeys.BASIC_ENABLE_PRINT_TRACE_INFO, "true"));
         registry.init(null);
 
         // A 类是 @JsonIgnore，走 JSON 往返深拷贝会整个丢掉（修复前 merged.getServer() == null）
         assertNotNull(registry.getConfig().getServer());
         assertEquals(8080, registry.getConfig().getServer().getHttpPort());
-        assertTrue(registry.getConfig().getBasic().getResetPwd());
+        assertTrue(registry.getConfig().getBasic().getEnablePrintTraceInfo());
     }
 
     @Test
