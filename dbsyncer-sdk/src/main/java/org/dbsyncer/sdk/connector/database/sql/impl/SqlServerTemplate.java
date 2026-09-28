@@ -36,7 +36,7 @@ public class SqlServerTemplate extends AbstractSqlTemplate {
 
 
         if (StringUtil.isNotBlank(queryFilter)) {
-            return String.format("SELECT %s FROM %s WITH (NOLOCK) %s%s", fieldList, schemaTable, queryFilter, orderByClause);
+            return String.format("SELECT %s FROM %s WITH (NOLOCK) WHERE %s%s", fieldList, schemaTable, queryFilter, orderByClause);
         }
         return String.format("SELECT %s FROM %s WITH (NOLOCK)%s", fieldList, schemaTable, orderByClause);
     }
@@ -51,9 +51,9 @@ public class SqlServerTemplate extends AbstractSqlTemplate {
 
         String whereClause = "";
         if (StringUtil.isNotBlank(queryFilter) && StringUtil.isNotBlank(cursorCondition)) {
-            whereClause = String.format(" %s AND %s", queryFilter, cursorCondition);
+            whereClause = String.format(" WHERE %s AND %s", queryFilter, cursorCondition);
         } else if (StringUtil.isNotBlank(queryFilter)) {
-            whereClause = " " + queryFilter;
+            whereClause = " WHERE " + queryFilter;
         } else if (StringUtil.isNotBlank(cursorCondition)) {
             whereClause = " WHERE " + cursorCondition;
         }
@@ -68,7 +68,7 @@ public class SqlServerTemplate extends AbstractSqlTemplate {
         String queryFilter = buildContext.getQueryFilter();
 
         if (StringUtil.isNotBlank(queryFilter)) {
-            return String.format("SELECT COUNT(*) FROM %s WITH (NOLOCK) %s", schemaTable, queryFilter);
+            return String.format("SELECT COUNT(*) FROM %s WITH (NOLOCK) WHERE %s", schemaTable, queryFilter);
         }
         return String.format("SELECT COUNT(*) FROM %s WITH (NOLOCK)", schemaTable);
     }

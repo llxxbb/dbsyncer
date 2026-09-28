@@ -360,7 +360,7 @@ public interface SqlTemplate {
     default String buildQueryStreamSql(String schemaTable, String fieldList, String queryFilter, List<String> primaryKeys) {
         String orderByClause = buildOrderByClause(primaryKeys);
         if (StringUtil.isNotBlank(queryFilter)) {
-            return String.format("SELECT %s FROM %s %s%s", fieldList, schemaTable, queryFilter, orderByClause);
+            return String.format("SELECT %s FROM %s WHERE %s%s", fieldList, schemaTable, queryFilter, orderByClause);
         }
         return String.format("SELECT %s FROM %s%s", fieldList, schemaTable, orderByClause);
     }
@@ -368,9 +368,9 @@ public interface SqlTemplate {
     default String buildQueryCursorSql(String schemaTable, String fieldList, String queryFilter, String cursorCondition, List<String> primaryKeys) {
         String whereClause = "";
         if (StringUtil.isNotBlank(queryFilter) && StringUtil.isNotBlank(cursorCondition)) {
-            whereClause = String.format(" %s AND %s", queryFilter, cursorCondition);
+            whereClause = String.format(" WHERE %s AND %s", queryFilter, cursorCondition);
         } else if (StringUtil.isNotBlank(queryFilter)) {
-            whereClause = " " + queryFilter;
+            whereClause = " WHERE " + queryFilter;
         } else if (StringUtil.isNotBlank(cursorCondition)) {
             whereClause = " WHERE " + cursorCondition;
         }
@@ -381,7 +381,7 @@ public interface SqlTemplate {
 
     default String buildQueryCountSql(String schemaTable, String queryFilter) {
         if (StringUtil.isNotBlank(queryFilter)) {
-            return String.format("SELECT COUNT(1) FROM %s %s", schemaTable, queryFilter);
+            return String.format("SELECT COUNT(1) FROM %s WHERE %s", schemaTable, queryFilter);
         }
         return String.format("SELECT COUNT(1) FROM %s", schemaTable);
     }

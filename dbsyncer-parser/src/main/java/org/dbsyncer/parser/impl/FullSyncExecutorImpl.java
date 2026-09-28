@@ -162,7 +162,7 @@ public class FullSyncExecutorImpl implements FullSyncExecutor {
             tableGroup.setFullCompleted(true);
             profileComponent.editConfigModel(tableGroup);
         } catch (Exception e) {
-            throw new RuntimeException("source table: " + tableGroup.getSourceTable().getName() + "target table: "
+            throw new RuntimeException("source table: " + tableGroup.getSourceTable().getName() + " target table: "
                     + tableGroup.getTargetTable().getName(), e);
         }
         return null;

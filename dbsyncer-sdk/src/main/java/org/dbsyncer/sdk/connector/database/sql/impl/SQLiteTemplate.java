@@ -45,9 +45,9 @@ public class SQLiteTemplate extends AbstractSqlTemplate {
 
         String whereClause = "";
         if (StringUtil.isNotBlank(queryFilter) && StringUtil.isNotBlank(cursorCondition)) {
-            whereClause = String.format(" %s AND %s", queryFilter, cursorCondition);
+            whereClause = String.format(" WHERE %s AND %s", queryFilter, cursorCondition);
         } else if (StringUtil.isNotBlank(queryFilter)) {
-            whereClause = " " + queryFilter;
+            whereClause = " WHERE " + queryFilter;
         } else if (StringUtil.isNotBlank(cursorCondition)) {
             whereClause = " WHERE " + cursorCondition;
         }

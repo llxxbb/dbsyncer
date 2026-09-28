@@ -5,7 +5,6 @@ package org.dbsyncer.sdk.connector.database.sql.impl;
 
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.sdk.connector.database.sql.context.SqlBuildContext;
-import org.dbsyncer.sdk.enums.DataTypeEnum;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.schema.SyncConverter;
 
@@ -46,9 +45,9 @@ public class PostgreSQLTemplate extends AbstractSqlTemplate {
 
         String whereClause = "";
         if (StringUtil.isNotBlank(queryFilter) && StringUtil.isNotBlank(cursorCondition)) {
-            whereClause = String.format(" %s AND %s", queryFilter, cursorCondition);
+            whereClause = String.format(" WHERE %s AND %s", queryFilter, cursorCondition);
         } else if (StringUtil.isNotBlank(queryFilter)) {
-            whereClause = " " + queryFilter;
+            whereClause = " WHERE " + queryFilter;
         } else if (StringUtil.isNotBlank(cursorCondition)) {
             whereClause = " WHERE " + cursorCondition;
         }

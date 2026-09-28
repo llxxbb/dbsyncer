@@ -529,7 +529,13 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
 
             // 存在条件
             if (StringUtil.isNotBlank(queryFilterSql)) {
-                querySql += queryFilterSql;
+                // 检查用户SQL是否已包含WHERE子句
+                String upperSql = querySql.replace("\t", " ").replace("\r", " ").replace("\n", " ").toUpperCase().trim();
+                if (upperSql.contains(" WHERE ")) {
+                    querySql += " AND " + queryFilterSql;
+                } else {
+                    querySql += " WHERE " + queryFilterSql;
+                }
             }
 
             // 流式查询SQL（DQL直接使用用户自定义的SQL）
