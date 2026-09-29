@@ -26,6 +26,7 @@ import org.springframework.stereotype.Component;
 import javax.annotation.Resource;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 全量+增量混合同步
@@ -93,26 +94,21 @@ public final class FullIncrementPuller implements Puller {
                         break;
 
                     case INCREMENTAL:
-                        // 增量阶段，检查是否有需要重新全量同步的TableGroup
-                        if (!CollectionUtils.isEmpty(tableGroupsToSync)) {
-                            // 检查勾选的TableGroup是否都已完成全量
-                            boolean allCompleted = true;
-                            for (TableGroup tg : tableGroupsToSync) {
-                                if (!tg.isFullCompleted()) {
-                                    allCompleted = false;
-                                    break;
-                                }
-                            }
-                            
-                            if (!allCompleted) {
-                                // 有需要全量同步的TableGroup，重新执行全量
-                                logger.info("混合同步增量阶段，部分TableGroup需要重新全量同步: metaId={}", metaId);
-                                startFullThenIncrement(mapping, meta, tableGroupsToSync, closeCallback);
-                                break;
-                            }
+                        // 增量阶段，扫描所有 TableGroup，自动发现未完成全量的新表
+                        List<TableGroup> allGroups = profileComponent.getSortedTableGroupAll(mapping.getId());
+                        List<TableGroup> pendingFullGroups = allGroups.stream()
+                                .filter(tg -> !tg.isFullCompleted())
+                                .collect(Collectors.toList());
+
+                        if (!pendingFullGroups.isEmpty()) {
+                            // 有未完成全量的表（如增量阶段新增的表），先补全量再进增量
+                            logger.info("增量阶段发现 {} 张表未完成全量，先补全量同步: metaId={}",
+                                    pendingFullGroups.size(), metaId);
+                            startFullThenIncrement(mapping, meta, pendingFullGroups, closeCallback);
+                        } else {
+                            // 所有表均已完成全量，直接启动增量
+                            startIncrementSync(mapping, meta, closeCallback);
                         }
-                        // 直接启动增量（全量已完成）
-                        startIncrementSync(mapping, meta, closeCallback);
                         break;
 
                     default:
