@@ -181,7 +181,7 @@ public final class FullPuller implements org.dbsyncer.manager.Puller, ProcessEve
 
     private void flush(Meta meta) throws Exception {
         long finished = meta.getSuccess() + meta.getFail();
-        meta.setTotal(finished);
+        meta.setTotal(Math.max(meta.getTotal(), finished));
 
         long epochMilli = Instant.now().toEpochMilli();
         meta.setEndTime(epochMilli);

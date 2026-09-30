@@ -109,8 +109,8 @@ public class CounterServiceImpl implements CounterService {
         synchronized (meta) {
             meta.setFail(Math.max(0, meta.getFail() - count));
             tg.setFail(Math.max(0, tg.getFail() - count));
-            meta.setTotal(meta.getSuccess() + meta.getFail());
-            tg.setTotal(tg.getSuccess() + tg.getFail());
+            meta.setTotal(Math.max(meta.getTotal(), meta.getSuccess() + meta.getFail()));
+            tg.setTotal(Math.max(tg.getTotal(), tg.getSuccess() + tg.getFail()));
             meta.markTableGroupChanged(tg.getId());
             Mapping mapping = profileComponent.getMapping(meta.getMappingId());
             logger.info("mappingId {}, tgId {}, 删除失败条数：{}", mapping.getId(), tg.getId(), count);

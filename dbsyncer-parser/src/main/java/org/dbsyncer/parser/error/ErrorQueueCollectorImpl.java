@@ -175,7 +175,7 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector, ConfigChang
                     logger.info("计数对齐: tableGroupId={}, 旧值={}, 新值={}", tg.getId(), oldFail, actualCount);
                 }
                 tg.setFail(actualCount);
-                tg.setTotal(tg.getSuccess() + tg.getFail());
+                tg.setTotal(Math.max(tg.getTotal(), tg.getSuccess() + tg.getFail()));
                 totalFail += actualCount;
                 profileComponent.editConfigModel(tg);
             }
@@ -184,7 +184,7 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector, ConfigChang
         }
         long oldMetaFail = meta.getFail();
         meta.setFail(totalFail);
-        meta.setTotal(meta.getSuccess() + meta.getFail());
+        meta.setTotal(Math.max(meta.getTotal(), meta.getSuccess() + meta.getFail()));
         meta.setUpdateTime(Instant.now().toEpochMilli());
         profileComponent.editConfigModel(meta);
         logger.info("计数对齐完成: metaId={}, Meta.fail 旧值={}, 新值={}", metaId, oldMetaFail, totalFail);
