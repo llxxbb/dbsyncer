@@ -33,20 +33,6 @@ public interface MessageService {
     void sendMessage(String title, String content, NotifyType type);
 
     /**
-     * 发送消息（带事件类型和通知配置）
-     * <p>
-     * ADR-0035：支持分组通知配置，调用方负责解析配置，MessageService 不耦合分组逻辑
-     *
-     * @param title   标题
-     * @param content 内容
-     * @param type    事件类型
-     * @param props   通知配置，为 null 时走全局配置
-     */
-    default void sendMessage(String title, String content, NotifyType type, NotifyProps props) {
-        sendMessage(title, content, type);
-    }
-
-    /**
      * 发送统一格式的通知消息（Markdown）
      * <p>
      * 统一模板：标题 + 操作类型 + Mapping ID + 任务名称 + 可选详情字段

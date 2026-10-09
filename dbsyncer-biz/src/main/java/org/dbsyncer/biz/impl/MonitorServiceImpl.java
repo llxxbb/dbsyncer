@@ -437,8 +437,7 @@ public class MonitorServiceImpl implements MonitorService, ScheduledTaskJob, Sta
                 msg.append("  错误: ").append(error).append("\n\n");
             }
 
-            NotifyProps props = configRegistry.getConfig().getNotify();
-            messageService.sendMessage("异常任务巡检", msg.toString(), NotifyType.ABNORMAL_TASK_PATROL, props);
+            messageService.sendMessage("异常任务巡检", msg.toString(), NotifyType.ABNORMAL_TASK_PATROL);
             logger.info("异常任务巡检完成，发现 {} 个异常任务", abnormal.size());
         } catch (Exception e) {
             logger.error("异常任务巡检失败：" + e.getMessage(), e);

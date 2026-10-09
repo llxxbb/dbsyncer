@@ -53,25 +53,27 @@ public class MessageServiceImpl implements MessageService {
     /**
      * 发送消息（带事件类型和通知配置）
      * <p>
-     * ADR-0035：支持分组通知配置，调用方负责解析配置，MessageService 不耦合分组逻辑
+     * props 为 null 时自动从 NotifyConfigResolver 获取全局配置，避免静默跳过
      */
-    @Override
-    public void sendMessage(String title, String content, NotifyType type, NotifyProps props) {
+    private void sendMessage(String title, String content, NotifyType type, NotifyProps props) {
         if (notifyService == null) {
             return;
         }
 
-        UserConfig userConfig = profileComponent.getUserConfig();
-        if (null == userConfig) {
-            return;
+        // props 为 null 时自动获取全局配置
+        if (props == null && notifyConfigResolver != null) {
+            props = notifyConfigResolver.resolve(null);
         }
 
         List<String> mails = new ArrayList<>();
-        userConfig.getUserInfoList().forEach(userInfo -> {
-            if (StringUtil.isNotBlank(userInfo.getEmail())) {
-                mails.addAll(Arrays.asList(StringUtil.split(userInfo.getEmail(), StringUtil.COMMA)));
-            }
-        });
+        UserConfig userConfig = profileComponent.getUserConfig();
+        if (null != userConfig) {
+            userConfig.getUserInfoList().forEach(userInfo -> {
+                if (StringUtil.isNotBlank(userInfo.getEmail())) {
+                    mails.addAll(Arrays.asList(StringUtil.split(userInfo.getEmail(), StringUtil.COMMA)));
+                }
+            });
+        }
 
         NotifyMessage msg = NotifyMessage.newBuilder()
                 .setTitle(title)

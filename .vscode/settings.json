@@ -17,5 +17,5 @@
     // =============================================
     // 告诉 Java 插件不要仅依赖自身的轮询机制，而是信任操作系统的文件变更事件
     "java.settings.url": ".vscode/java-settings.xml",
-    "java.jdt.ls.vmargs": "-XX:+UseParallelGC -XX:GCTimeRatio=4 -XX:AdaptiveSizePolicyWeight=90 -Dsun.zip.disableMemoryMapping=true -Xmx4G -Xms100m -Xlog:disable" // 可选，高级调优
+    "java.jdt.ls.vmargs": "-XX:+UseParallelGC -XX:GCTimeRatio=4 -XX:AdaptiveSizePolicyWeight=90 -Dsun.zip.disableMemoryMapping=true -Xmx8G -Xms100m -Xlog:disable" // 可选，高级调优
 }
