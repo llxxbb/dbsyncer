@@ -3,6 +3,7 @@ package org.dbsyncer.parser.impl;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.common.config.ConfigRegistry;
 import org.dbsyncer.common.model.SystemConfig;
+import org.dbsyncer.common.util.JsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -39,15 +40,12 @@ public class ConfigMigrationService {
     private ProfileComponent profileComponent;
 
     /**
-     * 检测并执行配置迁移。由 SystemConfigServiceImpl.init() 调用。
+     * 检测并执行配置迁移。
      */
     public void migrateIfNeeded() throws Exception {
         // 从 Registry 获取合并后的配置（schemaVersion 来自 DB）
+        // getConfig() 不会返回 null（merge() 总是创建新对象
         SystemConfig config = configRegistry.getConfig();
-        if (config == null) {
-            logger.info("配置迁移：无 SystemConfig 记录，跳过迁移");
-            return;
-        }
 
         // 委托给迁移服务执行
         boolean migrated = migrate(config);
@@ -58,7 +56,7 @@ public class ConfigMigrationService {
         // 迁移后保存 dbConfig（不是 mergedConfig）
         SystemConfig dbConfig = configRegistry.getDbConfig();
         profileComponent.editConfigModel(dbConfig);
-        logger.info("配置迁移完成，dbConfig 已保存到数据库");
+        logger.info("配置迁移完成，dbConfig 已保存到数据库 [id={}]", dbConfig.getId());
     }
 
     /**
@@ -91,10 +89,27 @@ public class ConfigMigrationService {
 
     /**
      * v0 → v1：首次迁移。把 props 默认值固化到 DB。
+     * <p>
+     * 注意：必须保留原 dbConfig 的基类字段（id、type、name、createTime、updateTime），
+     * 否则后续 editConfigModel 做 UPDATE 时找不到主键。
      */
     private void migrateV0ToV1() {
         logger.info("执行迁移 v0 → v1：把 props 默认值固化到 DB");
-        // 把 propsConfig 作为新的 dbConfig
-        configRegistry.setDbConfig(configRegistry.getPropsConfig());
+        SystemConfig oldDbConfig = configRegistry.getDbConfig();
+        SystemConfig propsConfig = configRegistry.getPropsConfig();
+
+        // 深拷贝 props，避免污染 Environment 源数据
+        SystemConfig newDbConfig = JsonUtil.jsonToObj(JsonUtil.objToJson(propsConfig), SystemConfig.class);
+        // 保留 DB 记录的 identity 字段，否则后续 editConfigModel 找不到主键
+        if (oldDbConfig != null) {
+            newDbConfig.setId(oldDbConfig.getId());
+            newDbConfig.setType(oldDbConfig.getType());
+            newDbConfig.setName(oldDbConfig.getName());
+            newDbConfig.setCreateTime(oldDbConfig.getCreateTime());
+            newDbConfig.setUpdateTime(oldDbConfig.getUpdateTime());
+            logger.info("迁移 v0→v1：保留原 DB 记录 [id={}, name={}, createTime={}]",
+                    oldDbConfig.getId(), oldDbConfig.getName(), oldDbConfig.getCreateTime());
+        }
+        configRegistry.setDbConfig(newDbConfig);
     }
 }
