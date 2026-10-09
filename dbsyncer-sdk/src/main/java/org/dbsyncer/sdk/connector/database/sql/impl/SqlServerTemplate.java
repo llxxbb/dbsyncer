@@ -673,7 +673,7 @@ public class SqlServerTemplate extends AbstractSqlTemplate {
                         "    CT.SYS_CHANGE_COLUMNS, " +
                         "    %s " +
                         "FROM CHANGETABLE(CHANGES %s, ?) AS CT " +
-                        "LEFT JOIN %s AS T ON 1=0 " +
+                        "LEFT JOIN %s AS T WITH (NOLOCK) ON 1=0 " +
                         "WHERE CT.SYS_CHANGE_OPERATION = 'D' " +
                         "AND CT.SYS_CHANGE_VERSION > ? AND CT.SYS_CHANGE_VERSION <= ? " +
                         "ORDER BY CT.SYS_CHANGE_VERSION ASC",
