@@ -50,6 +50,10 @@ public class ScheduledTaskServiceImpl implements ScheduledTaskService, Disposabl
 
     @Override
     public synchronized void start(String key, String cron, ScheduledTaskJob job) {
+        if (cron == null || cron.trim().isEmpty()) {
+            logger.warn("[{}] cron 表达式为空，跳过注册定时任务 [{}]", key, job.getClass().getSimpleName());
+            return;
+        }
         logger.info("[{}], Started task [{}]", cron, job.getClass().getSimpleName());
         registrations.put(key, TaskRegistration.cron(cron, job));
         ThreadPoolTaskScheduler scheduler = schedulerFactory.getTaskScheduler();

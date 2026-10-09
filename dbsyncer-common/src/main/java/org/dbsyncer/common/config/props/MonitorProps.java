@@ -32,8 +32,8 @@ public class MonitorProps implements Serializable, AppProps {
     /** 指标上报间隔（毫秒），默认 5000 */
     private int metricReportIntervalMs = 5000;
 
-    /** 预警 cron 表达式，默认 "0 *&#47;10 * * * ?" */
-    private String alertCron;
+    /** 预警 cron 表达式，默认 "0 *&#47;10 * * * ?"（每 10 分钟） */
+    private String alertCron = "0 */10 * * * ?";
 
     public int getSchedulerPoolSize() {
         return schedulerPoolSize;
