@@ -24,7 +24,6 @@ import org.dbsyncer.sdk.filter.Query;
 import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.sdk.model.TableGroup;
-import org.dbsyncer.sdk.notify.NotifyConfigResolver;
 import org.dbsyncer.sdk.notify.NotifyType;
 import org.dbsyncer.sdk.storage.StorageService;
 import org.dbsyncer.storage.enums.StorageDataStatusEnum;
@@ -59,9 +58,6 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector, ConfigChang
 
     @Resource
     private MessageService messageService;
-
-    @Resource
-    private NotifyConfigResolver notifyConfigResolver;
 
     @Resource
     private SnowflakeIdWorker snowflakeIdWorker;
@@ -232,7 +228,7 @@ public class ErrorQueueCollectorImpl implements ErrorQueueCollector, ConfigChang
         details.put("目标表", targetTableName);
         details.put("失败数量", failCount + " 条");
         details.put("错误原因", errorMsg);
-        messageService.sendNotifyMessage(mapping, "数据同步异常", notifyType, notifyConfigResolver, details);
+        messageService.sendNotifyMessage(mapping, "数据同步异常", notifyType, details);
     }
 
     @Override

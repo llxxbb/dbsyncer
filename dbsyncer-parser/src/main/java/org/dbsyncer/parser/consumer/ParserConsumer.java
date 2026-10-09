@@ -1,7 +1,6 @@
 package org.dbsyncer.parser.consumer;
 
 import org.dbsyncer.sdk.spi.MessageService;
-import org.dbsyncer.sdk.notify.NotifyConfigResolver;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.spi.LogType;
@@ -38,17 +37,15 @@ public final class ParserConsumer implements Watcher {
     private final ProfileComponent profileComponent;
     private final LogService logService;
     private final MessageService messageService;
-    private final NotifyConfigResolver notifyConfigResolver;
     private final String metaId;
     private final Runnable onClose;
 
-    public ParserConsumer(BufferActuatorRouter bufferActuatorRouter, ProfileComponent profileComponent, LogService logService, String metaId, List<TableGroup> tableGroups, MessageService messageService, NotifyConfigResolver notifyConfigResolver, Runnable onClose) {
+    public ParserConsumer(BufferActuatorRouter bufferActuatorRouter, ProfileComponent profileComponent, LogService logService, String metaId, List<TableGroup> tableGroups, MessageService messageService, Runnable onClose) {
         this.bufferActuatorRouter = bufferActuatorRouter;
         this.profileComponent = profileComponent;
         this.logService = logService;
         this.metaId = metaId;
         this.messageService = messageService;
-        this.notifyConfigResolver = notifyConfigResolver;
         this.onClose = onClose;  // 初始化 onClose
         // 注册到路由服务中
         bufferActuatorRouter.getOrCreateActuator(metaId);
@@ -148,7 +145,7 @@ public final class ParserConsumer implements Watcher {
             
             Map<String, String> details = new LinkedHashMap<>();
             details.put("错误原因", errorMessage);
-            messageService.sendNotifyMessage(mapping, "任务中断", NotifyType.TASK_INTERRUPTED, notifyConfigResolver, details);
+            messageService.sendNotifyMessage(mapping, "任务中断", NotifyType.TASK_INTERRUPTED, details);
 
             logger.info("发送任务中断通知成功：metaId={}, mappingId={}", metaId, mappingId);
         } catch (Exception ex) {

@@ -8,7 +8,6 @@ import org.dbsyncer.sdk.enums.MetaEnum;
 import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.sdk.model.TableGroup;
-import org.dbsyncer.sdk.notify.NotifyConfigResolver;
 import org.dbsyncer.sdk.notify.NotifyType;
 import org.dbsyncer.sdk.spi.LogService;
 import org.dbsyncer.sdk.spi.LogType;
@@ -38,9 +37,6 @@ public class ManagerFactory {
 
     @Resource
     private MessageService messageService;
-
-    @Resource
-    private NotifyConfigResolver notifyConfigResolver;
 
     @Resource
     private Map<String, Puller> map;
@@ -81,7 +77,7 @@ public class ManagerFactory {
             // 发送任务中断通知
             Map<String, String> details = new LinkedHashMap<>();
             details.put("错误原因", e.getMessage());
-            messageService.sendNotifyMessage(mapping, "任务中断", NotifyType.TASK_INTERRUPTED, notifyConfigResolver, details);
+            messageService.sendNotifyMessage(mapping, "任务中断", NotifyType.TASK_INTERRUPTED, details);
 
             throw new ManagerException(e.getMessage());
         }

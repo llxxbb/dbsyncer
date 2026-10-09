@@ -26,7 +26,6 @@ import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.model.TableGroup;
 import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.plugin.SyncRow;
-import org.dbsyncer.sdk.notify.NotifyConfigResolver;
 import org.dbsyncer.sdk.notify.NotifyType;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.sdk.spi.LogLevel;
@@ -69,9 +68,6 @@ public class ConnectorFactory implements DisposableBean {
 
     @Resource
     private MessageService messageService;
-
-    @Resource
-    private NotifyConfigResolver notifyConfigResolver;
 
     @Resource
     private ConfigRegistry configRegistry;
@@ -325,7 +321,7 @@ public class ConnectorFactory implements DisposableBean {
         RetryAfter retryAfter = RetryAfter.compose(
                 RetryAfter.slf4j(logger),
                 RetryCallbacks.logService(logService, mapping),
-                RetryCallbacks.messageService(messageService, mapping, NotifyType.TARGET_EXCEPTION, notifyConfigResolver)
+                RetryCallbacks.messageService(messageService, mapping, NotifyType.TARGET_EXCEPTION)
         );
 
         return retryInterceptor.execute(() -> {
@@ -354,7 +350,7 @@ public class ConnectorFactory implements DisposableBean {
 
         Map<String, String> details = new LinkedHashMap<>();
         details.put("DDL 语句", ddlConfig.getSql());
-        messageService.sendNotifyMessage(mapping, "数据同步DDL事件", NotifyType.DDL, notifyConfigResolver, details);
+        messageService.sendNotifyMessage(mapping, "数据同步DDL事件", NotifyType.DDL, details);
 
         logService.log(mapping, LogType.SYNC, LogLevel.INFO, "DDL: " + ddlConfig.getSql());
         return result;

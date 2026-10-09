@@ -4,6 +4,8 @@ import org.dbsyncer.common.config.props.NotifyProps;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.model.UserConfig;
+import org.dbsyncer.sdk.model.Mapping;
+import org.dbsyncer.sdk.notify.NotifyConfigResolver;
 import org.dbsyncer.sdk.notify.NotifyMessage;
 import org.dbsyncer.sdk.notify.NotifyService;
 import org.dbsyncer.sdk.notify.NotifyType;
@@ -18,6 +20,7 @@ import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 @Component
 public class MessageServiceImpl implements MessageService {
@@ -33,6 +36,9 @@ public class MessageServiceImpl implements MessageService {
 
     @Resource
     private ProfileComponent profileComponent;
+
+    @Resource
+    private NotifyConfigResolver notifyConfigResolver;
 
     @Override
     public void sendMessage(String title, String content) {
@@ -76,6 +82,27 @@ public class MessageServiceImpl implements MessageService {
 
         // ADR-0035：使用传入的 props 发送
         notifyService.sendMessage(msg, props);
+    }
+
+    /**
+     * 发送统一格式的通知消息（Markdown）
+     * <p>
+     * 统一模板：标题 + 操作类型 + Mapping ID + 任务名称 + 可选详情字段
+     * 通知配置由实现类内部解析，调用方无需关心分组逻辑
+     */
+    @Override
+    public void sendNotifyMessage(Mapping mapping, String operationType, NotifyType type, Map<String, String> details) {
+        String mappingId = mapping != null ? mapping.getId() : null;
+        StringBuilder msg = new StringBuilder();
+        msg.append("### DBSyncer ").append(operationType).append("\n\n");
+        msg.append("**操作类型**: ").append(operationType).append("\n\n");
+        msg.append("**Mapping ID**: ").append(mappingId != null ? mappingId : "unknown").append("\n\n");
+        msg.append("**任务名称**: ").append(mapping != null ? mapping.getName() : "unknown").append("\n\n");
+        if (details != null) {
+            details.forEach((k, v) -> msg.append("**").append(k).append("**: ").append(v).append("\n\n"));
+        }
+        NotifyProps props = notifyConfigResolver != null ? notifyConfigResolver.resolve(mappingId) : null;
+        sendMessage("dbsyncer", msg.toString(), type, props);
     }
 
 }

@@ -19,7 +19,6 @@ import org.dbsyncer.manager.ManagerFactory;
 import org.dbsyncer.parser.*;
 import org.dbsyncer.parser.service.MappingModelService;
 import org.dbsyncer.parser.service.MetaService;
-import org.dbsyncer.sdk.notify.NotifyConfigResolver;
 import org.dbsyncer.sdk.notify.NotifyType;
 import org.dbsyncer.sdk.spi.LogLevel;
 import org.dbsyncer.sdk.spi.LogService;
@@ -112,9 +111,6 @@ public class MappingServiceImpl implements MappingService {
 
     @Resource
     private MessageService messageService;
-
-    @Resource
-    private NotifyConfigResolver notifyConfigResolver;
 
     @Override
     public String add(Map<String, String> params) throws Exception {
@@ -411,7 +407,7 @@ public class MappingServiceImpl implements MappingService {
                     String.format("停止同步任务 (操作人：%s)", getCurrentUsername()));
 
             // 发送关闭驱动通知消息
-            messageService.sendNotifyMessage(mapping, "手动操作提示", NotifyType.MANUAL_OPERATION, notifyConfigResolver, null);
+            messageService.sendNotifyMessage(mapping, "手动操作提示", NotifyType.MANUAL_OPERATION, null);
         }
         return "任务停止成功";
     }
@@ -794,7 +790,7 @@ public class MappingServiceImpl implements MappingService {
                     String.format("任务重置 (操作人：%s)", getCurrentUsername()));
 
             // 发送重置驱动通知消息
-            messageService.sendNotifyMessage(mapping, "手动操作提示", NotifyType.MANUAL_OPERATION, notifyConfigResolver, null);
+            messageService.sendNotifyMessage(mapping, "手动操作提示", NotifyType.MANUAL_OPERATION, null);
         }
         if (!StringUtil.equals(mapping.getModel(), ModelEnum.INCREMENT.getCode())) {
             submitMappingCountTask(mapping);
