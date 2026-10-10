@@ -1230,15 +1230,16 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
             RetryPolicy retryPolicy = getRetryPolicy();
             while (!isInterrupted() && !stopRequested.get()) {
                 try {
-                    Long maxVersion = getMaxVersion();
-                    if (maxVersion == null || maxVersion <= lastSuccessfulVersion) {
-                        maybeSnapshot();
-                        sleepInMills(getPollIntervalMillis());
-                        continue;
-                    }
-
+                    // 将 getMaxVersion() 和 pull() 统一纳入重试保护，
+                    // 避免连接瞬断时 getMaxVersion() 抛异常直接退出 Worker
                     retryInterceptor.execute(
                             () -> {
+                                Long maxVersion = getMaxVersion();
+                                if (maxVersion == null || maxVersion <= lastSuccessfulVersion) {
+                                    maybeSnapshot();
+                                    sleepInMills(getPollIntervalMillis());
+                                    return null;
+                                }
                                 pull(lastSuccessfulVersion, maxVersion);
                                 return null;
                             },
