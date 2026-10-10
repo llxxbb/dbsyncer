@@ -3,6 +3,7 @@ package org.dbsyncer.parser.notify;
 import org.dbsyncer.common.config.ConfigRegistry;
 import org.dbsyncer.common.config.props.DingTalkProps;
 import org.dbsyncer.common.config.props.MailProps;
+import org.dbsyncer.common.config.props.NotifyMode;
 import org.dbsyncer.common.config.props.NotifyProps;
 import org.dbsyncer.common.constant.ConfigConstant;
 import org.dbsyncer.common.util.CollectionUtils;
@@ -57,13 +58,24 @@ public class NotifyConfigResolverImpl implements NotifyConfigResolver {
             return globalProps;
         }
 
-        // 分组未启用独立配置，走全局
-        if (!Boolean.TRUE.equals(groupProps.getEnabled())) {
-            return globalProps;
+        // 根据 mode 决定行为
+        NotifyMode mode = groupProps.getMode();
+        if (mode == null) {
+            mode = NotifyMode.INHERIT;
         }
 
-        // 按通道合并
-        return mergeNotifyProps(groupProps, globalProps);
+        switch (mode) {
+            case DISABLED:
+                // 明确禁用，不发通知
+                return null;
+            case OVERRIDE:
+                // 使用分组配置（合并全局）
+                return mergeNotifyProps(groupProps, globalProps);
+            case INHERIT:
+            default:
+                // 继承全局配置
+                return globalProps;
+        }
     }
 
     /**

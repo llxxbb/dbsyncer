@@ -47,7 +47,9 @@ public class MessageServiceImpl implements MessageService {
 
     @Override
     public void sendMessage(String title, String content, NotifyType type) {
-        sendMessage(title, content, type, null);
+        // props 为 null 时自动获取全局配置
+        NotifyProps props = notifyConfigResolver.resolve(null);
+        sendMessage(title, content, type, props);
     }
 
     /**
@@ -56,13 +58,8 @@ public class MessageServiceImpl implements MessageService {
      * props 为 null 时自动从 NotifyConfigResolver 获取全局配置，避免静默跳过
      */
     private void sendMessage(String title, String content, NotifyType type, NotifyProps props) {
-        if (notifyService == null) {
+        if (notifyService == null || props == null) {
             return;
-        }
-
-        // props 为 null 时自动获取全局配置
-        if (props == null && notifyConfigResolver != null) {
-            props = notifyConfigResolver.resolve(null);
         }
 
         List<String> mails = new ArrayList<>();

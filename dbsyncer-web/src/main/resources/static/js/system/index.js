@@ -115,12 +115,14 @@ function renderNotifyForm($container, config, opts) {
     
     var html = '';
     
-    // 分组模式：增加“启用独立配置”开关
+    // 分组模式：增加“配置模式”Radio
     if (isGroupMode) {
         html += '<div class="form-group">';
-        html += '<label class="col-sm-2 control-label">启用配置<i class="fa fa-question-circle fa_gray" title="开启后使用本分组的通道配置；关闭则走全局配置。"></i></label>';
+        html += '<label class="col-sm-2 control-label">配置模式<i class="fa fa-question-circle fa_gray" title="禁用：不发任何通知；继承：走全局配置；覆盖：使用本分组的配置。"></i></label>';
         html += '<div class="col-sm-10">';
-        html += '<label class="checkbox-inline"><input type="checkbox" class="nf-enabled"> 启用</label>';
+        html += '<label class="radio-inline"><input type="radio" name="nf-mode" class="nf-mode" value="INHERIT" checked> 继承</label>';
+        html += '<label class="radio-inline"><input type="radio" name="nf-mode" class="nf-mode" value="OVERRIDE"> 覆盖</label>';
+        html += '<label class="radio-inline"><input type="radio" name="nf-mode" class="nf-mode" value="DISABLED"> 禁用</label>';
         html += '</div></div>';
     }
     
@@ -175,10 +177,12 @@ function renderNotifyForm($container, config, opts) {
         fillNotifyFormValues($container, config);
     }
     
-    // 分组模式：绑定启用开关事件
+    // 分组模式：绑定配置模式切换事件
     if (isGroupMode) {
-        $container.find('.nf-enabled').on('change', function() {
-            $container.find('.nf-fields-section').toggle($(this).is(':checked'));
+        $container.find('.nf-mode').on('change', function() {
+            var mode = $(this).val();
+            // 只有 OVERRIDE 模式才显示详细配置
+            $container.find('.nf-fields-section').toggle(mode === 'OVERRIDE');
         });
     }
     
@@ -199,12 +203,13 @@ function fillNotifyFormValues($container, config) {
     $container.find('.nf-mail-type, .nf-dingtalk-type').prop('checked', false);
     $container.find('input[type="text"], input[type="password"]').val('');
     
-    // 分组模式：处理 enabled 字段
-    var $enabled = $container.find('.nf-enabled');
-    if ($enabled.length > 0) {
-        var isEnabled = config && config.enabled === true;
-        $enabled.prop('checked', isEnabled);
-        $container.find('.nf-fields-section').toggle(isEnabled);
+    // 分组模式：处理 mode 字段
+    var $modeRadios = $container.find('.nf-mode');
+    if ($modeRadios.length > 0) {
+        var mode = (config && config.mode) ? config.mode.toUpperCase() : 'INHERIT';
+        $modeRadios.filter('[value="' + mode + '"]').prop('checked', true);
+        // 只有 OVERRIDE 模式才显示详细配置
+        $container.find('.nf-fields-section').toggle(mode === 'OVERRIDE');
     }
     
     if (!config) return;
@@ -244,10 +249,10 @@ function fillNotifyFormValues($container, config) {
 function readNotifyForm($container) {
     var payload = {};
     
-    // 分组模式：读取 enabled 字段
-    var $enabled = $container.find('.nf-enabled');
-    if ($enabled.length > 0) {
-        payload.enabled = $enabled.is(':checked');
+    // 分组模式：读取 mode 字段
+    var $modeRadios = $container.find('.nf-mode');
+    if ($modeRadios.length > 0) {
+        payload.mode = $modeRadios.filter(':checked').val() || 'INHERIT';
     }
     
     var channels = [];

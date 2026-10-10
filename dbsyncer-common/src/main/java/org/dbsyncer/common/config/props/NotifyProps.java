@@ -21,23 +21,25 @@ public class NotifyProps implements Serializable, AppProps {
     private static final long serialVersionUID = 1L;
 
     /**
-     * 是否启用独立配置（仅分组配置使用）。
-     * <p>
-     * false 或 null：走全局配置<br/>
-     * true：使用本分组的通道配置（通道为空则不发通知）
+     * 通知配置模式（仅分组配置使用）。
+     * <ul>
+     *   <li>DISABLED：禁用通知，该分组不发任何通知</li>
+     *   <li>INHERIT：继承全局配置（缺省）</li>
+     *   <li>OVERRIDE：使用分组自己的配置</li>
+     * </ul>
      */
-    private Boolean enabled;
+    private NotifyMode mode = NotifyMode.INHERIT;
 
     private List<String> channels;
     private MailProps mail;
     private DingTalkProps dingtalk;
 
-    public Boolean getEnabled() {
-        return enabled;
+    public NotifyMode getMode() {
+        return mode;
     }
 
-    public void setEnabled(Boolean enabled) {
-        this.enabled = enabled;
+    public void setMode(NotifyMode mode) {
+        this.mode = mode;
     }
 
     public List<String> getChannels() {
