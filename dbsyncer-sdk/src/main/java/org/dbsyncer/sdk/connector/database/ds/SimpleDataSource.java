@@ -140,10 +140,31 @@ public class SimpleDataSource implements DataSource, AutoCloseable {
         }
     }
 
+    /**
+     * 销毁连接（不复用），关闭底层 JDBC 连接并递减活跃连接数。
+     * 用于连接损坏时直接丢弃，避免坏连接被还回池中。
+     */
+    public void destroy(SimpleConnection connection) {
+        if (connection != null) {
+            try {
+                connection.close();
+            } catch (Exception ignored) {
+                // 损坏连接的关闭异常可忽略
+            } finally {
+                activeNum.decrementAndGet();
+            }
+        }
+    }
+
     private void closeQuietly(SimpleConnection connection) {
         if (connection != null) {
-            connection.close();
-            activeNum.decrementAndGet();
+            try {
+                connection.close();
+            } catch (Exception ignored) {
+                // 关闭异常不应阻止 activeNum 递减
+            } finally {
+                activeNum.decrementAndGet();
+            }
         }
     }
 
