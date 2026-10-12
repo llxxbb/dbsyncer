@@ -35,7 +35,7 @@ public abstract class AbstractListener<C extends ConnectorInstance> implements L
     private final Logger logger = LoggerFactory.getLogger(getClass());
     protected static LogService staticLogService;
     protected static MessageService staticMessageService;
-    protected ConnectorInstance connectorInstance;
+    protected C connectorInstance;
     protected ConnectorInstance targetConnectorInstance;
     protected ConnectorService connectorService;
     protected ScheduledTaskService scheduledTaskService;
@@ -206,12 +206,13 @@ public abstract class AbstractListener<C extends ConnectorInstance> implements L
         }
     }
 
+    @SuppressWarnings("unchecked")
     public void setConnectorInstance(ConnectorInstance connectorInstance) {
-        this.connectorInstance = connectorInstance;
+        this.connectorInstance = (C) connectorInstance;
     }
 
     public C getConnectorInstance() {
-        return (C) connectorInstance;
+        return connectorInstance;
     }
 
     public void setTargetConnectorInstance(ConnectorInstance targetConnectorInstance) {

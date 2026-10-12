@@ -56,7 +56,7 @@ public class PostgreSQLListener extends AbstractDatabaseListener {
     private final Lock connectLock = new ReentrantLock();
     private volatile boolean connected;
     private DatabaseConfig config;
-    private DatabaseConnectorInstance instance;
+
     private Connection connection;
     private PGReplicationStream stream;
     private boolean dropSlotOnClose;
@@ -74,15 +74,14 @@ public class PostgreSQLListener extends AbstractDatabaseListener {
                 return;
             }
 
-            instance = (DatabaseConnectorInstance) connectorInstance;
-            config = instance.getConfig();
+            config = connectorInstance.getConfig();
 
-            final String walLevel = instance.execute(databaseTemplate -> databaseTemplate.queryForObject(GET_WAL_LEVEL, String.class));
+            final String walLevel = connectorInstance.execute(databaseTemplate -> databaseTemplate.queryForObject(GET_WAL_LEVEL, String.class));
             if (!DEFAULT_WAL_LEVEL.equals(walLevel)) {
                 throw new PostgreSQLException(String.format("Postgres server wal_level property must be \"%s\" but is: %s", DEFAULT_WAL_LEVEL, walLevel));
             }
 
-            final boolean hasAuth = instance.execute(databaseTemplate -> {
+            final boolean hasAuth = connectorInstance.execute(databaseTemplate -> {
                 Map rs = databaseTemplate.queryForMap(GET_ROLE);
                 Boolean login = (Boolean) rs.getOrDefault("login", false);
                 Boolean replication = (Boolean) rs.getOrDefault("replication", false);
@@ -95,11 +94,11 @@ public class PostgreSQLListener extends AbstractDatabaseListener {
                 throw new PostgreSQLException(String.format("Postgres roles LOGIN and REPLICATION are not assigned to user: %s", config.getUsername()));
             }
 
-            database = instance.execute(databaseTemplate -> databaseTemplate.queryForObject(GET_DATABASE, String.class));
+            database = connectorInstance.execute(databaseTemplate -> databaseTemplate.queryForObject(GET_DATABASE, String.class));
             messageDecoder = MessageDecoderEnum.getMessageDecoder(config.getProperty(PLUGIN_NAME));
             messageDecoder.setMetaId(metaId);
             messageDecoder.setConfig(config);
-            messageDecoder.postProcessBeforeInitialization(connectorService, instance);
+            messageDecoder.postProcessBeforeInitialization(connectorService, connectorInstance);
             dropSlotOnClose = BooleanUtil.toBoolean(config.getProperty(DROP_SLOT_ON_CLOSE, "true"));
 
             connect();
@@ -176,7 +175,7 @@ public class PostgreSQLListener extends AbstractDatabaseListener {
     private void createReplicationSlot(PGConnection pgConnection) throws Exception {
         String slotName = messageDecoder.getSlotName();
         String plugin = messageDecoder.getOutputPlugin();
-        boolean existSlot = instance.execute(databaseTemplate -> databaseTemplate.queryForObject(GET_SLOT, new Object[]{database, slotName, plugin}, Integer.class) > 0);
+        boolean existSlot = connectorInstance.execute(databaseTemplate -> databaseTemplate.queryForObject(GET_SLOT, new Object[]{database, slotName, plugin}, Integer.class) > 0);
         if (!existSlot) {
             pgConnection.getReplicationAPI()
                     .createReplicationSlot()
@@ -190,7 +189,7 @@ public class PostgreSQLListener extends AbstractDatabaseListener {
         }
 
         if (!snapshot.containsKey(LSN_POSITION)) {
-            LogSequenceNumber lsn = instance.execute(databaseTemplate -> LogSequenceNumber.valueOf(databaseTemplate.queryForObject(GET_RESTART_LSN, new Object[]{database, slotName, plugin}, String.class)));
+            LogSequenceNumber lsn = connectorInstance.execute(databaseTemplate -> LogSequenceNumber.valueOf(databaseTemplate.queryForObject(GET_RESTART_LSN, new Object[]{database, slotName, plugin}, String.class)));
             if (null == lsn || lsn.asLong() == 0) {
                 throw new PostgreSQLException("No maximum LSN recorded in the database");
             }
@@ -210,7 +209,7 @@ public class PostgreSQLListener extends AbstractDatabaseListener {
         final int ATTEMPTS = 3;
         for (int i = 0; i < ATTEMPTS; i++) {
             try {
-                instance.execute(databaseTemplate -> {
+                connectorInstance.execute(databaseTemplate -> {
                     databaseTemplate.execute(String.format("select pg_drop_replication_slot('%s')", slotName));
                     return true;
                 });

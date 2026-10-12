@@ -77,7 +77,7 @@ public abstract class AbstractDatabaseListener extends AbstractListener<Database
      * 初始化Dql连接配置
      */
     protected void postProcessDqlBeforeInitialization() throws Exception {
-        DatabaseConnectorInstance instance = (DatabaseConnectorInstance) connectorInstance;
+        DatabaseConnectorInstance instance = connectorInstance;
         AbstractDatabaseConnector service = (AbstractDatabaseConnector) connectorService;
 
         // <用户表, MY_USER>

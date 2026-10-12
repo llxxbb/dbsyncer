@@ -88,7 +88,7 @@ public class SqlServerListener extends AbstractDatabaseListener {
     private volatile boolean connected;
     private Set<String> tables;
     private Set<SqlServerChangeTable> changeTables;
-    private DatabaseConnectorInstance instance;
+
     private Worker worker;
     private Lsn lastLsn;
     private String serverName;
@@ -163,10 +163,9 @@ public class SqlServerListener extends AbstractDatabaseListener {
     }
 
     private void connect() throws Exception {
-        instance = (DatabaseConnectorInstance) connectorInstance;
         AbstractDatabaseConnector service = (AbstractDatabaseConnector) connectorService;
-        if (service.isAlive(instance)) {
-            DatabaseConfig cfg = instance.getConfig();
+        if (service.isAlive(connectorInstance)) {
+            DatabaseConfig cfg = connectorInstance.getConfig();
             serverName = cfg.getUrl();
             schema = cfg.getSchema();
         }
@@ -274,7 +273,7 @@ public class SqlServerListener extends AbstractDatabaseListener {
     }
 
     private void execute(String... sqlStatements) throws Exception {
-        instance.execute(databaseTemplate -> {
+        connectorInstance.execute(databaseTemplate -> {
             for (String sqlStatement : sqlStatements) {
                 if (sqlStatement != null) {
                     logger.info("executing '{}'", sqlStatement);
@@ -712,7 +711,7 @@ public class SqlServerListener extends AbstractDatabaseListener {
     }
 
     private <T> T query(String preparedQuerySql, StatementPreparer statementPreparer, ResultSetMapper<T> mapper) throws Exception {
-        Object execute = instance.execute(databaseTemplate -> {
+        Object execute = connectorInstance.execute(databaseTemplate -> {
             PreparedStatement ps = null;
             ResultSet rs = null;
             T apply = null;

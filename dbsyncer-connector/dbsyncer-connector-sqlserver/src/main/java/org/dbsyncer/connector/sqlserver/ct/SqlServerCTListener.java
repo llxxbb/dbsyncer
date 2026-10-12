@@ -67,7 +67,6 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
     private final Lock connectLock = new ReentrantLock();
     private volatile boolean connected;
     private Set<String> tables;
-    private DatabaseConnectorInstance instance;
     private SqlServerCTQueryUtil queryUtil;
     private Worker worker;
     // 已持久化的版本号（既是查询起点也是安全恢复点）
@@ -211,7 +210,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
         AbstractDatabaseConnector service = (AbstractDatabaseConnector) connectorService;
         assert service instanceof SqlServerCTConnector;
 
-        Map<String, String> position = service.getPosition(instance);
+        Map<String, String> position = service.getPosition(connectorInstance);
         String versionStr = position.get(VERSION_POSITION);
         return versionStr != null ? Long.valueOf(versionStr) : null;
     }
@@ -225,10 +224,10 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
     }
 
     private void connect() throws Exception {
-        instance = (DatabaseConnectorInstance) connectorInstance;
+        DatabaseConnectorInstance dbInstance = connectorInstance;
         AbstractDatabaseConnector service = (AbstractDatabaseConnector) connectorService;
-        if (service.isAlive(instance)) {
-            DatabaseConfig cfg = instance.getConfig();
+        if (service.isAlive(dbInstance)) {
+            DatabaseConfig cfg = dbInstance.getConfig();
             serverName = cfg.getUrl();
 
             // 动态添加 socketTimeout 参数（如果 URL 中还没有显式指定）
@@ -247,7 +246,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
                 schema = "dbo";
             }
             // 初始化查询工具类
-            queryUtil = new SqlServerCTQueryUtil(instance);
+            queryUtil = new SqlServerCTQueryUtil(dbInstance);
         }
     }
 
@@ -321,7 +320,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
     }
 
     private void execute(String... sqlStatements) throws Exception {
-        instance.execute(databaseTemplate -> {
+        (connectorInstance).execute(databaseTemplate -> {
             for (String sqlStatement : sqlStatements) {
                 if (sqlStatement != null) {
                     logger.info("执行 SQL: {}", sqlStatement);
@@ -389,8 +388,8 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
 
         logger.debug("执行CT查询SQL: table={}", tableName);
 
-        // 使用流式查询，边查询边发送
-        return instance.execute(databaseTemplate -> {
+        // 使用流式查询,边查询边发送
+        return (connectorInstance).execute(databaseTemplate -> {
             PreparedStatement ps = null;
             ResultSet rs = null;
             try {
@@ -752,7 +751,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
 
     private MetaInfo querySchemaMetaInfo(String tableName) throws Exception {
         String querySql = sqlTemplate.buildQueryColumnSchemaSql(schema, tableName);
-        return instance.execute(databaseTemplate -> {
+        return (connectorInstance).execute(databaseTemplate -> {
             PreparedStatement ps = null;
             ResultSet rs = null;
             try {
