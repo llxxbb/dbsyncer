@@ -121,14 +121,9 @@ public class ConnectorFactory implements DisposableBean {
                 }
             }
         }
-        try {
-            ConnectorInstance connectorInstance = pool.get(cacheKey);
-            ConnectorInstance clone = (ConnectorInstance) connectorInstance.clone();
-            clone.setConfig(config);
-            return clone;
-        } catch (CloneNotSupportedException e) {
-            throw new ConnectorException(e);
-        }
+        ConnectorInstance connectorInstance = pool.get(cacheKey);
+        connectorInstance.setConfig(config);
+        return connectorInstance;
     }
 
     /**

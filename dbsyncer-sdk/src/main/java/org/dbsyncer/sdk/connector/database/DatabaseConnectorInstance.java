@@ -24,7 +24,7 @@ import java.sql.Connection;
 public class DatabaseConnectorInstance implements ConnectorInstance<DatabaseConfig, Connection> {
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private DatabaseConfig config;
-    private volatile HikariDataSource dataSource;
+    private HikariDataSource dataSource;
 
     public DatabaseConnectorInstance(DatabaseConfig config) {
         this.config = config;
@@ -161,11 +161,5 @@ public class DatabaseConnectorInstance implements ConnectorInstance<DatabaseConf
         return name.replaceAll("[^a-zA-Z0-9._-]", "_");
     }
 
-    @Override
-    public Object clone() throws CloneNotSupportedException {
-        // 创建新的实例，拥有独立的连接池
-        DatabaseConnectorInstance cloned = new DatabaseConnectorInstance(this.config);
-        return cloned;
-    }
 
 }

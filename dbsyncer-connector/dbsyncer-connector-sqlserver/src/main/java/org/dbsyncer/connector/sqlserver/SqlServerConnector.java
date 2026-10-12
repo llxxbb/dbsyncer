@@ -65,6 +65,16 @@ public class SqlServerConnector extends AbstractDatabaseConnector {
     }
 
     @Override
+    public org.dbsyncer.sdk.connector.ConnectorInstance connect(DatabaseConfig config) {
+        // 确保 URL 包含 socketTimeout，避免长时间查询超时
+        String url = config.getUrl();
+        if (url != null && !url.contains("socketTimeout")) {
+            config.setUrl(url + ";socketTimeout=300000");
+        }
+        return new DatabaseConnectorInstance(config);
+    }
+
+    @Override
     public String getConnectorType() {
         return "SqlServer";
     }

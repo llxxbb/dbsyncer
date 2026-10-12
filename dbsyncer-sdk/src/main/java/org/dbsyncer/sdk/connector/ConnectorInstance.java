@@ -14,7 +14,7 @@ import org.dbsyncer.sdk.model.ConnectorConfig;
  * @version 1.0.0
  * @date 2022/3/20 23:00
  */
-public interface ConnectorInstance<K extends ConnectorConfig, V> extends Cloneable {
+public interface ConnectorInstance<K extends ConnectorConfig, V> {
 
     /**
      * 获取服务地址
@@ -49,12 +49,4 @@ public interface ConnectorInstance<K extends ConnectorConfig, V> extends Cloneab
      * 关闭连接器
      */
     void close();
-
-    /**
-     * 浅拷贝连接器
-     *
-     * @return
-     * @throws CloneNotSupportedException
-     */
-    Object clone() throws CloneNotSupportedException;
 }

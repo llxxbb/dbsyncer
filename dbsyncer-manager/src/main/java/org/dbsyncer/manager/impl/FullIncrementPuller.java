@@ -166,19 +166,15 @@ public final class FullIncrementPuller implements Puller {
         // 简化设计：委托给连接器获取当前位置
         ConnectorConfig sourceConfig = profileComponent.getConnector(mapping.getSourceConnectorId()).getConfig();
         ConnectorService connectorService = connectorFactory.getConnectorService(sourceConfig.getConnectorType());
+        // connect() 返回的是共享缓存实例，生命周期由 ConnectorFactory 统一管理，此处不得关闭
         ConnectorInstance connectorInstance = connectorFactory.connect(sourceConfig);
 
-        try {
-            // 使用现有的getPosition方法，返回当前位置
-            Map<String, String> currentPosition = connectorService.getPosition(connectorInstance);
-            if (currentPosition == null || currentPosition.isEmpty()) {
-                throw new RuntimeException("无法获取当前位置信息！");
-            }
-            meta.recordIncrementStartPoint(currentPosition);
-        } finally {
-            // 清理连接资源
-            connectorService.disconnect(connectorInstance);
+        // 使用现有的getPosition方法，返回当前位置
+        Map<String, String> currentPosition = connectorService.getPosition(connectorInstance);
+        if (currentPosition == null || currentPosition.isEmpty()) {
+            throw new RuntimeException("无法获取当前位置信息！");
         }
+        meta.recordIncrementStartPoint(currentPosition);
         logger.info("已记录增量同步起始位置: metaId={}", mapping.getMetaId());
     }
 
