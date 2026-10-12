@@ -276,8 +276,21 @@ function showTPSChart(tps) {
     echarts.init(document.getElementById('tpsChart')).setOption(option);
 }
 
+// 仪表盘刻度数字格式化（大数字 → k/万）
+function formatGaugeLabel(value) {
+    if (value >= 10000) {
+        return (value / 10000) + '万';
+    }
+    if (value >= 1000) {
+        return (value / 1000) + 'k';
+    }
+    return value;
+}
+
 // 堆积数据
 function showQueueChart(queueUp, queueCapacity) {
+    // 没有运行中的任务时 capacity 为 0，使用配置默认值作为仪表盘上限
+    let maxCapacity = queueCapacity > 0 ? queueCapacity : 30000;
     let option = {
         title: {
             text: "堆积数据",
@@ -294,27 +307,32 @@ function showQueueChart(queueUp, queueCapacity) {
                 animation: true,
                 type: 'gauge',
                 min: 0,
-                max: queueCapacity,
+                max: maxCapacity,
                 splitNumber: 2,
-                axisLine: {            // 坐标轴线
-                    lineStyle: {       // 属性lineStyle控制线条样式
+                radius: '80%',
+                axisLine: {
+                    lineStyle: {
                         color: [[0.3, '#67e0e3'], [0.7, '#37a2da'], [1, '#fd666d']],
                         width: 5
                     }
                 },
-                axisTick: {            // 坐标轴小标记
-                    length: 10,        // 属性length控制线长
-                    lineStyle: {       // 属性lineStyle控制线条样式
+                axisTick: {
+                    length: 8,
+                    lineStyle: {
                         color: 'auto'
                     }
                 },
-                splitLine: {           // 分隔线
-                    length: 10,         // 属性length控制线长
-                    lineStyle: {       // 属性lineStyle（详见lineStyle）控制线条样式
+                splitLine: {
+                    length: 10,
+                    lineStyle: {
                         color: 'auto'
                     }
                 },
-                detail: {fontSize: 12, offsetCenter: [0, '65%']},
+                axisLabel: {
+                    fontSize: 11,
+                    formatter: formatGaugeLabel
+                },
+                detail: {fontSize: 14, offsetCenter: [0, '65%'], formatter: formatGaugeLabel},
                 data: [{value: queueUp, name: ''}]
             }
         ]
@@ -334,6 +352,8 @@ function showEventChart(success, fail, ins, upd, del) {
 
 // 统计成功失败
 function showStorageChart(queueUp, queueCapacity) {
+    // 没有运行中的任务时 capacity 为 0，使用配置默认值作为仪表盘上限
+    let maxCapacity = queueCapacity > 0 ? queueCapacity : 1000;
     let option = {
         title: {
             text: "持久化",
@@ -350,27 +370,32 @@ function showStorageChart(queueUp, queueCapacity) {
                 animation: true,
                 type: 'gauge',
                 min: 0,
-                max: queueCapacity,
+                max: maxCapacity,
                 splitNumber: 2,
-                axisLine: {            // 坐标轴线
-                    lineStyle: {       // 属性lineStyle控制线条样式
+                radius: '80%',
+                axisLine: {
+                    lineStyle: {
                         color: [[0.3, '#67e0e3'], [0.7, '#37a2da'], [1, '#fd666d']],
                         width: 5
                     }
                 },
-                axisTick: {            // 坐标轴小标记
-                    length: 10,        // 属性length控制线长
-                    lineStyle: {       // 属性lineStyle控制线条样式
+                axisTick: {
+                    length: 8,
+                    lineStyle: {
                         color: 'auto'
                     }
                 },
-                splitLine: {           // 分隔线
-                    length: 10,         // 属性length控制线长
-                    lineStyle: {       // 属性lineStyle（详见lineStyle）控制线条样式
+                splitLine: {
+                    length: 10,
+                    lineStyle: {
                         color: 'auto'
                     }
                 },
-                detail: {fontSize: 12, offsetCenter: [0, '65%']},
+                axisLabel: {
+                    fontSize: 11,
+                    formatter: formatGaugeLabel
+                },
+                detail: {fontSize: 14, offsetCenter: [0, '65%'], formatter: formatGaugeLabel},
                 data: [{value: queueUp, name: ''}]
             }
         ]

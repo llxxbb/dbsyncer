@@ -22,6 +22,7 @@ import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.common.config.ConfigRegistry;
 import org.dbsyncer.parser.flush.impl.MetaBufferActuator;
 import org.dbsyncer.parser.flush.impl.BufferActuatorRouter;
+import org.dbsyncer.common.config.ExecutorFactory;
 import org.dbsyncer.sdk.model.Mapping;
 import org.dbsyncer.sdk.model.Meta;
 import org.dbsyncer.common.constant.ConfigConstant;
@@ -75,6 +76,9 @@ public class MetricReporter implements ScheduledTaskJob, StartupTaskRegistrar {
     @Resource
     private TimeRegistry timeRegistry;
 
+    @Resource
+    private ExecutorFactory executorFactory;
+
     private volatile boolean running;
 
     private LocalDateTime queryTime;
@@ -123,6 +127,11 @@ public class MetricReporter implements ScheduledTaskJob, StartupTaskRegistrar {
         // 堆积任务(所有 meta 的执行器)
         report.setQueueUp(bufferActuatorRouter.getQueueSize().get());
         report.setQueueCapacity(bufferActuatorRouter.getQueueCapacity().get());
+        // 持久化线程池队列
+        ThreadPoolTaskExecutor storageTaskExecutor = executorFactory.getStorageExecutor();
+        ThreadPoolExecutor storagePool = storageTaskExecutor.getThreadPoolExecutor();
+        report.setStorageQueueUp(storagePool.getQueue().size());
+        report.setStorageQueueCapacity(storagePool.getQueue().remainingCapacity() + storagePool.getQueue().size());
         // 执行器TPS
         report.setTps(getOneMinBufferActuatorRate());
         return report;
