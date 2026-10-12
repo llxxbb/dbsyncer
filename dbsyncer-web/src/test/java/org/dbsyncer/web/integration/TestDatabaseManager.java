@@ -117,8 +117,7 @@ public class TestDatabaseManager {
         String processedSql = preprocessSqlScript(sql);
 
         connectorInstance.execute(databaseTemplate -> {
-            try (Connection connection = databaseTemplate.getSimpleConnection().getConnection();
-                 Statement statement = connection.createStatement()) {
+            try (Statement statement = databaseTemplate.getConnection().createStatement()) {
 
                 // 按分号分割SQL语句并逐个执行
                 String[] sqlStatements = processedSql.split(";");

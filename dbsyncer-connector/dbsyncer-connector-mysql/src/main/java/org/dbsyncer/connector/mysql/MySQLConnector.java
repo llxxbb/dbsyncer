@@ -83,7 +83,7 @@ public class MySQLConnector extends AbstractDatabaseConnector {
         // 使用 JDBC 轻量查询获取当前位点（与增量同步的 binlog 协议互补）
         // 返回 {fileName, position, gtid}，其中 gtid 可能为空字符串（服务器不支持 GTID）
         Map<String, String> position = connectorInstance.execute(conn -> {
-            Connection jdbcConn = conn.getSimpleConnection();
+            Connection jdbcConn = conn.getConnection();
             long version = parseMysqlVersion(jdbcConn);
             String query = version >= MYSQL_VERSION_8_4 ? "SHOW BINARY LOG STATUS" : "SHOW MASTER STATUS";
             
@@ -155,7 +155,7 @@ public class MySQLConnector extends AbstractDatabaseConnector {
         String schema = getSchema(cfg);
 
         connectorInstance.execute(databaseTemplate -> {
-            Connection conn = databaseTemplate.getSimpleConnection();
+            Connection conn = databaseTemplate.getConnection();
             String catalog = conn.getCatalog();
 
             // 一次性查询 ENUM/SET 枚举值 + 字段字符集

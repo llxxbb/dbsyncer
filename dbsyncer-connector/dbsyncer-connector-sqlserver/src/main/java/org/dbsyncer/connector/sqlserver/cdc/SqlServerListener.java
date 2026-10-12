@@ -717,7 +717,7 @@ public class SqlServerListener extends AbstractDatabaseListener {
             ResultSet rs = null;
             T apply = null;
             try {
-                ps = databaseTemplate.getSimpleConnection().prepareStatement(preparedQuerySql);
+                ps = databaseTemplate.getConnection().prepareStatement(preparedQuerySql);
                 if (null != statementPreparer) {
                     statementPreparer.accept(ps);
                 }

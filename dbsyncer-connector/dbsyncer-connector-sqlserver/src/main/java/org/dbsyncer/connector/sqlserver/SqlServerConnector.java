@@ -18,7 +18,6 @@ import org.dbsyncer.sdk.config.CommandConfig;
 import org.dbsyncer.sdk.config.DatabaseConfig;
 import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
 import org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance;
-import org.dbsyncer.sdk.connector.database.ds.SimpleConnection;
 import org.dbsyncer.sdk.connector.database.sql.SqlTemplate;
 import org.dbsyncer.sdk.connector.database.sql.impl.SqlServerTemplate;
 import org.dbsyncer.sdk.enums.ListenerTypeEnum;
@@ -183,7 +182,7 @@ public class SqlServerConnector extends AbstractDatabaseConnector {
         // 只对 INSERT 和 UPSERT 使用 SqlServerBulkCopyUtil
         if ("INSERT".equals(event) || "UPSERT".equals(event)) {
             return connectorInstance.execute(databaseTemplate -> {
-                SimpleConnection connection = databaseTemplate.getSimpleConnection();
+                Connection connection = databaseTemplate.getConnection();
                 String schemaName = connectorInstance.getConfig().getSchema();
                 if (schemaName == null || schemaName.trim().isEmpty()) {
                     schemaName = "dbo";

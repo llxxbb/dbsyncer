@@ -122,7 +122,7 @@ public class SqlServerCTQueryUtil {
             ResultSet rs = null;
             T apply = null;
             try {
-                ps = databaseTemplate.getSimpleConnection().prepareStatement(preparedQuerySql);
+                ps = databaseTemplate.getConnection().prepareStatement(preparedQuerySql);
                 if (null != statementPreparer) {
                     statementPreparer.accept(ps);
                 }
@@ -154,7 +154,7 @@ public class SqlServerCTQueryUtil {
      */
     public <T> T queryWithReadUncommitted(String preparedQuerySql, StatementPreparer statementPreparer, ResultSetMapper<T> mapper) throws Exception {
         return (T) instance.execute(databaseTemplate -> {
-            Connection conn = databaseTemplate.getSimpleConnection();
+            Connection conn = databaseTemplate.getConnection();
             int originalIsolation = conn.getTransactionIsolation();
             PreparedStatement ps = null;
             ResultSet rs = null;

@@ -9,9 +9,8 @@ import org.dbsyncer.connector.oracle.OracleException;
 import org.dbsyncer.connector.oracle.geometry.JGeometry;
 import org.dbsyncer.sdk.connector.AbstractValueMapper;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
-import org.dbsyncer.sdk.connector.database.ds.SimpleConnection;
-import org.dbsyncer.sdk.util.DatabaseUtil;
 
+import java.sql.Connection;
 import java.sql.Struct;
 
 /**
@@ -36,21 +35,18 @@ public final class OracleOtherValueMapper extends AbstractValueMapper<Struct> {
     protected Struct convert(ConnectorInstance connectorInstance, Object val) throws Exception {
         // SqlServer Geometry
         if (val instanceof byte[]) {
-            Object conn = connectorInstance.getConnection();
-            if (conn instanceof SimpleConnection) {
-                SimpleConnection connection = null;
-                try {
-                    connection = (SimpleConnection) conn;
-                    OracleConnection oracleConnection = connection.unwrap(OracleConnection.class);
-                    // TODO 兼容Oracle STRUCT 字节数组
-                    Geometry geometry = Geometry.deserialize((byte[]) val);
-                    Double x = geometry.getX();
-                    Double y = geometry.getY();
-                    JGeometry jGeometry = new JGeometry(x, y, 0);
-                    return JGeometry.store(jGeometry, oracleConnection);
-                } finally {
-                    DatabaseUtil.close(connection);
-                }
+            Connection conn = (Connection) connectorInstance.getConnection();
+            try {
+                OracleConnection oracleConnection = conn.unwrap(OracleConnection.class);
+                // TODO 兼容 Oracle STRUCT 字节数组
+                Geometry geometry = Geometry.deserialize((byte[]) val);
+                Double x = geometry.getX();
+                Double y = geometry.getY();
+                JGeometry jGeometry = new JGeometry(x, y, 0);
+                return JGeometry.store(jGeometry, oracleConnection);
+            } finally {
+                // 归还连接到连接池
+                try { conn.close(); } catch (Exception ignored) {}
             }
         }
         throw new OracleException(String.format("%s can not find type [%s], val [%s]", getClass().getSimpleName(), val.getClass(), val));

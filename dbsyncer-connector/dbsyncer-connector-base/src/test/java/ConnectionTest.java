@@ -9,7 +9,6 @@ import org.dbsyncer.sdk.SdkException;
 import org.dbsyncer.sdk.config.DatabaseConfig;
 import org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance;
 import org.dbsyncer.sdk.connector.database.DatabaseTemplate;
-import org.dbsyncer.sdk.connector.database.ds.SimpleConnection;
 import org.dbsyncer.sdk.enums.TableTypeEnum;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.Table;
@@ -81,7 +80,7 @@ public class ConnectionTest {
                     try {
                         connection = connectorInstance.getConnection();
                         connection.setAutoCommit(false);
-                        DatabaseTemplate template = new DatabaseTemplate((SimpleConnection) connection);
+                        DatabaseTemplate template = new DatabaseTemplate(connection);
                         Object[] args = new Object[2];
                         args[0] = randomUserId(20);
                         args[1] = k;
@@ -95,7 +94,7 @@ public class ConnectionTest {
                         logger.error(e.getMessage());
                         throw new SdkException(e.getMessage(), e.getCause());
                     } finally {
-                        connectorInstance.getDataSource().close(connection);
+                        if (connection != null) connection.close();
                     }
                 } catch (Exception e) {
                     logger.error(e.getMessage());
@@ -128,8 +127,8 @@ public class ConnectionTest {
                     @Override
                     public void setValues(PreparedStatement ps, int i) {
                         try {
-                            SimpleConnection connection = databaseTemplate.getSimpleConnection();
-                            OracleConnection conn = (OracleConnection) connection.getConnection();
+                            Connection connection = databaseTemplate.getConnection();
+                            OracleConnection conn = connection.unwrap(OracleConnection.class);
                             Clob clob = conn.createClob();
                             clob.setString(1, new String("中文888".getBytes(Charset.defaultCharset())));
 
@@ -456,8 +455,7 @@ public class ConnectionTest {
         final String tableNamePattern = "sw_test";
         final DatabaseConnectorInstance connectorInstance = new DatabaseConnectorInstance(createMysqlConfig());
         connectorInstance.execute(databaseTemplate -> {
-            SimpleConnection connection = databaseTemplate.getSimpleConnection();
-            Connection conn = connection.getConnection();
+            Connection conn = databaseTemplate.getConnection();
             String databaseCatalog = conn.getCatalog();
             String schemaNamePattern = null == schema ? conn.getSchema() : schema;
             List<Field> fields = new ArrayList<>();
@@ -477,8 +475,7 @@ public class ConnectionTest {
         final DatabaseConnectorInstance connectorInstance = new DatabaseConnectorInstance(config);
         List<Table> tables = new ArrayList<>();
         connectorInstance.execute(databaseTemplate -> {
-            SimpleConnection connection = databaseTemplate.getSimpleConnection();
-            Connection conn = connection.getConnection();
+            Connection conn = databaseTemplate.getConnection();
             String databaseCatalog = null == catalog ? conn.getCatalog() : catalog;
             String schemaNamePattern = null == schema ? conn.getSchema() : schema;
             String[] types = {TableTypeEnum.TABLE.getCode(), TableTypeEnum.VIEW.getCode(), TableTypeEnum.MATERIALIZED_VIEW.getCode()};

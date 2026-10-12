@@ -24,6 +24,12 @@
             <artifactId>spring-jdbc</artifactId>
         </dependency>
 
+        <!-- HikariCP 连接池（Spring Boot BOM 管理版本） -->
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+        </dependency>
+
         <!-- oracle-driver -->
         <dependency>
             <groupId>com.oracle.database.jdbc</groupId>

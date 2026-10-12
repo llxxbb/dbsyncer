@@ -10,7 +10,6 @@ import org.dbsyncer.sdk.config.DatabaseConfig;
 import org.dbsyncer.sdk.connector.AbstractConnector;
 import org.dbsyncer.sdk.connector.ConfigValidator;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
-import org.dbsyncer.sdk.connector.database.ds.SimpleConnection;
 import org.dbsyncer.sdk.connector.database.sql.SqlTemplate;
 import org.dbsyncer.sdk.connector.database.sql.context.SqlBuildContext;
 import org.dbsyncer.common.constant.ConfigConstant;
@@ -152,8 +151,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
         final String schema = getSchema(connectorInstance.getConfig());
         List<String> primaryKeys = new ArrayList<>();
         connectorInstance.execute(databaseTemplate -> {
-            SimpleConnection connection = databaseTemplate.getSimpleConnection();
-            Connection conn = connection.getConnection();
+            Connection conn = databaseTemplate.getConnection();
             String catalog = conn.getCatalog();
             String schemaNamePattern = null == schema ? conn.getSchema() : schema;
             DatabaseMetaData metaData = conn.getMetaData();
@@ -643,7 +641,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
         List<Field> fields = new ArrayList<>(columnCount);
         Map<String, List<String>> tables = new HashMap<>();
         try {
-            Connection connection = databaseTemplate.getSimpleConnection();
+            Connection connection = databaseTemplate.getConnection();
             DatabaseMetaData md = connection.getMetaData();
             final String catalog = connection.getCatalog();
             schema = StringUtil.isNotBlank(schema) ? schema : null;
@@ -804,8 +802,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector
             String tableNamePattern) throws Exception {
         return connectorInstance.execute(databaseTemplate -> {
             List<Table> tables = new ArrayList<>();
-            SimpleConnection connection = databaseTemplate.getSimpleConnection();
-            Connection conn = connection.getConnection();
+            Connection conn = databaseTemplate.getConnection();
 
             // 使用子类可重写的方法解析有效的 catalog 和 schema
             CatalogAndSchema catalogAndSchema = resolveEffectiveCatalogAndSchema(conn, catalog, schema);

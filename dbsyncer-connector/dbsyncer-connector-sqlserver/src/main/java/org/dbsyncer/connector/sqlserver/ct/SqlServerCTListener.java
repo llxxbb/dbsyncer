@@ -236,8 +236,8 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
                 String newUrl = serverName + ";socketTimeout=300000";
                 cfg.setUrl(newUrl);
                 instance.setConfig(cfg);
-                // 更新 dataSource 的 URL（影响新创建的连接）
-                instance.getDataSource().setUrl(newUrl);
+                // 重建连接池（HikariCP 不支持动态修改 URL）
+                instance.recreateDataSource(newUrl);
                 logger.info("已添加 socketTimeout=300000 到连接 URL: {}", newUrl);
                 serverName = newUrl;
             }
@@ -395,7 +395,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
             ResultSet rs = null;
             try {
                 // 使用流式结果集
-                ps = databaseTemplate.getSimpleConnection().prepareStatement(
+                ps = databaseTemplate.getConnection().prepareStatement(
                         mainQuery,
                         ResultSet.TYPE_FORWARD_ONLY,
                         ResultSet.CONCUR_READ_ONLY);
@@ -756,7 +756,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
             PreparedStatement ps = null;
             ResultSet rs = null;
             try {
-                ps = databaseTemplate.getSimpleConnection().prepareStatement(querySql);
+                ps = databaseTemplate.getConnection().prepareStatement(querySql);
                 rs = ps.executeQuery();
                 return buildMetaInfoFromResultSet(tableName, rs);
             } finally {

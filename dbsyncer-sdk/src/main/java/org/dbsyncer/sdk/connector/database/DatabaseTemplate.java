@@ -4,7 +4,6 @@
 package org.dbsyncer.sdk.connector.database;
 
 import org.dbsyncer.sdk.SdkException;
-import org.dbsyncer.sdk.connector.database.ds.SimpleConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
@@ -84,13 +83,13 @@ public class DatabaseTemplate implements JdbcOperations {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    private SimpleConnection connection;
+    private Connection connection;
 
-    public DatabaseTemplate(SimpleConnection connection) {
+    public DatabaseTemplate(Connection connection) {
         this.connection = connection;
     }
 
-    public SimpleConnection getSimpleConnection() {
+    public Connection getConnection() {
         return connection;
     }
 

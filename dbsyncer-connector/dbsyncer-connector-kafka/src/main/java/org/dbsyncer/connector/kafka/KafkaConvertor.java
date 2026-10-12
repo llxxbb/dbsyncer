@@ -129,7 +129,7 @@ public class KafkaConvertor {
     private String getCatalogFromConnection(DatabaseConnectorInstance instance) throws Exception {
         return instance.execute(databaseTemplate -> {
             try {
-                String catalog = databaseTemplate.getSimpleConnection().getCatalog();
+                String catalog = databaseTemplate.getConnection().getCatalog();
                 return catalog;
             } catch (SQLException e) {
                 throw new RuntimeException("获取数据库catalog失败", e);
