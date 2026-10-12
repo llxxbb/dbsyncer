@@ -19,7 +19,7 @@ function bindQueryDataDetailEvent() {
             size: BootstrapDialog.SIZE_WIDE,
             title: "注意信息安全",
             type: BootstrapDialog.TYPE_INFO,
-            message: function (dialog) {
+            message: function (_dialog) {
                 let $content = '<table class="table table-hover">';
                 $content += '<thead><tr><th></th><th>字段</th><th>值</th></tr></thead>';
                 $content += '<tbody id="dataDetail" tableGroupId="">';
@@ -221,17 +221,41 @@ function showTPSChart(tps) {
             trigger: 'item',
             formatter: "{b} : {c}/秒完成数"
         },
+        grid: {
+            left: '3%',
+            right: '4%',
+            bottom: '15%',
+            containLabel: true
+        },
         xAxis: {
             type: 'category',
             boundaryGap: false,
             data: tps.name
         },
         yAxis: {
-            type: 'value'
+            type: 'value',
+            min: 0,
+            axisLabel: {
+                formatter: function (value) {
+                    if (value >= 10000) {
+                        return (value / 10000) + '万';
+                    }
+                    if (value >= 1000) {
+                        return (value / 1000) + 'k';
+                    }
+                    return value;
+                }
+            },
+            splitLine: {
+                lineStyle: {
+                    type: 'dashed'
+                }
+            }
         },
         series: [{
             data: tps.value,
             type: 'line',
+            smooth: true,
             itemStyle: {
                 color: 'rgb(255, 70, 131)'
             },
@@ -367,16 +391,34 @@ function showCpuChart(cpu) {
             trigger: 'item',
             formatter: "{b} : {c}%"
         },
+        grid: {
+            left: '3%',
+            right: '4%',
+            bottom: '15%',
+            containLabel: true
+        },
         xAxis: {
             type: 'category',
-            data: cpu.name
+            data: cpu.name,
+            boundaryGap: false
         },
         yAxis: {
-            type: 'value'
+            type: 'value',
+            min: 0,
+            max: 100,
+            axisLabel: {
+                formatter: '{value}%'
+            },
+            splitLine: {
+                lineStyle: {
+                    type: 'dashed'
+                }
+            }
         },
         series: [{
             data: cpu.value,
-            type: 'line'
+            type: 'line',
+            smooth: true
         }]
     };
     echarts.init(document.getElementById('cpuChart')).setOption(option);
@@ -395,17 +437,38 @@ function showMemoryChart(memory) {
             trigger: 'item',
             formatter: "{b} : {c}MB"
         },
+        grid: {
+            left: '3%',
+            right: '4%',
+            bottom: '15%',
+            containLabel: true
+        },
         xAxis: {
             type: 'category',
             boundaryGap: false,
             data: memory.name
         },
         yAxis: {
-            type: 'value'
+            type: 'value',
+            min: 0,
+            axisLabel: {
+                formatter: function (value) {
+                    if (value >= 1024) {
+                        return (value / 1024).toFixed(1) + 'GB';
+                    }
+                    return value + 'MB';
+                }
+            },
+            splitLine: {
+                lineStyle: {
+                    type: 'dashed'
+                }
+            }
         },
         series: [{
             data: memory.value,
             type: 'line',
+            smooth: true,
             areaStyle: {}
         }]
     };
