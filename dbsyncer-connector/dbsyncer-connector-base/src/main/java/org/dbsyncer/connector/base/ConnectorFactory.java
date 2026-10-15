@@ -315,8 +315,7 @@ public class ConnectorFactory implements DisposableBean {
         Mapping mapping = firstRow.getMapping();
         RetryAfter retryAfter = RetryAfter.compose(
                 RetryAfter.slf4j(logger),
-                RetryCallbacks.logService(logService, mapping),
-                RetryCallbacks.messageService(messageService, mapping, NotifyType.TARGET_EXCEPTION)
+                RetryCallbacks.logService(logService, mapping)
         );
 
         return retryInterceptor.execute(() -> {

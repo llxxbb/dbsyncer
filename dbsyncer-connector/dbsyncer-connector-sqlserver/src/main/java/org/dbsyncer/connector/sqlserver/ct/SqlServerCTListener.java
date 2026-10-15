@@ -24,7 +24,6 @@ import org.dbsyncer.sdk.listener.event.RowChangedEvent;
 import org.dbsyncer.sdk.model.ChangedOffset;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.MetaInfo;
-import org.dbsyncer.sdk.notify.NotifyType;
 import org.dbsyncer.sdk.util.RetryCallbacks;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -164,8 +163,7 @@ public class SqlServerCTListener extends AbstractDatabaseListener {
     private void initRetryAfter() {
         this.retryAfter = RetryAfter.compose(
                 RetryAfter.slf4j(logger),
-                RetryCallbacks.logService(staticLogService, mapping),
-                RetryCallbacks.messageService(staticMessageService, mapping, NotifyType.SOURCE_EXCEPTION)
+                RetryCallbacks.logService(staticLogService, mapping)
         );
     }
 
